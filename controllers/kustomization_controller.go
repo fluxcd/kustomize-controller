@@ -18,6 +18,13 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
+	"io/ioutil"
+	"k8s.io/apimachinery/pkg/types"
+	"os"
+	"os/exec"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,16 +45,120 @@ type KustomizationReconciler struct {
 // +kubebuilder:rbac:groups=kustomize.fluxcd.io,resources=kustomizations/status,verbs=get;update;patch
 
 func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("kustomization", req.NamespacedName)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
-	// your logic here
+	var kustomization kustomizev1.Kustomization
+	if err := r.Get(ctx, req.NamespacedName, &kustomization); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-	return ctrl.Result{}, nil
+	log := r.Log.WithValues(kustomization.Kind, req.NamespacedName)
+
+	// try git sync
+	syncedKustomization, err := r.sync(ctx, *kustomization.DeepCopy())
+	if err != nil {
+		log.Error(err, "Kustomization sync failed")
+		return ctrl.Result{Requeue: true}, err
+	}
+
+	// update status
+	if err := r.Status().Update(ctx, &syncedKustomization); err != nil {
+		log.Error(err, "unable to update Kustomization status")
+		return ctrl.Result{Requeue: true}, err
+	}
+
+	log.Info("Kustomization apply succeeded", "msg", kustomizev1.KustomizationReadyMessage(syncedKustomization))
+
+	// requeue kustomization
+	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 }
 
 func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}).
+		WithEventFilter(ChangePredicate{}).
 		Complete(r)
+}
+
+func (r *KustomizationReconciler) sync(ctx context.Context, kustomization kustomizev1.Kustomization) (kustomizev1.Kustomization, error) {
+	// get artifact source
+	var repository sourcev1.GitRepository
+	repositoryName := types.NamespacedName{
+		Namespace: kustomization.GetNamespace(),
+		Name:      kustomization.Spec.GitRepositoryRef.Name,
+	}
+	err := r.Client.Get(ctx, repositoryName, &repository)
+	if err != nil {
+		err = fmt.Errorf("GitRepository query error: %w", err)
+		return kustomizev1.KustomizationNotReady(kustomization, kustomizev1.ArtifactFailedReason, err.Error()), err
+	}
+
+	if repository.Status.Artifact == nil || repository.Status.Artifact.URL == "" {
+		err = fmt.Errorf("artifact not found in %s", repositoryName)
+		return kustomizev1.KustomizationNotReady(kustomization, kustomizev1.ArtifactFailedReason, err.Error()), err
+	}
+
+	// create tmp dir
+	tmpDir, err := ioutil.TempDir("", repository.Name)
+	if err != nil {
+		err = fmt.Errorf("tmp dir error: %w", err)
+		return kustomizev1.KustomizationNotReady(kustomization, sourcev1.StorageOperationFailedReason, err.Error()), err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// download artifact and extract files
+	url := repository.Status.Artifact.URL
+	cmd := fmt.Sprintf("cd %s && curl -sL %s | tar -xz --strip-components=1 -C .", tmpDir, url)
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		err = fmt.Errorf("artifact acquisition failed: %w", err)
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			kustomizev1.ArtifactFailedReason,
+			err.Error(),
+		), fmt.Errorf("artifact download `%s` error: %s", url, string(output))
+	}
+
+	// kustomize build
+	buildDir := kustomization.Spec.Path
+	cmd = fmt.Sprintf("cd %s && kustomize build %s > %s.yaml", tmpDir, buildDir, kustomization.GetName())
+	command = exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err = command.CombinedOutput()
+	if err != nil {
+		err = fmt.Errorf("kustomize build error: %w", err)
+		fmt.Println(string(output))
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			kustomizev1.BuildFailedReason,
+			err.Error(),
+		), fmt.Errorf("kustomize build error: %s", string(output))
+	}
+
+	// apply kustomization
+	cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml", tmpDir, kustomization.GetName())
+	if kustomization.Spec.Prune != "" {
+		cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --prune -l %s",
+			tmpDir, kustomization.GetName(), kustomization.Spec.Prune)
+	}
+	command = exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err = command.CombinedOutput()
+	if err != nil {
+		err = fmt.Errorf("kubectl apply error: %w", err)
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			kustomizev1.ApplyFailedReason,
+			err.Error(),
+		), fmt.Errorf("kubectl apply: %s", string(output))
+	}
+
+	// log apply output
+	fmt.Println(string(output))
+
+	return kustomizev1.KustomizationReady(
+		kustomization,
+		kustomizev1.ApplySucceedReason,
+		"kustomization was successfully applied",
+	), nil
 }

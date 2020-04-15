@@ -27,26 +27,26 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
 
-// KustomizationReconciler reconciles a Kustomization object
-type GitRepositoryReconciler struct {
+// KustomizationReconciler watches a GitRepository object
+type GitRepositoryWatcher struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=kustomize.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=kustomize.fluxcd.io,resources=kustomizations/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=source.fluxcd.io,resources=gitrepositories,verbs=get;list;watch
+// +kubebuilder:rbac:groups=source.fluxcd.io,resources=gitrepositories/status,verbs=get
 
-func (r *GitRepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
-	_ = r.Log.WithValues("kustomization", req.NamespacedName)
+	_ = r.Log.WithValues("gitrepository", req.NamespacedName)
 
 	// your logic here
 
 	return ctrl.Result{}, nil
 }
 
-func (r *GitRepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *GitRepositoryWatcher) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&sourcev1.GitRepository{}).
 		Complete(r)
