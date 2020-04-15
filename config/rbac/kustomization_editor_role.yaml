@@ -1,0 +1,24 @@
+# permissions for end users to edit kustomizations.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kustomization-editor-role
+rules:
+- apiGroups:
+  - kustomize.fluxcd.io
+  resources:
+  - kustomizations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kustomize.fluxcd.io
+  resources:
+  - kustomizations/status
+  verbs:
+  - get

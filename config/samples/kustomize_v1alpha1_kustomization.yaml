@@ -1,0 +1,9 @@
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: podinfo
+spec:
+  path: "./kustomize/"
+  label: "app=podinfo"
+  gitRepositoryRef:
+    name: podinfo

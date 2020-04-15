@@ -1,0 +1,9 @@
+namespace: kustomize-controller-system
+namePrefix: kustomize-controller-
+
+bases:
+- ../crd
+- ../rbac
+- ../manager
+
+

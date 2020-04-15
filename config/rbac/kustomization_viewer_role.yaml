@@ -1,0 +1,20 @@
+# permissions for end users to view kustomizations.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kustomization-viewer-role
+rules:
+- apiGroups:
+  - kustomize.fluxcd.io
+  resources:
+  - kustomizations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kustomize.fluxcd.io
+  resources:
+  - kustomizations/status
+  verbs:
+  - get
