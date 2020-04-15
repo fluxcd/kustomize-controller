@@ -1,9 +1,25 @@
 apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
-  name: podinfo
+  name: podinfo-dev
+  annotations:
+    kustomize.fluxcd.io/syncAt: "2020-04-15T15:39:52+03:00"
 spec:
-  path: "./kustomize/"
-  label: "app=podinfo"
+  interval: 1m
+  path: "./overlays/dev/"
+  prune: "env=dev"
+  gitRepositoryRef:
+    name: podinfo
+---
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: podinfo-staging
+  annotations:
+    kustomize.fluxcd.io/syncAt: "2020-04-15T15:39:52+03:00"
+spec:
+  interval: 1m
+  path: "./overlays/staging/"
+  prune: "env=staging"
   gitRepositoryRef:
     name: podinfo

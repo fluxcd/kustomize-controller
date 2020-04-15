@@ -1,9 +1,9 @@
-namespace: kustomize-controller-system
-namePrefix: kustomize-controller-
-
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kustomize-system
+namePrefix: kustomize-
 bases:
 - ../crd
 - ../rbac
 - ../manager
-
 

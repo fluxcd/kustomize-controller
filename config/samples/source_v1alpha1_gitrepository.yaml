@@ -1,0 +1,11 @@
+apiVersion: source.fluxcd.io/v1alpha1
+kind: GitRepository
+metadata:
+  name: podinfo
+  annotations:
+    source.fluxcd.io/syncAt: "2020-04-06T15:39:52+03:00"
+spec:
+  interval: 1m
+  url: https://github.com/stefanprodan/podinfo-deploy
+  ref:
+    branch: master

@@ -26,3 +26,17 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - source.fluxcd.io
+  resources:
+  - gitrepositories
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - source.fluxcd.io
+  resources:
+  - gitrepositories/status
+  verbs:
+  - get
