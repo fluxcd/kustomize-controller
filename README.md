@@ -106,8 +106,6 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-dev
-  annotations:
-    kustomize.fluxcd.io/syncAt: "2020-04-15T15:39:52+03:00"
 spec:
   interval: 1m
   path: "./overlays/dev/"
@@ -141,3 +139,13 @@ You can trigger a kustomize build and apply any time with:
 ```bash
 kubectl annotate --overwrite kustomization/podinfo-dev kustomize.fluxcd.io/syncAt="$(date +%s)"
 ```
+
+## GitOps pipeline
+
+Example:
+* create a `GitRepository` per app (example repo [podinfo-deploy](https://github.com/stefanprodan/podinfo-deploy))
+* create a `Kustomization` per app/environment 
+* push changes to a kustomize overlay in git
+* source controller pulls the changes from git and creates an artifact
+* kustomize controller fetches the latest artifact
+* kustomize controller builds the overlay manifest and applies it on the cluster
