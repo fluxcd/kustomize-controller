@@ -56,9 +56,15 @@ const (
 	// InitializingReason represents the fact that a given kustomization is being initialized.
 	InitializingReason string = "Initializing"
 
+	// ApplySucceedReason represents the fact that the kustomization apply succeed.
+	ApplySucceedReason string = "ApplySucceed"
+
 	// ApplyFailedReason represents the fact that the kustomization apply failed.
 	ApplyFailedReason string = "ApplyFailed"
 
 	// BuildFailedReason represents the fact that the kustomize build command failed.
 	BuildFailedReason string = "BuildFailed"
+
+	// ArtifactFailedReason represents the fact that the artifact download failed.
+	ArtifactFailedReason string = "ArtifactFailed"
 )

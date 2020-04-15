@@ -21,31 +21,75 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// KustomizationSpec defines the desired state of a kustomization
+// KustomizationSpec defines the desired state of a kustomization.
 type KustomizationSpec struct {
-	// Path to a source directory where the kustomization file is.
+	// Path to the directory containing the kustomization file.
 	// +kubebuilder:validation:Pattern="^\\./"
 	// +required
 	Path string `json:"path"`
 
-	// Label used for prune operations.
+	// Label selector used for prune operations, e.g. env=staging.
+	// +kubebuilder:validation:Pattern="^.*=.*$"
 	// +optional
-	Label string `json:"label,omitempty"`
+	Prune string `json:"prune,omitempty"`
 
-	// Reference of the GitRepository where the kustomization source is.
+	// Reference of the Git repository where the kustomization source is.
 	// +required
 	GitRepositoryRef corev1.LocalObjectReference `json:"gitRepositoryRef"`
+
+	// The interval at which to apply the kustomization.
+	// +required
+	Interval metav1.Duration `json:"interval"`
 }
 
-// KustomizationStatus defines the observed state of a kustomization
+// KustomizationStatus defines the observed state of a kustomization.
 type KustomizationStatus struct {
 	// +optional
 	Conditions []Condition `json:"conditions,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+func KustomizationReady(kustomization Kustomization, reason, message string) Kustomization {
+	kustomization.Status.Conditions = []Condition{
+		{
+			Type:               ReadyCondition,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		},
+	}
+	return kustomization
+}
 
-// Kustomization is the Schema for the kustomizations API
+func KustomizationNotReady(kustomization Kustomization, reason, message string) Kustomization {
+	kustomization.Status.Conditions = []Condition{
+		{
+			Type:               ReadyCondition,
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		},
+	}
+	return kustomization
+}
+
+func KustomizationReadyMessage(kustomization Kustomization) string {
+	for _, condition := range kustomization.Status.Conditions {
+		if condition.Type == ReadyCondition {
+			return condition.Message
+		}
+	}
+	return ""
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
+
+// Kustomization is the Schema for the kustomizations API.
 type Kustomization struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -56,7 +100,7 @@ type Kustomization struct {
 
 // +kubebuilder:object:root=true
 
-// KustomizationList contains a list of Kustomization
+// KustomizationList contains a list of kustomizations.
 type KustomizationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -8,6 +8,16 @@ metadata:
   creationTimestamp: null
   name: kustomizations.kustomize.fluxcd.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[?(@.type=="Ready")].status
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=="Ready")].message
+    name: Status
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: kustomize.fluxcd.io
   names:
     kind: Kustomization
@@ -15,9 +25,11 @@ spec:
     plural: kustomizations
     singular: kustomization
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
-      description: Kustomization is the Schema for the kustomizations API
+      description: Kustomization is the Schema for the kustomizations API.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -32,10 +44,10 @@ spec:
         metadata:
           type: object
         spec:
-          description: KustomizationSpec defines the desired state of a kustomization
+          description: KustomizationSpec defines the desired state of a kustomization.
           properties:
             gitRepositoryRef:
-              description: Reference of the GitRepository where the kustomization
+              description: Reference of the Git repository where the kustomization
                 source is.
               properties:
                 name:
@@ -43,20 +55,24 @@ spec:
                     TODO: Add other useful fields. apiVersion, kind, uid?'
                   type: string
               type: object
-            label:
-              description: Label used for prune operations.
+            interval:
+              description: The interval at which to apply the kustomization.
               type: string
             path:
-              description: Path to a source directory where the kustomization file
-                is.
+              description: Path to the directory containing the kustomization file.
               pattern: ^\./
+              type: string
+            prune:
+              description: Label selector used for prune operations, e.g. env=staging.
+              pattern: ^.*=.*$
               type: string
           required:
           - gitRepositoryRef
+          - interval
           - path
           type: object
         status:
-          description: KustomizationStatus defines the observed state of a kustomization
+          description: KustomizationStatus defines the observed state of a kustomization.
           properties:
             conditions:
               items:
