@@ -2,12 +2,10 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-dev
-  annotations:
-    kustomize.fluxcd.io/syncAt: "2020-04-15T15:39:52+03:00"
 spec:
   interval: 1m
   path: "./overlays/dev/"
-  prune: "env=dev"
+  prune: "env=dev,app=podinfo"
   gitRepositoryRef:
     name: podinfo
 ---
@@ -15,11 +13,20 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-staging
-  annotations:
-    kustomize.fluxcd.io/syncAt: "2020-04-15T15:39:52+03:00"
 spec:
   interval: 1m
   path: "./overlays/staging/"
-  prune: "env=staging"
+  prune: "env=staging,app=podinfo"
   gitRepositoryRef:
     name: podinfo
+---
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: podinfo-production
+spec:
+  interval: 1m
+  path: "./overlays/production/"
+  prune: "env=production,app=podinfo"
+  gitRepositoryRef:
+    name: podinfo-releases

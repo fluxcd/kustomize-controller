@@ -109,7 +109,7 @@ metadata:
 spec:
   interval: 1m
   path: "./overlays/dev/"
-  prune: "env=dev"
+  prune: "env=dev,app=podinfo"
   gitRepositoryRef:
     name: podinfo
 ```
@@ -139,6 +139,40 @@ You can trigger a kustomize build and apply any time with:
 ```bash
 kubectl annotate --overwrite kustomization/podinfo-dev kustomize.fluxcd.io/syncAt="$(date +%s)"
 ```
+
+## Deploy releases to production
+
+For production deployments instead of synchronizing with a branch you can use a semver range to target stable releases:
+
+```yaml
+apiVersion: source.fluxcd.io/v1alpha1
+kind: GitRepository
+metadata:
+  name: podinfo-releases
+spec:
+  interval: 5m
+  url: https://github.com/stefanprodan/podinfo-deploy
+  ref:
+    semver: ">=0.0.1"
+```
+
+Create a production kustomization and reference the git source that follows the latest semver release:
+
+```yaml
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: podinfo-production
+spec:
+  interval: 10m
+  path: "./overlays/production/"
+  prune: "env=production,app=podinfo"
+  gitRepositoryRef:
+    name: podinfo-releases
+```
+
+Based on the above definition, kustomize controller will build and apply a kustomization that matches the semver range
+set in the Git source manifest.
 
 ## GitOps pipeline
 
