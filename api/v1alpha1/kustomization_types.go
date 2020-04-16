@@ -83,6 +83,16 @@ func KustomizationReadyMessage(kustomization Kustomization) string {
 	return ""
 }
 
+const (
+	// SyncAtAnnotation is the annotation used for triggering a
+	// sync outside of the specified schedule.
+	SyncAtAnnotation string = "kustomize.fluxcd.io/syncAt"
+
+	// SourceIndexKey is the key used for indexing kustomizations
+	// based on their sources.
+	SourceIndexKey string = ".metadata.source"
+)
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""

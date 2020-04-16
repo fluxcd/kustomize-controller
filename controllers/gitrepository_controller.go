@@ -18,12 +18,15 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
 
@@ -38,16 +41,51 @@ type GitRepositoryWatcher struct {
 // +kubebuilder:rbac:groups=source.fluxcd.io,resources=gitrepositories/status,verbs=get
 
 func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("gitrepository", req.NamespacedName)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
-	// your logic here
+	var repo sourcev1.GitRepository
+	if err := r.Get(ctx, req.NamespacedName, &repo); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	log := r.Log.WithValues(repo.Kind, req.NamespacedName)
+	log.Info("New artifact detected")
+
+	// get the list of kustomizations that are using this Git repository
+	var list kustomizev1.KustomizationList
+	if err := r.List(ctx, &list, client.InNamespace(req.Namespace),
+		client.MatchingFields{kustomizev1.SourceIndexKey: req.Name}); err != nil {
+		log.Error(err, "unable to list kustomizations")
+		return ctrl.Result{}, err
+	}
+
+	// trigger apply for each kustomization using this Git repository
+	for _, kustomization := range list.Items {
+		kustomization.Annotations[kustomizev1.SyncAtAnnotation] = metav1.Now().String()
+		if err := r.Update(ctx, &kustomization); err != nil {
+			log.Error(err, "unable to annotate kustomization", "kustomization", kustomization.GetName())
+		}
+		log.Info("Run kustomization", "kustomization", kustomization.GetName())
+	}
 
 	return ctrl.Result{}, nil
 }
 
 func (r *GitRepositoryWatcher) SetupWithManager(mgr ctrl.Manager) error {
+	// create a kustomization index based on Git repository name
+	err := mgr.GetFieldIndexer().IndexField(&kustomizev1.Kustomization{}, kustomizev1.SourceIndexKey,
+		func(rawObj runtime.Object) []string {
+			k := rawObj.(*kustomizev1.Kustomization)
+			return []string{k.Spec.GitRepositoryRef.Name}
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&sourcev1.GitRepository{}).
+		WithEventFilter(GitRepositoryRevisionChangePredicate{}).
 		Complete(r)
 }

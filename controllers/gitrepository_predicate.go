@@ -19,38 +19,41 @@ package controllers
 import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
 
-type ChangePredicate struct {
+type GitRepositoryRevisionChangePredicate struct {
 	predicate.Funcs
 }
 
-// Update implements the default UpdateEvent filter for validating
-// kustomization changes.
-func (ChangePredicate) Update(e event.UpdateEvent) bool {
+func (GitRepositoryRevisionChangePredicate) Update(e event.UpdateEvent) bool {
 	if e.MetaOld == nil || e.MetaNew == nil {
-		// ignore objects without metadata
 		return false
 	}
-	if e.MetaNew.GetGeneration() != e.MetaOld.GetGeneration() {
-		// reconcile on spec changes
-		return true
+
+	oldRepo, ok := e.ObjectOld.(*sourcev1.GitRepository)
+	if !ok {
+		return false
 	}
 
-	// handle force sync
-	if val, ok := e.MetaNew.GetAnnotations()[ForceSyncAnnotation]; ok {
-		if valOld, okOld := e.MetaOld.GetAnnotations()[ForceSyncAnnotation]; okOld {
-			if val != valOld {
-				return true
-			}
-		} else {
-			return true
-		}
+	newRepo, ok := e.ObjectNew.(*sourcev1.GitRepository)
+	if !ok {
+		return false
+	}
+
+	if oldRepo.Status.Artifact != nil && newRepo.Status.Artifact != nil &&
+		oldRepo.Status.Artifact.Revision != newRepo.Status.Artifact.Revision {
+		return true
 	}
 
 	return false
 }
 
-const (
-	ForceSyncAnnotation string = "kustomize.fluxcd.io/syncAt"
-)
+func (GitRepositoryRevisionChangePredicate) Create(e event.CreateEvent) bool {
+	return false
+}
+
+func (GitRepositoryRevisionChangePredicate) Delete(e event.DeleteEvent) bool {
+	return false
+}

@@ -19,19 +19,19 @@ package controllers
 import (
 	"context"
 	"fmt"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"os/exec"
 	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
 
 // KustomizationReconciler reconciles a Kustomization object
@@ -55,33 +55,6 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	log := r.Log.WithValues(kustomization.Kind, req.NamespacedName)
 
-	// try git sync
-	syncedKustomization, err := r.sync(ctx, *kustomization.DeepCopy())
-	if err != nil {
-		log.Error(err, "Kustomization sync failed")
-		return ctrl.Result{Requeue: true}, err
-	}
-
-	// update status
-	if err := r.Status().Update(ctx, &syncedKustomization); err != nil {
-		log.Error(err, "unable to update Kustomization status")
-		return ctrl.Result{Requeue: true}, err
-	}
-
-	log.Info("Kustomization apply succeeded", "msg", kustomizev1.KustomizationReadyMessage(syncedKustomization))
-
-	// requeue kustomization
-	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
-}
-
-func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&kustomizev1.Kustomization{}).
-		WithEventFilter(ChangePredicate{}).
-		Complete(r)
-}
-
-func (r *KustomizationReconciler) sync(ctx context.Context, kustomization kustomizev1.Kustomization) (kustomizev1.Kustomization, error) {
 	// get artifact source
 	var repository sourcev1.GitRepository
 	repositoryName := types.NamespacedName{
@@ -90,12 +63,41 @@ func (r *KustomizationReconciler) sync(ctx context.Context, kustomization kustom
 	}
 	err := r.Client.Get(ctx, repositoryName, &repository)
 	if err != nil {
-		err = fmt.Errorf("GitRepository query error: %w", err)
-		return kustomizev1.KustomizationNotReady(kustomization, kustomizev1.ArtifactFailedReason, err.Error()), err
+		log.Error(err, "GitRepository not found", "gitrepository", repositoryName)
+		return ctrl.Result{Requeue: true}, err
 	}
 
+	// try git sync
+	syncedKustomization, err := r.sync(ctx, *kustomization.DeepCopy(), repository)
+	if err != nil {
+		log.Error(err, "Kustomization sync failed")
+	}
+
+	// update status
+	if err := r.Status().Update(ctx, &syncedKustomization); err != nil {
+		log.Error(err, "unable to update Kustomization status")
+		return ctrl.Result{Requeue: true}, err
+	}
+
+	log.Info("Kustomization sync finished", "msg", kustomizev1.KustomizationReadyMessage(syncedKustomization))
+
+	// requeue kustomization
+	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
+}
+
+func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&kustomizev1.Kustomization{}).
+		WithEventFilter(KustomizationSyncAtPredicate{}).
+		Complete(r)
+}
+
+func (r *KustomizationReconciler) sync(
+	ctx context.Context,
+	kustomization kustomizev1.Kustomization,
+	repository sourcev1.GitRepository) (kustomizev1.Kustomization, error) {
 	if repository.Status.Artifact == nil || repository.Status.Artifact.URL == "" {
-		err = fmt.Errorf("artifact not found in %s", repositoryName)
+		err := fmt.Errorf("artifact not found in %s", repository.GetName())
 		return kustomizev1.KustomizationNotReady(kustomization, kustomizev1.ArtifactFailedReason, err.Error()), err
 	}
 
