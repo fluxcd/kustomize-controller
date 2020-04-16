@@ -63,6 +63,10 @@ func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	// trigger apply for each kustomization using this Git repository
 	for _, kustomization := range list.Items {
 		kustomization.Annotations[kustomizev1.SyncAtAnnotation] = metav1.Now().String()
+		if kustomization.Spec.SourceRef.APIGroup == nil {
+			emptyAPIGroup := ""
+			kustomization.Spec.SourceRef.APIGroup = &emptyAPIGroup
+		}
 		if err := r.Update(ctx, &kustomization); err != nil {
 			log.Error(err, "unable to annotate kustomization", "kustomization", kustomization.GetName())
 		}
@@ -77,7 +81,10 @@ func (r *GitRepositoryWatcher) SetupWithManager(mgr ctrl.Manager) error {
 	err := mgr.GetFieldIndexer().IndexField(&kustomizev1.Kustomization{}, kustomizev1.SourceIndexKey,
 		func(rawObj runtime.Object) []string {
 			k := rawObj.(*kustomizev1.Kustomization)
-			return []string{k.Spec.GitRepositoryRef.Name}
+			if k.Spec.SourceRef.Kind == "GitRepository" {
+				return []string{k.Spec.SourceRef.Name}
+			}
+			return nil
 		},
 	)
 	if err != nil {

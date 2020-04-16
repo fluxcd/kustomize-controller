@@ -6,7 +6,8 @@ spec:
   interval: 5m
   path: "./overlays/dev/"
   prune: "env=dev"
-  gitRepositoryRef:
+  sourceRef:
+    kind: GitRepository
     name: podinfo
 ---
 apiVersion: kustomize.fluxcd.io/v1alpha1
@@ -17,7 +18,8 @@ spec:
   interval: 5m
   path: "./overlays/staging/"
   prune: "env=staging"
-  gitRepositoryRef:
+  sourceRef:
+    kind: GitRepository
     name: podinfo
 ---
 apiVersion: kustomize.fluxcd.io/v1alpha1
@@ -28,5 +30,6 @@ spec:
   interval: 5m
   path: "./overlays/production/"
   prune: "env=production"
-  gitRepositoryRef:
+  sourceRef:
+    kind: GitRepository
     name: podinfo-releases
