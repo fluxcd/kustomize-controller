@@ -35,7 +35,7 @@ type KustomizationSpec struct {
 
 	// Reference of the Git repository where the kustomization source is.
 	// +required
-	GitRepositoryRef corev1.LocalObjectReference `json:"gitRepositoryRef"`
+	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
 
 	// The interval at which to apply the kustomization.
 	// +required

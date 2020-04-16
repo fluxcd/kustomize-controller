@@ -6,15 +6,15 @@ The kustomize-controller is a Kubernetes operator that applies kustomizations in
 
 Features:
 * watches for `Kustomization` objects
-* fetches artifacts produced by `GitRepository` objects
-* watches `GitRepository` objects for revision changes 
+* fetches artifacts produced by [source-controller](https://github.com/fluxcd/source-controller) from `Source` objects 
+* watches `Source` objects for revision changes 
 * builds the kustomization using the latest fetched artifact
 * applies the resulting Kubernetes manifests on the cluster
-* prunes the Kubernetes objects removed from git based on a label selector
+* prunes the Kubernetes objects removed from source based on a label selector
 
 ## Kustomization API
 
-A kustomization object defines the source of Kubernetes manifests by referencing a Git repository
+A kustomization object defines the source of Kubernetes manifests by referencing a source
 (managed by [source-controller](https://github.com/fluxcd/source-controller)),
 the path to the kustomization file, 
 and a label selector used for garbage collection of resources removed from the Git source.
@@ -34,15 +34,18 @@ type KustomizationSpec struct {
 	// +optional
 	Prune string `json:"prune,omitempty"`
 
-	// Reference of the Git repository where the kustomization source is.
+	// Reference of the source where the kustomization file is.
 	// +required
-	GitRepositoryRef corev1.LocalObjectReference `json:"gitRepositoryRef"`
+	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
 
 	// The interval at which to apply the kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`
 }
 ```
+
+Supported source kinds:
+* [GitRepository](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/gitrepositories.md)
 
 ## Usage
 
@@ -57,9 +60,8 @@ Build prerequisites:
 Install source-controller with:
 
 ```bash
-git clone https://github.com/fluxcd/source-controller
-cd source-controller
-make docker-build docker-push dev-deploy IMG=your-docker-hub-username/source-controller:test
+kustomize build https://github.com/fluxcd/source-controller//config/default?ref=v0.0.1-alpha.1 \
+kubectl apply -f-
 ```
 
 Install kustomize-controller with:
@@ -111,7 +113,8 @@ spec:
   interval: 5m
   path: "./overlays/dev/"
   prune: "env=dev"
-  gitRepositoryRef:
+  sourceRef:
+    kind: GitRepository
     name: podinfo
 ```
 
@@ -190,7 +193,8 @@ spec:
   interval: 10m
   path: "./overlays/production/"
   prune: "env=production"
-  gitRepositoryRef:
+  sourceRef:
+    kind: GitRepository
     name: podinfo-releases
 ```
 

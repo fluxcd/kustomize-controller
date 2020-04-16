@@ -55,20 +55,31 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	log := r.Log.WithValues(kustomization.Kind, req.NamespacedName)
 
-	// get artifact source
-	var repository sourcev1.GitRepository
-	repositoryName := types.NamespacedName{
-		Namespace: kustomization.GetNamespace(),
-		Name:      kustomization.Spec.GitRepositoryRef.Name,
+	var source sourcev1.Source
+
+	// get artifact source from Git repository
+	if kustomization.Spec.SourceRef.Kind == "GitRepository" {
+		var repository sourcev1.GitRepository
+		repositoryName := types.NamespacedName{
+			Namespace: kustomization.GetNamespace(),
+			Name:      kustomization.Spec.SourceRef.Name,
+		}
+		err := r.Client.Get(ctx, repositoryName, &repository)
+		if err != nil {
+			log.Error(err, "GitRepository not found", "gitrepository", repositoryName)
+			return ctrl.Result{Requeue: true}, err
+		}
+		source = &repository
 	}
-	err := r.Client.Get(ctx, repositoryName, &repository)
-	if err != nil {
-		log.Error(err, "GitRepository not found", "gitrepository", repositoryName)
-		return ctrl.Result{Requeue: true}, err
+
+	if source == nil {
+		err := fmt.Errorf("source `%s` kind '%s' not supported",
+			kustomization.Spec.SourceRef.Name, kustomization.Spec.SourceRef.Kind)
+		return ctrl.Result{}, err
 	}
 
 	// try git sync
-	syncedKustomization, err := r.sync(ctx, *kustomization.DeepCopy(), repository)
+	syncedKustomization, err := r.sync(ctx, *kustomization.DeepCopy(), source)
 	if err != nil {
 		log.Error(err, "Kustomization sync failed")
 	}
@@ -95,14 +106,14 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *KustomizationReconciler) sync(
 	ctx context.Context,
 	kustomization kustomizev1.Kustomization,
-	repository sourcev1.GitRepository) (kustomizev1.Kustomization, error) {
-	if repository.Status.Artifact == nil || repository.Status.Artifact.URL == "" {
-		err := fmt.Errorf("artifact not found in %s", repository.GetName())
+	source sourcev1.Source) (kustomizev1.Kustomization, error) {
+	if source.GetArtifact() == nil || source.GetArtifact().URL == "" {
+		err := fmt.Errorf("artifact not found in %s", kustomization.Spec.SourceRef.Name)
 		return kustomizev1.KustomizationNotReady(kustomization, kustomizev1.ArtifactFailedReason, err.Error()), err
 	}
 
 	// create tmp dir
-	tmpDir, err := ioutil.TempDir("", repository.Name)
+	tmpDir, err := ioutil.TempDir("", kustomization.Name)
 	if err != nil {
 		err = fmt.Errorf("tmp dir error: %w", err)
 		return kustomizev1.KustomizationNotReady(kustomization, sourcev1.StorageOperationFailedReason, err.Error()), err
@@ -110,7 +121,7 @@ func (r *KustomizationReconciler) sync(
 	defer os.RemoveAll(tmpDir)
 
 	// download artifact and extract files
-	url := repository.Status.Artifact.URL
+	url := source.GetArtifact().URL
 	cmd := fmt.Sprintf("cd %s && curl -sL %s | tar -xz --strip-components=1 -C .", tmpDir, url)
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
