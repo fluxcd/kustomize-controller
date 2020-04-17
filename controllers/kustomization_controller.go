@@ -83,7 +83,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	// try git sync
 	syncedKustomization, err := r.sync(ctx, *kustomization.DeepCopy(), source)
 	if err != nil {
-		log.Error(err, "Kustomization sync failed")
+		log.Error(err, "Kustomization apply failed")
 	}
 
 	// update status
@@ -101,6 +101,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}).
+		WithEventFilter(KustomizationGarbageCollectPredicate{Log: r.Log}).
 		WithEventFilter(KustomizationSyncAtPredicate{}).
 		Complete(r)
 }

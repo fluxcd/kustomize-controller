@@ -1,5 +1,7 @@
 # kustomize-controller
 
+[![e2e](https://github.com/fluxcd/kustomize-controller/workflows/e2e/badge.svg)](https://github.com/fluxcd/kustomize-controller/actions)
+
 The kustomize-controller is a Kubernetes operator that applies kustomizations in-cluster.
 
 ![overview](docs/diagrams/fluxcd-kustomize-source-controllers.png)
@@ -19,7 +21,7 @@ A kustomization object defines the source of Kubernetes manifests by referencing
 the path to the kustomization file, 
 and a label selector used for garbage collection of resources removed from the Git source.
 
-Specification:
+### Specification
 
 ```go
 // KustomizationSpec defines the desired state of a kustomization.
@@ -29,7 +31,7 @@ type KustomizationSpec struct {
 	// +required
 	Path string `json:"path"`
 
-	// Label selector used for prune operations, e.g. env=staging.
+	// Label selector used for garbage collection.
 	// +kubebuilder:validation:Pattern="^.*=.*$"
 	// +optional
 	Prune string `json:"prune,omitempty"`
@@ -44,8 +46,26 @@ type KustomizationSpec struct {
 }
 ```
 
-Supported source kinds:
+### Supported source kinds
+
 * [GitRepository](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/gitrepositories.md)
+
+### Garbage collection
+
+Garbage collection means that the Kubernetes objects that were previously applied on the cluster
+but are missing from the current apply, will be removed. Garbage collection is also performed when a Kustomization
+object is deleted, triggering a removal of all Kubernetes objects previously applied on the cluster.
+
+When garbage collection is enabled, all Kubernetes objects must have a common label that matches the `prune`
+[label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/).
+
+For example, `prune: env=dev` requires a `kustomization.yaml` with `commonLabels`:
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+commonLabels:
+  env: dev
+```
 
 ## Usage
 
@@ -74,6 +94,8 @@ make docker-build docker-push dev-deploy IMG=your-docker-hub-username/kustomize-
 
 ### Define a Git repository source
 
+Create a source object that points to a Git repository containing Kubernetes and Kustomize manifests:
+
 ```yaml
 apiVersion: source.fluxcd.io/v1alpha1
 kind: GitRepository
@@ -86,6 +108,9 @@ spec:
   ref:
     branch: master
 ```
+
+For private repositories, SSH or token based authentication can be
+[configured with Kubernetes secrets](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/gitrepositories.md).
 
 Save the above file and apply it on the cluster.
 You can wait for the source controller to assemble an artifact from the head of the repo master branch with:
@@ -118,9 +143,9 @@ spec:
     name: podinfo
 ```
 
-With `spec.path` we tell the controller where to look for the kustomization file and with `spec.prune` we 
-configure garbage collection. With `spec.interval` we tell the controller how often it should reconcile 
-the cluster state.
+With `spec.path` we tell the controller where to look for the `kustomization.yaml` file.
+With `spec.prune` we configure garbage collection.
+With `spec.interval` we tell the controller how often it should reconcile the cluster state.
 
 Save the above file and apply it on the cluster.
 You can wait for the kustomize controller to apply the manifest corresponding to the dev overlay with:
@@ -201,7 +226,7 @@ spec:
 Based on the above definition, the kustomize controller will build and apply a kustomization that matches the semver range
 set in the Git repository manifest.
 
-## GitOps pipeline
+## GitOps workflow
 
 Example:
 * create a `GitRepository` per app (example repo [podinfo-deploy](https://github.com/stefanprodan/podinfo-deploy))

@@ -28,7 +28,7 @@ type KustomizationSpec struct {
 	// +required
 	Path string `json:"path"`
 
-	// Label selector used for prune operations, e.g. env=staging.
+	// Label selector used for garbage collection.
 	// +kubebuilder:validation:Pattern="^.*=.*$"
 	// +optional
 	Prune string `json:"prune,omitempty"`

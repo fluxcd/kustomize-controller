@@ -17,6 +17,10 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
+	"os/exec"
+
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -49,4 +53,31 @@ func (KustomizationSyncAtPredicate) Update(e event.UpdateEvent) bool {
 	}
 
 	return false
+}
+
+type KustomizationGarbageCollectPredicate struct {
+	predicate.Funcs
+	Log logr.Logger
+}
+
+// Delete removes all Kubernetes objects based on the prune label selector.
+func (gc KustomizationGarbageCollectPredicate) Delete(e event.DeleteEvent) bool {
+	if k, ok := e.Object.(*kustomizev1.Kustomization); ok {
+		if k.Spec.Prune != "" {
+			cmd := fmt.Sprintf("kubectl delete all --all-namespaces --timeout=%s -l %s",
+				k.Spec.Interval.Duration.String(), k.Spec.Prune)
+			command := exec.Command("/bin/sh", "-c", cmd)
+			if output, err := command.CombinedOutput(); err != nil {
+				gc.Log.Error(err, "Garbage collection failed",
+					"output", string(output),
+					"Kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
+			} else {
+				gc.Log.Info("Garbage collection completed",
+					"output", string(output),
+					"Kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
+			}
+		}
+	}
+
+	return true
 }
