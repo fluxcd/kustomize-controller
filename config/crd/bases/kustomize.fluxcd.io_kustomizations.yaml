@@ -54,7 +54,7 @@ spec:
               pattern: ^\./
               type: string
             prune:
-              description: Label selector used for prune operations, e.g. env=staging.
+              description: Label selector used for garbage collection.
               pattern: ^.*=.*$
               type: string
             sourceRef:
