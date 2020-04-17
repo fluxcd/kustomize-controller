@@ -145,8 +145,8 @@ func (r *KustomizationReconciler) sync(
 
 	// check build path exists
 	buildDir := kustomization.Spec.Path
-	if _, err := os.Stat(path.Join(tmpDir, buildDir)); os.IsNotExist(err) {
-		err = fmt.Errorf("artifact download '%s' failed", url)
+	if _, err := os.Stat(path.Join(tmpDir, buildDir)); err != nil {
+		err = fmt.Errorf("kustomization path not found: %w", err)
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			kustomizev1.ArtifactFailedReason,
@@ -168,12 +168,18 @@ func (r *KustomizationReconciler) sync(
 		), fmt.Errorf("kustomize build error: %s", string(output))
 	}
 
-	// apply kustomization
-	cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=5m", tmpDir, kustomization.GetName())
+	// set apply timeout
+	timeout := kustomization.Spec.Interval.Duration + (time.Second * 1)
+	ctxApply, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// run apply with timeout
+	cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s",
+		tmpDir, kustomization.GetName(), kustomization.Spec.Interval.Duration.String())
 	if kustomization.Spec.Prune != "" {
 		cmd = fmt.Sprintf("%s --prune -l %s", cmd, kustomization.Spec.Prune)
 	}
-	command = exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	command = exec.CommandContext(ctxApply, "/bin/sh", "-c", cmd)
 	output, err = command.CombinedOutput()
 	if err != nil {
 		err = fmt.Errorf("kubectl apply error: %w", err)
