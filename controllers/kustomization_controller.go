@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	"github.com/fluxcd/kustomize-controller/internal/lockedfile"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
 
@@ -112,6 +114,13 @@ func (r *KustomizationReconciler) sync(
 		return kustomizev1.KustomizationNotReady(kustomization, kustomizev1.ArtifactFailedReason, err.Error()), err
 	}
 
+	unlock, err := r.lock(fmt.Sprintf("%s-%s", kustomization.GetName(), kustomization.GetNamespace()))
+	if err != nil {
+		err = fmt.Errorf("tmp dir error: %w", err)
+		return kustomizev1.KustomizationNotReady(kustomization, sourcev1.StorageOperationFailedReason, err.Error()), err
+	}
+	defer unlock()
+
 	// create tmp dir
 	tmpDir, err := ioutil.TempDir("", kustomization.Name)
 	if err != nil {
@@ -134,8 +143,18 @@ func (r *KustomizationReconciler) sync(
 		), fmt.Errorf("artifact download `%s` error: %s", url, string(output))
 	}
 
-	// kustomize build
+	// check build path exists
 	buildDir := kustomization.Spec.Path
+	if _, err := os.Stat(path.Join(tmpDir, buildDir)); os.IsNotExist(err) {
+		err = fmt.Errorf("artifact download '%s' failed", url)
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			kustomizev1.ArtifactFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// kustomize build
 	cmd = fmt.Sprintf("cd %s && kustomize build %s > %s.yaml", tmpDir, buildDir, kustomization.GetName())
 	command = exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	output, err = command.CombinedOutput()
@@ -150,10 +169,9 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// apply kustomization
-	cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml", tmpDir, kustomization.GetName())
+	cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=5m", tmpDir, kustomization.GetName())
 	if kustomization.Spec.Prune != "" {
-		cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --prune -l %s",
-			tmpDir, kustomization.GetName(), kustomization.Spec.Prune)
+		cmd = fmt.Sprintf("%s --prune -l %s", cmd, kustomization.Spec.Prune)
 	}
 	command = exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	output, err = command.CombinedOutput()
@@ -174,4 +192,10 @@ func (r *KustomizationReconciler) sync(
 		kustomizev1.ApplySucceedReason,
 		"kustomization was successfully applied",
 	), nil
+}
+
+func (r *KustomizationReconciler) lock(name string) (unlock func(), err error) {
+	lockFile := path.Join(os.TempDir(), name+".lock")
+	mutex := lockedfile.MutexAt(lockFile)
+	return mutex.Lock()
 }
