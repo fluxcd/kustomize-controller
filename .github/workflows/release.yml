@@ -11,13 +11,16 @@ jobs:
       - uses: actions/checkout@v2
       - name: Setup Kustomize
         uses: ./.github/actions/kustomize
+      - name: Get version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
       - name: Generate release asset
         run: |
           mkdir -p config/release
           cp config/default/* config/release
           cd config/release
-          kustomize edit set image fluxcd/kustomize-controller=fluxcd/kustomize-controller:${{ github.ref }}
-          kustomize build . > source-controller.yaml
+          kustomize edit set image fluxcd/source-controller=fluxcd/kustomize-controller:${{ steps.get_version.outputs.VERSION }}
+          kustomize build . > kustomize-controller.yaml
       - name: Push image
         uses: docker/build-push-action@v1
         with:
