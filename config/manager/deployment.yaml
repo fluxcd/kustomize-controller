@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
+  name: controller
   namespace: system
   labels:
-    control-plane: controller-manager
+    control-plane: controller
 spec:
   selector:
     matchLabels:
-      control-plane: controller-manager
+      app: kustomize-controller
   replicas: 1
   template:
     metadata:
       labels:
-        control-plane: controller-manager
+        app: kustomize-controller
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8282"
