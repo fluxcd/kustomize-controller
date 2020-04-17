@@ -42,8 +42,12 @@ func (GitRepositoryRevisionChangePredicate) Update(e event.UpdateEvent) bool {
 		return false
 	}
 
-	if oldRepo.Status.Artifact != nil && newRepo.Status.Artifact != nil &&
-		oldRepo.Status.Artifact.Revision != newRepo.Status.Artifact.Revision {
+	if oldRepo.GetArtifact() == nil && newRepo.GetArtifact() != nil {
+		return true
+	}
+
+	if oldRepo.GetArtifact() != nil && newRepo.GetArtifact() != nil &&
+		oldRepo.GetArtifact().Revision != newRepo.GetArtifact().Revision {
 		return true
 	}
 

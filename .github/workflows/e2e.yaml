@@ -56,7 +56,7 @@ jobs:
           kubectl apply -f ./config/samples
           kubectl -n kustomize-system rollout status deploy/kustomize-controller --timeout=1m
           kubectl wait kustomizations/podinfo-dev --for=condition=ready --timeout=1m
-          kubectl -n dev wait rollout status deploy/podinfo --timeout=1m
+          kubectl -n dev rollout status deploy/podinfo --timeout=1m
           kubectl -n kustomize-system logs deploy/kustomize-controller
       - name: Debug failure
         if: failure()
