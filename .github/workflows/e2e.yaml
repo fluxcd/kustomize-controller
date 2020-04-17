@@ -39,3 +39,29 @@ jobs:
             echo 'run make test and commit changes'
             exit 1
           fi
+      - name: Build container image
+        run: make docker-build IMG=test/kustomize-controller:latest
+        env:
+          KUBEBUILDER_ASSETS: ${{ github.workspace }}/kubebuilder/bin
+      - name: Load test image
+        run: kind load docker-image test/kustomize-controller:latest
+      - name: Deploy source-controller
+        run: kustomize build https://github.com/fluxcd/source-controller//config/default?ref=v0.0.1-alpha.1 | kubectl apply -f-
+      - name: Deploy kustomize-controller
+        run: make dev-deploy IMG=test/kustomize-controller:latest
+        env:
+          KUBEBUILDER_ASSETS: ${{ github.workspace }}/kubebuilder/bin
+      - name: Run smoke tests
+        run: |
+          kubectl apply -f ./config/samples
+          kubectl -n kustomize-system rollout status deploy/kustomize-controller --timeout=1m
+          kubectl wait kustomizations/podinfo-dev --for=condition=ready --timeout=1m
+          kubectl -n dev rollout status deploy/podinfo --timeout=1m
+          kubectl -n kustomize-system logs deploy/kustomize-controller
+      - name: Debug failure
+        if: failure()
+        run: |
+          kubectl get gitrepositories -oyaml
+          kubectl get kustomizations -oyaml
+          kubectl -n kustomize-system get all
+          kubectl -n kustomize-system logs deploy/kustomize-controller

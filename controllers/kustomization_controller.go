@@ -80,6 +80,17 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, err
 	}
 
+	if source.GetArtifact() == nil {
+		msg := "Source is not ready"
+		kustomization = kustomizev1.KustomizationNotReady(kustomization, kustomizev1.ArtifactFailedReason, msg)
+		if err := r.Status().Update(ctx, &kustomization); err != nil {
+			log.Error(err, "unable to update Kustomization status")
+			return ctrl.Result{Requeue: true}, err
+		}
+		log.Info(msg)
+		return ctrl.Result{}, nil
+	}
+
 	// try git sync
 	syncedKustomization, err := r.sync(ctx, *kustomization.DeepCopy(), source)
 	if err != nil {
@@ -110,11 +121,7 @@ func (r *KustomizationReconciler) sync(
 	ctx context.Context,
 	kustomization kustomizev1.Kustomization,
 	source sourcev1.Source) (kustomizev1.Kustomization, error) {
-	if source.GetArtifact() == nil || source.GetArtifact().URL == "" {
-		err := fmt.Errorf("artifact not found in %s", kustomization.Spec.SourceRef.Name)
-		return kustomizev1.KustomizationNotReady(kustomization, kustomizev1.ArtifactFailedReason, err.Error()), err
-	}
-
+	// acquire lock
 	unlock, err := r.lock(fmt.Sprintf("%s-%s", kustomization.GetName(), kustomization.GetNamespace()))
 	if err != nil {
 		err = fmt.Errorf("tmp dir error: %w", err)
