@@ -41,6 +41,11 @@ type KustomizationSpec struct {
 	// +required
 	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
 
+	// This flag tells the controller to suspend subsequent kustomize executions,
+	// it does not apply to already started executions. Defaults to false.
+	// +optional
+	Suspend bool `json:"suspend,omitempty"`
+
 	// Validate the Kubernetes objects before applying them on the cluster.
 	// The validation strategy can be 'client' (local dry-run) or 'server' (APIServer dry-run).
 	// +kubebuilder:validation:Enum=client;server

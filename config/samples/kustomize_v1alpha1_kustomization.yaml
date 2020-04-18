@@ -6,10 +6,10 @@ spec:
   interval: 5m
   path: "./overlays/dev/"
   prune: "env=dev"
+  suspend: false
   sourceRef:
     kind: GitRepository
     name: podinfo
-  validation: client
 ---
 apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization

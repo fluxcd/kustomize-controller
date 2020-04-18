@@ -75,6 +75,11 @@ spec:
               - kind
               - name
               type: object
+            suspend:
+              description: This flag tells the controller to suspend subsequent kustomize
+                executions, it does not apply to already started executions. Defaults
+                to false.
+              type: boolean
             validation:
               description: Validate the Kubernetes objects before applying them on
                 the cluster. The validation strategy can be 'client' (local dry-run)

@@ -17,8 +17,8 @@ Features:
 
 ## Kustomization API
 
-A kustomization object defines the source of Kubernetes manifests by referencing a source
-(managed by [source-controller](https://github.com/fluxcd/source-controller)),
+A kustomization object defines the source of Kubernetes manifests by referencing an object 
+managed by [source-controller](https://github.com/fluxcd/source-controller),
 the path to the kustomization file, 
 and a label selector used for garbage collection of resources removed from the Git source.
 
@@ -43,6 +43,11 @@ type KustomizationSpec struct {
 	// Reference of the source where the kustomization file is.
 	// +required
 	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
+
+	// This flag tells the controller to suspend subsequent kustomize executions,
+	// it does not apply to already started executions. Defaults to false.
+	// +optional
+	Suspend bool `json:"suspend,omitempty"`
 
 	// Validate the Kubernetes objects before applying them on the cluster.
 	// The validation strategy can be 'client' (local dry-run) or 'server' (APIServer dry-run).
