@@ -23,6 +23,10 @@ import (
 
 // KustomizationSpec defines the desired state of a kustomization.
 type KustomizationSpec struct {
+	// The interval at which to apply the kustomization.
+	// +required
+	Interval metav1.Duration `json:"interval"`
+
 	// Path to the directory containing the kustomization file.
 	// +kubebuilder:validation:Pattern="^\\./"
 	// +required
@@ -33,13 +37,20 @@ type KustomizationSpec struct {
 	// +optional
 	Prune string `json:"prune,omitempty"`
 
-	// Reference of the Git repository where the kustomization source is.
+	// Reference of the source where the kustomization file is.
 	// +required
 	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
 
-	// The interval at which to apply the kustomization.
-	// +required
-	Interval metav1.Duration `json:"interval"`
+	// This flag tells the controller to suspend subsequent kustomize executions,
+	// it does not apply to already started executions. Defaults to false.
+	// +optional
+	Suspend bool `json:"suspend,omitempty"`
+
+	// Validate the Kubernetes objects before applying them on the cluster.
+	// The validation strategy can be 'client' (local dry-run) or 'server' (APIServer dry-run).
+	// +kubebuilder:validation:Enum=client;server
+	// +optional
+	Validation string `json:"validation,omitempty"`
 }
 
 // KustomizationStatus defines the observed state of a kustomization.

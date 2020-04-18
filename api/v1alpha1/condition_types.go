@@ -65,6 +65,12 @@ const (
 	// BuildFailedReason represents the fact that the kustomize build command failed.
 	BuildFailedReason string = "BuildFailed"
 
+	// SuspendedReason represents the fact that the kustomization execution is suspended.
+	SuspendedReason string = "Suspended"
+
+	// ValidationFailedReason represents the fact that the dry-run apply failed.
+	ValidationFailedReason string = "ValidationFailed"
+
 	// ArtifactFailedReason represents the fact that the artifact download failed.
 	ArtifactFailedReason string = "ArtifactFailed"
 )
