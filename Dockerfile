@@ -31,8 +31,12 @@ FROM alpine:3.11
 
 RUN apk add --no-cache openssh-client ca-certificates tini 'git>=2.12.0' socat curl bash
 
-COPY --from=builder /usr/local/bin/kustomize /usr/local/bin/kustomize
-COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
+COPY --from=builder /usr/local/bin/kustomize /usr/local/bin/
+COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/
 COPY --from=builder /workspace/kustomize-controller /usr/local/bin/
+
+RUN addgroup -S controller && adduser -S -g controller controller
+
+USER controller
 
 ENTRYPOINT [ "/sbin/tini", "--", "kustomize-controller" ]

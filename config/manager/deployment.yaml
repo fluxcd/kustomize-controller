@@ -18,13 +18,21 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8282"
     spec:
+      terminationGracePeriodSeconds: 10
       containers:
       - name: manager
         image: fluxcd/kustomize-controller
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
         ports:
           - containerPort: 8282
             name: http-prom
+        livenessProbe:
+          httpGet:
+            port: http-prom
+            path: /metrics
         args:
         - --enable-leader-election
         - --log-json
@@ -35,4 +43,9 @@ spec:
           requests:
             cpu: 100m
             memory: 64Mi
-      terminationGracePeriodSeconds: 10
+        volumeMounts:
+          - name: temp
+            mountPath: /tmp
+      volumes:
+        - name: temp
+          emptyDir: {}
