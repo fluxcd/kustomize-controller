@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -49,7 +50,7 @@ func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	log := r.Log.WithValues(repo.Kind, req.NamespacedName)
+	log := r.Log.WithValues(strings.ToLower(repo.Kind), req.NamespacedName)
 	log.Info("New artifact detected")
 
 	// get the list of kustomizations that are using this Git repository

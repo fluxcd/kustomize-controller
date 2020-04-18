@@ -27,6 +27,7 @@ spec:
             name: http-prom
         args:
         - --enable-leader-election
+        - --log-json
         resources:
           limits:
             cpu: 1000m
