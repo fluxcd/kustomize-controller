@@ -19,6 +19,7 @@ package controllers
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -70,11 +71,11 @@ func (gc KustomizationGarbageCollectPredicate) Delete(e event.DeleteEvent) bool 
 			if output, err := command.CombinedOutput(); err != nil {
 				gc.Log.Error(err, "Garbage collection failed",
 					"output", string(output),
-					"Kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
+					strings.ToLower(k.Kind), fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
 			} else {
 				gc.Log.Info("Garbage collection completed",
 					"output", string(output),
-					"Kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
+					strings.ToLower(k.Kind), fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
 			}
 		}
 	}

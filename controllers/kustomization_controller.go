@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -55,7 +56,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	log := r.Log.WithValues(kustomization.Kind, req.NamespacedName)
+	log := r.Log.WithValues(strings.ToLower(kustomization.Kind), req.NamespacedName)
 
 	var source sourcev1.Source
 
@@ -103,7 +104,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	log.Info("Kustomization sync finished", "msg", kustomizev1.KustomizationReadyMessage(syncedKustomization))
+	log.Info("Kustomization sync finished, next run in " + kustomization.Spec.Interval.Duration.String())
 
 	// requeue kustomization
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
@@ -181,6 +182,8 @@ func (r *KustomizationReconciler) sync(
 	ctxApply, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	applyStart := time.Now()
+
 	// run apply with timeout
 	cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s",
 		tmpDir, kustomization.GetName(), kustomization.Spec.Interval.Duration.String())
@@ -199,7 +202,11 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// log apply output
-	fmt.Println(string(output))
+	applyDuration := fmt.Sprintf("Kustomization applied in %s", time.Now().Sub(applyStart).String())
+	r.Log.WithValues(
+		strings.ToLower(kustomization.Kind),
+		fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+	).Info(applyDuration, "output", r.parseApplyOutput(output))
 
 	return kustomizev1.KustomizationReady(
 		kustomization,
@@ -212,4 +219,25 @@ func (r *KustomizationReconciler) lock(name string) (unlock func(), err error) {
 	lockFile := path.Join(os.TempDir(), name+".lock")
 	mutex := lockedfile.MutexAt(lockFile)
 	return mutex.Lock()
+}
+
+func (r *KustomizationReconciler) parseApplyOutput(in []byte) map[string]string {
+	result := make(map[string]string)
+	input := strings.Split(string(in), "\n")
+	if len(input) == 0 {
+		return result
+	}
+	var parts []string
+	for _, str := range input {
+		if str != "" {
+			parts = append(parts, str)
+		}
+	}
+	for _, str := range parts {
+		kv := strings.Split(str, " ")
+		if len(kv) > 1 {
+			result[kv[0]] = kv[1]
+		}
+	}
+	return result
 }

@@ -154,13 +154,26 @@ You can wait for the kustomize controller to apply the manifest corresponding to
 kubectl wait kustomization/podinfo-dev --for=condition=ready
 ```
 
-When the controller finishes the reconciliation, the following objects will be created on your cluster:
+When the controller finishes the reconciliation, it will log the applied objects:
 
-```text
-namespace/dev created
-service/podinfo created
-deployment.apps/podinfo created
-horizontalpodautoscaler.autoscaling/podinfo created
+```bash
+kubectl -n kustomize-system logs deploy/kustomize-controller | jq .
+```
+
+```json
+{
+  "level": "info",
+  "ts": 1587195448.071468,
+  "logger": "controllers.Kustomization",
+  "msg": "Kustomization applied in 1.436096591s",
+  "kustomization": "default/podinfo-dev",
+  "output": {
+    "namespace/dev": "created",
+    "service/podinfo": "created",
+    "deployment.apps/podinfo": "created",
+    "horizontalpodautoscaler.autoscaling/podinfo": "created"
+  }
+}
 ```
 
 You can trigger a kustomize build and apply any time with:
@@ -185,7 +198,10 @@ status:
 ``` 
 
 ```json
-{"Kustomization": "default/podinfo-dev", "error": "kubectl apply: Error from server (NotFound): error when creating \"podinfo-dev.yaml\": namespaces \"dev\" not found\n"}
+{
+  "kustomization": "default/podinfo-dev",
+  "error": "Error from server (NotFound): error when creating \"podinfo-dev.yaml\": namespaces \"dev\" not found\n"
+}
 ```
 
 ### Deploy releases to production
