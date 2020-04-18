@@ -46,6 +46,31 @@ spec:
         spec:
           description: KustomizationSpec defines the desired state of a kustomization.
           properties:
+            healthChecks:
+              description: A list of workloads for health assessment. Checks the rollout
+                status of each supplied Deployment, DaemonSet or StatefulSet.
+              items:
+                description: WorkloadReference defines a reference to Deployment,
+                  DaemonSet or StatefulSet
+                properties:
+                  kind:
+                    description: Kind is the type of resource being referenced
+                    enum:
+                    - Deployment
+                    - DaemonSet
+                    - StatefulSet
+                    type: string
+                  name:
+                    description: Name is the name of resource being referenced
+                    type: string
+                  namespace:
+                    description: Namespace is the namespace of resource being referenced
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+              type: array
             interval:
               description: The interval at which to apply the kustomization.
               type: string

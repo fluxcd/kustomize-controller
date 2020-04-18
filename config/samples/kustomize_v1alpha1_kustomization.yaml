@@ -10,6 +10,10 @@ spec:
   sourceRef:
     kind: GitRepository
     name: podinfo
+  healthChecks:
+    - kind: Deployment
+      name: podinfo
+      namespace: dev
 ---
 apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization

@@ -234,6 +234,15 @@ func (r *KustomizationReconciler) sync(
 		fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
 	).Info(applyDuration, "output", r.parseApplyOutput(output))
 
+	err = r.isHealthy(kustomization)
+	if err != nil {
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			kustomizev1.ApplyFailedReason,
+			err.Error(),
+		), err
+	}
+
 	return kustomizev1.KustomizationReady(
 		kustomization,
 		kustomizev1.ApplySucceedReason,
@@ -266,4 +275,27 @@ func (r *KustomizationReconciler) parseApplyOutput(in []byte) map[string]string 
 		}
 	}
 	return result
+}
+
+func (r *KustomizationReconciler) isHealthy(kustomization kustomizev1.Kustomization) error {
+	timeout := kustomization.Spec.Interval.Duration + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	for _, check := range kustomization.Spec.HealthChecks {
+		cmd := fmt.Sprintf("kubectl -n %s rollout status %s %s --timeout=%s",
+			check.Namespace, check.Kind, check.Name, kustomization.Spec.Interval.Duration.String())
+		command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("health check failed for %s %s/%s: %s",
+				check.Kind, check.Namespace, check.Name, string(output))
+		} else {
+			r.Log.WithValues(
+				strings.ToLower(kustomization.Kind),
+				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+			).Info(fmt.Sprintf("health check passed for %s %s/%s",
+				check.Kind, check.Namespace, check.Name))
+		}
+	}
+	return nil
 }

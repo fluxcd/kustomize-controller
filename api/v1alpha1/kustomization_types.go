@@ -37,6 +37,11 @@ type KustomizationSpec struct {
 	// +optional
 	Prune string `json:"prune,omitempty"`
 
+	// A list of workloads for health assessment.
+	// Checks the rollout status of each supplied Deployment, DaemonSet or StatefulSet.
+	// +optional
+	HealthChecks []WorkloadReference `json:"healthChecks,omitempty"`
+
 	// Reference of the source where the kustomization file is.
 	// +required
 	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
@@ -51,6 +56,22 @@ type KustomizationSpec struct {
 	// +kubebuilder:validation:Enum=client;server
 	// +optional
 	Validation string `json:"validation,omitempty"`
+}
+
+// WorkloadReference defines a reference to Deployment, DaemonSet or StatefulSet
+type WorkloadReference struct {
+	// Kind is the type of resource being referenced
+	// +kubebuilder:validation:Enum=Deployment;DaemonSet;StatefulSet
+	// +required
+	Kind string `json:"kind"`
+
+	// Name is the name of resource being referenced
+	// +required
+	Name string `json:"name"`
+
+	// Namespace is the namespace of resource being referenced
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // KustomizationStatus defines the observed state of a kustomization.
