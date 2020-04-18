@@ -11,6 +11,7 @@ Features:
 * fetches artifacts produced by [source-controller](https://github.com/fluxcd/source-controller) from `Source` objects 
 * watches `Source` objects for revision changes 
 * builds the kustomization using the latest fetched artifact
+* validates the Kubernetes objects with client-side or APIServer dry-run
 * applies the resulting Kubernetes manifests on the cluster
 * prunes the Kubernetes objects removed from source based on a label selector
 
@@ -24,8 +25,11 @@ and a label selector used for garbage collection of resources removed from the G
 ### Specification
 
 ```go
-// KustomizationSpec defines the desired state of a kustomization.
 type KustomizationSpec struct {
+	// The interval at which to apply the kustomization.
+	// +required
+	Interval metav1.Duration `json:"interval"`
+
 	// Path to the directory containing the kustomization file.
 	// +kubebuilder:validation:Pattern="^\\./"
 	// +required
@@ -40,9 +44,11 @@ type KustomizationSpec struct {
 	// +required
 	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
 
-	// The interval at which to apply the kustomization.
-	// +required
-	Interval metav1.Duration `json:"interval"`
+	// Validate the Kubernetes objects before applying them on the cluster.
+	// The validation strategy can be 'client' (local dry-run) or 'server' (APIServer dry-run).
+	// +kubebuilder:validation:Enum=client;server
+	// +optional
+	Validation string `json:"validation,omitempty"`
 }
 ```
 
@@ -141,11 +147,16 @@ spec:
   sourceRef:
     kind: GitRepository
     name: podinfo
+  validation: client
 ```
 
 With `spec.path` we tell the controller where to look for the `kustomization.yaml` file.
 With `spec.prune` we configure garbage collection.
 With `spec.interval` we tell the controller how often it should reconcile the cluster state.
+With `spec.validation` we instruct the controller to validate the Kubernetes objects before
+applying them in-cluster. When setting the validation to `server`, the controller will perform an
+[APIServer dry-run](https://kubernetes.io/blog/2019/01/14/apiserver-dry-run-and-kubectl-diff/)
+(requires Kubernetes >= 1.16).
 
 Save the above file and apply it on the cluster.
 You can wait for the kustomize controller to apply the manifest corresponding to the dev overlay with:
@@ -191,7 +202,7 @@ If the kustomization build or apply fails, the controller sets the ready conditi
 status:
   conditions:
   - lastTransitionTime: "2020-04-16T07:27:58Z"
-    message: 'kubectl apply error: exit status 1'
+    message: 'apply failed'
     reason: ApplyFailed
     status: "False"
     type: Ready

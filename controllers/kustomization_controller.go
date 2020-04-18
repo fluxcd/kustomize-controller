@@ -182,9 +182,24 @@ func (r *KustomizationReconciler) sync(
 	ctxApply, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	applyStart := time.Now()
+	// dry-run apply
+	if kustomization.Spec.Validation != "" {
+		cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --dry-run=%s",
+			tmpDir, kustomization.GetName(), kustomization.Spec.Validation)
+		command = exec.CommandContext(ctxApply, "/bin/sh", "-c", cmd)
+		output, err = command.CombinedOutput()
+		if err != nil {
+			err = fmt.Errorf("%s-side validation failed", kustomization.Spec.Validation)
+			return kustomizev1.KustomizationNotReady(
+				kustomization,
+				kustomizev1.ValidationFailedReason,
+				err.Error(),
+			), fmt.Errorf("validation failed: %s", string(output))
+		}
+	}
 
 	// run apply with timeout
+	applyStart := time.Now()
 	cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s",
 		tmpDir, kustomization.GetName(), kustomization.Spec.Interval.Duration.String())
 	if kustomization.Spec.Prune != "" {
@@ -193,7 +208,7 @@ func (r *KustomizationReconciler) sync(
 	command = exec.CommandContext(ctxApply, "/bin/sh", "-c", cmd)
 	output, err = command.CombinedOutput()
 	if err != nil {
-		err = fmt.Errorf("kubectl apply error: %w", err)
+		err = fmt.Errorf("apply failed")
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			kustomizev1.ApplyFailedReason,

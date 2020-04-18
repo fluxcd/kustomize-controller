@@ -58,8 +58,7 @@ spec:
               pattern: ^.*=.*$
               type: string
             sourceRef:
-              description: Reference of the Git repository where the kustomization
-                source is.
+              description: Reference of the source where the kustomization file is.
               properties:
                 apiGroup:
                   description: APIGroup is the group for the resource being referenced.
@@ -76,6 +75,14 @@ spec:
               - kind
               - name
               type: object
+            validation:
+              description: Validate the Kubernetes objects before applying them on
+                the cluster. The validation strategy can be 'client' (local dry-run)
+                or 'server' (APIServer dry-run).
+              enum:
+              - client
+              - server
+              type: string
           required:
           - interval
           - path
