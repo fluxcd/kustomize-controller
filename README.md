@@ -2,7 +2,7 @@
 
 [![e2e](https://github.com/fluxcd/kustomize-controller/workflows/e2e/badge.svg)](https://github.com/fluxcd/kustomize-controller/actions)
 
-The kustomize-controller is a Kubernetes operator that applies kustomizations in-cluster.
+The kustomize-controller is a Kubernetes operator that applies [kustomizations](docs/spec/v1alpha1/README.md) in-cluster.
 
 ![overview](docs/diagrams/fluxcd-kustomize-source-controllers.png)
 
@@ -15,76 +15,11 @@ Features:
 * applies the resulting Kubernetes manifests on the cluster
 * prunes the Kubernetes objects removed from source based on a label selector
 
-## Kustomization API
-
-A kustomization object defines the source of Kubernetes manifests by referencing an object 
-managed by [source-controller](https://github.com/fluxcd/source-controller),
-the path to the kustomization file, 
-and a label selector used for garbage collection of resources removed from the Git source.
-
-### Specification
-
-```go
-type KustomizationSpec struct {
-	// The interval at which to apply the kustomization.
-	// +required
-	Interval metav1.Duration `json:"interval"`
-
-	// Path to the directory containing the kustomization file.
-	// +kubebuilder:validation:Pattern="^\\./"
-	// +required
-	Path string `json:"path"`
-
-	// Label selector used for garbage collection.
-	// +kubebuilder:validation:Pattern="^.*=.*$"
-	// +optional
-	Prune string `json:"prune,omitempty"`
-
-	// Reference of the source where the kustomization file is.
-	// +required
-	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
-
-	// This flag tells the controller to suspend subsequent kustomize executions,
-	// it does not apply to already started executions. Defaults to false.
-	// +optional
-	Suspend bool `json:"suspend,omitempty"`
-
-	// Validate the Kubernetes objects before applying them on the cluster.
-	// The validation strategy can be 'client' (local dry-run) or 'server' (APIServer dry-run).
-	// +kubebuilder:validation:Enum=client;server
-	// +optional
-	Validation string `json:"validation,omitempty"`
-}
-```
-
-### Supported source kinds
-
-* [GitRepository](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/gitrepositories.md)
-
-### Garbage collection
-
-Garbage collection means that the Kubernetes objects that were previously applied on the cluster
-but are missing from the current apply, will be removed. Garbage collection is also performed when a Kustomization
-object is deleted, triggering a removal of all Kubernetes objects previously applied on the cluster.
-
-When garbage collection is enabled, all Kubernetes objects must have a common label that matches the `prune`
-[label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/).
-
-For example, `prune: env=dev` requires a `kustomization.yaml` with `commonLabels`:
-```yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-commonLabels:
-  env: dev
-```
-
 ## Usage
 
-Build prerequisites:
-* go >= 1.13
-* kubebuilder
-* kustomize
-* kubectl
+The kustomize-controller is part of a composable GitOps toolkit and depends on  
+[source-controller](https://github.com/fluxcd/source-controller) to provide the raw Kubernetes 
+manifests and `kustomization.yaml` file.
 
 ### Install the controllers
 
@@ -138,7 +73,7 @@ kubectl annotate --overwrite gitrepository/podinfo source.fluxcd.io/syncAt="$(da
 
 ### Define a kustomization
 
-Create a kustomization object that uses the git repository defined above:
+Create a [kustomization](docs/spec/v1alpha1/README.md) object that uses the git repository defined above:
 
 ```yaml
 apiVersion: kustomize.fluxcd.io/v1alpha1
@@ -155,11 +90,11 @@ spec:
   validation: client
 ```
 
-With `spec.path` we tell the controller where to look for the `kustomization.yaml` file.
-With `spec.prune` we configure garbage collection.
 With `spec.interval` we tell the controller how often it should reconcile the cluster state.
-With `spec.validation` we instruct the controller to validate the Kubernetes objects before
-applying them in-cluster. When setting the validation to `server`, the controller will perform an
+With `spec.path` we tell the controller where to look for the `kustomization.yaml` file.
+With `spec.prune` we configure [garbage collection](docs/spec/v1alpha1/README.md#garbage-collection).
+With `spec.validation` we instruct the controller to validate the Kubernetes objects before applying them in-cluster.
+When setting the validation to `server`, the controller will perform an
 [APIServer dry-run](https://kubernetes.io/blog/2019/01/14/apiserver-dry-run-and-kubectl-diff/)
 (requires Kubernetes >= 1.16).
 
@@ -249,7 +184,6 @@ metadata:
 spec:
   interval: 10m
   path: "./overlays/production/"
-  prune: "env=production"
   sourceRef:
     kind: GitRepository
     name: podinfo-releases
