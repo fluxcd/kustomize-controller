@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -65,9 +66,13 @@ type KustomizationGarbageCollectPredicate struct {
 func (gc KustomizationGarbageCollectPredicate) Delete(e event.DeleteEvent) bool {
 	if k, ok := e.Object.(*kustomizev1.Kustomization); ok {
 		if k.Spec.Prune != "" {
+			timeout := k.GetTimeout()
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
 			cmd := fmt.Sprintf("kubectl delete all --all-namespaces --timeout=%s -l %s",
-				k.Spec.Interval.Duration.String(), k.Spec.Prune)
-			command := exec.Command("/bin/sh", "-c", cmd)
+				timeout.String(), k.Spec.Prune)
+			command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 			if output, err := command.CombinedOutput(); err != nil {
 				gc.Log.Error(err, "Garbage collection failed",
 					"output", string(output),

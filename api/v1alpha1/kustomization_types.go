@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 // KustomizationSpec defines the desired state of a kustomization.
@@ -50,6 +51,11 @@ type KustomizationSpec struct {
 	// it does not apply to already started executions. Defaults to false.
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
+
+	// Timeout for validation, apply and health checking operations.
+	// Defaults to 'Interval' duration.
+	// +optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
 	// Validate the Kubernetes objects before applying them on the cluster.
 	// The validation strategy can be 'client' (local dry-run) or 'server' (APIServer dry-run).
@@ -106,13 +112,16 @@ func KustomizationNotReady(kustomization Kustomization, reason, message string) 
 	return kustomization
 }
 
-func KustomizationReadyMessage(kustomization Kustomization) string {
-	for _, condition := range kustomization.Status.Conditions {
-		if condition.Type == ReadyCondition {
-			return condition.Message
-		}
+// GetTimeout returns the timeout with default
+func (in *Kustomization) GetTimeout() time.Duration {
+	duration := in.Spec.Interval.Duration
+	if in.Spec.Timeout != nil {
+		duration = in.Spec.Timeout.Duration
 	}
-	return ""
+	if duration < time.Minute {
+		return time.Minute
+	}
+	return duration
 }
 
 const (

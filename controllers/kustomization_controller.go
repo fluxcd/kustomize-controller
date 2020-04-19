@@ -18,11 +18,13 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"strings"
 	"time"
 
@@ -48,8 +50,8 @@ type KustomizationReconciler struct {
 // +kubebuilder:rbac:groups=kustomize.fluxcd.io,resources=kustomizations/status,verbs=get;update;patch
 
 func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := context.Background()
+	syncStart := time.Now()
 
 	var kustomization kustomizev1.Kustomization
 	if err := r.Get(ctx, req.NamespacedName, &kustomization); err != nil {
@@ -103,7 +105,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, nil
 	}
 
-	// try git sync
+	// try sync
 	syncedKustomization, err := r.sync(ctx, *kustomization.DeepCopy(), source)
 	if err != nil {
 		log.Error(err, "Kustomization apply failed")
@@ -115,7 +117,11 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	log.Info("Kustomization sync finished, next run in " + kustomization.Spec.Interval.Duration.String())
+	// log sync duration
+	log.Info(fmt.Sprintf("Kustomization sync finished in %s, next run in %s",
+		time.Now().Sub(syncStart).String(),
+		kustomization.Spec.Interval.Duration.String(),
+	))
 
 	// requeue kustomization
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
@@ -126,6 +132,7 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&kustomizev1.Kustomization{}).
 		WithEventFilter(KustomizationGarbageCollectPredicate{Log: r.Log}).
 		WithEventFilter(KustomizationSyncAtPredicate{}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 4}).
 		Complete(r)
 }
 
@@ -189,14 +196,14 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// set apply timeout
-	timeout := kustomization.Spec.Interval.Duration + (time.Second * 1)
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctxApply, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	// dry-run apply
 	if kustomization.Spec.Validation != "" {
-		cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --dry-run=%s",
-			tmpDir, kustomization.GetName(), kustomization.Spec.Validation)
+		cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s",
+			tmpDir, kustomization.GetName(), kustomization.GetTimeout().String(), kustomization.Spec.Validation)
 		command = exec.CommandContext(ctxApply, "/bin/sh", "-c", cmd)
 		output, err = command.CombinedOutput()
 		if err != nil {
@@ -234,6 +241,7 @@ func (r *KustomizationReconciler) sync(
 		fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
 	).Info(applyDuration, "output", r.parseApplyOutput(output))
 
+	// health assessment
 	err = r.isHealthy(kustomization)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
@@ -278,22 +286,26 @@ func (r *KustomizationReconciler) parseApplyOutput(in []byte) map[string]string 
 }
 
 func (r *KustomizationReconciler) isHealthy(kustomization kustomizev1.Kustomization) error {
-	timeout := kustomization.Spec.Interval.Duration + (time.Second * 1)
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
 	for _, check := range kustomization.Spec.HealthChecks {
 		cmd := fmt.Sprintf("kubectl -n %s rollout status %s %s --timeout=%s",
-			check.Namespace, check.Kind, check.Name, kustomization.Spec.Interval.Duration.String())
+			check.Namespace, check.Kind, check.Name, kustomization.GetTimeout())
 		command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 		output, err := command.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("health check failed for %s %s/%s: %s",
+			if errors.Is(err, context.DeadlineExceeded) {
+				return err
+			}
+			return fmt.Errorf("health check failed for %s '%s/%s': %s",
 				check.Kind, check.Namespace, check.Name, string(output))
 		} else {
 			r.Log.WithValues(
 				strings.ToLower(kustomization.Kind),
 				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-			).Info(fmt.Sprintf("health check passed for %s %s/%s",
+			).Info(fmt.Sprintf("Health check passed for %s '%s/%s'",
 				check.Kind, check.Namespace, check.Name))
 		}
 	}
