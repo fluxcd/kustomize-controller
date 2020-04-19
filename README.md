@@ -2,18 +2,22 @@
 
 [![e2e](https://github.com/fluxcd/kustomize-controller/workflows/e2e/badge.svg)](https://github.com/fluxcd/kustomize-controller/actions)
 
-The kustomize-controller is a Kubernetes operator that applies [kustomizations](docs/spec/v1alpha1/README.md) in-cluster.
+The kustomize-controller is a continuous delivery (CD) tool for Kubernetes.
+The controller runs CD pipelines inside the cluster for workloads and infrastructure manifests 
+coming from source control systems that are generated with Kustomize.
 
 ![overview](docs/diagrams/fluxcd-kustomize-source-controllers.png)
 
 Features:
-* watches for `Kustomization` objects
+* watches for [Kustomization](docs/spec/v1alpha1/README.md) objects
 * fetches artifacts produced by [source-controller](https://github.com/fluxcd/source-controller) from `Source` objects 
 * watches `Source` objects for revision changes 
-* builds the kustomization using the latest fetched artifact
-* validates the Kubernetes objects with client-side or APIServer dry-run
-* applies the resulting Kubernetes manifests on the cluster
-* prunes the Kubernetes objects removed from source based on a label selector
+* generates Kubernetes manifests with kustomize build
+* validates the build output with client-side or APIServer dry-run
+* applies the generated manifests on the cluster
+* prunes the Kubernetes objects removed from source
+* checks the health of the deployed workloads
+* runs `Kustomizations` in a specific order, taking into account the depends-on relationship 
 
 ## Usage
 
@@ -73,7 +77,7 @@ kubectl annotate --overwrite gitrepository/podinfo source.fluxcd.io/syncAt="$(da
 
 ### Define a kustomization
 
-Create a [kustomization](docs/spec/v1alpha1/README.md) object that uses the git repository defined above:
+Create a kustomization object that uses the git repository defined above:
 
 ```yaml
 apiVersion: kustomize.fluxcd.io/v1alpha1
@@ -88,18 +92,23 @@ spec:
     kind: GitRepository
     name: podinfo
   validation: client
+  healthChecks:
+    - kind: Deployment
+      name: podinfo
+      namespace: dev
+  timeout: 80s
 ```
 
-With `spec.interval` we tell the controller how often it should reconcile the cluster state.
-With `spec.path` we tell the controller where to look for the `kustomization.yaml` file.
-With `spec.prune` we configure [garbage collection](docs/spec/v1alpha1/README.md#garbage-collection).
-With `spec.validation` we instruct the controller to validate the Kubernetes objects before applying them in-cluster.
-When setting the validation to `server`, the controller will perform an
-[APIServer dry-run](https://kubernetes.io/blog/2019/01/14/apiserver-dry-run-and-kubectl-diff/)
-(requires Kubernetes >= 1.16).
+A detailed explanation of the Kustomization object and its fields
+can be found in the [specification doc](docs/spec/v1alpha1/README.md). 
 
-Save the above file and apply it on the cluster.
-You can wait for the kustomize controller to apply the manifest corresponding to the dev overlay with:
+Based on the above definition, the kustomize-controller fetches the Git repository content from source-controller,
+generates Kubernetes manifests by running kustomize build inside `./overlays/dev/`,
+and validates them with a dry-run apply. If the manifests pass validation, the controller will apply them 
+on the cluster and starts the health assessment of the deployed workload. If the health checks are passing, the
+Kustomization object status transitions to a ready state.
+
+You can wait for the kustomize controller to complete the deployment with:
 
 ```bash
 kubectl wait kustomization/podinfo-dev --for=condition=ready
@@ -153,6 +162,46 @@ status:
   "kustomization": "default/podinfo-dev",
   "error": "Error from server (NotFound): error when creating \"podinfo-dev.yaml\": namespaces \"dev\" not found\n"
 }
+```
+
+### Define the order for kustomizations
+
+When defining a kustomization, you may need to make sure other kustomizations have been 
+successfully applied beforehand. A kustomization can specify a list of dependencies with `spec.dependsOn`.
+When combined with health assessment, a kustomization will run after all its dependencies health checks are passing.
+
+For example, a service mesh proxy injector should be running before deploying applications inside the mesh:
+
+```yaml
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: istio
+spec:
+  interval: 10m
+  path: "./profiles/default/"
+  sourceRef:
+    kind: GitRepository
+    name: istio
+  healthChecks:
+    - kind: Deployment
+      name: istiod
+      namespace: istio-system
+  timeout: 2m
+---
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: podinfo-dev
+spec:
+  dependsOn:
+    - istio
+  interval: 5m
+  path: "./overlays/dev/"
+  prune: "env=dev"
+  sourceRef:
+    kind: GitRepository
+    name: podinfo
 ```
 
 ### Deploy releases to production
