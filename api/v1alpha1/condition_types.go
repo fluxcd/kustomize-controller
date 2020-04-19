@@ -66,6 +66,9 @@ const (
 	// BuildFailedReason represents the fact that the kustomize build command failed.
 	BuildFailedReason string = "BuildFailed"
 
+	// DependencyNotReady represents the fact that the one of the dependencies is not ready.
+	DependencyNotReadyReason string = "DependencyNotReady"
+
 	// HealthCheckFailedReason represents the fact that the one of the health check failed.
 	HealthCheckFailedReason string = "HealthCheckFailed"
 

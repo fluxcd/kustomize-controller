@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	corev1 "k8s.io/api/core/v1"
 	"os"
 	"os/exec"
 	"path"
@@ -94,6 +95,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, err
 	}
 
+	// check source readiness
 	if source.GetArtifact() == nil {
 		msg := "Source is not ready"
 		kustomization = kustomizev1.KustomizationNotReady(kustomization, kustomizev1.ArtifactFailedReason, msg)
@@ -105,8 +107,25 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, nil
 	}
 
+	// check dependencies
+	if len(kustomization.Spec.DependsOn) > 0 {
+		if err := r.checkDependencies(kustomization); err != nil {
+			kustomization = kustomizev1.KustomizationNotReady(kustomization, kustomizev1.DependencyNotReadyReason, err.Error())
+			if err := r.Status().Update(ctx, &kustomization); err != nil {
+				log.Error(err, "unable to update Kustomization status")
+				return ctrl.Result{Requeue: true}, err
+			}
+			// we can't rely on exponential backoff because it will prolong the execution too much,
+			// instead we requeue every half a minute.
+			requeueAfter := 30 * time.Second
+			log.Error(err, "Dependencies do not meet ready condition, retrying in "+requeueAfter.String())
+			return ctrl.Result{RequeueAfter: requeueAfter}, nil
+		}
+		log.Info("All dependencies area ready, proceeding with apply")
+	}
+
 	// try sync
-	syncedKustomization, err := r.sync(ctx, *kustomization.DeepCopy(), source)
+	syncedKustomization, err := r.sync(*kustomization.DeepCopy(), source)
 	if err != nil {
 		log.Error(err, "Kustomization apply failed")
 	}
@@ -137,7 +156,6 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *KustomizationReconciler) sync(
-	ctx context.Context,
 	kustomization kustomizev1.Kustomization,
 	source sourcev1.Source) (kustomizev1.Kustomization, error) {
 	// acquire lock
@@ -207,7 +225,7 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// health assessment
-	err = r.check(kustomization)
+	err = r.checkHealth(kustomization)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -312,7 +330,7 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	return nil
 }
 
-func (r *KustomizationReconciler) check(kustomization kustomizev1.Kustomization) error {
+func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomization) error {
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -364,4 +382,30 @@ func (r *KustomizationReconciler) parseApplyOutput(in []byte) map[string]string 
 		}
 	}
 	return result
+}
+
+func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Kustomization) error {
+	for _, dep := range kustomization.Spec.DependsOn {
+		depName := types.NamespacedName{
+			Namespace: kustomization.GetNamespace(),
+			Name:      dep,
+		}
+		var k kustomizev1.Kustomization
+		err := r.Get(context.Background(), depName, &k)
+		if err != nil {
+			return fmt.Errorf("unable to get '%s' dependency: %w", depName, err)
+		}
+
+		if len(k.Status.Conditions) == 0 {
+			return fmt.Errorf("dependency '%s' is not ready", depName)
+		}
+
+		for _, condition := range k.Status.Conditions {
+			if condition.Type == kustomizev1.ReadyCondition && condition.Status != corev1.ConditionTrue {
+				return fmt.Errorf("dependency '%s' is not ready", depName)
+			}
+		}
+	}
+
+	return nil
 }

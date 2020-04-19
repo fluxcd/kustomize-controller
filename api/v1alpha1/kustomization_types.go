@@ -25,6 +25,11 @@ import (
 
 // KustomizationSpec defines the desired state of a kustomization.
 type KustomizationSpec struct {
+	// A list of kustomization that must be ready before this
+	// kustomization can be applied.
+	// +optional
+	DependsOn []string `json:"dependsOn,omitempty"`
+
 	// The interval at which to apply the kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`
@@ -133,6 +138,10 @@ const (
 	// SourceIndexKey is the key used for indexing kustomizations
 	// based on their sources.
 	SourceIndexKey string = ".metadata.source"
+
+	// DependencyIndexKey is the key used for indexing kustomizations
+	// based on their dependencies.
+	DependencyIndexKey string = ".metadata.dependency"
 )
 
 // +kubebuilder:object:root=true

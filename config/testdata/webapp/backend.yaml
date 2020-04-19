@@ -1,0 +1,17 @@
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: backend
+spec:
+  dependsOn:
+    - common
+  interval: 5m
+  path: "./webapp/backend/"
+  prune: "part-of=webapp,component=backend"
+  sourceRef:
+    kind: GitRepository
+    name: webapp
+  healthChecks:
+    - kind: Deployment
+      name: backend
+      namespace: webapp
