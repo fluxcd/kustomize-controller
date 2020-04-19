@@ -17,9 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 // KustomizationSpec defines the desired state of a kustomization.
@@ -38,8 +39,8 @@ type KustomizationSpec struct {
 	// +optional
 	Prune string `json:"prune,omitempty"`
 
-	// A list of workloads for health assessment.
-	// Checks the rollout status of each supplied Deployment, DaemonSet or StatefulSet.
+	// A list of workloads (Deployments, DaemonSets and StatefulSets)
+	// to be included in the health assessment.
 	// +optional
 	HealthChecks []WorkloadReference `json:"healthChecks,omitempty"`
 
@@ -64,19 +65,19 @@ type KustomizationSpec struct {
 	Validation string `json:"validation,omitempty"`
 }
 
-// WorkloadReference defines a reference to Deployment, DaemonSet or StatefulSet
+// WorkloadReference defines a reference to a Deployment, DaemonSet or StatefulSet.
 type WorkloadReference struct {
-	// Kind is the type of resource being referenced
+	// Kind is the type of resource being referenced.
 	// +kubebuilder:validation:Enum=Deployment;DaemonSet;StatefulSet
 	// +required
 	Kind string `json:"kind"`
 
-	// Name is the name of resource being referenced
+	// Name is the name of resource being referenced.
 	// +required
 	Name string `json:"name"`
 
-	// Namespace is the namespace of resource being referenced
-	// +optional
+	// Namespace is the namespace of resource being referenced.
+	// +required
 	Namespace string `json:"namespace,omitempty"`
 }
 

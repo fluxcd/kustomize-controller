@@ -24,7 +24,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"strings"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 	"github.com/fluxcd/kustomize-controller/internal/lockedfile"
@@ -157,22 +157,17 @@ func (r *KustomizationReconciler) sync(
 	defer os.RemoveAll(tmpDir)
 
 	// download artifact and extract files
-	url := source.GetArtifact().URL
-	cmd := fmt.Sprintf("cd %s && curl -sL %s | tar -xz --strip-components=1 -C .", tmpDir, url)
-	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-	output, err := command.CombinedOutput()
+	err = r.download(kustomization, source.GetArtifact().URL, tmpDir)
 	if err != nil {
-		err = fmt.Errorf("artifact acquisition failed: %w", err)
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			kustomizev1.ArtifactFailedReason,
-			err.Error(),
-		), fmt.Errorf("artifact download `%s` error: %s", url, string(output))
+			"artifact acquisition failed",
+		), err
 	}
 
 	// check build path exists
-	buildDir := kustomization.Spec.Path
-	if _, err := os.Stat(path.Join(tmpDir, buildDir)); err != nil {
+	if _, err := os.Stat(path.Join(tmpDir, kustomization.Spec.Path)); err != nil {
 		err = fmt.Errorf("kustomization path not found: %w", err)
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -182,72 +177,42 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// kustomize build
-	cmd = fmt.Sprintf("cd %s && kustomize build %s > %s.yaml", tmpDir, buildDir, kustomization.GetName())
-	command = exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-	output, err = command.CombinedOutput()
+	err = r.build(kustomization, tmpDir)
 	if err != nil {
-		err = fmt.Errorf("kustomize build error: %w", err)
-		fmt.Println(string(output))
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			kustomizev1.BuildFailedReason,
-			err.Error(),
-		), fmt.Errorf("kustomize build error: %s", string(output))
+			"kustomize build failed",
+		), err
 	}
-
-	// set apply timeout
-	timeout := kustomization.GetTimeout() + (time.Second * 1)
-	ctxApply, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 
 	// dry-run apply
-	if kustomization.Spec.Validation != "" {
-		cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s",
-			tmpDir, kustomization.GetName(), kustomization.GetTimeout().String(), kustomization.Spec.Validation)
-		command = exec.CommandContext(ctxApply, "/bin/sh", "-c", cmd)
-		output, err = command.CombinedOutput()
-		if err != nil {
-			err = fmt.Errorf("%s-side validation failed", kustomization.Spec.Validation)
-			return kustomizev1.KustomizationNotReady(
-				kustomization,
-				kustomizev1.ValidationFailedReason,
-				err.Error(),
-			), fmt.Errorf("validation failed: %s", string(output))
-		}
+	err = r.validate(kustomization, tmpDir)
+	if err != nil {
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			kustomizev1.ValidationFailedReason,
+			fmt.Sprintf("%s-side validation failed", kustomization.Spec.Validation),
+		), err
 	}
 
-	// run apply with timeout
-	applyStart := time.Now()
-	cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s",
-		tmpDir, kustomization.GetName(), kustomization.Spec.Interval.Duration.String())
-	if kustomization.Spec.Prune != "" {
-		cmd = fmt.Sprintf("%s --prune -l %s", cmd, kustomization.Spec.Prune)
-	}
-	command = exec.CommandContext(ctxApply, "/bin/sh", "-c", cmd)
-	output, err = command.CombinedOutput()
+	// apply
+	err = r.apply(kustomization, tmpDir)
 	if err != nil {
-		err = fmt.Errorf("apply failed")
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			kustomizev1.ApplyFailedReason,
-			err.Error(),
-		), fmt.Errorf("kubectl apply: %s", string(output))
+			"apply failed",
+		), err
 	}
-
-	// log apply output
-	applyDuration := fmt.Sprintf("Kustomization applied in %s", time.Now().Sub(applyStart).String())
-	r.Log.WithValues(
-		strings.ToLower(kustomization.Kind),
-		fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-	).Info(applyDuration, "output", r.parseApplyOutput(output))
 
 	// health assessment
-	err = r.isHealthy(kustomization)
+	err = r.check(kustomization)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
-			kustomizev1.ApplyFailedReason,
-			err.Error(),
+			kustomizev1.HealthCheckFailedReason,
+			"health check failed",
 		), err
 	}
 
@@ -256,6 +221,122 @@ func (r *KustomizationReconciler) sync(
 		kustomizev1.ApplySucceedReason,
 		"kustomization was successfully applied",
 	), nil
+}
+
+func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomization, url string, tmpDir string) error {
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := fmt.Sprintf("cd %s && curl -sL %s | tar -xz --strip-components=1 -C .",
+		tmpDir, url)
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return fmt.Errorf("artifact `%s` download failed: %s", url, string(output))
+	}
+	return nil
+}
+
+func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, tmpDir string) error {
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := fmt.Sprintf("cd %s && kustomize build %s > %s.yaml",
+		tmpDir, kustomization.Spec.Path, kustomization.GetName())
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return fmt.Errorf("kustomize build failed: %s", string(output))
+	}
+	return nil
+}
+
+func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomization, tmpDir string) error {
+	if kustomization.Spec.Validation == "" {
+		return nil
+	}
+
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s",
+		tmpDir, kustomization.GetName(), kustomization.GetTimeout().String(), kustomization.Spec.Validation)
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return fmt.Errorf("validation failed: %s", string(output))
+	}
+	return nil
+}
+
+func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization, tmpDir string) error {
+	start := time.Now()
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s",
+		tmpDir, kustomization.GetName(), kustomization.Spec.Interval.Duration.String())
+	if kustomization.Spec.Prune != "" {
+		cmd = fmt.Sprintf("%s --prune -l %s", cmd, kustomization.Spec.Prune)
+	}
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return fmt.Errorf("apply failed: %s", string(output))
+	}
+
+	r.Log.WithValues(
+		strings.ToLower(kustomization.Kind),
+		fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+	).Info(
+		fmt.Sprintf("Kustomization applied in %s",
+			time.Now().Sub(start).String()),
+		"output", r.parseApplyOutput(output),
+	)
+	return nil
+}
+
+func (r *KustomizationReconciler) check(kustomization kustomizev1.Kustomization) error {
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	for _, check := range kustomization.Spec.HealthChecks {
+		cmd := fmt.Sprintf("kubectl -n %s rollout status %s %s --timeout=%s",
+			check.Namespace, check.Kind, check.Name, kustomization.GetTimeout())
+		command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return err
+			}
+			return fmt.Errorf("health check failed for %s '%s/%s': %s",
+				check.Kind, check.Namespace, check.Name, string(output))
+		} else {
+			r.Log.WithValues(
+				strings.ToLower(kustomization.Kind),
+				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+			).Info(fmt.Sprintf("Health check passed for %s '%s/%s'",
+				check.Kind, check.Namespace, check.Name))
+		}
+	}
+	return nil
 }
 
 func (r *KustomizationReconciler) lock(name string) (unlock func(), err error) {
@@ -283,31 +364,4 @@ func (r *KustomizationReconciler) parseApplyOutput(in []byte) map[string]string 
 		}
 	}
 	return result
-}
-
-func (r *KustomizationReconciler) isHealthy(kustomization kustomizev1.Kustomization) error {
-	timeout := kustomization.GetTimeout() + (time.Second * 1)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	for _, check := range kustomization.Spec.HealthChecks {
-		cmd := fmt.Sprintf("kubectl -n %s rollout status %s %s --timeout=%s",
-			check.Namespace, check.Kind, check.Name, kustomization.GetTimeout())
-		command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-		output, err := command.CombinedOutput()
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return err
-			}
-			return fmt.Errorf("health check failed for %s '%s/%s': %s",
-				check.Kind, check.Namespace, check.Name, string(output))
-		} else {
-			r.Log.WithValues(
-				strings.ToLower(kustomization.Kind),
-				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-			).Info(fmt.Sprintf("Health check passed for %s '%s/%s'",
-				check.Kind, check.Namespace, check.Name))
-		}
-	}
-	return nil
 }
