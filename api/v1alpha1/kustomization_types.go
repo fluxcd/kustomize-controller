@@ -17,12 +17,19 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // KustomizationSpec defines the desired state of a kustomization.
 type KustomizationSpec struct {
+	// A list of kustomization that must be ready before this
+	// kustomization can be applied.
+	// +optional
+	DependsOn []string `json:"dependsOn,omitempty"`
+
 	// The interval at which to apply the kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`
@@ -37,6 +44,11 @@ type KustomizationSpec struct {
 	// +optional
 	Prune string `json:"prune,omitempty"`
 
+	// A list of workloads (Deployments, DaemonSets and StatefulSets)
+	// to be included in the health assessment.
+	// +optional
+	HealthChecks []WorkloadReference `json:"healthChecks,omitempty"`
+
 	// Reference of the source where the kustomization file is.
 	// +required
 	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
@@ -46,11 +58,32 @@ type KustomizationSpec struct {
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
 
+	// Timeout for validation, apply and health checking operations.
+	// Defaults to 'Interval' duration.
+	// +optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
+
 	// Validate the Kubernetes objects before applying them on the cluster.
 	// The validation strategy can be 'client' (local dry-run) or 'server' (APIServer dry-run).
 	// +kubebuilder:validation:Enum=client;server
 	// +optional
 	Validation string `json:"validation,omitempty"`
+}
+
+// WorkloadReference defines a reference to a Deployment, DaemonSet or StatefulSet.
+type WorkloadReference struct {
+	// Kind is the type of resource being referenced.
+	// +kubebuilder:validation:Enum=Deployment;DaemonSet;StatefulSet
+	// +required
+	Kind string `json:"kind"`
+
+	// Name is the name of resource being referenced.
+	// +required
+	Name string `json:"name"`
+
+	// Namespace is the namespace of resource being referenced.
+	// +required
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // KustomizationStatus defines the observed state of a kustomization.
@@ -85,13 +118,16 @@ func KustomizationNotReady(kustomization Kustomization, reason, message string) 
 	return kustomization
 }
 
-func KustomizationReadyMessage(kustomization Kustomization) string {
-	for _, condition := range kustomization.Status.Conditions {
-		if condition.Type == ReadyCondition {
-			return condition.Message
-		}
+// GetTimeout returns the timeout with default
+func (in *Kustomization) GetTimeout() time.Duration {
+	duration := in.Spec.Interval.Duration
+	if in.Spec.Timeout != nil {
+		duration = in.Spec.Timeout.Duration
 	}
-	return ""
+	if duration < time.Minute {
+		return time.Minute
+	}
+	return duration
 }
 
 const (
@@ -102,6 +138,10 @@ const (
 	// SourceIndexKey is the key used for indexing kustomizations
 	// based on their sources.
 	SourceIndexKey string = ".metadata.source"
+
+	// DependencyIndexKey is the key used for indexing kustomizations
+	// based on their dependencies.
+	DependencyIndexKey string = ".metadata.dependency"
 )
 
 // +kubebuilder:object:root=true

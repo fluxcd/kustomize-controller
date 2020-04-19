@@ -53,12 +53,14 @@ jobs:
           KUBEBUILDER_ASSETS: ${{ github.workspace }}/kubebuilder/bin
       - name: Run smoke tests
         run: |
+          kubectl apply -k ./config/testdata/webapp
           kubectl apply -f ./config/samples
           kubectl -n kustomize-system rollout status deploy/kustomize-controller --timeout=1m
           kubectl wait kustomizations/podinfo-dev --for=condition=ready --timeout=1m
           kubectl wait kustomizations/podinfo-staging --for=condition=ready --timeout=1m
           kubectl wait kustomizations/podinfo-production --for=condition=ready --timeout=1m
           kubectl -n dev rollout status deploy/podinfo --timeout=1m
+          kubectl wait kustomizations/frontend --for=condition=ready --timeout=4m
           kubectl -n kustomize-system logs deploy/kustomize-controller
       - name: Debug failure
         if: failure()

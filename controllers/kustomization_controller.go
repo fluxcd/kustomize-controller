@@ -18,8 +18,10 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	corev1 "k8s.io/api/core/v1"
 	"os"
 	"os/exec"
 	"path"
@@ -31,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 	"github.com/fluxcd/kustomize-controller/internal/lockedfile"
@@ -48,8 +51,8 @@ type KustomizationReconciler struct {
 // +kubebuilder:rbac:groups=kustomize.fluxcd.io,resources=kustomizations/status,verbs=get;update;patch
 
 func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := context.Background()
+	syncStart := time.Now()
 
 	var kustomization kustomizev1.Kustomization
 	if err := r.Get(ctx, req.NamespacedName, &kustomization); err != nil {
@@ -92,6 +95,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, err
 	}
 
+	// check source readiness
 	if source.GetArtifact() == nil {
 		msg := "Source is not ready"
 		kustomization = kustomizev1.KustomizationNotReady(kustomization, kustomizev1.ArtifactFailedReason, msg)
@@ -103,8 +107,25 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, nil
 	}
 
-	// try git sync
-	syncedKustomization, err := r.sync(ctx, *kustomization.DeepCopy(), source)
+	// check dependencies
+	if len(kustomization.Spec.DependsOn) > 0 {
+		if err := r.checkDependencies(kustomization); err != nil {
+			kustomization = kustomizev1.KustomizationNotReady(kustomization, kustomizev1.DependencyNotReadyReason, err.Error())
+			if err := r.Status().Update(ctx, &kustomization); err != nil {
+				log.Error(err, "unable to update Kustomization status")
+				return ctrl.Result{Requeue: true}, err
+			}
+			// we can't rely on exponential backoff because it will prolong the execution too much,
+			// instead we requeue every half a minute.
+			requeueAfter := 30 * time.Second
+			log.Error(err, "Dependencies do not meet ready condition, retrying in "+requeueAfter.String())
+			return ctrl.Result{RequeueAfter: requeueAfter}, nil
+		}
+		log.Info("All dependencies area ready, proceeding with apply")
+	}
+
+	// try sync
+	syncedKustomization, err := r.sync(*kustomization.DeepCopy(), source)
 	if err != nil {
 		log.Error(err, "Kustomization apply failed")
 	}
@@ -115,7 +136,11 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	log.Info("Kustomization sync finished, next run in " + kustomization.Spec.Interval.Duration.String())
+	// log sync duration
+	log.Info(fmt.Sprintf("Kustomization sync finished in %s, next run in %s",
+		time.Now().Sub(syncStart).String(),
+		kustomization.Spec.Interval.Duration.String(),
+	))
 
 	// requeue kustomization
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
@@ -126,11 +151,11 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&kustomizev1.Kustomization{}).
 		WithEventFilter(KustomizationGarbageCollectPredicate{Log: r.Log}).
 		WithEventFilter(KustomizationSyncAtPredicate{}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 4}).
 		Complete(r)
 }
 
 func (r *KustomizationReconciler) sync(
-	ctx context.Context,
 	kustomization kustomizev1.Kustomization,
 	source sourcev1.Source) (kustomizev1.Kustomization, error) {
 	// acquire lock
@@ -150,22 +175,17 @@ func (r *KustomizationReconciler) sync(
 	defer os.RemoveAll(tmpDir)
 
 	// download artifact and extract files
-	url := source.GetArtifact().URL
-	cmd := fmt.Sprintf("cd %s && curl -sL %s | tar -xz --strip-components=1 -C .", tmpDir, url)
-	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-	output, err := command.CombinedOutput()
+	err = r.download(kustomization, source.GetArtifact().URL, tmpDir)
 	if err != nil {
-		err = fmt.Errorf("artifact acquisition failed: %w", err)
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			kustomizev1.ArtifactFailedReason,
-			err.Error(),
-		), fmt.Errorf("artifact download `%s` error: %s", url, string(output))
+			"artifact acquisition failed",
+		), err
 	}
 
 	// check build path exists
-	buildDir := kustomization.Spec.Path
-	if _, err := os.Stat(path.Join(tmpDir, buildDir)); err != nil {
+	if _, err := os.Stat(path.Join(tmpDir, kustomization.Spec.Path)); err != nil {
 		err = fmt.Errorf("kustomization path not found: %w", err)
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -175,70 +195,166 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// kustomize build
-	cmd = fmt.Sprintf("cd %s && kustomize build %s > %s.yaml", tmpDir, buildDir, kustomization.GetName())
-	command = exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-	output, err = command.CombinedOutput()
+	err = r.build(kustomization, tmpDir)
 	if err != nil {
-		err = fmt.Errorf("kustomize build error: %w", err)
-		fmt.Println(string(output))
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			kustomizev1.BuildFailedReason,
-			err.Error(),
-		), fmt.Errorf("kustomize build error: %s", string(output))
+			"kustomize build failed",
+		), err
 	}
-
-	// set apply timeout
-	timeout := kustomization.Spec.Interval.Duration + (time.Second * 1)
-	ctxApply, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 
 	// dry-run apply
-	if kustomization.Spec.Validation != "" {
-		cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --dry-run=%s",
-			tmpDir, kustomization.GetName(), kustomization.Spec.Validation)
-		command = exec.CommandContext(ctxApply, "/bin/sh", "-c", cmd)
-		output, err = command.CombinedOutput()
-		if err != nil {
-			err = fmt.Errorf("%s-side validation failed", kustomization.Spec.Validation)
-			return kustomizev1.KustomizationNotReady(
-				kustomization,
-				kustomizev1.ValidationFailedReason,
-				err.Error(),
-			), fmt.Errorf("validation failed: %s", string(output))
-		}
+	err = r.validate(kustomization, tmpDir)
+	if err != nil {
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			kustomizev1.ValidationFailedReason,
+			fmt.Sprintf("%s-side validation failed", kustomization.Spec.Validation),
+		), err
 	}
 
-	// run apply with timeout
-	applyStart := time.Now()
-	cmd = fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s",
-		tmpDir, kustomization.GetName(), kustomization.Spec.Interval.Duration.String())
-	if kustomization.Spec.Prune != "" {
-		cmd = fmt.Sprintf("%s --prune -l %s", cmd, kustomization.Spec.Prune)
-	}
-	command = exec.CommandContext(ctxApply, "/bin/sh", "-c", cmd)
-	output, err = command.CombinedOutput()
+	// apply
+	err = r.apply(kustomization, tmpDir)
 	if err != nil {
-		err = fmt.Errorf("apply failed")
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			kustomizev1.ApplyFailedReason,
-			err.Error(),
-		), fmt.Errorf("kubectl apply: %s", string(output))
+			"apply failed",
+		), err
 	}
 
-	// log apply output
-	applyDuration := fmt.Sprintf("Kustomization applied in %s", time.Now().Sub(applyStart).String())
-	r.Log.WithValues(
-		strings.ToLower(kustomization.Kind),
-		fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-	).Info(applyDuration, "output", r.parseApplyOutput(output))
+	// health assessment
+	err = r.checkHealth(kustomization)
+	if err != nil {
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			kustomizev1.HealthCheckFailedReason,
+			"health check failed",
+		), err
+	}
 
 	return kustomizev1.KustomizationReady(
 		kustomization,
 		kustomizev1.ApplySucceedReason,
 		"kustomization was successfully applied",
 	), nil
+}
+
+func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomization, url string, tmpDir string) error {
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := fmt.Sprintf("cd %s && curl -sL %s | tar -xz --strip-components=1 -C .",
+		tmpDir, url)
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return fmt.Errorf("artifact `%s` download failed: %s", url, string(output))
+	}
+	return nil
+}
+
+func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, tmpDir string) error {
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := fmt.Sprintf("cd %s && kustomize build %s > %s.yaml",
+		tmpDir, kustomization.Spec.Path, kustomization.GetName())
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return fmt.Errorf("kustomize build failed: %s", string(output))
+	}
+	return nil
+}
+
+func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomization, tmpDir string) error {
+	if kustomization.Spec.Validation == "" {
+		return nil
+	}
+
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s",
+		tmpDir, kustomization.GetName(), kustomization.GetTimeout().String(), kustomization.Spec.Validation)
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return fmt.Errorf("validation failed: %s", string(output))
+	}
+	return nil
+}
+
+func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization, tmpDir string) error {
+	start := time.Now()
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s",
+		tmpDir, kustomization.GetName(), kustomization.Spec.Interval.Duration.String())
+	if kustomization.Spec.Prune != "" {
+		cmd = fmt.Sprintf("%s --prune -l %s", cmd, kustomization.Spec.Prune)
+	}
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return fmt.Errorf("apply failed: %s", string(output))
+	}
+
+	r.Log.WithValues(
+		strings.ToLower(kustomization.Kind),
+		fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+	).Info(
+		fmt.Sprintf("Kustomization applied in %s",
+			time.Now().Sub(start).String()),
+		"output", r.parseApplyOutput(output),
+	)
+	return nil
+}
+
+func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomization) error {
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	for _, check := range kustomization.Spec.HealthChecks {
+		cmd := fmt.Sprintf("kubectl -n %s rollout status %s %s --timeout=%s",
+			check.Namespace, check.Kind, check.Name, kustomization.GetTimeout())
+		command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return err
+			}
+			return fmt.Errorf("health check failed for %s '%s/%s': %s",
+				check.Kind, check.Namespace, check.Name, string(output))
+		} else {
+			r.Log.WithValues(
+				strings.ToLower(kustomization.Kind),
+				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+			).Info(fmt.Sprintf("Health check passed for %s '%s/%s'",
+				check.Kind, check.Namespace, check.Name))
+		}
+	}
+	return nil
 }
 
 func (r *KustomizationReconciler) lock(name string) (unlock func(), err error) {
@@ -266,4 +382,30 @@ func (r *KustomizationReconciler) parseApplyOutput(in []byte) map[string]string 
 		}
 	}
 	return result
+}
+
+func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Kustomization) error {
+	for _, dep := range kustomization.Spec.DependsOn {
+		depName := types.NamespacedName{
+			Namespace: kustomization.GetNamespace(),
+			Name:      dep,
+		}
+		var k kustomizev1.Kustomization
+		err := r.Get(context.Background(), depName, &k)
+		if err != nil {
+			return fmt.Errorf("unable to get '%s' dependency: %w", depName, err)
+		}
+
+		if len(k.Status.Conditions) == 0 {
+			return fmt.Errorf("dependency '%s' is not ready", depName)
+		}
+
+		for _, condition := range k.Status.Conditions {
+			if condition.Type == kustomizev1.ReadyCondition && condition.Status != corev1.ConditionTrue {
+				return fmt.Errorf("dependency '%s' is not ready", depName)
+			}
+		}
+	}
+
+	return nil
 }

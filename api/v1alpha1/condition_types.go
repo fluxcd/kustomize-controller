@@ -48,29 +48,33 @@ type Condition struct {
 }
 
 const (
-	// ReadyCondition represents the fact that a given kustomization is in ready state.
+	// ReadyCondition represents the fact that a given kustomization has passed
+	// validation and was successfully applied on the cluster.
 	ReadyCondition string = "Ready"
 )
 
 const (
-	// InitializingReason represents the fact that a given kustomization is being initialized.
-	InitializingReason string = "Initializing"
-
 	// ApplySucceedReason represents the fact that the kustomization apply succeed.
 	ApplySucceedReason string = "ApplySucceed"
 
 	// ApplyFailedReason represents the fact that the kustomization apply failed.
 	ApplyFailedReason string = "ApplyFailed"
 
+	// ArtifactFailedReason represents the fact that the artifact download failed.
+	ArtifactFailedReason string = "ArtifactFailed"
+
 	// BuildFailedReason represents the fact that the kustomize build command failed.
 	BuildFailedReason string = "BuildFailed"
+
+	// DependencyNotReady represents the fact that the one of the dependencies is not ready.
+	DependencyNotReadyReason string = "DependencyNotReady"
+
+	// HealthCheckFailedReason represents the fact that the one of the health check failed.
+	HealthCheckFailedReason string = "HealthCheckFailed"
 
 	// SuspendedReason represents the fact that the kustomization execution is suspended.
 	SuspendedReason string = "Suspended"
 
 	// ValidationFailedReason represents the fact that the dry-run apply failed.
 	ValidationFailedReason string = "ValidationFailed"
-
-	// ArtifactFailedReason represents the fact that the artifact download failed.
-	ArtifactFailedReason string = "ArtifactFailed"
 )
