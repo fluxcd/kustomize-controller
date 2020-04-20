@@ -6,8 +6,8 @@
 [![release](https://img.shields.io/github/release/fluxcd/kustomize-controller/all.svg)](https://github.com/fluxcd/kustomize-controller/releases)
 
 The kustomize-controller is a continuous delivery (CD) tool for Kubernetes.
-The controller runs CD pipelines inside the cluster for workloads and infrastructure manifests 
-coming from source control systems that are generated with Kustomize.
+The controller runs CD pipelines inside the cluster for workloads and infrastructure
+manifests (generated with Kustomize) coming from source control systems.
 
 ![overview](docs/diagrams/fluxcd-kustomize-source-controllers.png)
 
@@ -24,8 +24,8 @@ Features:
 
 ## Usage
 
-The kustomize-controller is part of a composable GitOps toolkit and depends on  
-[source-controller](https://github.com/fluxcd/source-controller) to provide the raw Kubernetes 
+The kustomize-controller is part of a composable GitOps toolkit and depends on
+[source-controller](https://github.com/fluxcd/source-controller) to provide the raw Kubernetes
 manifests and `kustomization.yaml` file.
 
 ### Install the controllers
@@ -104,6 +104,8 @@ spec:
 A detailed explanation of the Kustomization object and its fields
 can be found in the [specification doc](docs/spec/v1alpha1/README.md). 
 
+![pipeline](docs/diagrams/fluxcd-kustomization-pipeline.png)
+
 Based on the above definition, the kustomize-controller fetches the Git repository content from source-controller,
 generates Kubernetes manifests by running kustomize build inside `./overlays/dev/`,
 and validates them with a dry-run apply. If the manifests pass validation, the controller will apply them 
@@ -166,9 +168,9 @@ status:
 }
 ```
 
-### Define the order for kustomizations
+### Define execution order
 
-When defining a kustomization, you may need to make sure other kustomizations have been 
+When running a kustomization, you may need to make sure other kustomizations have been 
 successfully applied beforehand. A kustomization can specify a list of dependencies with `spec.dependsOn`.
 When combined with health assessment, a kustomization will run after all its dependencies health checks are passing.
 
