@@ -1,6 +1,9 @@
 # kustomize-controller
 
 [![e2e](https://github.com/fluxcd/kustomize-controller/workflows/e2e/badge.svg)](https://github.com/fluxcd/kustomize-controller/actions)
+[![report](https://goreportcard.com/badge/github.com/fluxcd/kustomize-controller)](https://goreportcard.com/report/github.com/fluxcd/kustomize-controller)
+[![license](https://img.shields.io/github/license/fluxcd/kustomize-controller.svg)](https://github.com/fluxcd/kustomize-controller/blob/master/LICENSE)
+[![release](https://img.shields.io/github/release/fluxcd/kustomize-controller/all.svg)](https://github.com/fluxcd/kustomize-controller/releases)
 
 The kustomize-controller is a continuous delivery (CD) tool for Kubernetes.
 The controller runs CD pipelines inside the cluster for workloads and infrastructure manifests 
@@ -37,9 +40,8 @@ kubectl apply -f-
 Install kustomize-controller with:
 
 ```bash
-git clone https://github.com/fluxcd/kustomize-controller
-cd kustomize-controller
-make docker-build docker-push dev-deploy IMG=your-docker-hub-username/kustomize-controller:test
+kustomize build https://github.com/fluxcd/kustomize-controller//config/default?ref=v0.0.1-alpha.1 \
+kubectl apply -f-
 ```
 
 ### Define a Git repository source
@@ -241,15 +243,3 @@ spec:
 Based on the above definition, the kustomize controller will build and apply a kustomization that matches the semver range
 set in the Git repository manifest.
 
-## GitOps workflow
-
-Example:
-* create a `GitRepository` per app (example repo [podinfo-deploy](https://github.com/stefanprodan/podinfo-deploy))
-* create a `Kustomization` per app/environment 
-* push changes to a kustomize overlay in git
-* source controller pulls the changes from git and creates an artifact
-* kustomize controller fetches the latest artifact
-* kustomize controller builds the overlay manifest and applies it on the cluster
-* push a git tag in semver format
-* source controller pulls the git tag and creates an artifact
-* kustomize controller fetches the artifact and applies it to production
