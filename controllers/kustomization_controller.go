@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	corev1 "k8s.io/api/core/v1"
 	"os"
 	"os/exec"
 	"path"
@@ -29,6 +28,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	"github.com/fluxcd/kustomize-controller/internal/alert"
 	"github.com/fluxcd/kustomize-controller/internal/lockedfile"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
@@ -118,7 +119,9 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			// we can't rely on exponential backoff because it will prolong the execution too much,
 			// instead we requeue every half a minute.
 			requeueAfter := 30 * time.Second
-			log.Error(err, "Dependencies do not meet ready condition, retrying in "+requeueAfter.String())
+			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", requeueAfter.String())
+			log.Error(err, msg)
+			r.alert(kustomization, msg, "info")
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		}
 		log.Info("All dependencies area ready, proceeding with apply")
@@ -128,6 +131,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	syncedKustomization, err := r.sync(*kustomization.DeepCopy(), source)
 	if err != nil {
 		log.Error(err, "Kustomization apply failed")
+		r.alert(kustomization, err.Error(), "error")
 	}
 
 	// update status
@@ -292,7 +296,7 @@ func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomizati
 	output, err := command.CombinedOutput()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return err
+			return fmt.Errorf("validation timeout: %w", err)
 		}
 		return fmt.Errorf("validation failed: %s", string(output))
 	}
@@ -314,19 +318,31 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	output, err := command.CombinedOutput()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return err
+			return fmt.Errorf("apply timeout: %w", err)
 		}
 		return fmt.Errorf("apply failed: %s", string(output))
 	}
 
+	resources := r.parseApplyOutput(output)
 	r.Log.WithValues(
 		strings.ToLower(kustomization.Kind),
 		fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
 	).Info(
 		fmt.Sprintf("Kustomization applied in %s",
 			time.Now().Sub(start).String()),
-		"output", r.parseApplyOutput(output),
+		"output", resources,
 	)
+
+	var diff bool
+	for _, action := range resources {
+		if action != "unchanged" {
+			diff = true
+			break
+		}
+	}
+	if diff {
+		r.alert(kustomization, string(output), "info")
+	}
 	return nil
 }
 
@@ -334,6 +350,7 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+	var alerts string
 
 	for _, check := range kustomization.Spec.HealthChecks {
 		cmd := fmt.Sprintf("kubectl -n %s rollout status %s %s --timeout=%s",
@@ -342,17 +359,24 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 		output, err := command.CombinedOutput()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				return err
+				return fmt.Errorf("health check timeout for %s '%s/%s': %w",
+					check.Kind, check.Namespace, check.Name, err)
 			}
 			return fmt.Errorf("health check failed for %s '%s/%s': %s",
 				check.Kind, check.Namespace, check.Name, string(output))
 		} else {
+			msg := fmt.Sprintf("Health check passed for %s '%s/%s'",
+				check.Kind, check.Namespace, check.Name)
 			r.Log.WithValues(
 				strings.ToLower(kustomization.Kind),
 				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-			).Info(fmt.Sprintf("Health check passed for %s '%s/%s'",
-				check.Kind, check.Namespace, check.Name))
+			).Info(msg)
+			alerts += msg + "\n"
 		}
+	}
+
+	if alerts != "" {
+		r.alert(kustomization, alerts, "info")
 	}
 	return nil
 }
@@ -408,4 +432,58 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 	}
 
 	return nil
+}
+
+func (r *KustomizationReconciler) getProfiles(kustomization kustomizev1.Kustomization) ([]kustomizev1.Profile, error) {
+	list := make([]kustomizev1.Profile, 0)
+	var profiles kustomizev1.ProfileList
+	err := r.List(context.TODO(), &profiles, client.InNamespace(kustomization.GetNamespace()))
+	if err != nil {
+		return list, err
+	}
+
+	// filter profiles that match this kustomization taking into account '*' wildcard
+	for _, profile := range profiles.Items {
+		for _, name := range profile.Spec.Kustomizations {
+			if name == kustomization.GetName() || name == "*" {
+				list = append(list, profile)
+				break
+			}
+		}
+	}
+
+	return list, nil
+}
+
+func (r *KustomizationReconciler) alert(kustomization kustomizev1.Kustomization, msg string, verbosity string) {
+	profiles, err := r.getProfiles(kustomization)
+	if err != nil {
+		r.Log.WithValues(
+			strings.ToLower(kustomization.Kind),
+			fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+		).Error(err, "unable to list profiles")
+		return
+	}
+
+	for _, profile := range profiles {
+		if settings := profile.Spec.Alert; settings != nil {
+			provider, err := alert.NewProvider(settings.Type, settings.Address, settings.Username, settings.Channel)
+			if err != nil {
+				r.Log.WithValues(
+					strings.ToLower(kustomization.Kind),
+					fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+				).Error(err, "unable to configure alert provider")
+				continue
+			}
+			if settings.Verbosity == verbosity || verbosity == "error" {
+				err = provider.Post(kustomization.GetName(), kustomization.GetNamespace(), msg, verbosity)
+				if err != nil {
+					r.Log.WithValues(
+						strings.ToLower(kustomization.Kind),
+						fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+					).Error(err, "unable to send alert")
+				}
+			}
+		}
+	}
 }

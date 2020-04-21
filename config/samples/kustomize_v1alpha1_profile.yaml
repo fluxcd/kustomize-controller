@@ -1,0 +1,13 @@
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Profile
+metadata:
+  name: default
+spec:
+  alert:
+    type: slack
+    address: https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+    username: kustomize-controller
+    channel: general
+    verbosity: info
+  kustomizations:
+    - '*'

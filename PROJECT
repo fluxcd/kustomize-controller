@@ -4,4 +4,7 @@ resources:
 - group: kustomize
   kind: Kustomization
   version: v1alpha1
+- group: kustomize
+  kind: Profile
+  version: v1alpha1
 version: "2"
