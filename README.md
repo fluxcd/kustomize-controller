@@ -5,9 +5,9 @@
 [![license](https://img.shields.io/github/license/fluxcd/kustomize-controller.svg)](https://github.com/fluxcd/kustomize-controller/blob/master/LICENSE)
 [![release](https://img.shields.io/github/release/fluxcd/kustomize-controller/all.svg)](https://github.com/fluxcd/kustomize-controller/releases)
 
-The kustomize-controller is a continuous delivery (CD) tool for Kubernetes.
-The controller runs CD pipelines inside the cluster for workloads and infrastructure
-manifests (generated with Kustomize) coming from source control systems.
+The kustomize-controller is a continuous delivery tool for Kubernetes, specialized in running 
+CD pipelines inside the cluster for workloads and infrastructure manifests
+generated with Kustomize coming from source control systems.
 
 ![overview](docs/diagrams/fluxcd-kustomize-source-controllers.png)
 
@@ -168,7 +168,7 @@ status:
 }
 ```
 
-### Define execution order
+### Control the execution order
 
 When running a kustomization, you may need to make sure other kustomizations have been 
 successfully applied beforehand. A kustomization can specify a list of dependencies with `spec.dependsOn`.
@@ -245,3 +245,44 @@ spec:
 Based on the above definition, the kustomize controller will build and apply a kustomization that matches the semver range
 set in the Git repository manifest.
 
+### Configure alerting
+
+The kustomize controller can be configured to post message to Slack or Discord whenever a kustomization status changes.
+
+Alerting can be configured by creating a profile that targets a list of kustomization:
+
+```yaml
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Profile
+metadata:
+  name: default
+spec:
+  alert:
+    type: slack
+    verbosity: info
+    address: https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+    username: kustomize-controller
+    channel: general
+  kustomizations:
+    - '*'
+```
+
+The alert provider type can be: `slack` or `discord` and the verbosity can be set to `info` or `error`.
+
+The `*` wildcard tells the controller to use this profile for all kustomization that are present
+in the same namespace as the profile.
+Multiple profiles can be used to send alerts to different channels or Slack organizations.
+
+When the verbosity is set to `error`, the controller will alert on any error encountered during the
+reconciliation process. This includes kustomize build and validation errors, apply errors and
+health check failures.
+
+![error alert](docs/diagrams/slack-error-alert.png)
+
+When the verbosity is set to `info`, the controller will alert if:
+* a kustomization apply has changed or created a Kubernetes object
+* heath checks are passing
+* a dependency is not ready
+* an error occurs
+
+![info alert](docs/diagrams/slack-info-alert.png)

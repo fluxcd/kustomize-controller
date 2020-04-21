@@ -1,0 +1,14 @@
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: test
+spec:
+  dependsOn:
+    - common
+  interval: 5m
+  path: "./webapp/test/"
+  prune: "part-of=webapp,component=test"
+  sourceRef:
+    kind: GitRepository
+    name: webapp
+  validation: client
