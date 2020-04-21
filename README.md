@@ -21,6 +21,7 @@ Features:
 * prunes the Kubernetes objects removed from source
 * checks the health of the deployed workloads
 * runs `Kustomizations` in a specific order, taking into account the depends-on relationship 
+* reports on Slack or Discord whenever a `Kustomization` status changes
 
 ## Usage
 
@@ -247,9 +248,9 @@ set in the Git repository manifest.
 
 ### Configure alerting
 
-The kustomize controller can be configured to post message to Slack or Discord whenever a kustomization status changes.
+The kustomize controller can post message to Slack or Discord whenever a kustomization status changes.
 
-Alerting can be configured by creating a profile that targets a list of kustomization:
+Alerting can be configured by creating a profile that targets a list of kustomizations:
 
 ```yaml
 apiVersion: kustomize.fluxcd.io/v1alpha1
@@ -269,7 +270,7 @@ spec:
 
 The alert provider type can be: `slack` or `discord` and the verbosity can be set to `info` or `error`.
 
-The `*` wildcard tells the controller to use this profile for all kustomization that are present
+The `*` wildcard tells the controller to use this profile for all kustomizations that are present
 in the same namespace as the profile.
 Multiple profiles can be used to send alerts to different channels or Slack organizations.
 
@@ -280,9 +281,9 @@ health check failures.
 ![error alert](docs/diagrams/slack-error-alert.png)
 
 When the verbosity is set to `info`, the controller will alert if:
-* a kustomization apply has changed or created a Kubernetes object
+* a Kubernetes object was created, updated or deleted
 * heath checks are passing
-* a dependency is not ready
+* a dependency is delaying the execution
 * an error occurs
 
 ![info alert](docs/diagrams/slack-info-alert.png)
