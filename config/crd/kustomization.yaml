@@ -1,4 +1,5 @@
 resources:
 - bases/kustomize.fluxcd.io_kustomizations.yaml
+- bases/kustomize.fluxcd.io_profiles.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 

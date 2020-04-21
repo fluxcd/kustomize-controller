@@ -25,7 +25,7 @@ import (
 
 // KustomizationSpec defines the desired state of a kustomization.
 type KustomizationSpec struct {
-	// A list of kustomization that must be ready before this
+	// A list of kustomizations that must be ready before this
 	// kustomization can be applied.
 	// +optional
 	DependsOn []string `json:"dependsOn,omitempty"`

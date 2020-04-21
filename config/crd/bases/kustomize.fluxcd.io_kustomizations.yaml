@@ -47,7 +47,7 @@ spec:
           description: KustomizationSpec defines the desired state of a kustomization.
           properties:
             dependsOn:
-              description: A list of kustomization that must be ready before this
+              description: A list of kustomizations that must be ready before this
                 kustomization can be applied.
               items:
                 type: string

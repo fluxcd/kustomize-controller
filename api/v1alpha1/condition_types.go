@@ -72,6 +72,9 @@ const (
 	// HealthCheckFailedReason represents the fact that the one of the health check failed.
 	HealthCheckFailedReason string = "HealthCheckFailed"
 
+	// InitializedReason represents the fact that a given resource has been initialized.
+	InitializedReason string = "Initialized"
+
 	// SuspendedReason represents the fact that the kustomization execution is suspended.
 	SuspendedReason string = "Suspended"
 

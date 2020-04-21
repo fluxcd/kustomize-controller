@@ -27,6 +27,26 @@ rules:
   - patch
   - update
 - apiGroups:
+  - kustomize.fluxcd.io
+  resources:
+  - profiles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kustomize.fluxcd.io
+  resources:
+  - profiles/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - source.fluxcd.io
   resources:
   - gitrepositories
