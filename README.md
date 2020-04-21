@@ -41,7 +41,7 @@ kubectl apply -f-
 Install kustomize-controller with:
 
 ```bash
-kustomize build https://github.com/fluxcd/kustomize-controller//config/default?ref=v0.0.1-alpha.1 \
+kustomize build https://github.com/fluxcd/kustomize-controller//config/default?ref=v0.0.1-alpha.2 \
 kubectl apply -f-
 ```
 
