@@ -198,6 +198,16 @@ func (r *KustomizationReconciler) sync(
 		), err
 	}
 
+	// generate kustomization.yaml
+	err = r.generate(kustomization, tmpDir)
+	if err != nil {
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			kustomizev1.BuildFailedReason,
+			"kustomize create failed",
+		), err
+	}
+
 	// kustomize build
 	err = r.build(kustomization, tmpDir)
 	if err != nil {
@@ -259,6 +269,34 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 			return err
 		}
 		return fmt.Errorf("artifact `%s` download failed: %s", url, string(output))
+	}
+	return nil
+}
+
+func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, tmpDir string) error {
+	if !kustomization.Spec.Generate {
+		return nil
+	}
+
+	timeout := kustomization.GetTimeout() + (time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	labels := ""
+	if prune := kustomization.Spec.Prune; prune != "" {
+		labels = fmt.Sprintf("--labels %s", strings.ReplaceAll(prune, "=", ":"))
+	}
+
+	dirPath := path.Join(tmpDir, kustomization.Spec.Path)
+	cmd := fmt.Sprintf("cd %s && kustomize create --autodetect --recursive %s",
+		dirPath, labels)
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return fmt.Errorf("kustomize create failed: %s", string(output))
 	}
 	return nil
 }
