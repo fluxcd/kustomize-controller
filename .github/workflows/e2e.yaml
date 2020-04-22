@@ -54,7 +54,9 @@ jobs:
       - name: Run smoke tests
         run: |
           kubectl apply -k ./config/testdata/webapp
+          kubectl apply -k ./config/testdata/generate
           kubectl wait kustomizations/frontend --for=condition=ready --timeout=4m
+          kubectl wait kustomizations/generate --for=condition=ready --timeout=4m
           kubectl -n kustomize-system logs deploy/kustomize-controller
       - name: Debug failure
         if: failure()
