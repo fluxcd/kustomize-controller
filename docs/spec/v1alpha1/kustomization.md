@@ -16,6 +16,12 @@ type KustomizationSpec struct {
 	// +optional
 	DependsOn []string `json:"dependsOn,omitempty"`
 
+	// When enabled, the kustomization.yaml is automatically generated
+	// for all the Kubernetes manifests in the specified path and sub-directories.
+	// The generated kustomization.yaml will have common labels taken from the prune field.
+	// +optional
+	Generate bool `json:"generate,omitempty"`
+
 	// The interval at which to apply the kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`
@@ -111,8 +117,18 @@ Source supported types:
 
 * [GitRepository](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/gitrepositories.md)
 
-> **Note** that the source must contain the kustomization.yaml and all the Kubernetes manifests and configuration files
-> referenced in the kustomization.yaml.
+> **Note** that the source should contain the kustomization.yaml and all the
+> Kubernetes manifests and configuration files referenced in the kustomization.yaml.
+> If your repository contains only plain Kubernetes then you can enable kustomization.yaml generation.
+
+## Generate kustomization.yaml
+
+If your repository contains plain Kubernetes manifests, you can configure the
+controller to generate a `kustomization.yaml` by setting `spec.generate` to `true`.
+
+When `spec.generate` is enabled, the `kustomization.yaml` is automatically generated for
+all the Kubernetes manifests in the `spec.path` and sub-directories.
+The generated `kustomization.yaml` will have common labels taken from the `spec.prune` field.
 
 ## Reconciliation
 

@@ -30,6 +30,12 @@ type KustomizationSpec struct {
 	// +optional
 	DependsOn []string `json:"dependsOn,omitempty"`
 
+	// When enabled, the kustomization.yaml is automatically generated
+	// for all the Kubernetes manifests in the specified path and sub-directories.
+	// The generated kustomization.yaml will have common labels taken from the prune field.
+	// +optional
+	Generate bool `json:"generate,omitempty"`
+
 	// The interval at which to apply the kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`

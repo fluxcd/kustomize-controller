@@ -52,6 +52,12 @@ spec:
               items:
                 type: string
               type: array
+            generate:
+              description: When enabled, the kustomization.yaml is automatically generated
+                for all the Kubernetes manifests in the specified path and sub-directories.
+                The generated kustomization.yaml will have common labels taken from
+                the prune field.
+              type: boolean
             healthChecks:
               description: A list of workloads (Deployments, DaemonSets and StatefulSets)
                 to be included in the health assessment.
