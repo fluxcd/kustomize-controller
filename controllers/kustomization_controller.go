@@ -253,6 +253,7 @@ func (r *KustomizationReconciler) sync(
 
 	return kustomizev1.KustomizationReady(
 		kustomization,
+		source.GetArtifact().Revision,
 		kustomizev1.ApplySucceedReason,
 		"kustomization was successfully applied",
 	), nil
