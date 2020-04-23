@@ -7,6 +7,7 @@ of Kubernetes objects generated with Kustomize.
 
 - [Kustomization CRD](kustomization.md)
     + [Source reference](kustomization.md#source-reference)
+    + [Generate kustomization.yaml](kustomization.md#generate-kustomizationyaml)
     + [Reconciliation](kustomization.md#reconciliation)
     + [Garbage collection](kustomization.md#garbage-collection)
     + [Health assessment](kustomization.md#health-assessment)

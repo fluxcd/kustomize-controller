@@ -7,14 +7,15 @@
 
 The kustomize-controller is a continuous delivery tool for Kubernetes, specialized in running 
 CD pipelines inside the cluster for workloads and infrastructure manifests
-generated with Kustomize coming from source control systems.
+coming from source control systems.
 
-![overview](docs/diagrams/fluxcd-kustomize-source-controllers.png)
+![overview](docs/diagrams/kustomize-controller-overview.png)
 
 Features:
 * watches for [Kustomization](docs/spec/v1alpha1/README.md) objects
 * fetches artifacts produced by [source-controller](https://github.com/fluxcd/source-controller) from `Source` objects 
 * watches `Source` objects for revision changes 
+* generates the `kustomization.yaml` file if needed
 * generates Kubernetes manifests with kustomize build
 * validates the build output with client-side or APIServer dry-run
 * applies the generated manifests on the cluster
@@ -102,16 +103,21 @@ spec:
   timeout: 80s
 ```
 
+> **Note** that if your repository contains only plain Kubernetes manifests,
+> you can configure the controller to
+> [automatically generate](docs/spec/v1alpha1/kustomization.md#generate-kustomizationyaml)
+> a kustomization.yaml file inside the specified path.
+
 A detailed explanation of the Kustomization object and its fields
 can be found in the [specification doc](docs/spec/v1alpha1/README.md). 
-
-![pipeline](docs/diagrams/fluxcd-kustomization-pipeline.png)
 
 Based on the above definition, the kustomize-controller fetches the Git repository content from source-controller,
 generates Kubernetes manifests by running kustomize build inside `./overlays/dev/`,
 and validates them with a dry-run apply. If the manifests pass validation, the controller will apply them 
 on the cluster and starts the health assessment of the deployed workload. If the health checks are passing, the
 Kustomization object status transitions to a ready state.
+
+![workflow](docs/diagrams/kustomize-controller-flow.png)
 
 You can wait for the kustomize controller to complete the deployment with:
 
@@ -249,6 +255,8 @@ set in the Git repository manifest.
 ### Configure alerting
 
 The kustomize controller can post message to Slack or Discord whenever a kustomization status changes.
+
+![pipeline](docs/diagrams/kustomize-controller-pipeline.png)
 
 Alerting can be configured by creating a profile that targets a list of kustomizations:
 

@@ -1,0 +1,9 @@
+apiVersion: source.fluxcd.io/v1alpha1
+kind: GitRepository
+metadata:
+  name: webapp
+spec:
+  interval: 10m
+  url: https://github.com/stefanprodan/podinfo-deploy
+  ref:
+    branch: master
