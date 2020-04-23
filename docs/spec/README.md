@@ -39,6 +39,8 @@ that describes a pipeline such as:
 - **alert** if something went wrong
 - **notify** if the cluster state changed 
 
+![pipeline](../diagrams/kustomize-controller-pipeline.png)
+
 The controller the runs these pipelines relies on
 [source-controller](https://github.com/fluxcd/source-controller)
 for providing the raw manifests from Git repositories or any
@@ -62,3 +64,130 @@ Alerting can be configured with a Kubernetes custom resource
 that specifies a webhook address, and a group of pipelines to be monitored.
 
 The API design of the controller can be found at [kustomize.fluxcd.io/v1alpha1](v1alpha1/README.md).
+
+## Example
+
+After installing kustomize-controller and its companion source-controller, we
+can create a series of pipelines for deploying Istio, and an application made of
+multiple services.
+
+Create a source that points to where the Istio control plane manifests are,
+and a kustomization for installing/upgrading Istio:
+
+```yaml
+apiVersion: source.fluxcd.io/v1alpha1
+kind: GitRepository
+metadata:
+  name: istio
+  namespace: kustomize-system
+spec:
+  interval: 5m
+  url: https://github.com/stefanprodan/gitops-istio
+  ref:
+    branch: master
+---
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: istio
+  namespace: kustomize-system
+spec:
+  interval: 10m
+  path: "./istio/"
+  generate: true
+  sourceRef:
+    kind: GitRepository
+    name: istio
+  healthChecks:
+    - kind: Deployment
+      name: istiod
+      namespace: istio-system
+  timeout: 2m
+```
+
+Create a source for the app repo, a kustomization for each service defining depends-on relationships:
+
+```yaml
+apiVersion: source.fluxcd.io/v1alpha1
+kind: GitRepository
+metadata:
+  name: webapp
+  namespace: kustomize-system
+spec:
+  interval: 1m
+  url: https://github.com/stefanprodan/podinfo-deploy
+  ref:
+    branch: master
+---
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: webapp-common
+  namespace: kustomize-system
+spec:
+  dependsOn:
+    - istio
+  interval: 5m
+  path: "./webapp/common/"
+  prune: "part-of=webapp"
+  sourceRef:
+    kind: GitRepository
+    name: webapp
+  validate: client
+---
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: webapp-backend
+  namespace: kustomize-system
+spec:
+  dependsOn:
+    - webapp-common
+  interval: 5m
+  path: "./webapp/backend/"
+  prune: "part-of=webapp,component=backend"
+  sourceRef:
+    kind: GitRepository
+    name: webapp
+  validate: server
+  healthChecks:
+    - kind: Deployment
+      name: backend
+      namespace: webapp
+---
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: webapp-frontend
+  namespace: kustomize-system
+spec:
+  dependsOn:
+    - webapp-backend
+  interval: 5m
+  path: "./webapp/frontend/"
+  prune: "part-of=webapp,component=frontend"
+  sourceRef:
+    kind: GitRepository
+    name: webapp
+  validate: server
+```
+
+Configure alerting for all pipelines in the `kustomize-system` namespace:
+
+```yaml
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Profile
+metadata:
+  name: default
+  namespace: kustomize-system
+spec:
+  alert:
+    type: slack
+    verbosity: info
+    address: https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+    username: kustomize-controller
+    channel: general
+  kustomizations:
+    - '*'
+```
+

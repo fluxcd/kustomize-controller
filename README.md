@@ -260,8 +260,6 @@ set in the Git repository manifest.
 
 The kustomize controller can post message to Slack or Discord whenever a kustomization status changes.
 
-![pipeline](docs/diagrams/kustomize-controller-pipeline.png)
-
 Alerting can be configured by creating a profile that targets a list of kustomizations:
 
 ```yaml
