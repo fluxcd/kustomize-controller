@@ -9,7 +9,7 @@ The kustomize-controller is a continuous delivery tool for Kubernetes, specializ
 CD pipelines inside the cluster for workloads and infrastructure manifests
 coming from source control systems.
 
-![overview](docs/diagrams/fluxcd-kustomize-source-controllers.png)
+![overview](docs/diagrams/kustomize-controller-overview.png)
 
 Features:
 * watches for [Kustomization](docs/spec/v1alpha1/README.md) objects
@@ -117,7 +117,7 @@ and validates them with a dry-run apply. If the manifests pass validation, the c
 on the cluster and starts the health assessment of the deployed workload. If the health checks are passing, the
 Kustomization object status transitions to a ready state.
 
-![pipeline](docs/diagrams/fluxcd-kustomization-pipeline.png)
+![workflow](docs/diagrams/kustomize-controller-flow.png)
 
 You can wait for the kustomize controller to complete the deployment with:
 
@@ -255,6 +255,8 @@ set in the Git repository manifest.
 ### Configure alerting
 
 The kustomize controller can post message to Slack or Discord whenever a kustomization status changes.
+
+![pipeline](docs/diagrams/kustomize-controller-pipeline.png)
 
 Alerting can be configured by creating a profile that targets a list of kustomizations:
 
