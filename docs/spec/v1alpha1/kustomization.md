@@ -18,7 +18,7 @@ type KustomizationSpec struct {
 
 	// When enabled, the kustomization.yaml is automatically generated
 	// for all the Kubernetes manifests in the specified path and sub-directories.
-	// The generated kustomization.yaml will have common labels taken from the prune field.
+	// The generated kustomization.yaml contains a label transformer matching the prune field.
 	// +optional
 	Generate bool `json:"generate,omitempty"`
 
@@ -119,16 +119,18 @@ Source supported types:
 
 > **Note** that the source should contain the kustomization.yaml and all the
 > Kubernetes manifests and configuration files referenced in the kustomization.yaml.
-> If your repository contains only plain Kubernetes then you can enable kustomization.yaml generation.
+> If your repository contains only plain manifests, then you should enable kustomization.yaml generation.
 
 ## Generate kustomization.yaml
 
 If your repository contains plain Kubernetes manifests, you can configure the
 controller to generate a `kustomization.yaml` by setting `spec.generate` to `true`.
 
-When `spec.generate` is enabled, the `kustomization.yaml` is automatically generated for
+When `spec.generate` is enabled, the `kustomization.yaml` file is automatically generated for
 all the Kubernetes manifests in the `spec.path` and sub-directories.
-The generated `kustomization.yaml` will have common labels taken from the `spec.prune` field.
+
+If the `spec.prune` is not empty, the controller generates a label transformer to enable
+[garbage collection](#garbage-collection).
 
 ## Reconciliation
 
@@ -162,8 +164,8 @@ but are missing from the current apply, are removed from cluster automatically.
 Garbage collection is also performed when a Kustomization object is deleted,
 triggering a removal of all Kubernetes objects previously applied on the cluster.
 
-Tpo enable garbage collection, all Kubernetes objects must have a common label that matches the `spec.prune`
-[label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/).
+Tpo enable garbage collection, all Kubernetes objects must have common labels matching the `spec.prune`
+[label selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/).
 
 For example, `prune: env=dev,app=frontend` requires a `kustomization.yaml` with `commonLabels`:
 
@@ -175,8 +177,32 @@ commonLabels:
   app: frontend
 ```
 
-> **Note** that each kustomization must have a unique combination of labels values, otherwise the 
+> **Note** that each kustomization must have a unique combination of label key/values, otherwise the 
 > garbage collection will remove resources outside of the kustomization scope.
+
+Another option to label all Kubernetes objects, is with label transformers:
+
+```yaml
+apiVersion: builtin
+kind: LabelTransformer
+metadata:
+  name: labels
+labels:
+  env: dev
+  app: frontend
+fieldSpecs:
+  - path: metadata/labels
+    create: true
+```
+
+Save the above file as `labels.yaml` and add it to your `kustomization.yaml`:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+transformers:
+  - labels.yaml
+```
 
 ## Health assessment
 

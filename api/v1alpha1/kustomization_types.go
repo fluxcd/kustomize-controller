@@ -32,7 +32,7 @@ type KustomizationSpec struct {
 
 	// When enabled, the kustomization.yaml is automatically generated
 	// for all the Kubernetes manifests in the specified path and sub-directories.
-	// The generated kustomization.yaml will have common labels taken from the prune field.
+	// The generated kustomization.yaml contains a label transformer matching the prune field.
 	// +optional
 	Generate bool `json:"generate,omitempty"`
 

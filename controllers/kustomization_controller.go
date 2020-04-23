@@ -17,6 +17,8 @@ limitations under the License.
 package controllers
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -25,6 +27,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -282,14 +285,8 @@ func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomizati
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	labels := ""
-	if prune := kustomization.Spec.Prune; prune != "" {
-		labels = fmt.Sprintf("--labels %s", strings.ReplaceAll(prune, "=", ":"))
-	}
-
 	dirPath := path.Join(tmpDir, kustomization.Spec.Path)
-	cmd := fmt.Sprintf("cd %s && kustomize create --autodetect --recursive %s",
-		dirPath, labels)
+	cmd := fmt.Sprintf("cd %s && kustomize create --autodetect --recursive", dirPath)
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
 	if err != nil {
@@ -298,6 +295,86 @@ func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomizati
 		}
 		return fmt.Errorf("kustomize create failed: %s", string(output))
 	}
+
+	if err := r.generateLabelTransformer(kustomization, dirPath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *KustomizationReconciler) generateLabelTransformer(kustomization kustomizev1.Kustomization, dirPath string) error {
+	labelTransformer := `
+apiVersion: builtin
+kind: LabelTransformer
+metadata:
+  name: labels
+labels:
+{{- range $key, $value := . }}
+  {{ $key }}: {{ $value }}
+{{- end }}
+fieldSpecs:
+  - path: metadata/labels
+    create: true
+`
+
+	transformers := `
+transformers:
+  - gc-labels.yaml
+`
+
+	prune := kustomization.Spec.Prune
+	if prune == "" {
+		return nil
+	}
+
+	// transform prune into label selectors
+	selectors := make(map[string]string)
+	for _, ls := range strings.Split(prune, ",") {
+		if kv := strings.Split(ls, "="); len(kv) == 2 {
+			selectors[kv[0]] = kv[1]
+		}
+	}
+
+	t, err := template.New("tmpl").Parse(labelTransformer)
+	if err != nil {
+		return fmt.Errorf("labelTransformer template parsing failed: %w", err)
+	}
+
+	var data bytes.Buffer
+	writer := bufio.NewWriter(&data)
+	if err := t.Execute(writer, selectors); err != nil {
+		return fmt.Errorf("labelTransformer template excution failed: %w", err)
+	}
+
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("labelTransformer flush failed: %w", err)
+	}
+
+	file, err := os.Create(path.Join(dirPath, "gc-labels.yaml"))
+	if err != nil {
+		return fmt.Errorf("labelTransformer create failed: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(data.String()); err != nil {
+		return fmt.Errorf("labelTransformer write failed: %w", err)
+	}
+
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("labelTransformer sync failed: %w", err)
+	}
+
+	kfile, err := os.OpenFile(path.Join(dirPath, "kustomization.yaml"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("kustomization file open failed: %w", err)
+	}
+	defer kfile.Close()
+
+	if _, err := kfile.WriteString(transformers); err != nil {
+		return fmt.Errorf("kustomization file append failed: %w", err)
+	}
+
 	return nil
 }
 

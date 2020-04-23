@@ -55,7 +55,7 @@ spec:
             generate:
               description: When enabled, the kustomization.yaml is automatically generated
                 for all the Kubernetes manifests in the specified path and sub-directories.
-                The generated kustomization.yaml will have common labels taken from
+                The generated kustomization.yaml contains a label transformer matching
                 the prune field.
               type: boolean
             healthChecks:

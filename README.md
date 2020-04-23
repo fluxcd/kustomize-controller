@@ -7,7 +7,7 @@
 
 The kustomize-controller is a continuous delivery tool for Kubernetes, specialized in running 
 CD pipelines inside the cluster for workloads and infrastructure manifests
-generated with Kustomize coming from source control systems.
+coming from source control systems.
 
 ![overview](docs/diagrams/fluxcd-kustomize-source-controllers.png)
 
