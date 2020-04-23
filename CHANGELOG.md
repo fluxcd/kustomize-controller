@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.1-alpha.3 (2020-04-23)
+
+This alpha release introduces the option to tell the controller to
+[automatically generate](https://github.com/fluxcd/kustomize-controller/blob/master/docs/spec/v1alpha1/kustomization.md#generate-kustomizationyaml)
+the `kustomization.yaml` for repositories that contain plain Kubernetes manifests.
+
+The controller design and motivation can be found at
+[docs/spec](https://github.com/fluxcd/kustomize-controller/tree/master/docs/sp).
+
 ## 0.0.1-alpha.2 (2020-04-21)
 
 This alpha release introduces the
