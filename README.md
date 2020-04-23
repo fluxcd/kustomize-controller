@@ -5,14 +5,14 @@
 [![license](https://img.shields.io/github/license/fluxcd/kustomize-controller.svg)](https://github.com/fluxcd/kustomize-controller/blob/master/LICENSE)
 [![release](https://img.shields.io/github/release/fluxcd/kustomize-controller/all.svg)](https://github.com/fluxcd/kustomize-controller/releases)
 
-The kustomize-controller is a continuous delivery tool for Kubernetes, specialized in running 
-CD pipelines inside the cluster for workloads and infrastructure manifests
-coming from source control systems.
+The kustomize-controller is a Kubernetes operator, specialized in running 
+continuous delivery pipelines for infrastructure and workloads
+defined with Kubernetes manifests and assembled with Kustomize.
 
 ![overview](docs/diagrams/kustomize-controller-overview.png)
 
 Features:
-* watches for [Kustomization](docs/spec/v1alpha1/README.md) objects
+* watches for `Kustomization` objects
 * fetches artifacts produced by [source-controller](https://github.com/fluxcd/source-controller) from `Source` objects 
 * watches `Source` objects for revision changes 
 * generates the `kustomization.yaml` file if needed
@@ -23,6 +23,10 @@ Features:
 * checks the health of the deployed workloads
 * runs `Kustomizations` in a specific order, taking into account the depends-on relationship 
 * reports on Slack or Discord whenever a `Kustomization` status changes
+
+Specifications:
+* [API](docs/spec/v1alpha1/README.md)
+* [Controller](docs/spec/README.md)
 
 ## Usage
 
@@ -255,8 +259,6 @@ set in the Git repository manifest.
 ### Configure alerting
 
 The kustomize controller can post message to Slack or Discord whenever a kustomization status changes.
-
-![pipeline](docs/diagrams/kustomize-controller-pipeline.png)
 
 Alerting can be configured by creating a profile that targets a list of kustomizations:
 
