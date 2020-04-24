@@ -69,6 +69,11 @@ The status sub-resource describes the result of the last kustomization execution
 type KustomizationStatus struct {
 	// +optional
 	Conditions []Condition `json:"conditions,omitempty"`
+
+	// The last successfully applied revision.
+	// The revision format for Git sources is <branch|tag>/<commit-sha>.
+	// +optional
+	LastAppliedRevision string `json:"lastAppliedRevision,omitempty"`
 }
 ```
 
@@ -322,3 +327,72 @@ spec:
 
 > **Note** that circular dependencies between kustomizations must be avoided, otherwise the
 > interdependent kustomizations will never be applied on the cluster.
+
+## Status
+
+When the controller completes a kustomization apply, reports the result in the `status` sub-resource.
+
+A successful reconciliation sets the ready condition to `true` and updates the revision field:
+
+```yaml
+status:
+  conditions:
+  - lastTransitionTime: "2020-04-23T19:28:48Z"
+    message: kustomization was successfully applied
+    reason: ApplySucceed
+    status: "True"
+    type: Ready
+  lastAppliedRevision: master/a1afe267b54f38b46b487f6e938a6fd508278c07
+```
+
+You can wait for the kustomize controller to complete a reconciliation with:
+
+```bash
+kubectl wait kustomization/backend --for=condition=ready
+```
+
+The controller logs the Kubernetes objects:
+
+```json
+{
+  "level": "info",
+  "ts": 1587195448.071468,
+  "logger": "controllers.Kustomization",
+  "msg": "Kustomization applied in 1.436096591s",
+  "kustomization": "default/backend",
+  "output": {
+    "service/backend": "created",
+    "deployment.apps/backend": "created",
+    "horizontalpodautoscaler.autoscaling/backend": "created"
+  }
+}
+```
+
+A failed reconciliation sets the ready condition to `false`:
+
+```yaml
+status:
+  conditions:
+  - lastTransitionTime: "2020-04-23T19:29:48Z"
+    message: 'server-side validation failed'
+    reason: ValidationFailed
+    status: "False"
+    type: Ready
+  lastAppliedRevision: master/a1afe267b54f38b46b487f6e938a6fd508278c07
+``` 
+
+> **Note** that the last applied revision is updated only on a successful reconciliation.
+
+When a reconciliation fails, the controller logs the error:
+
+```json
+{
+  "level": "error",
+  "ts": 1587195448.071468,
+  "logger": "controllers.Kustomization",
+  "msg": "server-side validation failed",
+  "kustomization": "default/backend",
+  "error": "The Service 'backend' is invalid: spec.type: Unsupported value: 'Ingress'"
+}
+```
+

@@ -166,6 +166,10 @@ spec:
                 - type
                 type: object
               type: array
+            lastAppliedRevision:
+              description: The last successfully applied revision. The revision format
+                for Git sources is <branch|tag>/<commit-sha>.
+              type: string
           type: object
       type: object
   version: v1alpha1

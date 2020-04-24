@@ -96,9 +96,14 @@ type WorkloadReference struct {
 type KustomizationStatus struct {
 	// +optional
 	Conditions []Condition `json:"conditions,omitempty"`
+
+	// The last successfully applied revision.
+	// The revision format for Git sources is <branch|tag>/<commit-sha>.
+	// +optional
+	LastAppliedRevision string `json:"lastAppliedRevision,omitempty"`
 }
 
-func KustomizationReady(kustomization Kustomization, reason, message string) Kustomization {
+func KustomizationReady(kustomization Kustomization, revision, reason, message string) Kustomization {
 	kustomization.Status.Conditions = []Condition{
 		{
 			Type:               ReadyCondition,
@@ -108,6 +113,7 @@ func KustomizationReady(kustomization Kustomization, reason, message string) Kus
 			Message:            message,
 		},
 	}
+	kustomization.Status.LastAppliedRevision = revision
 	return kustomization
 }
 

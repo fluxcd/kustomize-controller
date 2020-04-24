@@ -39,15 +39,13 @@ that describes a pipeline such as:
 - **alert** if something went wrong
 - **notify** if the cluster state changed 
 
-![pipeline](../diagrams/kustomize-controller-pipeline.png)
-
-The controller the runs these pipelines relies on
+The controller that runs these pipelines relies on
 [source-controller](https://github.com/fluxcd/source-controller)
 for providing the raw manifests from Git repositories or any
-other sources that source-controller could support in the future. 
+other source that source-controller could support in the future. 
 
-If a Git repository contains no Kustomize manifests, the controller will
-generate the `kustomization.yaml` automatically and label
+If a Git repository contains no Kustomize manifests, the controller can
+generate the `kustomization.yaml` file automatically and label
 the objects for garbage collection (GC).
 
 A pipeline runs on-a-schedule and ca be triggered manually by a
@@ -56,8 +54,8 @@ cluster admin or automatically by a source event such as a Git revision change.
 When a pipeline is removed from the cluster, the controller's GC terminates
 all the objects previously created by that pipeline.
 
-A pipeline can be suspended, while in suspension the controller will
-stop the scheduler and will ignore any source events.
+A pipeline can be suspended, while in suspension the controller
+stops the scheduler and ignores any source events.
 Deleting a suspended pipeline does not trigger garbage collection.
 
 Alerting can be configured with a Kubernetes custom resource
