@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.1-alpha.4 (2020-04-24)
+
+This alpha release introduces a new status field for recording the
+[last applied source revision](https://github.com/fluxcd/kustomize-controller/blob/master/docs/spec/v1alpha1/kustomization.md#status).
+
+Feature comparison with Flux has been added to
+[docs/spec](https://github.com/fluxcd/kustomize-controller/blob/master/docs/spec/README.md#backward-compatibility).
+
 ## 0.0.1-alpha.3 (2020-04-23)
 
 This alpha release introduces the option to tell the controller to
@@ -9,7 +17,7 @@ This alpha release introduces the option to tell the controller to
 the `kustomization.yaml` for repositories that contain plain Kubernetes manifests.
 
 The controller design and motivation can be found at
-[docs/spec](https://github.com/fluxcd/kustomize-controller/tree/master/docs/sp).
+[docs/spec](https://github.com/fluxcd/kustomize-controller/tree/master/docs/spec).
 
 ## 0.0.1-alpha.2 (2020-04-21)
 
