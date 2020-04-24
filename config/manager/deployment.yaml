@@ -1,8 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller
-  namespace: system
+  name: kustomize-controller
   labels:
     control-plane: controller
 spec:
