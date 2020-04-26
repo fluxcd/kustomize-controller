@@ -117,6 +117,19 @@ func KustomizationReady(kustomization Kustomization, revision, reason, message s
 	return kustomization
 }
 
+func KustomizationProgressing(kustomization Kustomization) Kustomization {
+	kustomization.Status.Conditions = []Condition{
+		{
+			Type:               ReadyCondition,
+			Status:             corev1.ConditionUnknown,
+			LastTransitionTime: metav1.Now(),
+			Reason:             ProgressingReason,
+			Message:            "reconciliation in progress",
+		},
+	}
+	return kustomization
+}
+
 func KustomizationNotReady(kustomization Kustomization, reason, message string) Kustomization {
 	kustomization.Status.Conditions = []Condition{
 		{

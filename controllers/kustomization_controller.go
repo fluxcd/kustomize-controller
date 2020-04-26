@@ -65,6 +65,12 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	log := r.Log.WithValues(strings.ToLower(kustomization.Kind), req.NamespacedName)
 
+	kustomization = kustomizev1.KustomizationProgressing(kustomization)
+	if err := r.Status().Update(ctx, &kustomization); err != nil {
+		log.Error(err, "unable to update Kustomization status")
+		return ctrl.Result{Requeue: true}, err
+	}
+
 	if kustomization.Spec.Suspend {
 		msg := "Kustomization is suspended, skipping execution"
 		kustomization = kustomizev1.KustomizationNotReady(kustomization, kustomizev1.SuspendedReason, msg)
@@ -345,7 +351,7 @@ transformers:
 	var data bytes.Buffer
 	writer := bufio.NewWriter(&data)
 	if err := t.Execute(writer, selectors); err != nil {
-		return fmt.Errorf("labelTransformer template excution failed: %w", err)
+		return fmt.Errorf("labelTransformer template execution failed: %w", err)
 	}
 
 	if err := writer.Flush(); err != nil {
