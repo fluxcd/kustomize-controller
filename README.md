@@ -39,14 +39,14 @@ manifests and `kustomization.yaml` file.
 Install source-controller with:
 
 ```bash
-kustomize build https://github.com/fluxcd/source-controller//config/default?ref=v0.0.1-alpha.2 \
+kustomize build https://github.com/fluxcd/source-controller//config/default?ref=v0.0.1-alpha.3 \
 kubectl apply -f-
 ```
 
 Install kustomize-controller with:
 
 ```bash
-kustomize build https://github.com/fluxcd/kustomize-controller//config/default?ref=v0.0.1-alpha.4 \
+kustomize build https://github.com/fluxcd/kustomize-controller//config/default?ref=v0.0.1-alpha.5 \
 kubectl apply -f-
 ```
 

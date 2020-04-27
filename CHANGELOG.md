@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.1-alpha.4 (2020-04-27)
+
+This alpha release introduces an [intermediate state](https://github.com/fluxcd/kustomize-controller/pull/21)
+to the status ready condition to signal that a reconciliation is underway.
+This allows waiting for an on-demand sync to complete.
+
 ## 0.0.1-alpha.4 (2020-04-24)
 
 This alpha release introduces a new status field for recording the
