@@ -97,17 +97,30 @@ const (
 	// ApplyFailedReason represents the fact that the kustomization apply failed.
 	ApplyFailedReason string = "ApplyFailed"
 
+	// ArtifactFailedReason represents the fact that the artifact download failed.
+	ArtifactFailedReason string = "ArtifactFailed"
+
 	// BuildFailedReason represents the fact that the kustomize build command failed.
 	BuildFailedReason string = "BuildFailed"
+
+	// DependencyNotReady represents the fact that the one of the dependencies is not ready.
+	DependencyNotReadyReason string = "DependencyNotReady"
+
+	// HealthCheckFailedReason represents the fact that the one of the health check failed.
+	HealthCheckFailedReason string = "HealthCheckFailed"
+
+	// InitializedReason represents the fact that a given resource has been initialized.
+	InitializedReason string = "Initialized"
+
+	// ProgressingReason represents the fact that a kustomization reconciliation
+	// is underway.
+	ProgressingReason string = "Progressing"
 
 	// SuspendedReason represents the fact that the kustomization execution is suspended.
 	SuspendedReason string = "Suspended"
 
 	// ValidationFailedReason represents the fact that the dry-run apply failed.
 	ValidationFailedReason string = "ValidationFailed"
-
-	// ArtifactFailedReason represents the fact that the artifact acquisition failed.
-	ArtifactFailedReason string = "ArtifactFailed"
 )
 ```
 
