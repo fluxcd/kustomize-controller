@@ -75,6 +75,10 @@ const (
 	// InitializedReason represents the fact that a given resource has been initialized.
 	InitializedReason string = "Initialized"
 
+	// ProgressingReason represents the fact that a kustomization reconciliation
+	// is underway.
+	ProgressingReason string = "Progressing"
+
 	// SuspendedReason represents the fact that the kustomization execution is suspended.
 	SuspendedReason string = "Suspended"
 
