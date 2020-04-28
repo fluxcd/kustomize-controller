@@ -60,7 +60,12 @@ jobs:
           kubectl wait kustomizations/frontend --for=condition=ready --timeout=4m
           kubectl wait kustomizations/generate --for=condition=ready --timeout=4m
           kubectl -n kustomize-system logs deploy/kustomize-controller
-      - name: Debug
+      - name: Logs
+        run: |
+          kubectl -n source-system logs deploy/source-controller
+          kubectl -n kustomize-system logs deploy/kustomize-controller
+      - name: Debug failure
+        if: failure()
         run: |
           kubectl get gitrepositories -oyaml
           kubectl get kustomizations -oyaml
