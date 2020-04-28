@@ -47,7 +47,7 @@ jobs:
         run: kind load docker-image test/kustomize-controller:latest
       - name: Deploy source-controller
         run: |
-          kustomize build https://github.com/fluxcd/source-controller//config/default?ref=v0.0.1-alpha.3 | kubectl apply -f-
+          kustomize build https://github.com/fluxcd/source-controller//config/default?ref=v0.0.1-alpha.4 | kubectl apply -f-
           kubectl -n source-system rollout status deploy/source-controller --timeout=1m
       - name: Deploy kustomize-controller
         run: make dev-deploy IMG=test/kustomize-controller:latest
