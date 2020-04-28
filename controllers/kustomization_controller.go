@@ -270,7 +270,7 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := fmt.Sprintf("cd %s && curl -sL %s | tar -xz --strip-components=1 -C .",
+	cmd := fmt.Sprintf("cd %s && curl -sL %s -o artifact.tar.gz && tar -xzf artifact.tar.gz --strip-components=1 -C .",
 		tmpDir, url)
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
