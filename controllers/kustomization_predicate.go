@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -69,9 +70,29 @@ func (gc KustomizationGarbageCollectPredicate) Delete(e event.DeleteEvent) bool 
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 
-			resources := `$(kubectl api-resources --verbs=delete -o name | tr "\n" "," | sed -e 's/,$//')`
+			clusterKinds, err := gc.listKinds(ctx, true)
+			if err != nil {
+				gc.Log.Error(err, "Garbage collection listing cluster kinds failed",
+					"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
+			}
+
+			if output, err := gc.deleteClusterObjects(ctx, timeout.String(), clusterKinds, k.Spec.Prune); err != nil {
+				gc.Log.Error(err, "Garbage collection failed for cluster objects",
+					"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
+			} else {
+				gc.Log.Info("Garbage collection for cluster objects completed",
+					"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()),
+					"output", string(output))
+			}
+
+			namespacedKinds, err := gc.listKinds(ctx, false)
+			if err != nil {
+				gc.Log.Error(err, "Garbage collection listing kinds failed",
+					"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
+			}
+
 			cmd := fmt.Sprintf("kubectl delete %s --all-namespaces --timeout=%s -l %s",
-				resources, timeout.String(), k.Spec.Prune)
+				namespacedKinds, timeout.String(), k.Spec.Prune)
 			command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 			if output, err := command.CombinedOutput(); err != nil {
 				gc.Log.Error(err, "Garbage collection failed",
@@ -86,4 +107,24 @@ func (gc KustomizationGarbageCollectPredicate) Delete(e event.DeleteEvent) bool 
 	}
 
 	return true
+}
+
+func (gc KustomizationGarbageCollectPredicate) listKinds(ctx context.Context, namespaced bool) (string, error) {
+	cmd := fmt.Sprintf(`kubectl api-resources --namespaced=%t --verbs=delete -o name | tr "\n" "," | sed -e 's/,$//'`, namespaced)
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	if output, err := command.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("%s", string(output))
+	} else {
+		return strings.TrimSuffix(string(output), "\n"), nil
+	}
+}
+
+func (gc KustomizationGarbageCollectPredicate) deleteClusterObjects(ctx context.Context, timeout, kinds, selector string) (string, error) {
+	cmd := fmt.Sprintf("kubectl delete %s --timeout=%s -l %s", kinds, timeout, selector)
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	if output, err := command.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("%s", string(output))
+	} else {
+		return strings.TrimSuffix(string(output), "\n"), nil
+	}
 }
