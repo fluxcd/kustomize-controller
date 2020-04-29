@@ -53,13 +53,17 @@ jobs:
         run: make dev-deploy IMG=test/kustomize-controller:latest
         env:
           KUBEBUILDER_ASSETS: ${{ github.workspace }}/kubebuilder/bin
-      - name: Run smoke tests
+      - name: Run overlays tests
         run: |
-          kubectl apply -k ./config/testdata/webapp
-          kubectl apply -k ./config/testdata/generate
+          kubectl apply -k ./config/testdata/overlays
+          kubectl wait kustomizations/webapp-staging --for=condition=ready --timeout=4m
+          kubectl wait kustomizations/webapp-production --for=condition=ready --timeout=4m
+      - name: Run dependencies tests
+        run: |
+          kubectl apply -k ./config/testdata/dependencies
+          kubectl wait kustomizations/common --for=condition=ready --timeout=4m
+          kubectl wait kustomizations/backend --for=condition=ready --timeout=4m
           kubectl wait kustomizations/frontend --for=condition=ready --timeout=4m
-          kubectl wait kustomizations/generate --for=condition=ready --timeout=4m
-          kubectl -n kustomize-system logs deploy/kustomize-controller
       - name: Logs
         run: |
           kubectl -n source-system logs deploy/source-controller

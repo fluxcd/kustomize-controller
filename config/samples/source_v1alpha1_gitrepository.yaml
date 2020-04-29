@@ -1,19 +1,19 @@
 apiVersion: source.fluxcd.io/v1alpha1
 kind: GitRepository
 metadata:
-  name: podinfo
+  name: webapp-latest
 spec:
   interval: 1m
-  url: https://github.com/stefanprodan/podinfo-deploy
+  url: https://github.com/stefanprodan/podinfo
   ref:
     branch: master
 ---
 apiVersion: source.fluxcd.io/v1alpha1
 kind: GitRepository
 metadata:
-  name: podinfo-releases
+  name: webapp-releases
 spec:
   interval: 1m
-  url: https://github.com/stefanprodan/podinfo-deploy
+  url: https://github.com/stefanprodan/podinfo
   ref:
-    semver: ">=0.0.1"
+    semver: ">=3.2.3"
