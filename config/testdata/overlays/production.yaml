@@ -1,28 +1,6 @@
 apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
-  name: webapp-dev
-spec:
-  interval: 5m
-  path: "./deploy/webapp/"
-  prune: "env=dev,instance=webapp"
-  generate: true
-  sourceRef:
-    kind: GitRepository
-    name: webapp-latest
-  validation: client
-  healthChecks:
-    - kind: Deployment
-      name: backend
-      namespace: webapp
-    - kind: Deployment
-      name: frontend
-      namespace: webapp
-  timeout: 2m
----
-apiVersion: kustomize.fluxcd.io/v1alpha1
-kind: Kustomization
-metadata:
   name: webapp-production
 spec:
   interval: 15m
@@ -40,3 +18,13 @@ spec:
       name: frontend
       namespace: production
   timeout: 2m
+---
+apiVersion: source.fluxcd.io/v1alpha1
+kind: GitRepository
+metadata:
+  name: webapp-releases
+spec:
+  interval: 5m
+  url: https://github.com/stefanprodan/podinfo
+  ref:
+    semver: ">=3.2.3"

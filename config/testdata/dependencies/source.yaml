@@ -4,6 +4,6 @@ metadata:
   name: webapp
 spec:
   interval: 10m
-  url: https://github.com/stefanprodan/podinfo-deploy
+  url: https://github.com/stefanprodan/podinfo
   ref:
-    branch: master
+    semver: ">=3.2.3"

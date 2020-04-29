@@ -1,0 +1,30 @@
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: webapp-staging
+spec:
+  interval: 5m
+  path: "./deploy/overlays/staging/"
+  prune: "env=staging,instance=webapp"
+  sourceRef:
+    kind: GitRepository
+    name: webapp-releases
+  validation: client
+  healthChecks:
+    - kind: Deployment
+      name: backend
+      namespace: staging
+    - kind: Deployment
+      name: frontend
+      namespace: staging
+  timeout: 2m
+---
+apiVersion: source.fluxcd.io/v1alpha1
+kind: GitRepository
+metadata:
+  name: webapp-latest
+spec:
+  interval: 5m
+  url: https://github.com/stefanprodan/podinfo
+  ref:
+    branch: master
