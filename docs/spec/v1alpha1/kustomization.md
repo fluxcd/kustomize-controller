@@ -41,6 +41,10 @@ type KustomizationSpec struct {
 	// +optional
 	HealthChecks []WorkloadReference `json:"healthChecks,omitempty"`
 
+	// The Kubernetes service account used for applying the kustomization.
+	// +optional
+	ServiceAccount *ServiceAccount `json:"serviceAccount,omitempty"`
+
 	// Reference of the source where the kustomization file is.
 	// +required
 	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
@@ -340,6 +344,84 @@ spec:
 
 > **Note** that circular dependencies between kustomizations must be avoided, otherwise the
 > interdependent kustomizations will never be applied on the cluster.
+
+## Role-based access control
+
+By default, a kustomization apply runs under the cluster admin account and can create, modify, delete
+cluster level objects (namespaces, CRDs, etc) and namespeced objects (deployments, ingresses, etc).
+For certain kustomizations a cluster admin may wish to control what types of Kubernetes objects can
+be reconciled and under which namespaces.
+To restrict a kustomization, one can assign a service account under which the reconciliation is performed.
+
+Assuming you want to restrict a group of kustomizations to a single namespace, you can create an account
+with a role binding that grants access only to that namespace:
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: webapp
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: webapp-reconciler
+  namespace: webapp
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: webapp-reconciler
+  namespace: webapp
+rules:
+  - apiGroups: ['*']
+    resources: ['*']
+    verbs: ['*']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: webapp-reconciler
+  namespace: webapp
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: webapp-reconciler
+subjects:
+- kind: ServiceAccount
+  name: webapp-reconciler
+  namespace: webapp
+```
+
+> **Note** that the namespace, RBAC and service account manifests should be 
+> placed in a Git source and applied with a kustomization. The kustomizations that 
+> are running under that service account should depend-on the one that contains the account.
+
+Create a kustomization that prevents altering the cluster state outside of the `webapp` namespace:
+
+```yaml
+apiVersion: kustomize.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: backend
+spec:
+  dependsOn:
+    - common
+  serviceAccount:
+    name: webapp-reconciler
+    namespace: webapp
+  interval: 5m
+  path: "./webapp/backend/"
+  prune: "part-of=webapp,component=backend"
+  sourceRef:
+    kind: GitRepository
+    name: webapp
+```
+
+When the controller reconciles the `frontend-webapp` kustomization, it will impersonate the `webapp-reconciler`
+account. If the kustomization contains cluster level objects like CRDs or objects belonging to a different
+namespace, the reconciliation will fail since the account it runs under has no permissions to alter objects
+outside of the `webapp` namespace.
 
 ## Status
 
