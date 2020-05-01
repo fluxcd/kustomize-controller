@@ -139,13 +139,13 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	// try sync
 	syncedKustomization, err := r.sync(*kustomization.DeepCopy(), source)
 	if err != nil {
-		log.Error(err, "Kustomization apply failed")
+		log.Error(err, "Kustomization apply failed", "revision", source.GetArtifact().Revision)
 		r.alert(kustomization, err.Error(), "error")
 	}
 
 	// update status
 	if err := r.Status().Update(ctx, &syncedKustomization); err != nil {
-		log.Error(err, "unable to update Kustomization status")
+		log.Error(err, "unable to update Kustomization status after sync")
 		return ctrl.Result{Requeue: true}, err
 	}
 

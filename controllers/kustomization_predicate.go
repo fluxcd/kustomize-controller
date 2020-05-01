@@ -96,6 +96,9 @@ func (gc KustomizationGarbageCollectPredicate) Delete(e event.DeleteEvent) bool 
 					gc.Log.Error(err, "Garbage collection listing cluster kinds failed",
 						"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
 				}
+				if clusterKinds == "" {
+					clusterKinds = "namespaces"
+				}
 
 				if output, err := gc.deleteObjects(timeout, clusterKinds, k.Spec.Prune, nil); err != nil {
 					gc.Log.Error(err, "Garbage collection failed for cluster objects",
@@ -113,7 +116,10 @@ func (gc KustomizationGarbageCollectPredicate) Delete(e event.DeleteEvent) bool 
 }
 
 func (gc KustomizationGarbageCollectPredicate) listKinds(ctx context.Context, namespaced bool) (string, error) {
-	cmd := fmt.Sprintf(`kubectl api-resources --namespaced=%t --verbs=delete -o name | tr "\n" "," | sed -e 's/,$//'`, namespaced)
+	exclude := `grep -vE "(events|nodes)"`
+	flat := `tr "\n" "," | sed -e 's/,$//'`
+	cmd := fmt.Sprintf(`kubectl api-resources --cached=true --namespaced=%t --verbs=delete -o name | %s | %s`,
+		namespaced, exclude, flat)
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	if output, err := command.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("%s", string(output))
@@ -134,6 +140,7 @@ func (gc KustomizationGarbageCollectPredicate) deleteObjects(timeout time.Durati
 		cmd = fmt.Sprintf("kubectl -n %s delete %s --timeout=%s -l %s --as system:serviceaccount:%s:%s",
 			sa.Namespace, kinds, timeout.String(), selector, sa.Namespace, sa.Name)
 	}
+
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	if output, err := command.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("%s", string(output))
