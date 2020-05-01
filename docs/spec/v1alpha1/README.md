@@ -12,6 +12,7 @@ of Kubernetes objects generated with Kustomize.
     + [Garbage collection](kustomization.md#garbage-collection)
     + [Health assessment](kustomization.md#health-assessment)
     + [Kustomization dependencies](kustomization.md#kustomization-dependencies)
+    + [Role-based access control](kustomization.md#role-based-access-control)
     + [Status](kustomization.md#status)
 - [Profile CRD](profile.md)
     + [Alerting configuration](profile.md#alerting)

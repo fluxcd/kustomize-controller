@@ -94,3 +94,4 @@ reconciliation process. This includes kustomize build and validation errors, app
 health check failures.
 
 When the verbosity is set to `info`, the controller will alert whenever a kustomization status changes.
+
