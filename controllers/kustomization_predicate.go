@@ -80,7 +80,7 @@ func (gc KustomizationGarbageCollectPredicate) Delete(e event.DeleteEvent) bool 
 					"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
 			}
 
-			if output, err := gc.deleteObjects(timeout, namespacedKinds, k.Spec.Prune); err != nil {
+			if output, err := gc.deleteObjects(timeout, namespacedKinds, k.Spec.Prune, k.Spec.ServiceAccount); err != nil {
 				gc.Log.Error(err, "Garbage collection failed for namespaced objects",
 					"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
 			} else {
@@ -89,19 +89,22 @@ func (gc KustomizationGarbageCollectPredicate) Delete(e event.DeleteEvent) bool 
 					"output", output)
 			}
 
-			clusterKinds, err := gc.listKinds(ctx, false)
-			if err != nil {
-				gc.Log.Error(err, "Garbage collection listing cluster kinds failed",
-					"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
-			}
+			// skip GC for cluster objects when impersonating a SA
+			if k.Spec.ServiceAccount == nil {
+				clusterKinds, err := gc.listKinds(ctx, false)
+				if err != nil {
+					gc.Log.Error(err, "Garbage collection listing cluster kinds failed",
+						"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
+				}
 
-			if output, err := gc.deleteObjects(timeout, clusterKinds, k.Spec.Prune); err != nil {
-				gc.Log.Error(err, "Garbage collection failed for cluster objects",
-					"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
-			} else {
-				gc.Log.Info("Garbage collection for cluster objects completed",
-					"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()),
-					"output", output)
+				if output, err := gc.deleteObjects(timeout, clusterKinds, k.Spec.Prune, nil); err != nil {
+					gc.Log.Error(err, "Garbage collection failed for cluster objects",
+						"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
+				} else {
+					gc.Log.Info("Garbage collection for cluster objects completed",
+						"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()),
+						"output", output)
+				}
 			}
 		}
 	}
@@ -119,11 +122,18 @@ func (gc KustomizationGarbageCollectPredicate) listKinds(ctx context.Context, na
 	}
 }
 
-func (gc KustomizationGarbageCollectPredicate) deleteObjects(timeout time.Duration, kinds string, selector string) (string, error) {
+func (gc KustomizationGarbageCollectPredicate) deleteObjects(timeout time.Duration,
+	kinds string, selector string, sa *kustomizev1.ServiceAccount) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout+time.Second)
 	defer cancel()
 
 	cmd := fmt.Sprintf("kubectl delete %s --all-namespaces --timeout=%s -l %s", kinds, timeout.String(), selector)
+
+	// restrict GC to the SA namespace
+	if sa != nil {
+		cmd = fmt.Sprintf("kubectl -n %s delete %s --timeout=%s -l %s --as system:serviceaccount:%s:%s",
+			sa.Namespace, kinds, timeout.String(), selector, sa.Namespace, sa.Name)
+	}
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	if output, err := command.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("%s", string(output))

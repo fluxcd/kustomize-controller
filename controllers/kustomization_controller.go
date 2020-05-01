@@ -433,9 +433,20 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 
 	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s",
 		tmpDir, kustomization.GetName(), kustomization.Spec.Interval.Duration.String())
-	if kustomization.Spec.Prune != "" {
+
+	// impersonate SA
+	if sa := kustomization.Spec.ServiceAccount; sa != nil {
+		cmd = fmt.Sprintf("%s --as system:serviceaccount:%s:%s", cmd, sa.Namespace, sa.Name)
+	}
+
+	// skip pruning when impersonating a service account
+	// because it needs cluster level read access to non-namespaces kinds
+	// which defeats the purpose of namespace isolation since it requires a cluster role binding
+	// KEP: https://github.com/kubernetes/enhancements/pull/810
+	if kustomization.Spec.Prune != "" && kustomization.Spec.ServiceAccount == nil {
 		cmd = fmt.Sprintf("%s --prune -l %s", cmd, kustomization.Spec.Prune)
 	}
+
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
 	if err != nil {

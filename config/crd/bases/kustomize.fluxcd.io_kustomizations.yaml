@@ -81,6 +81,7 @@ spec:
                 required:
                 - kind
                 - name
+                - namespace
                 type: object
               type: array
             interval:
@@ -94,6 +95,20 @@ spec:
               description: Label selector used for garbage collection.
               pattern: ^.*=.*$
               type: string
+            serviceAccount:
+              description: The Kubernetes service account used for applying the kustomization.
+              properties:
+                name:
+                  description: Name is the name of the service account being referenced.
+                  type: string
+                namespace:
+                  description: Namespace is the namespace of the service account being
+                    referenced.
+                  type: string
+              required:
+              - name
+              - namespace
+              type: object
             sourceRef:
               description: Reference of the source where the kustomization file is.
               properties:
