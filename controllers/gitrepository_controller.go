@@ -24,6 +24,8 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -63,12 +65,7 @@ func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 
 	// trigger apply for each kustomization using this Git repository
 	for _, kustomization := range list.Items {
-		kustomization.Annotations[kustomizev1.SyncAtAnnotation] = metav1.Now().String()
-		if kustomization.Spec.SourceRef.APIGroup == nil {
-			emptyAPIGroup := ""
-			kustomization.Spec.SourceRef.APIGroup = &emptyAPIGroup
-		}
-		if err := r.Update(ctx, &kustomization); err != nil {
+		if err := r.updateKustomization(kustomization); err != nil {
 			log.Error(err, "unable to annotate kustomization", "kustomization", kustomization.GetName())
 		}
 		log.Info("Run kustomization", "kustomization", kustomization.GetName())
@@ -96,4 +93,27 @@ func (r *GitRepositoryWatcher) SetupWithManager(mgr ctrl.Manager) error {
 		For(&sourcev1.GitRepository{}).
 		WithEventFilter(GitRepositoryRevisionChangePredicate{}).
 		Complete(r)
+}
+
+func (r *GitRepositoryWatcher) updateKustomization(kustomization kustomizev1.Kustomization) error {
+	firstTry := true
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
+		if !firstTry {
+			if err := r.Get(context.TODO(),
+				types.NamespacedName{Namespace: kustomization.Namespace, Name: kustomization.Name},
+				&kustomization,
+			); err != nil {
+				return err
+			}
+		}
+
+		firstTry = false
+		kustomization.Annotations[kustomizev1.SyncAtAnnotation] = metav1.Now().String()
+		if kustomization.Spec.SourceRef.APIGroup == nil {
+			emptyAPIGroup := ""
+			kustomization.Spec.SourceRef.APIGroup = &emptyAPIGroup
+		}
+		err = r.Update(context.TODO(), &kustomization)
+		return
+	})
 }

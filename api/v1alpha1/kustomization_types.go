@@ -55,6 +55,10 @@ type KustomizationSpec struct {
 	// +optional
 	HealthChecks []WorkloadReference `json:"healthChecks,omitempty"`
 
+	// The Kubernetes service account used for applying the kustomization.
+	// +optional
+	ServiceAccount *ServiceAccount `json:"serviceAccount,omitempty"`
+
 	// Reference of the source where the kustomization file is.
 	// +required
 	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
@@ -89,7 +93,18 @@ type WorkloadReference struct {
 
 	// Namespace is the namespace of resource being referenced.
 	// +required
-	Namespace string `json:"namespace,omitempty"`
+	Namespace string `json:"namespace"`
+}
+
+// ServiceAccount defines a reference to a Kubernetes service account.
+type ServiceAccount struct {
+	// Name is the name of the service account being referenced.
+	// +required
+	Name string `json:"name"`
+
+	// Namespace is the namespace of the service account being referenced.
+	// +required
+	Namespace string `json:"namespace"`
 }
 
 // KustomizationStatus defines the observed state of a kustomization.
