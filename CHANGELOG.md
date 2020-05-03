@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.1-alpha.6 (2020-05-03)
+
+This alpha release comes with
+[role-based access control](https://github.com/fluxcd/kustomize-controller/blob/master/docs/spec/v1alpha1/kustomization.md#role-based-access-control)
+for restricting the execution of a kustomization apply to a specific service account.
+
 ## 0.0.1-alpha.5 (2020-04-27)
 
 This alpha release introduces an [intermediate state](https://github.com/fluxcd/kustomize-controller/pull/21)
