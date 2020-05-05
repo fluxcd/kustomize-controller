@@ -30,12 +30,6 @@ type KustomizationSpec struct {
 	// +optional
 	DependsOn []string `json:"dependsOn,omitempty"`
 
-	// When enabled, the kustomization.yaml is automatically generated
-	// for all the Kubernetes manifests in the specified path and sub-directories.
-	// The generated kustomization.yaml contains a label transformer matching the prune field.
-	// +optional
-	Generate bool `json:"generate,omitempty"`
-
 	// The interval at which to apply the kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`
@@ -45,10 +39,9 @@ type KustomizationSpec struct {
 	// +required
 	Path string `json:"path"`
 
-	// Label selector used for garbage collection.
-	// +kubebuilder:validation:Pattern="^.*=.*$"
-	// +optional
-	Prune string `json:"prune,omitempty"`
+	// Enables garbage collection.
+	// +required
+	Prune bool `json:"prune"`
 
 	// A list of workloads (Deployments, DaemonSets and StatefulSets)
 	// to be included in the health assessment.
@@ -119,7 +112,7 @@ type KustomizationStatus struct {
 
 	// The last successfully applied revision metadata.
 	// +optional
-	Snapshot *Snapshot `json:"snapshot"`
+	Snapshot *Snapshot `json:"snapshot,omitempty"`
 }
 
 func KustomizationReady(kustomization Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {

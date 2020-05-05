@@ -108,7 +108,6 @@ metadata:
 spec:
   interval: 10m
   path: "./istio/"
-  generate: true
   sourceRef:
     kind: GitRepository
     name: istio
@@ -143,7 +142,7 @@ spec:
     - istio
   interval: 5m
   path: "./webapp/common/"
-  prune: "part-of=webapp"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp
@@ -159,7 +158,7 @@ spec:
     - webapp-common
   interval: 5m
   path: "./webapp/backend/"
-  prune: "part-of=webapp,component=backend"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp
@@ -179,7 +178,7 @@ spec:
     - webapp-backend
   interval: 5m
   path: "./webapp/frontend/"
-  prune: "part-of=webapp,component=frontend"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp

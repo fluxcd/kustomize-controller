@@ -5,8 +5,7 @@ metadata:
 spec:
   interval: 5m
   path: "./deploy/webapp/common/"
-  prune: "part-of=webapp,instance=common"
-  generate: true
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp

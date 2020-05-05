@@ -67,7 +67,7 @@ type KustomizationGarbageCollectPredicate struct {
 // Delete removes all Kubernetes objects based on the prune label selector.
 func (gc KustomizationGarbageCollectPredicate) Delete(e event.DeleteEvent) bool {
 	if k, ok := e.Object.(*kustomizev1.Kustomization); ok {
-		if k.Spec.Prune != "" && !k.Spec.Suspend && k.Status.Snapshot != nil {
+		if k.Spec.Prune && !k.Spec.Suspend && k.Status.Snapshot != nil {
 			gc.Log.Info("Garbage collection started",
 				"kustomization", fmt.Sprintf("%s/%s", k.GetNamespace(), k.GetName()))
 

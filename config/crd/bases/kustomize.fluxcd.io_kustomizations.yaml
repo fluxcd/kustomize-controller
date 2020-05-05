@@ -52,12 +52,6 @@ spec:
               items:
                 type: string
               type: array
-            generate:
-              description: When enabled, the kustomization.yaml is automatically generated
-                for all the Kubernetes manifests in the specified path and sub-directories.
-                The generated kustomization.yaml contains a label transformer matching
-                the prune field.
-              type: boolean
             healthChecks:
               description: A list of workloads (Deployments, DaemonSets and StatefulSets)
                 to be included in the health assessment.
@@ -92,9 +86,8 @@ spec:
               pattern: ^\./
               type: string
             prune:
-              description: Label selector used for garbage collection.
-              pattern: ^.*=.*$
-              type: string
+              description: Enables garbage collection.
+              type: boolean
             serviceAccount:
               description: The Kubernetes service account used for applying the kustomization.
               properties:
@@ -147,6 +140,7 @@ spec:
           required:
           - interval
           - path
+          - prune
           - sourceRef
           type: object
         status:

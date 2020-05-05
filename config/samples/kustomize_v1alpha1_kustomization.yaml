@@ -5,8 +5,7 @@ metadata:
 spec:
   interval: 5m
   path: "./deploy/webapp/"
-  prune: "env=dev,instance=webapp"
-  generate: true
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp-latest
@@ -27,7 +26,7 @@ metadata:
 spec:
   interval: 15m
   path: "./deploy/overlays/production/"
-  prune: "env=production,instance=webapp"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp-releases
