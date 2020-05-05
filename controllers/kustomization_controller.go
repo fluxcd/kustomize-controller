@@ -248,11 +248,22 @@ func (r *KustomizationReconciler) sync(
 		), err
 	}
 
-	// health assessment
-	err = r.checkHealth(kustomization)
+	// prune
+	err = r.prune(kustomization, snapshot)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
+			kustomizev1.PruneFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// health assessment
+	err = r.checkHealth(kustomization)
+	if err != nil {
+		return kustomizev1.KustomizationNotReadySnapshot(
+			kustomization,
+			snapshot,
 			kustomizev1.HealthCheckFailedReason,
 			"health check failed",
 		), err
@@ -364,7 +375,7 @@ func (r *KustomizationReconciler) generateLabelTransformer(kustomization kustomi
 		}{
 			Name: kustomization.GetName(),
 		},
-		Labels: gcLabels(kustomization.GetName(), revision),
+		Labels: gcLabels(kustomization.GetName(), kustomization.GetNamespace(), revision),
 		FieldSpecs: []kustypes.FieldSpec{
 			{Path: "metadata/labels", CreateIfNotPresent: true},
 		},
@@ -472,6 +483,25 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	}
 	if diff {
 		r.alert(kustomization, string(output), "info")
+	}
+	return nil
+}
+
+func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization, snapshot *kustomizev1.Snapshot) error {
+	if kustomization.Status.Snapshot == nil || snapshot == nil {
+		return nil
+	}
+	if kustomization.Status.Snapshot.Revision == snapshot.Revision {
+		return nil
+	}
+
+	if !prune(kustomization.GetTimeout(),
+		kustomization.GetName(),
+		kustomization.GetNamespace(),
+		kustomization.Status.Snapshot,
+		r.Log,
+	) {
+		return fmt.Errorf("pruning failed")
 	}
 	return nil
 }

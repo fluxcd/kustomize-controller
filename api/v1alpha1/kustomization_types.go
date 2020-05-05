@@ -163,6 +163,20 @@ func KustomizationNotReady(kustomization Kustomization, reason, message string) 
 	return kustomization
 }
 
+func KustomizationNotReadySnapshot(kustomization Kustomization, snapshot *Snapshot, reason, message string) Kustomization {
+	kustomization.Status.Conditions = []Condition{
+		{
+			Type:               ReadyCondition,
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		},
+	}
+	kustomization.Status.Snapshot = snapshot
+	return kustomization
+}
+
 // GetTimeout returns the timeout with default
 func (in *Kustomization) GetTimeout() time.Duration {
 	duration := in.Spec.Interval.Duration
