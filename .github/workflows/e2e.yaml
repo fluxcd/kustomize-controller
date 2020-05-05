@@ -64,6 +64,11 @@ jobs:
           kubectl wait kustomizations/common --for=condition=ready --timeout=4m
           kubectl wait kustomizations/backend --for=condition=ready --timeout=4m
           kubectl wait kustomizations/frontend --for=condition=ready --timeout=4m
+      - name: Run GC tests
+        run: |
+          kubectl get ns
+          kubectl delete -k ./config/testdata/overlays
+          until kubectl get ns staging 2>&1 | grep NotFound ; do sleep 2; done
       - name: Logs
         run: |
           kubectl -n source-system logs deploy/source-controller
