@@ -122,7 +122,7 @@ type KustomizationStatus struct {
 	Snapshot *Snapshot `json:"snapshot"`
 }
 
-func KustomizationReady(kustomization Kustomization, revision, reason, message string) Kustomization {
+func KustomizationReady(kustomization Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
 	kustomization.Status.Conditions = []Condition{
 		{
 			Type:               ReadyCondition,
@@ -132,6 +132,7 @@ func KustomizationReady(kustomization Kustomization, revision, reason, message s
 			Message:            message,
 		},
 	}
+	kustomization.Status.Snapshot = snapshot
 	kustomization.Status.LastAppliedRevision = revision
 	return kustomization
 }
