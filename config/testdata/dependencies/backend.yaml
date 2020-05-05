@@ -7,8 +7,7 @@ spec:
     - common
   interval: 5m
   path: "./deploy/webapp/backend/"
-  prune: "part-of=webapp,instance=backend"
-  generate: true
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp

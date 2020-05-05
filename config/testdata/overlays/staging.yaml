@@ -5,7 +5,7 @@ metadata:
 spec:
   interval: 5m
   path: "./deploy/overlays/staging/"
-  prune: "env=staging,instance=webapp"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp-releases

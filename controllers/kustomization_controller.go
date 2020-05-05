@@ -17,8 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,8 +24,9 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
+	"sigs.k8s.io/yaml"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -37,6 +36,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	kustypes "sigs.k8s.io/kustomize/api/types"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 	"github.com/fluxcd/kustomize-controller/internal/alert"
@@ -197,8 +197,9 @@ func (r *KustomizationReconciler) sync(
 		), err
 	}
 
+	dirPath := path.Join(tmpDir, kustomization.Spec.Path)
 	// check build path exists
-	if _, err := os.Stat(path.Join(tmpDir, kustomization.Spec.Path)); err != nil {
+	if _, err := os.Stat(dirPath); err != nil {
 		err = fmt.Errorf("kustomization path not found: %w", err)
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -208,7 +209,7 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// generate kustomization.yaml
-	err = r.generate(kustomization, tmpDir)
+	err = r.generate(kustomization, source.GetArtifact().Revision, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -218,7 +219,7 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// kustomize build
-	err = r.build(kustomization, tmpDir)
+	snapshot, err := r.build(kustomization, source.GetArtifact().Revision, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -228,7 +229,7 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// dry-run apply
-	err = r.validate(kustomization, tmpDir)
+	err = r.validate(kustomization, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -238,7 +239,7 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// apply
-	err = r.apply(kustomization, tmpDir)
+	err = r.apply(kustomization, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -247,11 +248,22 @@ func (r *KustomizationReconciler) sync(
 		), err
 	}
 
-	// health assessment
-	err = r.checkHealth(kustomization)
+	// prune
+	err = r.prune(kustomization, snapshot)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
+			kustomizev1.PruneFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// health assessment
+	err = r.checkHealth(kustomization)
+	if err != nil {
+		return kustomizev1.KustomizationNotReadySnapshot(
+			kustomization,
+			snapshot,
 			kustomizev1.HealthCheckFailedReason,
 			"health check failed",
 		), err
@@ -259,6 +271,7 @@ func (r *KustomizationReconciler) sync(
 
 	return kustomizev1.KustomizationReady(
 		kustomization,
+		snapshot,
 		source.GetArtifact().Revision,
 		kustomizev1.ApplySucceedReason,
 		"kustomization was successfully applied",
@@ -283,127 +296,130 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 	return nil
 }
 
-func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, tmpDir string) error {
-	if !kustomization.Spec.Generate {
-		return nil
-	}
+func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, revision, dirPath string) error {
+	kfile := filepath.Join(dirPath, kustomizationFileName)
 
-	timeout := kustomization.GetTimeout() + (time.Second * 1)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	if _, err := os.Stat(kfile); err != nil {
+		timeout := kustomization.GetTimeout() + (time.Second * 1)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
 
-	dirPath := path.Join(tmpDir, kustomization.Spec.Path)
-	cmd := fmt.Sprintf("cd %s && kustomize create --autodetect --recursive", dirPath)
-	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-	output, err := command.CombinedOutput()
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return err
+		cmd := fmt.Sprintf("cd %s && kustomize create --autodetect --recursive", dirPath)
+		command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return err
+			}
+			return fmt.Errorf("kustomize create failed: %s", string(output))
 		}
-		return fmt.Errorf("kustomize create failed: %s", string(output))
 	}
 
-	if err := r.generateLabelTransformer(kustomization, dirPath); err != nil {
+	if err := r.generateLabelTransformer(kustomization, revision, dirPath); err != nil {
+		return err
+	}
+
+	data, err := ioutil.ReadFile(kfile)
+	if err != nil {
+		return err
+	}
+
+	kus := kustypes.Kustomization{
+		TypeMeta: kustypes.TypeMeta{
+			APIVersion: kustypes.KustomizationVersion,
+			Kind:       kustypes.KustomizationKind,
+		},
+	}
+
+	if err := yaml.Unmarshal(data, &kus); err != nil {
+		return err
+	}
+
+	if len(kus.Transformers) == 0 {
+		kus.Transformers = []string{transformerFileName}
+	} else {
+		var exists bool
+		for _, transformer := range kus.Transformers {
+			if transformer == transformerFileName {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			kus.Transformers = append(kus.Transformers, transformerFileName)
+		}
+	}
+
+	kd, err := yaml.Marshal(kus)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(kfile, kd, os.ModePerm)
+}
+
+func (r *KustomizationReconciler) generateLabelTransformer(kustomization kustomizev1.Kustomization, revision, dirPath string) error {
+	var lt = struct {
+		ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
+		Kind       string `json:"kind" yaml:"kind"`
+		Metadata   struct {
+			Name string `json:"name" yaml:"name"`
+		} `json:"metadata" yaml:"metadata"`
+		Labels     map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
+		FieldSpecs []kustypes.FieldSpec `json:"fieldSpecs,omitempty" yaml:"fieldSpecs,omitempty"`
+	}{
+		ApiVersion: "builtin",
+		Kind:       "LabelTransformer",
+		Metadata: struct {
+			Name string `json:"name" yaml:"name"`
+		}{
+			Name: kustomization.GetName(),
+		},
+		Labels: gcLabels(kustomization.GetName(), kustomization.GetNamespace(), revision),
+		FieldSpecs: []kustypes.FieldSpec{
+			{Path: "metadata/labels", CreateIfNotPresent: true},
+		},
+	}
+
+	data, err := yaml.Marshal(lt)
+	if err != nil {
+		return err
+	}
+
+	labelsFile := filepath.Join(dirPath, transformerFileName)
+	if err := ioutil.WriteFile(labelsFile, data, os.ModePerm); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *KustomizationReconciler) generateLabelTransformer(kustomization kustomizev1.Kustomization, dirPath string) error {
-	labelTransformer := `
-apiVersion: builtin
-kind: LabelTransformer
-metadata:
-  name: labels
-labels:
-{{- range $key, $value := . }}
-  {{ $key }}: {{ $value }}
-{{- end }}
-fieldSpecs:
-  - path: metadata/labels
-    create: true
-`
-
-	transformers := `
-transformers:
-  - gc-labels.yaml
-`
-
-	prune := kustomization.Spec.Prune
-	if prune == "" {
-		return nil
-	}
-
-	// transform prune into label selectors
-	selectors := make(map[string]string)
-	for _, ls := range strings.Split(prune, ",") {
-		if kv := strings.Split(ls, "="); len(kv) == 2 {
-			selectors[kv[0]] = kv[1]
-		}
-	}
-
-	t, err := template.New("tmpl").Parse(labelTransformer)
-	if err != nil {
-		return fmt.Errorf("labelTransformer template parsing failed: %w", err)
-	}
-
-	var data bytes.Buffer
-	writer := bufio.NewWriter(&data)
-	if err := t.Execute(writer, selectors); err != nil {
-		return fmt.Errorf("labelTransformer template execution failed: %w", err)
-	}
-
-	if err := writer.Flush(); err != nil {
-		return fmt.Errorf("labelTransformer flush failed: %w", err)
-	}
-
-	file, err := os.Create(path.Join(dirPath, "gc-labels.yaml"))
-	if err != nil {
-		return fmt.Errorf("labelTransformer create failed: %w", err)
-	}
-	defer file.Close()
-
-	if _, err := file.WriteString(data.String()); err != nil {
-		return fmt.Errorf("labelTransformer write failed: %w", err)
-	}
-
-	if err := file.Sync(); err != nil {
-		return fmt.Errorf("labelTransformer sync failed: %w", err)
-	}
-
-	kfile, err := os.OpenFile(path.Join(dirPath, "kustomization.yaml"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return fmt.Errorf("kustomization file open failed: %w", err)
-	}
-	defer kfile.Close()
-
-	if _, err := kfile.WriteString(transformers); err != nil {
-		return fmt.Errorf("kustomization file append failed: %w", err)
-	}
-
-	return nil
-}
-
-func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, tmpDir string) error {
+func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, revision, dirPath string) (*kustomizev1.Snapshot, error) {
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := fmt.Sprintf("cd %s && kustomize build %s > %s.yaml",
-		tmpDir, kustomization.Spec.Path, kustomization.GetName())
+	cmd := fmt.Sprintf("cd %s && kustomize build . > %s.yaml",
+		dirPath, kustomization.GetUID())
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return err
+			return nil, err
 		}
-		return fmt.Errorf("kustomize build failed: %s", string(output))
+		return nil, fmt.Errorf("kustomize build failed: %s", string(output))
 	}
-	return nil
+
+	manifestsFile := filepath.Join(dirPath, fmt.Sprintf("%s.yaml", kustomization.GetUID()))
+	data, err := ioutil.ReadFile(manifestsFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return kustomizev1.NewSnapshot(data, revision)
 }
 
-func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomization, tmpDir string) error {
+func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomization, dirPath string) error {
 	if kustomization.Spec.Validation == "" {
 		return nil
 	}
@@ -413,7 +429,7 @@ func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomizati
 	defer cancel()
 
 	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s",
-		tmpDir, kustomization.GetName(), kustomization.GetTimeout().String(), kustomization.Spec.Validation)
+		dirPath, kustomization.GetUID(), kustomization.GetTimeout().String(), kustomization.Spec.Validation)
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
 	if err != nil {
@@ -425,26 +441,18 @@ func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomizati
 	return nil
 }
 
-func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization, tmpDir string) error {
+func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization, dirPath string) error {
 	start := time.Now()
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s",
-		tmpDir, kustomization.GetName(), kustomization.Spec.Interval.Duration.String())
+		dirPath, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String())
 
 	// impersonate SA
 	if sa := kustomization.Spec.ServiceAccount; sa != nil {
 		cmd = fmt.Sprintf("%s --as system:serviceaccount:%s:%s", cmd, sa.Namespace, sa.Name)
-	}
-
-	// skip pruning when impersonating a service account
-	// because it needs cluster level read access to non-namespaces kinds
-	// which defeats the purpose of namespace isolation since it requires a cluster role binding
-	// KEP: https://github.com/kubernetes/enhancements/pull/810
-	if kustomization.Spec.Prune != "" && kustomization.Spec.ServiceAccount == nil {
-		cmd = fmt.Sprintf("%s --prune -l %s", cmd, kustomization.Spec.Prune)
 	}
 
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
@@ -475,6 +483,25 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	}
 	if diff {
 		r.alert(kustomization, string(output), "info")
+	}
+	return nil
+}
+
+func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization, snapshot *kustomizev1.Snapshot) error {
+	if kustomization.Status.Snapshot == nil || snapshot == nil {
+		return nil
+	}
+	if kustomization.Status.Snapshot.Revision == snapshot.Revision {
+		return nil
+	}
+
+	if !prune(kustomization.GetTimeout(),
+		kustomization.GetName(),
+		kustomization.GetNamespace(),
+		kustomization.Status.Snapshot,
+		r.Log,
+	) {
+		return fmt.Errorf("pruning failed")
 	}
 	return nil
 }
@@ -620,3 +647,8 @@ func (r *KustomizationReconciler) alert(kustomization kustomizev1.Kustomization,
 		}
 	}
 }
+
+var (
+	kustomizationFileName = "kustomization.yaml"
+	transformerFileName   = "kustomization-gc-labels.yaml"
+)

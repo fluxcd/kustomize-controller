@@ -52,12 +52,6 @@ spec:
               items:
                 type: string
               type: array
-            generate:
-              description: When enabled, the kustomization.yaml is automatically generated
-                for all the Kubernetes manifests in the specified path and sub-directories.
-                The generated kustomization.yaml contains a label transformer matching
-                the prune field.
-              type: boolean
             healthChecks:
               description: A list of workloads (Deployments, DaemonSets and StatefulSets)
                 to be included in the health assessment.
@@ -92,9 +86,8 @@ spec:
               pattern: ^\./
               type: string
             prune:
-              description: Label selector used for garbage collection.
-              pattern: ^.*=.*$
-              type: string
+              description: Enables garbage collection.
+              type: boolean
             serviceAccount:
               description: The Kubernetes service account used for applying the kustomization.
               properties:
@@ -147,6 +140,7 @@ spec:
           required:
           - interval
           - path
+          - prune
           - sourceRef
           type: object
         status:
@@ -185,6 +179,34 @@ spec:
               description: The last successfully applied revision. The revision format
                 for Git sources is <branch|tag>/<commit-sha>.
               type: string
+            snapshot:
+              description: The last successfully applied revision metadata.
+              properties:
+                entries:
+                  description: A list of Kubernetes kinds grouped by namespace.
+                  items:
+                    description: Snapshot holds the metadata of namespaced Kubernetes
+                      objects
+                    properties:
+                      kinds:
+                        additionalProperties:
+                          type: string
+                        description: The list of Kubernetes kinds.
+                        type: object
+                      namespace:
+                        description: The namespace of this entry.
+                        type: string
+                    required:
+                    - kinds
+                    type: object
+                  type: array
+                revision:
+                  description: The source revision.
+                  type: string
+              required:
+              - entries
+              - revision
+              type: object
           type: object
       type: object
   version: v1alpha1

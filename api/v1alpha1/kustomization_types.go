@@ -30,12 +30,6 @@ type KustomizationSpec struct {
 	// +optional
 	DependsOn []string `json:"dependsOn,omitempty"`
 
-	// When enabled, the kustomization.yaml is automatically generated
-	// for all the Kubernetes manifests in the specified path and sub-directories.
-	// The generated kustomization.yaml contains a label transformer matching the prune field.
-	// +optional
-	Generate bool `json:"generate,omitempty"`
-
 	// The interval at which to apply the kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`
@@ -45,10 +39,9 @@ type KustomizationSpec struct {
 	// +required
 	Path string `json:"path"`
 
-	// Label selector used for garbage collection.
-	// +kubebuilder:validation:Pattern="^.*=.*$"
-	// +optional
-	Prune string `json:"prune,omitempty"`
+	// Enables garbage collection.
+	// +required
+	Prune bool `json:"prune"`
 
 	// A list of workloads (Deployments, DaemonSets and StatefulSets)
 	// to be included in the health assessment.
@@ -116,9 +109,13 @@ type KustomizationStatus struct {
 	// The revision format for Git sources is <branch|tag>/<commit-sha>.
 	// +optional
 	LastAppliedRevision string `json:"lastAppliedRevision,omitempty"`
+
+	// The last successfully applied revision metadata.
+	// +optional
+	Snapshot *Snapshot `json:"snapshot,omitempty"`
 }
 
-func KustomizationReady(kustomization Kustomization, revision, reason, message string) Kustomization {
+func KustomizationReady(kustomization Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
 	kustomization.Status.Conditions = []Condition{
 		{
 			Type:               ReadyCondition,
@@ -128,6 +125,7 @@ func KustomizationReady(kustomization Kustomization, revision, reason, message s
 			Message:            message,
 		},
 	}
+	kustomization.Status.Snapshot = snapshot
 	kustomization.Status.LastAppliedRevision = revision
 	return kustomization
 }
@@ -155,6 +153,20 @@ func KustomizationNotReady(kustomization Kustomization, reason, message string) 
 			Message:            message,
 		},
 	}
+	return kustomization
+}
+
+func KustomizationNotReadySnapshot(kustomization Kustomization, snapshot *Snapshot, reason, message string) Kustomization {
+	kustomization.Status.Conditions = []Condition{
+		{
+			Type:               ReadyCondition,
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Now(),
+			Reason:             reason,
+			Message:            message,
+		},
+	}
+	kustomization.Status.Snapshot = snapshot
 	return kustomization
 }
 

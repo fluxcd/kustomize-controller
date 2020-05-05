@@ -60,6 +60,9 @@ const (
 	// ApplyFailedReason represents the fact that the kustomization apply failed.
 	ApplyFailedReason string = "ApplyFailed"
 
+	// PruneFailedReason represents the fact that the kustomization pruning failed.
+	PruneFailedReason string = "PruneFailed"
+
 	// ArtifactFailedReason represents the fact that the artifact download failed.
 	ArtifactFailedReason string = "ArtifactFailed"
 

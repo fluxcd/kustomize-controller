@@ -95,7 +95,7 @@ metadata:
 spec:
   interval: 5m
   path: "./overlays/dev/"
-  prune: "env=dev"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: podinfo
@@ -108,7 +108,7 @@ spec:
 ```
 
 > **Note** that if your repository contains only plain Kubernetes manifests,
-> you can configure the controller to
+> the controller will
 > [automatically generate](docs/spec/v1alpha1/kustomization.md#generate-kustomizationyaml)
 > a kustomization.yaml file inside the specified path.
 
@@ -213,7 +213,7 @@ spec:
     - istio
   interval: 5m
   path: "./overlays/dev/"
-  prune: "env=dev"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: podinfo

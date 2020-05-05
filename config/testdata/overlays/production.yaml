@@ -5,7 +5,7 @@ metadata:
 spec:
   interval: 15m
   path: "./deploy/overlays/production/"
-  prune: "env=production,instance=webapp"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp-releases

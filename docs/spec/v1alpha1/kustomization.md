@@ -16,12 +16,6 @@ type KustomizationSpec struct {
 	// +optional
 	DependsOn []string `json:"dependsOn,omitempty"`
 
-	// When enabled, the kustomization.yaml is automatically generated
-	// for all the Kubernetes manifests in the specified path and sub-directories.
-	// The generated kustomization.yaml contains a label transformer matching the prune field.
-	// +optional
-	Generate bool `json:"generate,omitempty"`
-
 	// The interval at which to apply the kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`
@@ -31,10 +25,9 @@ type KustomizationSpec struct {
 	// +required
 	Path string `json:"path"`
 
-	// Label selector used for garbage collection.
-	// +kubebuilder:validation:Pattern="^.*=.*$"
-	// +optional
-	Prune string `json:"prune,omitempty"`
+	// Enables garbage collection.
+	// +required
+	Prune bool `json:"prune"`
 
 	// A list of workloads (Deployments, DaemonSets and StatefulSets)
 	// to be included in the health assessment.
@@ -78,6 +71,10 @@ type KustomizationStatus struct {
 	// The revision format for Git sources is <branch|tag>/<commit-sha>.
 	// +optional
 	LastAppliedRevision string `json:"lastAppliedRevision,omitempty"`
+
+	// The last successfully applied revision metadata.
+	// +optional
+	Snapshot *Snapshot `json:"snapshot"`
 }
 ```
 
@@ -120,6 +117,9 @@ const (
 	// is underway.
 	ProgressingReason string = "Progressing"
 
+	// PruneFailedReason represents the fact that the kustomization pruning failed.
+	PruneFailedReason string = "PruneFailed"
+
 	// SuspendedReason represents the fact that the kustomization execution is suspended.
 	SuspendedReason string = "Suspended"
 
@@ -145,13 +145,11 @@ Source supported types:
 
 ## Generate kustomization.yaml
 
-If your repository contains plain Kubernetes manifests, you can configure the
-controller to generate a `kustomization.yaml` by setting `spec.generate` to `true`.
+If your repository contains plain Kubernetes manifests, the `kustomization.yaml`
+file is automatically generated for all the Kubernetes manifests
+in the `spec.path` and sub-directories.
 
-When `spec.generate` is enabled, the `kustomization.yaml` file is automatically generated for
-all the Kubernetes manifests in the `spec.path` and sub-directories.
-
-If the `spec.prune` is not empty, the controller generates a label transformer to enable
+If the `spec.prune` is enable, the controller generates a label transformer to enable
 [garbage collection](#garbage-collection).
 
 ## Reconciliation
@@ -181,50 +179,12 @@ kubectl annotate --overwrite kustomization/podinfo kustomize.fluxcd.io/syncAt="$
 
 ## Garbage collection
 
+To enable garbage collection, set `spec.prune` to `true`.
+
 Garbage collection means that the Kubernetes objects that were previously applied on the cluster
-but are missing from the current apply, are removed from cluster automatically.
+but are missing from the current source revision, are removed from cluster automatically.
 Garbage collection is also performed when a Kustomization object is deleted,
 triggering a removal of all Kubernetes objects previously applied on the cluster.
-
-Tpo enable garbage collection, all Kubernetes objects must have common labels matching the `spec.prune`
-[label selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/).
-
-For example, `prune: env=dev,app=frontend` requires a `kustomization.yaml` with `commonLabels`:
-
-```yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-commonLabels:
-  env: dev
-  app: frontend
-```
-
-> **Note** that each kustomization must have a unique combination of label key/values, otherwise the 
-> garbage collection will remove resources outside of the kustomization scope.
-
-Another option to label all Kubernetes objects, is with label transformers:
-
-```yaml
-apiVersion: builtin
-kind: LabelTransformer
-metadata:
-  name: labels
-labels:
-  env: dev
-  app: frontend
-fieldSpecs:
-  - path: metadata/labels
-    create: true
-```
-
-Save the above file as `labels.yaml` and add it to your `kustomization.yaml`:
-
-```yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-transformers:
-  - labels.yaml
-```
 
 ## Health assessment
 
@@ -244,7 +204,7 @@ metadata:
 spec:
   interval: 5m
   path: "./webapp/backend/"
-  prune: "component=backend"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp
@@ -286,7 +246,7 @@ metadata:
 spec:
   interval: 5m
   path: "./webapp/common/"
-  prune: "part-of=webapp"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp
@@ -300,7 +260,7 @@ spec:
     - common
   interval: 5m
   path: "./webapp/backend/"
-  prune: "part-of=webapp,component=backend"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp
@@ -336,7 +296,7 @@ spec:
     - istio
   interval: 5m
   path: "./webapp/backend/"
-  prune: "part-of=webapp,component=backend"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp
@@ -412,7 +372,7 @@ spec:
     namespace: webapp
   interval: 5m
   path: "./webapp/backend/"
-  prune: "part-of=webapp,component=backend"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp

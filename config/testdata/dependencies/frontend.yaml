@@ -8,8 +8,7 @@ spec:
     - backend
   interval: 5m
   path: "./deploy/webapp/frontend/"
-  prune: "part-of=webapp,instance=frontend"
-  generate: true
+  prune: true
   sourceRef:
     kind: GitRepository
     name: webapp
