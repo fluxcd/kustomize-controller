@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.1-alpha.7 (2020-05-05)
+
+This alpha release comes with improvements to the garbage collector.
+The new GC doesn't require label selectors to be set in the kustomization
+and can prune resources safely without hitting Kubernetes API rate limits.
+
 ## 0.0.1-alpha.6 (2020-05-03)
 
 This alpha release comes with
