@@ -116,6 +116,10 @@ type KustomizationStatus struct {
 	// The revision format for Git sources is <branch|tag>/<commit-sha>.
 	// +optional
 	LastAppliedRevision string `json:"lastAppliedRevision,omitempty"`
+
+	// The last successfully applied revision metadata.
+	// +optional
+	Snapshot *Snapshot `json:"snapshot"`
 }
 
 func KustomizationReady(kustomization Kustomization, revision, reason, message string) Kustomization {

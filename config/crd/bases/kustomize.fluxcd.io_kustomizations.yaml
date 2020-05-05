@@ -185,6 +185,34 @@ spec:
               description: The last successfully applied revision. The revision format
                 for Git sources is <branch|tag>/<commit-sha>.
               type: string
+            snapshot:
+              description: The last successfully applied revision metadata.
+              properties:
+                entries:
+                  description: A list of Kubernetes kinds grouped by namespace.
+                  items:
+                    description: Snapshot holds the metadata of namespaced Kubernetes
+                      objects
+                    properties:
+                      kinds:
+                        additionalProperties:
+                          type: string
+                        description: The list of Kubernetes kinds.
+                        type: object
+                      namespace:
+                        description: The namespace of this entry.
+                        type: string
+                    required:
+                    - kinds
+                    type: object
+                  type: array
+                revision:
+                  description: The source revision.
+                  type: string
+              required:
+              - entries
+              - revision
+              type: object
           type: object
       type: object
   version: v1alpha1
