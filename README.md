@@ -59,7 +59,7 @@ apiVersion: source.fluxcd.io/v1alpha1
 kind: GitRepository
 metadata:
   name: podinfo
-  namespace: default
+  namespace: kustomize-system
 spec:
   interval: 1m
   url: https://github.com/stefanprodan/podinfo-deploy
@@ -92,6 +92,7 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-dev
+  namespace: kustomize-system
 spec:
   interval: 5m
   path: "./overlays/dev/"
@@ -192,6 +193,7 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: istio
+  namespace: kustomize-system
 spec:
   interval: 10m
   path: "./profiles/default/"
@@ -208,6 +210,7 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-dev
+  namespace: kustomize-system
 spec:
   dependsOn:
     - istio
@@ -228,6 +231,7 @@ apiVersion: source.fluxcd.io/v1alpha1
 kind: GitRepository
 metadata:
   name: podinfo-releases
+  namespace: kustomize-system
 spec:
   interval: 5m
   url: https://github.com/stefanprodan/podinfo-deploy
@@ -245,6 +249,7 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-production
+  namespace: kustomize-system
 spec:
   interval: 10m
   path: "./overlays/production/"
@@ -267,6 +272,7 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Profile
 metadata:
   name: default
+  namespace: kustomize-system
 spec:
   alert:
     type: slack
