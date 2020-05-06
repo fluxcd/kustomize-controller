@@ -65,10 +65,12 @@ func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 
 	// trigger apply for each kustomization using this Git repository
 	for _, kustomization := range list.Items {
-		if err := r.updateKustomization(kustomization); err != nil {
-			log.Error(err, "unable to annotate kustomization", "kustomization", kustomization.GetName())
+		namespacedName := types.NamespacedName{Namespace: kustomization.Namespace, Name: kustomization.Name}
+		if err := r.requestKustomizationSync(kustomization); err != nil {
+			log.Error(err, "unable to annotate Kustomization", "kustomization", namespacedName)
+			continue
 		}
-		log.Info("Run kustomization", "kustomization", kustomization.GetName())
+		log.Info("requested immediate sync", "kustomization", namespacedName)
 	}
 
 	return ctrl.Result{}, nil
@@ -95,7 +97,7 @@ func (r *GitRepositoryWatcher) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *GitRepositoryWatcher) updateKustomization(kustomization kustomizev1.Kustomization) error {
+func (r *GitRepositoryWatcher) requestKustomizationSync(kustomization kustomizev1.Kustomization) error {
 	firstTry := true
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
 		if !firstTry {
@@ -109,6 +111,7 @@ func (r *GitRepositoryWatcher) updateKustomization(kustomization kustomizev1.Kus
 
 		firstTry = false
 		kustomization.Annotations[kustomizev1.SyncAtAnnotation] = metav1.Now().String()
+		// Prevent strings can't be nil err as API package does not mark APIGroup with omitempty.
 		if kustomization.Spec.SourceRef.APIGroup == nil {
 			emptyAPIGroup := ""
 			kustomization.Spec.SourceRef.APIGroup = &emptyAPIGroup
