@@ -29,8 +29,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
+
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 )
 
 // KustomizationReconciler watches a GitRepository object
@@ -63,10 +64,16 @@ func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		return ctrl.Result{}, err
 	}
 
+	sorted, err := kustomizev1.DependencySort(list.Items)
+	if err != nil {
+		log.Error(err, "unable to dependency sort kustomizations")
+		return ctrl.Result{}, err
+	}
+
 	// trigger apply for each kustomization using this Git repository
-	for _, kustomization := range list.Items {
-		namespacedName := types.NamespacedName{Namespace: kustomization.Namespace, Name: kustomization.Name}
-		if err := r.requestKustomizationSync(kustomization); err != nil {
+	for _, k := range sorted {
+		namespacedName := types.NamespacedName{Namespace: k.Namespace, Name: k.Name}
+		if err := r.requestKustomizationSync(k); err != nil {
 			log.Error(err, "unable to annotate Kustomization", "kustomization", namespacedName)
 			continue
 		}
