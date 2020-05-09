@@ -34,7 +34,8 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 )
 
-// KustomizationReconciler watches a GitRepository object
+// GitRepositoryWatcher watches GitRepository objects for revision changes
+// and triggers a sync for all the Kustomizations that reference a changed source
 type GitRepositoryWatcher struct {
 	client.Client
 	Log    logr.Logger
@@ -54,7 +55,7 @@ func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	}
 
 	log := r.Log.WithValues(strings.ToLower(repo.Kind), req.NamespacedName)
-	log.Info("New artifact detected")
+	log.Info("new artifact detected")
 
 	// get the list of kustomizations that are using this Git repository
 	var list kustomizev1.KustomizationList

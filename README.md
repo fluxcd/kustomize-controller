@@ -31,22 +31,15 @@ Specifications:
 ## Usage
 
 The kustomize-controller is part of a composable GitOps toolkit and depends on
-[source-controller](https://github.com/fluxcd/source-controller) to provide the raw Kubernetes
-manifests and `kustomization.yaml` file.
+[source-controller](https://github.com/fluxcd/source-controller) to acquire the Kubernetes
+manifests from Git repositories.
 
 ### Install the controllers
 
-Install source-controller with:
+Install the source and kustomize controllers in the `kustomize-system` namespace:
 
 ```bash
-kustomize build https://github.com/fluxcd/source-controller//config/default?ref=v0.0.1-alpha.4 \
-kubectl apply -f-
-```
-
-Install kustomize-controller with:
-
-```bash
-kustomize build https://github.com/fluxcd/kustomize-controller//config/default?ref=v0.0.1-alpha.7 \
+kustomize build https://github.com/fluxcd/kustomize-controller//config/default?ref=master \
 kubectl apply -f-
 ```
 
@@ -62,7 +55,7 @@ metadata:
   namespace: kustomize-system
 spec:
   interval: 1m
-  url: https://github.com/stefanprodan/podinfo-deploy
+  url: https://github.com/stefanprodan/podinfo
   ref:
     branch: master
 ```
@@ -95,7 +88,7 @@ metadata:
   namespace: kustomize-system
 spec:
   interval: 5m
-  path: "./overlays/dev/"
+  path: "./deploy/overlays/dev/"
   prune: true
   sourceRef:
     kind: GitRepository
@@ -103,13 +96,15 @@ spec:
   validation: client
   healthChecks:
     - kind: Deployment
-      name: podinfo
+      name: frontend
+      namespace: dev
+    - kind: Deployment
+      name: backend
       namespace: dev
   timeout: 80s
 ```
 
-> **Note** that if your repository contains only plain Kubernetes manifests,
-> the controller will
+> **Note** that if your repository contains only plain Kubernetes manifests, the controller will
 > [automatically generate](docs/spec/v1alpha1/kustomization.md#generate-kustomizationyaml)
 > a kustomization.yaml file inside the specified path.
 
@@ -117,7 +112,7 @@ A detailed explanation of the Kustomization object and its fields
 can be found in the [specification doc](docs/spec/v1alpha1/README.md). 
 
 Based on the above definition, the kustomize-controller fetches the Git repository content from source-controller,
-generates Kubernetes manifests by running kustomize build inside `./overlays/dev/`,
+generates Kubernetes manifests by running kustomize build inside `./deploy/overlays/dev/`,
 and validates them with a dry-run apply. If the manifests pass validation, the controller will apply them 
 on the cluster and starts the health assessment of the deployed workload. If the health checks are passing, the
 Kustomization object status transitions to a ready state.
@@ -127,7 +122,7 @@ Kustomization object status transitions to a ready state.
 You can wait for the kustomize controller to complete the deployment with:
 
 ```bash
-kubectl wait kustomization/podinfo-dev --for=condition=ready
+kubectl -n kustomize-system wait kustomization/podinfo-dev --for=condition=ready
 ```
 
 When the controller finishes the reconciliation, it will log the applied objects:
@@ -142,12 +137,15 @@ kubectl -n kustomize-system logs deploy/kustomize-controller | jq .
   "ts": 1587195448.071468,
   "logger": "controllers.Kustomization",
   "msg": "Kustomization applied in 1.436096591s",
-  "kustomization": "default/podinfo-dev",
+  "kustomization": "kustomize-system/podinfo-dev",
   "output": {
     "namespace/dev": "created",
-    "service/podinfo": "created",
-    "deployment.apps/podinfo": "created",
-    "horizontalpodautoscaler.autoscaling/podinfo": "created"
+    "service/frontend": "created",
+    "deployment.apps/frontend": "created",
+    "horizontalpodautoscaler.autoscaling/frontend": "created",
+    "service/backend": "created",
+    "deployment.apps/backend": "created",
+    "horizontalpodautoscaler.autoscaling/backend": "created"
   }
 }
 ```
@@ -155,7 +153,8 @@ kubectl -n kustomize-system logs deploy/kustomize-controller | jq .
 You can trigger a kustomize build and apply any time with:
 
 ```bash
-kubectl annotate --overwrite kustomization/podinfo-dev kustomize.fluxcd.io/syncAt="$(date +%s)"
+kubectl -n kustomize-system annotate --overwrite kustomization/podinfo-dev \
+kustomize.fluxcd.io/syncAt="$(date +%s)"
 ```
 
 When the source controller pulls a new Git revision, the kustomize controller will detect that the
@@ -175,8 +174,8 @@ status:
 
 ```json
 {
-  "kustomization": "default/podinfo-dev",
-  "error": "Error from server (NotFound): error when creating \"podinfo-dev.yaml\": namespaces \"dev\" not found\n"
+  "kustomization": "kustomize-system/podinfo-dev",
+  "error": "Error from server (NotFound): error when creating podinfo-dev.yaml: namespaces dev not found"
 }
 ```
 
@@ -196,7 +195,7 @@ metadata:
   namespace: kustomize-system
 spec:
   interval: 10m
-  path: "./profiles/default/"
+  path: "./istio/system/"
   sourceRef:
     kind: GitRepository
     name: istio
@@ -234,9 +233,9 @@ metadata:
   namespace: kustomize-system
 spec:
   interval: 5m
-  url: https://github.com/stefanprodan/podinfo-deploy
+  url: https://github.com/stefanprodan/podinfo
   ref:
-    semver: ">=0.0.1-rc.1 <1.0.0"
+    semver: ">=3.2.3 <4.0.0"
 ```
 
 With `ref.semver` we configure source controller to pull the Git tags and create an artifact from the most recent tag
@@ -252,14 +251,14 @@ metadata:
   namespace: kustomize-system
 spec:
   interval: 10m
-  path: "./overlays/production/"
+  path: "./deploy/overlays/production/"
   sourceRef:
     kind: GitRepository
     name: podinfo-releases
 ```
 
-Based on the above definition, the kustomize controller will build and apply a kustomization that matches the semver range
-set in the Git repository manifest.
+Based on the above definition, the kustomize controller will apply the kustomization that matches the semver range
+set in the Git repository.
 
 ### Configure alerting
 

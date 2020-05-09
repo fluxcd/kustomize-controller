@@ -513,9 +513,17 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 	var alerts string
 
 	for _, check := range kustomization.Spec.HealthChecks {
-		cmd := fmt.Sprintf("kubectl -n %s rollout status %s %s --timeout=%s",
-			check.Namespace, check.Kind, check.Name, kustomization.GetTimeout())
+		cmd := fmt.Sprintf("until kubectl -n %s get %s %s ; do sleep 2; done",
+			check.Namespace, check.Kind, check.Name)
 		command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+		if _, err := command.CombinedOutput(); err != nil {
+			return fmt.Errorf("health check timeout for %s '%s/%s': %w",
+				check.Kind, check.Namespace, check.Name, err)
+		}
+
+		cmd = fmt.Sprintf("kubectl -n %s rollout status %s %s --timeout=%s",
+			check.Namespace, check.Kind, check.Name, kustomization.GetTimeout())
+		command = exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 		output, err := command.CombinedOutput()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
