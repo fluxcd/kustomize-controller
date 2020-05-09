@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.1-alpha.8 (2020-05-09)
+
+This alpha release comes with improvements to health assessment
+and [dependency management](https://github.com/fluxcd/kustomize-controller/pull/32).
+When a source revision changes, the
+Kustomizations are executed based on the depends-on graph.
+
 ## 0.0.1-alpha.7 (2020-05-05)
 
 This alpha release comes with improvements to the garbage collector.
