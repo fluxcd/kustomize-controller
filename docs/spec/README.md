@@ -15,14 +15,19 @@ for example a validation controller such as OPA Gatekeeper should be up and runn
 applying other manifests on the cluster. Another example is a service mesh admission controller,
 the proxy injector must be functional before deploying applications into the mesh.
 
-When operating a cluster, different teams may wish to receive notification about the status
-of their CD pipelines. For example, the on-call team would receive alerts about all
-failures in the prod namespace, while the frontend team may wish to be alerted when a new version 
-of the frontend app was deployed and if the deployment is healthy, no matter the namespace.
+When a cluster is shared with multiple teams, a cluster admin may wish to assign roles and service
+accounts to each team. The manifests owned by a team will be applied on the cluster using
+the team's account thus ensuring isolation between teams. For example, an admin can 
+restrict the operations performed on the cluster by a team to a single namespace.
 
 When dealing with an incident, one may wish to suspend the reconciliation of some workloads and
 pin the reconciliation of others to a specific Git revision, without having to stop the reconciler
 and affect the whole cluster.
+
+When operating a cluster, different teams may wish to receive notification about the status
+of their CD pipelines. For example, the on-call team would receive alerts about all
+failures in the prod namespace, while the frontend team may wish to be alerted when a new version 
+of the frontend app was deployed and if the deployment is healthy, no matter the namespace.
 
 ## Design
 
