@@ -118,6 +118,9 @@ func (r *GitRepositoryWatcher) requestKustomizationSync(kustomization kustomizev
 		}
 
 		firstTry = false
+		if kustomization.Annotations == nil {
+			kustomization.Annotations = make(map[string]string)
+		}
 		kustomization.Annotations[kustomizev1.SyncAtAnnotation] = metav1.Now().String()
 		// Prevent strings can't be nil err as API package does not mark APIGroup with omitempty.
 		if kustomization.Spec.SourceRef.APIGroup == nil {
