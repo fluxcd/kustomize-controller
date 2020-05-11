@@ -39,4 +39,6 @@ RUN addgroup -S controller && adduser -S -g controller controller
 
 USER controller
 
+COPY config/kubeconfig /home/controller/.kube/config
+
 ENTRYPOINT [ "/sbin/tini", "--", "kustomize-controller" ]
