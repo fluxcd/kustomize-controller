@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.1-alpha.9 (2020-05-11)
+
+This alpha release includes a bug fix for the source event handler
+and sets the current context to the default namespace.
+
 ## 0.0.1-alpha.8 (2020-05-09)
 
 This alpha release comes with improvements to health assessment
