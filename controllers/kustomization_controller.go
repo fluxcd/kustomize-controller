@@ -239,7 +239,7 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// apply
-	err = r.apply(kustomization, dirPath)
+	err = r.applyWithRetry(kustomization, dirPath, 5*time.Second)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -483,6 +483,26 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	}
 	if diff {
 		r.alert(kustomization, string(output), "info")
+	}
+	return nil
+}
+
+func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kustomization, dirPath string, delay time.Duration) error {
+	err := r.apply(kustomization, dirPath)
+	if err != nil {
+		// retry apply due to CRD/CR race
+		if strings.Contains(err.Error(), "could not find the requested resource") ||
+			strings.Contains(err.Error(), "no matches for kind") {
+			r.Log.Info("retrying apply",
+				"error", err.Error(),
+				"kustomization", fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()))
+			time.Sleep(delay)
+			if err := r.apply(kustomization, dirPath); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 	return nil
 }
