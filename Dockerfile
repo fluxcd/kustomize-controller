@@ -2,7 +2,7 @@ FROM golang:1.13 as builder
 
 WORKDIR /workspace
 
-RUN kustomize_ver=3.5.5 && \
+RUN kustomize_ver=3.6.1 && \
 kustomize_url=https://github.com/kubernetes-sigs/kustomize/releases/download && \
 curl -sL ${kustomize_url}/kustomize%2Fv${kustomize_ver}/kustomize_v${kustomize_ver}_linux_amd64.tar.gz | \
 tar xz && mv kustomize /usr/local/bin/kustomize
