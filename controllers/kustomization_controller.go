@@ -159,12 +159,16 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 }
 
-func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+type KustomizationReconcilerOptions struct {
+	MaxConcurrentReconciles int
+}
+
+func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}).
 		WithEventFilter(KustomizationGarbageCollectPredicate{Log: r.Log}).
 		WithEventFilter(KustomizationSyncAtPredicate{}).
-		WithOptions(controller.Options{MaxConcurrentReconciles: 4}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
 		Complete(r)
 }
 
