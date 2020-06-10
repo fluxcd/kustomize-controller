@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.1-beta.2 (2020-06-10)
+
+This beta release allows configuring the number of concurrent reconciles.
+Starting with this version, the controller watches for resources
+only in the namespace where it's deployed.
+
 ## 0.0.1-beta.1 (2020-05-29)
 
 This is the first beta release of kustomize controller.
