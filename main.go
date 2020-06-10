@@ -46,13 +46,18 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var logJSON bool
+	var (
+		metricsAddr          string
+		enableLeaderElection bool
+		concurrent           int
+		logJSON              bool
+	)
+
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8282", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.IntVar(&concurrent, "concurrent", 4, "The number of concurrent kustomize reconciles.")
 	flag.BoolVar(&logJSON, "log-json", false, "Set logging to JSON format.")
 	flag.Parse()
 
@@ -64,6 +69,7 @@ func main() {
 		Port:               9443,
 		LeaderElection:     enableLeaderElection,
 		LeaderElectionID:   "7593cc5d.fluxcd.io",
+		Namespace:          os.Getenv("RUNTIME_NAMESPACE"),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -82,7 +88,9 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Kustomization"),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
+		MaxConcurrentReconciles: concurrent,
+	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Kustomization")
 		os.Exit(1)
 	}
