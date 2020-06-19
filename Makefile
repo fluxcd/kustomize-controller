@@ -1,4 +1,3 @@
-
 # Image URL to use all building/pushing image targets
 IMG ?= fluxcd/kustomize-controller:latest
 # Produce CRDs that work back to Kubernetes 1.13
@@ -14,7 +13,7 @@ endif
 all: manager
 
 # Run tests
-test: generate fmt vet manifests
+test: generate fmt vet manifests api-docs
 	go test ./... -coverprofile cover.out
 
 # Build manager binary
@@ -56,6 +55,10 @@ dev-cleanup: manifests
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role paths="./..." output:crd:artifacts:config=config/crd/bases
 
+# Generate API reference documentation
+api-docs: gen-crd-api-reference-docs
+	$(API_REF_GEN) -api-dir=./api/v1alpha1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/api/kustomize.md
+
 # Run go fmt against code
 fmt:
 	go fmt ./...
@@ -91,4 +94,20 @@ ifeq (, $(shell which controller-gen))
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
+endif
+
+# Find or download gen-crd-api-reference-docs
+gen-crd-api-reference-docs:
+ifeq (, $(shell which gen-crd-api-reference-docs))
+	@{ \
+	set -e ;\
+	API_REF_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$API_REF_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get github.com/ahmetb/gen-crd-api-reference-docs@v0.2.0 ;\
+	rm -rf $$API_REF_GEN_TMP_DIR ;\
+	}
+API_REF_GEN=$(GOBIN)/gen-crd-api-reference-docs
+else
+API_REF_GEN=$(shell which gen-crd-api-reference-docs)
 endif
