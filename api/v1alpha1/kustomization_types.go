@@ -190,12 +190,10 @@ const (
 	// SourceIndexKey is the key used for indexing kustomizations
 	// based on their sources.
 	SourceIndexKey string = ".metadata.source"
-
-	// DependencyIndexKey is the key used for indexing kustomizations
-	// based on their dependencies.
-	DependencyIndexKey string = ".metadata.dependency"
 )
 
+// +genclient
+// +genclient:Namespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
