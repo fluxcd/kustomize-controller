@@ -47,8 +47,9 @@ import (
 // KustomizationReconciler reconciles a Kustomization object
 type KustomizationReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	requeueDependency time.Duration
+	Log               logr.Logger
+	Scheme            *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=kustomize.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
@@ -126,12 +127,11 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 				return ctrl.Result{Requeue: true}, err
 			}
 			// we can't rely on exponential backoff because it will prolong the execution too much,
-			// instead we requeue every half a minute.
-			requeueAfter := 30 * time.Second
-			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", requeueAfter.String())
+			// instead we requeue on a fix interval.
+			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Error(err, msg)
 			r.alert(kustomization, msg, "info")
-			return ctrl.Result{RequeueAfter: requeueAfter}, nil
+			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
 		log.Info("All dependencies area ready, proceeding with apply")
 	}
@@ -160,10 +160,12 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 }
 
 type KustomizationReconcilerOptions struct {
-	MaxConcurrentReconciles int
+	MaxConcurrentReconciles   int
+	DependencyRequeueInterval time.Duration
 }
 
 func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
+	r.requeueDependency = opts.DependencyRequeueInterval
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}).
 		WithEventFilter(KustomizationGarbageCollectPredicate{Log: r.Log}).
