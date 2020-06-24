@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.1 (2020-06-24)
+
+This is the first prerelease ready for public testing. To get started
+testing, see the [GitOps Toolkit guide](https://toolkit.fluxcd.io/get-started/).
+
 ## 0.0.1-beta.2 (2020-06-10)
 
 This beta release allows configuring the number of concurrent reconciles.
