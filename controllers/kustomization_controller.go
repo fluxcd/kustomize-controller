@@ -66,14 +66,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	log := r.Log.WithValues(strings.ToLower(kustomization.Kind), req.NamespacedName)
 
-	kustomization = kustomizev1.KustomizationProgressing(kustomization)
-	if err := r.Status().Update(ctx, &kustomization); err != nil {
-		log.Error(err, "unable to update Kustomization status")
-		return ctrl.Result{Requeue: true}, err
-	}
-
 	if kustomization.Spec.Suspend {
-		msg := "Kustomization is suspended, skipping execution"
+		msg := "Kustomization is suspended, skipping reconciliation"
 		kustomization = kustomizev1.KustomizationNotReady(kustomization, kustomizev1.SuspendedReason, msg)
 		if err := r.Status().Update(ctx, &kustomization); err != nil {
 			log.Error(err, "unable to update Kustomization status")
@@ -81,6 +75,12 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 		log.Info(msg)
 		return ctrl.Result{}, nil
+	}
+
+	kustomization = kustomizev1.KustomizationProgressing(kustomization)
+	if err := r.Status().Update(ctx, &kustomization); err != nil {
+		log.Error(err, "unable to update Kustomization status")
+		return ctrl.Result{Requeue: true}, err
 	}
 
 	var source sourcev1.Source
