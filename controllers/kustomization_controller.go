@@ -40,7 +40,7 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 	"github.com/fluxcd/kustomize-controller/internal/alert"
-	"github.com/fluxcd/kustomize-controller/internal/lockedfile"
+	"github.com/fluxcd/pkg/lockedfile"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
 
