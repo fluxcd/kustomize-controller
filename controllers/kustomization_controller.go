@@ -33,23 +33,27 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	kuberecorder "k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/reference"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
-	"github.com/fluxcd/kustomize-controller/internal/alert"
 	"github.com/fluxcd/pkg/lockedfile"
+	"github.com/fluxcd/pkg/recorder"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
 
 // KustomizationReconciler reconciles a Kustomization object
 type KustomizationReconciler struct {
 	client.Client
-	requeueDependency time.Duration
-	Log               logr.Logger
-	Scheme            *runtime.Scheme
+	requeueDependency     time.Duration
+	Log                   logr.Logger
+	Scheme                *runtime.Scheme
+	EventRecorder         kuberecorder.EventRecorder
+	ExternalEventRecorder *recorder.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=kustomize.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
@@ -130,7 +134,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			// instead we requeue on a fix interval.
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Error(err, msg)
-			r.alert(kustomization, msg, "info")
+			r.event(kustomization, msg, "info")
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
 		log.Info("All dependencies area ready, proceeding with apply")
@@ -140,7 +144,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	syncedKustomization, err := r.sync(*kustomization.DeepCopy(), source)
 	if err != nil {
 		log.Error(err, "Kustomization apply failed", "revision", source.GetArtifact().Revision)
-		r.alert(kustomization, err.Error(), "error")
+		r.event(kustomization, err.Error(), "error")
 	}
 
 	// update status
@@ -488,7 +492,7 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 		}
 	}
 	if diff {
-		r.alert(kustomization, string(output), "info")
+		r.event(kustomization, string(output), "info")
 	}
 	return nil
 }
@@ -570,7 +574,7 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 	}
 
 	if alerts != "" {
-		r.alert(kustomization, alerts, "info")
+		r.event(kustomization, alerts, "info")
 	}
 	return nil
 }
@@ -628,56 +632,24 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 	return nil
 }
 
-func (r *KustomizationReconciler) getProfiles(kustomization kustomizev1.Kustomization) ([]kustomizev1.Profile, error) {
-	list := make([]kustomizev1.Profile, 0)
-	var profiles kustomizev1.ProfileList
-	err := r.List(context.TODO(), &profiles, client.InNamespace(kustomization.GetNamespace()))
-	if err != nil {
-		return list, err
-	}
-
-	// filter profiles that match this kustomization taking into account '*' wildcard
-	for _, profile := range profiles.Items {
-		for _, name := range profile.Spec.Kustomizations {
-			if name == kustomization.GetName() || name == "*" {
-				list = append(list, profile)
-				break
-			}
-		}
-	}
-
-	return list, nil
-}
-
-func (r *KustomizationReconciler) alert(kustomization kustomizev1.Kustomization, msg string, verbosity string) {
-	profiles, err := r.getProfiles(kustomization)
+func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization, msg string, severity string) {
+	r.EventRecorder.Event(&kustomization, "Normal", severity, msg)
+	objRef, err := reference.GetReference(r.Scheme, &kustomization)
 	if err != nil {
 		r.Log.WithValues(
 			strings.ToLower(kustomization.Kind),
 			fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-		).Error(err, "unable to list profiles")
+		).Error(err, "unable to send event")
 		return
 	}
 
-	for _, profile := range profiles {
-		if settings := profile.Spec.Alert; settings != nil {
-			provider, err := alert.NewProvider(settings.Type, settings.Address, settings.Username, settings.Channel)
-			if err != nil {
-				r.Log.WithValues(
-					strings.ToLower(kustomization.Kind),
-					fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-				).Error(err, "unable to configure alert provider")
-				continue
-			}
-			if settings.Verbosity == verbosity || verbosity == "error" {
-				err = provider.Post(kustomization.GetName(), kustomization.GetNamespace(), msg, verbosity)
-				if err != nil {
-					r.Log.WithValues(
-						strings.ToLower(kustomization.Kind),
-						fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-					).Error(err, "unable to send alert")
-				}
-			}
+	if r.ExternalEventRecorder != nil {
+		if err := r.ExternalEventRecorder.Eventf(*objRef, nil, severity, severity, msg); err != nil {
+			r.Log.WithValues(
+				strings.ToLower(kustomization.Kind),
+				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+			).Error(err, "unable to send event")
+			return
 		}
 	}
 }

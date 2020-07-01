@@ -21,15 +21,15 @@ import (
 	"os"
 	"time"
 
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	"github.com/fluxcd/kustomize-controller/controllers"
+	"github.com/fluxcd/pkg/recorder"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
-	"github.com/fluxcd/kustomize-controller/controllers"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -49,6 +49,7 @@ func init() {
 func main() {
 	var (
 		metricsAddr          string
+		eventsAddr           string
 		enableLeaderElection bool
 		concurrent           int
 		requeueDependency    time.Duration
@@ -56,6 +57,7 @@ func main() {
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8282", "The address the metric endpoint binds to.")
+	flag.StringVar(&eventsAddr, "events-addr", "", "The address of the events receiver.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -65,6 +67,16 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(!logJSON)))
+
+	var eventRecorder *recorder.EventRecorder
+	if eventsAddr != "" {
+		if er, err := recorder.NewEventRecorder(eventsAddr, "kustomize-controller"); err != nil {
+			setupLog.Error(err, "unable to create event recorder")
+			os.Exit(1)
+		} else {
+			eventRecorder = er
+		}
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -88,22 +100,16 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.KustomizationReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Kustomization"),
-		Scheme: mgr.GetScheme(),
+		Client:                mgr.GetClient(),
+		Log:                   ctrl.Log.WithName("controllers").WithName("Kustomization"),
+		Scheme:                mgr.GetScheme(),
+		EventRecorder:         mgr.GetEventRecorderFor("kustomize-controller"),
+		ExternalEventRecorder: eventRecorder,
 	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Kustomization")
-		os.Exit(1)
-	}
-	if err = (&controllers.ProfileReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Profile"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Profile")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
