@@ -134,7 +134,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			// instead we requeue on a fix interval.
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Error(err, msg)
-			r.event(kustomization, msg, "info")
+			r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo, msg)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
 		log.Info("All dependencies area ready, proceeding with apply")
@@ -144,7 +144,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	syncedKustomization, err := r.sync(*kustomization.DeepCopy(), source)
 	if err != nil {
 		log.Error(err, "Kustomization apply failed", "revision", source.GetArtifact().Revision)
-		r.event(kustomization, err.Error(), "error")
+		r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityError, err.Error())
 	}
 
 	// update status
@@ -249,7 +249,7 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// apply
-	err = r.applyWithRetry(kustomization, dirPath, 5*time.Second)
+	err = r.applyWithRetry(kustomization, source.GetArtifact().Revision, dirPath, 5*time.Second)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -269,7 +269,7 @@ func (r *KustomizationReconciler) sync(
 	}
 
 	// health assessment
-	err = r.checkHealth(kustomization)
+	err = r.checkHealth(kustomization, source.GetArtifact().Revision)
 	if err != nil {
 		return kustomizev1.KustomizationNotReadySnapshot(
 			kustomization,
@@ -284,7 +284,7 @@ func (r *KustomizationReconciler) sync(
 		snapshot,
 		source.GetArtifact().Revision,
 		kustomizev1.ApplySucceedReason,
-		"kustomization was successfully applied",
+		"Applied revision: "+source.GetArtifact().Revision,
 	), nil
 }
 
@@ -451,7 +451,7 @@ func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomizati
 	return nil
 }
 
-func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization, dirPath string) error {
+func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization, revision, dirPath string) error {
 	start := time.Now()
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -485,20 +485,21 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	)
 
 	var diff bool
-	for _, action := range resources {
-		if action != "unchanged" {
+	changeSet := ""
+	for obj, action := range resources {
+		if action != "" && action != "unchanged" {
 			diff = true
-			break
+			changeSet += obj + " " + action + "\n"
 		}
 	}
 	if diff {
-		r.event(kustomization, string(output), "info")
+		r.event(kustomization, revision, recorder.EventSeverityInfo, changeSet)
 	}
 	return nil
 }
 
-func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kustomization, dirPath string, delay time.Duration) error {
-	err := r.apply(kustomization, dirPath)
+func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kustomization, revision, dirPath string, delay time.Duration) error {
+	err := r.apply(kustomization, revision, dirPath)
 	if err != nil {
 		// retry apply due to CRD/CR race
 		if strings.Contains(err.Error(), "could not find the requested resource") ||
@@ -507,7 +508,7 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 				"error", err.Error(),
 				"kustomization", fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()))
 			time.Sleep(delay)
-			if err := r.apply(kustomization, dirPath); err != nil {
+			if err := r.apply(kustomization, revision, dirPath); err != nil {
 				return err
 			}
 		} else {
@@ -536,7 +537,7 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 	return nil
 }
 
-func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomization) error {
+func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomization, revision string) error {
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -574,7 +575,7 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 	}
 
 	if alerts != "" {
-		r.event(kustomization, alerts, "info")
+		r.event(kustomization, revision, recorder.EventSeverityInfo, alerts)
 	}
 	return nil
 }
@@ -632,7 +633,7 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 	return nil
 }
 
-func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization, msg string, severity string) {
+func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization, revision, severity, msg string) {
 	r.EventRecorder.Event(&kustomization, "Normal", severity, msg)
 	objRef, err := reference.GetReference(r.Scheme, &kustomization)
 	if err != nil {
@@ -644,7 +645,7 @@ func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization,
 	}
 
 	if r.ExternalEventRecorder != nil {
-		if err := r.ExternalEventRecorder.Eventf(*objRef, nil, severity, severity, msg); err != nil {
+		if err := r.ExternalEventRecorder.Eventf(*objRef, map[string]string{"revision": revision}, severity, severity, msg); err != nil {
 			r.Log.WithValues(
 				strings.ToLower(kustomization.Kind),
 				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
