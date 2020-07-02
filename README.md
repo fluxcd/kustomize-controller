@@ -30,17 +30,22 @@ Specifications:
 
 ## Usage
 
-The kustomize-controller is part of a composable GitOps toolkit and depends on
-[source-controller](https://github.com/fluxcd/source-controller) to acquire the Kubernetes
-manifests from Git repositories.
+The kustomize-controller is part of a composable [GitOps toolkit](https://toolkit.fluxcd.io)
+and depends on [source-controller](https://github.com/fluxcd/source-controller)
+to acquire the Kubernetes manifests from Git repositories.
 
-### Install the controllers
+### Install the toolkit controllers
 
-Install the source and kustomize controllers in the `kustomize-system` namespace:
+Download the [toolkit CLI](https://github.com/fluxcd/toolkit/tree/master/install):
 
 ```bash
-kustomize build https://github.com/fluxcd/kustomize-controller//config/default?ref=master \
-kubectl apply -f-
+curl -s https://toolkit.fluxcd.io/install.sh | sudo bash
+```
+
+Install the toolkit controllers in the `gitops-system` namespace:
+
+```bash
+tk install
 ```
 
 ### Define a Git repository source
@@ -52,7 +57,7 @@ apiVersion: source.fluxcd.io/v1alpha1
 kind: GitRepository
 metadata:
   name: podinfo
-  namespace: kustomize-system
+  namespace: gitops-system
 spec:
   interval: 1m
   url: https://github.com/stefanprodan/podinfo
@@ -67,13 +72,13 @@ Save the above file and apply it on the cluster.
 You can wait for the source controller to assemble an artifact from the head of the repo master branch with:
 
 ```bash
-kubectl wait gitrepository/podinfo --for=condition=ready
+kubectl -n gitops-system wait gitrepository/podinfo --for=condition=ready
 ```
 
 The source controller will check for new commits in the master branch every minute. You can force a git sync with:
 
 ```bash
-kubectl annotate --overwrite gitrepository/podinfo source.fluxcd.io/syncAt="$(date +%s)"
+kubectl -n gitops-system nnotate --overwrite gitrepository/podinfo source.fluxcd.io/syncAt="$(date +%s)"
 ```
 
 ### Define a kustomization
@@ -85,7 +90,7 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-dev
-  namespace: kustomize-system
+  namespace: gitops-system
 spec:
   interval: 5m
   path: "./deploy/overlays/dev/"
@@ -122,13 +127,13 @@ Kustomization object status transitions to a ready state.
 You can wait for the kustomize controller to complete the deployment with:
 
 ```bash
-kubectl -n kustomize-system wait kustomization/podinfo-dev --for=condition=ready
+kubectl -n gitops-system wait kustomization/podinfo-dev --for=condition=ready
 ```
 
 When the controller finishes the reconciliation, it will log the applied objects:
 
 ```bash
-kubectl -n kustomize-system logs deploy/kustomize-controller | jq .
+kubectl -n gitops-system logs deploy/kustomize-controller | jq .
 ```
 
 ```json
@@ -137,7 +142,7 @@ kubectl -n kustomize-system logs deploy/kustomize-controller | jq .
   "ts": 1587195448.071468,
   "logger": "controllers.Kustomization",
   "msg": "Kustomization applied in 1.436096591s",
-  "kustomization": "kustomize-system/podinfo-dev",
+  "kustomization": "gitops-system/podinfo-dev",
   "output": {
     "namespace/dev": "created",
     "service/frontend": "created",
@@ -150,17 +155,17 @@ kubectl -n kustomize-system logs deploy/kustomize-controller | jq .
 }
 ```
 
-You can trigger a kustomize build and apply any time with:
+You can trigger a kustomization reconciliation any time with:
 
 ```bash
-kubectl -n kustomize-system annotate --overwrite kustomization/podinfo-dev \
+kubectl -n gitops-system annotate --overwrite kustomization/podinfo-dev \
 kustomize.fluxcd.io/syncAt="$(date +%s)"
 ```
 
 When the source controller pulls a new Git revision, the kustomize controller will detect that the
-source revision changed, and will apply those changes right away.
+source revision changed, and will reconcile those changes right away.
 
-If the kustomization build or apply fails, the controller sets the ready condition to `false` and logs the error:
+If the kustomization reconciliation fails, the controller sets the ready condition to `false` and logs the error:
 
 ```yaml
 status:
@@ -174,7 +179,7 @@ status:
 
 ```json
 {
-  "kustomization": "kustomize-system/podinfo-dev",
+  "kustomization": "gitops-system/podinfo-dev",
   "error": "Error from server (NotFound): error when creating podinfo-dev.yaml: namespaces dev not found"
 }
 ```
@@ -192,7 +197,7 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: istio
-  namespace: kustomize-system
+  namespace: gitops-system
 spec:
   interval: 10m
   path: "./istio/system/"
@@ -209,12 +214,12 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-dev
-  namespace: kustomize-system
+  namespace: gitops-system
 spec:
   dependsOn:
     - istio
   interval: 5m
-  path: "./overlays/dev/"
+  path: "./deploy/overlays/dev/"
   prune: true
   sourceRef:
     kind: GitRepository
@@ -230,12 +235,12 @@ apiVersion: source.fluxcd.io/v1alpha1
 kind: GitRepository
 metadata:
   name: podinfo-releases
-  namespace: kustomize-system
+  namespace: gitops-system
 spec:
   interval: 5m
   url: https://github.com/stefanprodan/podinfo
   ref:
-    semver: ">=3.2.3 <4.0.0"
+    semver: ">=4.0.0 <5.0.0"
 ```
 
 With `ref.semver` we configure source controller to pull the Git tags and create an artifact from the most recent tag
@@ -248,7 +253,7 @@ apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-production
-  namespace: kustomize-system
+  namespace: gitops-system
 spec:
   interval: 10m
   path: "./deploy/overlays/production/"
@@ -262,7 +267,7 @@ set in the Git repository.
 
 ### Configure alerting
 
-The kustomize-controller emits Kubernetes events whenever a kustomization status changes.
+The kustomize controller emits Kubernetes events whenever a kustomization status changes.
 
 You can use the [notification-controller](https://github.com/fluxcd/notification-controller) to forward these events
 to Slack, Microsoft Teams, Discord or Rocket chart.
@@ -274,7 +279,7 @@ apiVersion: notification.fluxcd.io/v1alpha1
 kind: Provider
 metadata:
   name: slack
-  namespace: kustomize-system
+  namespace: gitops-system
 spec:
   type: slack
   channel: alerts
@@ -285,7 +290,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: slack-url
-  namespace: kustomize-system
+  namespace: gitops-system
 data:
   address: <encoded-url>
 ```
@@ -297,7 +302,7 @@ apiVersion: notification.fluxcd.io/v1alpha1
 kind: Alert
 metadata:
   name: on-call
-  namespace: kustomize-system
+  namespace: gitops-system
 spec:
   providerRef: 
     name: slack
