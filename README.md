@@ -22,7 +22,7 @@ Features:
 * prunes the Kubernetes objects removed from source
 * checks the health of the deployed workloads
 * runs `Kustomizations` in a specific order, taking into account the depends-on relationship 
-* reports on Slack or Discord whenever a `Kustomization` status changes
+* notifies whenever a `Kustomization` status changes
 
 Specifications:
 * [API](docs/spec/v1alpha1/README.md)
@@ -262,34 +262,57 @@ set in the Git repository.
 
 ### Configure alerting
 
-The kustomize controller can post message to Slack or Discord whenever a kustomization status changes.
+The kustomize-controller emits Kubernetes events whenever a kustomization status changes.
 
-Alerting can be configured by creating a profile that targets a list of kustomizations:
+You can use the [notification-controller](https://github.com/fluxcd/notification-controller) to forward these events
+to Slack, Microsoft Teams, Discord or Rocket chart.
+
+Create a notification provider for Slack:
 
 ```yaml
-apiVersion: kustomize.fluxcd.io/v1alpha1
-kind: Profile
+apiVersion: notification.fluxcd.io/v1alpha1
+kind: Provider
 metadata:
-  name: default
+  name: slack
   namespace: kustomize-system
 spec:
-  alert:
-    type: slack
-    verbosity: info
-    address: https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
-    username: kustomize-controller
-    channel: general
-  kustomizations:
-    - '*'
+  type: slack
+  channel: alerts
+  secretRef:
+    name: slack-url
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: slack-url
+  namespace: kustomize-system
+data:
+  address: <encoded-url>
 ```
 
-The alert provider type can be: `slack` or `discord` and the verbosity can be set to `info` or `error`.
+Create an alert for a list of GitRepositories and Kustomizations:
 
-The `*` wildcard tells the controller to use this profile for all kustomizations that are present
-in the same namespace as the profile.
-Multiple profiles can be used to send alerts to different channels or Slack organizations.
+```yaml
+apiVersion: notification.fluxcd.io/v1alpha1
+kind: Alert
+metadata:
+  name: on-call
+  namespace: kustomize-system
+spec:
+  providerRef: 
+    name: slack
+  eventSeverity: info
+  eventSources:
+    - kind: GitRepository
+      name: podinfo-releases
+    - kind: Kustomization
+      name: podinfo-production
+```
 
-When the verbosity is set to `error`, the controller will alert on any error encountered during the
+Multiple alerts can be used to send notifications to different channels or Slack organizations.
+
+The event severity can be set to `info` or `error`.
+When the severity is set to `error`, the controller will alert on any error encountered during the
 reconciliation process. This includes kustomize build and validation errors, apply errors and
 health check failures.
 

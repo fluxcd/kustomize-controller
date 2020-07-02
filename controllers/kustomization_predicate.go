@@ -78,9 +78,10 @@ func (gc KustomizationGarbageCollectPredicate) Delete(e event.DeleteEvent) bool 
 	return true
 }
 
-func prune(timeout time.Duration, name string, namespace string, snapshot *kustomizev1.Snapshot, log logr.Logger) bool {
+func prune(timeout time.Duration, name string, namespace string, snapshot *kustomizev1.Snapshot, log logr.Logger) (string, bool) {
 	selector := gcSelectors(name, namespace, snapshot.Revision)
 	ok := true
+	changeSet := ""
 	outInfo := ""
 	outErr := ""
 	for ns, kinds := range snapshot.NamespacedKinds() {
@@ -89,7 +90,7 @@ func prune(timeout time.Duration, name string, namespace string, snapshot *kusto
 				outErr += " " + err.Error()
 				ok = false
 			} else {
-				outInfo += " " + output
+				outInfo += " " + output + "\n"
 			}
 		}
 	}
@@ -97,6 +98,7 @@ func prune(timeout time.Duration, name string, namespace string, snapshot *kusto
 		log.Info("Garbage collection for namespaced objects completed",
 			"kustomization", fmt.Sprintf("%s/%s", namespace, name),
 			"output", outInfo)
+		changeSet += outInfo
 	} else {
 		log.Error(fmt.Errorf(outErr), "Garbage collection for namespaced objects failed",
 			"kustomization", fmt.Sprintf("%s/%s", namespace, name))
@@ -109,19 +111,20 @@ func prune(timeout time.Duration, name string, namespace string, snapshot *kusto
 			outErr += " " + err.Error()
 			ok = false
 		} else {
-			outInfo += " " + output
+			outInfo += " " + output + "\n"
 		}
 	}
 	if outErr == "" {
 		log.Info("Garbage collection for non-namespaced objects completed",
 			"kustomization", fmt.Sprintf("%s/%s", namespace, name),
 			"output", outInfo)
+		changeSet += outInfo
 	} else {
 		log.Error(fmt.Errorf(outErr), "Garbage collection for non-namespaced objects failed",
 			"kustomization", fmt.Sprintf("%s/%s", namespace, name))
 	}
 
-	return ok
+	return changeSet, ok
 }
 
 func deleteByKind(timeout time.Duration, kind, namespace, selector string) (string, error) {

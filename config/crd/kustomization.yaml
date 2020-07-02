@@ -2,6 +2,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - bases/kustomize.fluxcd.io_kustomizations.yaml
-- bases/kustomize.fluxcd.io_profiles.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 

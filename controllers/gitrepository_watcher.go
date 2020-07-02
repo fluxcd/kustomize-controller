@@ -86,7 +86,7 @@ func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 
 func (r *GitRepositoryWatcher) SetupWithManager(mgr ctrl.Manager) error {
 	// create a kustomization index based on Git repository name
-	err := mgr.GetFieldIndexer().IndexField(&kustomizev1.Kustomization{}, kustomizev1.SourceIndexKey,
+	err := mgr.GetFieldIndexer().IndexField(context.TODO(), &kustomizev1.Kustomization{}, kustomizev1.SourceIndexKey,
 		func(rawObj runtime.Object) []string {
 			k := rawObj.(*kustomizev1.Kustomization)
 			if k.Spec.SourceRef.Kind == "GitRepository" {
