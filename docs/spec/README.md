@@ -190,22 +190,4 @@ spec:
   validate: server
 ```
 
-Configure alerting for all pipelines in the `kustomize-system` namespace:
-
-```yaml
-apiVersion: kustomize.fluxcd.io/v1alpha1
-kind: Profile
-metadata:
-  name: default
-  namespace: kustomize-system
-spec:
-  alert:
-    type: slack
-    verbosity: info
-    address: https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
-    username: kustomize-controller
-    channel: general
-  kustomizations:
-    - '*'
-```
 
