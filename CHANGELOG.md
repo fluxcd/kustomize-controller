@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.2 (2020-07-02)
+
+This prerelease comes with improvements to the alerting system.
+The reconciliation events can be forwarded to notification controller
+and alerting can be configured for Slack, MS Teams, Discord and Rocket chat
+using the [notification.fluxcd.io API](https://github.com/fluxcd/notification-controller/tree/master/docs/spec).
+
 ## 0.0.1 (2020-06-24)
 
 This is the first prerelease ready for public testing. To get started
