@@ -75,6 +75,7 @@ jobs:
       - name: Debug failure
         if: failure()
         run: |
+          kustomize version
           kubectl -n kustomize-system get gitrepositories -oyaml
           kubectl -n kustomize-system get kustomizations -oyaml
           kubectl -n kustomize-system get all
