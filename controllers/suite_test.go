@@ -59,7 +59,7 @@ var _ = BeforeSuite(func(done Done) {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 
 	By("bootstrapping test environment")
-	t := true
+	t := false
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &t,
@@ -94,7 +94,7 @@ var _ = BeforeSuite(func(done Done) {
 		Scheme:                scheme.Scheme,
 		EventRecorder:         k8sManager.GetEventRecorderFor("kustomize-controller"),
 		ExternalEventRecorder: nil,
-	}).SetupWithManager(k8sManager, KustomizationReconcilerOptions{MaxConcurrentReconciles: 2})
+	}).SetupWithManager(k8sManager, KustomizationReconcilerOptions{MaxConcurrentReconciles: 1})
 	Expect(err).ToNot(HaveOccurred(), "failed to setup KustomizationReconciler")
 
 	go func() {

@@ -14,6 +14,7 @@ all: manager
 
 # Run tests
 test: generate fmt vet manifests api-docs
+	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/master/config/crd/bases/source.fluxcd.io_gitrepositories.yaml > config/crd/bases/gitrepositories.yaml
 	go test ./... -coverprofile cover.out
 
 # Build manager binary
