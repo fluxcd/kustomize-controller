@@ -2,6 +2,7 @@
 IMG ?= fluxcd/kustomize-controller:latest
 # Produce CRDs that work back to Kubernetes 1.13
 CRD_OPTIONS ?= crd
+SOURCE_VER ?= v0.0.2
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -13,8 +14,7 @@ endif
 all: manager
 
 # Run tests
-test: generate fmt vet manifests api-docs
-	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/v0.0.2/config/crd/bases/source.fluxcd.io_gitrepositories.yaml > config/crd/bases/gitrepositories.yaml
+test: generate fmt vet manifests api-docs download-crd-deps
 	go test ./... -coverprofile cover.out
 
 # Build manager binary
@@ -24,6 +24,9 @@ manager: generate fmt vet
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
 	go run ./main.go
+
+download-crd-deps:
+	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.fluxcd.io_gitrepositories.yaml > config/crd/bases/gitrepositories.yaml
 
 # Install CRDs into a cluster
 install: manifests
