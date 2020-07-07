@@ -29,6 +29,8 @@ jobs:
         uses: ./.github/actions/kustomize
       - name: Setup Kubebuilder
         uses: ./.github/actions/kubebuilder
+      - name: Setup Kubectl
+        uses: ./.github/actions/kubectl
       - name: Run tests
         run: make test
         env:
@@ -75,6 +77,9 @@ jobs:
       - name: Debug failure
         if: failure()
         run: |
+          which kubectl
+          kubectl version
+          kustomize version
           kubectl -n kustomize-system get gitrepositories -oyaml
           kubectl -n kustomize-system get kustomizations -oyaml
           kubectl -n kustomize-system get all
