@@ -29,13 +29,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
-
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
 
 // GitRepositoryWatcher watches GitRepository objects for revision changes
-// and triggers a sync for all the Kustomizations that reference a changed source
+// and triggers a reconcile for all the Kustomizations that reference a changed source
 type GitRepositoryWatcher struct {
 	client.Client
 	Log    logr.Logger
@@ -74,11 +73,11 @@ func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	// trigger apply for each kustomization using this Git repository
 	for _, k := range sorted {
 		namespacedName := types.NamespacedName{Namespace: k.Namespace, Name: k.Name}
-		if err := r.requestKustomizationSync(k); err != nil {
+		if err := r.requestReconciliation(k); err != nil {
 			log.Error(err, "unable to annotate Kustomization", "kustomization", namespacedName)
 			continue
 		}
-		log.Info("requested immediate sync", "kustomization", namespacedName)
+		log.Info("requested immediate reconciliation", "kustomization", namespacedName)
 	}
 
 	return ctrl.Result{}, nil
@@ -105,7 +104,7 @@ func (r *GitRepositoryWatcher) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *GitRepositoryWatcher) requestKustomizationSync(kustomization kustomizev1.Kustomization) error {
+func (r *GitRepositoryWatcher) requestReconciliation(kustomization kustomizev1.Kustomization) error {
 	firstTry := true
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
 		if !firstTry {

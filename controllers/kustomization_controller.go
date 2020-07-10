@@ -72,7 +72,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	if kustomization.Spec.Suspend {
 		msg := "Kustomization is suspended, skipping reconciliation"
-		kustomization = kustomizev1.KustomizationNotReady(kustomization, kustomizev1.SuspendedReason, msg)
+		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.SuspendedReason, msg)
 		if err := r.Status().Update(ctx, &kustomization); err != nil {
 			log.Error(err, "unable to update Kustomization status")
 			return ctrl.Result{Requeue: true}, err
@@ -113,7 +113,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	// check source readiness
 	if source.GetArtifact() == nil {
 		msg := "Source is not ready"
-		kustomization = kustomizev1.KustomizationNotReady(kustomization, kustomizev1.ArtifactFailedReason, msg)
+		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
 		if err := r.Status().Update(ctx, &kustomization); err != nil {
 			log.Error(err, "unable to update Kustomization status")
 			return ctrl.Result{Requeue: true}, err
@@ -125,7 +125,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	// check dependencies
 	if len(kustomization.Spec.DependsOn) > 0 {
 		if err := r.checkDependencies(kustomization); err != nil {
-			kustomization = kustomizev1.KustomizationNotReady(kustomization, kustomizev1.DependencyNotReadyReason, err.Error())
+			kustomization = kustomizev1.KustomizationNotReady(
+				kustomization, source.GetArtifact().Revision, kustomizev1.DependencyNotReadyReason, err.Error())
 			if err := r.Status().Update(ctx, &kustomization); err != nil {
 				log.Error(err, "unable to update Kustomization status")
 				return ctrl.Result{Requeue: true}, err
@@ -137,24 +138,24 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo, msg)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
-		log.Info("All dependencies area ready, proceeding with apply")
+		log.Info("All dependencies area ready, proceeding with reconciliation")
 	}
 
-	// try sync
-	syncedKustomization, err := r.sync(*kustomization.DeepCopy(), source)
+	// try to reconcile revision
+	syncedKustomization, err := r.reconcile(*kustomization.DeepCopy(), source)
 	if err != nil {
-		log.Error(err, "Kustomization apply failed", "revision", source.GetArtifact().Revision)
+		log.Error(err, "Kustomization reconciliation failed", "revision", source.GetArtifact().Revision)
 		r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityError, err.Error())
 	}
 
 	// update status
 	if err := r.Status().Update(ctx, &syncedKustomization); err != nil {
-		log.Error(err, "unable to update Kustomization status after sync")
+		log.Error(err, "unable to update Kustomization status after reconciliation")
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	// log sync duration
-	log.Info(fmt.Sprintf("Kustomization sync finished in %s, next run in %s",
+	// log duration
+	log.Info(fmt.Sprintf("Kustomization reconciliation finished in %s, next run in %s",
 		time.Now().Sub(syncStart).String(),
 		kustomization.Spec.Interval.Duration.String(),
 	))
@@ -178,14 +179,19 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 		Complete(r)
 }
 
-func (r *KustomizationReconciler) sync(
+func (r *KustomizationReconciler) reconcile(
 	kustomization kustomizev1.Kustomization,
 	source sourcev1.Source) (kustomizev1.Kustomization, error) {
 	// acquire lock
 	unlock, err := r.lock(fmt.Sprintf("%s-%s", kustomization.GetName(), kustomization.GetNamespace()))
 	if err != nil {
-		err = fmt.Errorf("tmp dir error: %w", err)
-		return kustomizev1.KustomizationNotReady(kustomization, sourcev1.StorageOperationFailedReason, err.Error()), err
+		err = fmt.Errorf("lockfile error: %w", err)
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			source.GetArtifact().Revision,
+			sourcev1.StorageOperationFailedReason,
+			err.Error(),
+		), err
 	}
 	defer unlock()
 
@@ -193,7 +199,12 @@ func (r *KustomizationReconciler) sync(
 	tmpDir, err := ioutil.TempDir("", kustomization.Name)
 	if err != nil {
 		err = fmt.Errorf("tmp dir error: %w", err)
-		return kustomizev1.KustomizationNotReady(kustomization, sourcev1.StorageOperationFailedReason, err.Error()), err
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			source.GetArtifact().Revision,
+			sourcev1.StorageOperationFailedReason,
+			err.Error(),
+		), err
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -202,6 +213,7 @@ func (r *KustomizationReconciler) sync(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
+			source.GetArtifact().Revision,
 			kustomizev1.ArtifactFailedReason,
 			"artifact acquisition failed",
 		), err
@@ -213,6 +225,7 @@ func (r *KustomizationReconciler) sync(
 		err = fmt.Errorf("kustomization path not found: %w", err)
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
+			source.GetArtifact().Revision,
 			kustomizev1.ArtifactFailedReason,
 			err.Error(),
 		), err
@@ -223,6 +236,7 @@ func (r *KustomizationReconciler) sync(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
+			source.GetArtifact().Revision,
 			kustomizev1.BuildFailedReason,
 			"kustomize create failed",
 		), err
@@ -233,6 +247,7 @@ func (r *KustomizationReconciler) sync(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
+			source.GetArtifact().Revision,
 			kustomizev1.BuildFailedReason,
 			"kustomize build failed",
 		), err
@@ -243,6 +258,7 @@ func (r *KustomizationReconciler) sync(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
+			source.GetArtifact().Revision,
 			kustomizev1.ValidationFailedReason,
 			fmt.Sprintf("%s-side validation failed", kustomization.Spec.Validation),
 		), err
@@ -253,6 +269,7 @@ func (r *KustomizationReconciler) sync(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
+			source.GetArtifact().Revision,
 			kustomizev1.ApplyFailedReason,
 			"apply failed",
 		), err
@@ -263,6 +280,7 @@ func (r *KustomizationReconciler) sync(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
+			source.GetArtifact().Revision,
 			kustomizev1.PruneFailedReason,
 			err.Error(),
 		), err
@@ -274,6 +292,7 @@ func (r *KustomizationReconciler) sync(
 		return kustomizev1.KustomizationNotReadySnapshot(
 			kustomization,
 			snapshot,
+			source.GetArtifact().Revision,
 			kustomizev1.HealthCheckFailedReason,
 			"health check failed",
 		), err

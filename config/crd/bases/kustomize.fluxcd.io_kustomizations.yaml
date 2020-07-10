@@ -179,6 +179,10 @@ spec:
               description: The last successfully applied revision. The revision format
                 for Git sources is <branch|tag>/<commit-sha>.
               type: string
+            lastAttemptedRevision:
+              description: LastAttemptedRevision is the revision of the last reconciliation
+                attempt.
+              type: string
             snapshot:
               description: The last successfully applied revision metadata.
               properties:
