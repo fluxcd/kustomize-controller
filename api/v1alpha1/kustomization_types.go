@@ -23,6 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const KustomizationKind = "Kustomization"
+
 // KustomizationSpec defines the desired state of a kustomization.
 type KustomizationSpec struct {
 	// A list of kustomizations that must be ready before this
@@ -110,6 +112,10 @@ type KustomizationStatus struct {
 	// +optional
 	LastAppliedRevision string `json:"lastAppliedRevision,omitempty"`
 
+	// LastAttemptedRevision is the revision of the last reconciliation attempt.
+	// +optional
+	LastAttemptedRevision string `json:"lastAttemptedRevision,omitempty"`
+
 	// The last successfully applied revision metadata.
 	// +optional
 	Snapshot *Snapshot `json:"snapshot,omitempty"`
@@ -127,6 +133,7 @@ func KustomizationReady(kustomization Kustomization, snapshot *Snapshot, revisio
 	}
 	kustomization.Status.Snapshot = snapshot
 	kustomization.Status.LastAppliedRevision = revision
+	kustomization.Status.LastAttemptedRevision = revision
 	return kustomization
 }
 
@@ -143,7 +150,7 @@ func KustomizationProgressing(kustomization Kustomization) Kustomization {
 	return kustomization
 }
 
-func KustomizationNotReady(kustomization Kustomization, reason, message string) Kustomization {
+func KustomizationNotReady(kustomization Kustomization, revision, reason, message string) Kustomization {
 	kustomization.Status.Conditions = []Condition{
 		{
 			Type:               ReadyCondition,
@@ -153,10 +160,13 @@ func KustomizationNotReady(kustomization Kustomization, reason, message string) 
 			Message:            message,
 		},
 	}
+	if revision != "" {
+		kustomization.Status.LastAttemptedRevision = revision
+	}
 	return kustomization
 }
 
-func KustomizationNotReadySnapshot(kustomization Kustomization, snapshot *Snapshot, reason, message string) Kustomization {
+func KustomizationNotReadySnapshot(kustomization Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
 	kustomization.Status.Conditions = []Condition{
 		{
 			Type:               ReadyCondition,
@@ -167,6 +177,8 @@ func KustomizationNotReadySnapshot(kustomization Kustomization, snapshot *Snapsh
 		},
 	}
 	kustomization.Status.Snapshot = snapshot
+	kustomization.Status.LastAttemptedRevision = revision
+
 	return kustomization
 }
 

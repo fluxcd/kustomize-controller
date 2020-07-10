@@ -72,6 +72,10 @@ type KustomizationStatus struct {
 	// +optional
 	LastAppliedRevision string `json:"lastAppliedRevision,omitempty"`
 
+	// LastAttemptedRevision is the revision of the last reconciliation attempt.
+	// +optional
+	LastAttemptedRevision string `json:"lastAttemptedRevision,omitempty"`
+
 	// The last successfully applied revision metadata.
 	// +optional
 	Snapshot *Snapshot `json:"snapshot"`
@@ -398,6 +402,7 @@ status:
     status: "True"
     type: Ready
   lastAppliedRevision: master/a1afe267b54f38b46b487f6e938a6fd508278c07
+  lastAttemptedRevision: master/a1afe267b54f38b46b487f6e938a6fd508278c07
 ```
 
 You can wait for the kustomize controller to complete a reconciliation with:
@@ -434,6 +439,7 @@ status:
     status: "False"
     type: Ready
   lastAppliedRevision: master/a1afe267b54f38b46b487f6e938a6fd508278c07
+  lastAttemptedRevision: master/7c500d302e38e7e4a3f327343a8a5c21acaaeb87
 ``` 
 
 > **Note** that the last applied revision is updated only on a successful reconciliation.

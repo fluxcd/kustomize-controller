@@ -77,8 +77,7 @@ var _ = Describe("KustomizationReconciler", func() {
 			artifact, err := httpServer.ArtifactFromFiles(t.artifacts)
 			Expect(err).NotTo(HaveOccurred())
 
-			url, err := httpServer.URLForFile(artifact)
-			Expect(err).NotTo(HaveOccurred())
+			url := fmt.Sprintf("%s/%s", httpServer.URL(), artifact)
 
 			repositoryName := types.NamespacedName{
 				Name:      fmt.Sprintf("%s", randStringRunes(5)),
@@ -157,7 +156,6 @@ var _ = Describe("KustomizationReconciler", func() {
 
 			Expect(cond.Status).To(Equal(t.expectStatus))
 			Expect(got.Status.LastAppliedRevision).To(Equal(t.expectRevision))
-
 		},
 			Entry("namespace-sa", refTestCase{
 				artifacts: []testserver.File{

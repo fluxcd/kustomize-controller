@@ -499,6 +499,18 @@ The revision format for Git sources is <branch|tag>/<commit-sha>.</p>
 </tr>
 <tr>
 <td>
+<code>lastAttemptedRevision</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>LastAttemptedRevision is the revision of the last reconciliation attempt.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>snapshot</code><br>
 <em>
 <a href="#kustomize.fluxcd.io/v1alpha1.Snapshot">
