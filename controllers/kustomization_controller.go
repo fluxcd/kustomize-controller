@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -43,6 +44,7 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 	"github.com/fluxcd/pkg/lockedfile"
 	"github.com/fluxcd/pkg/recorder"
+	"github.com/fluxcd/pkg/untar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
 
@@ -312,16 +314,28 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := fmt.Sprintf("cd %s && curl -sL %s -o artifact.tar.gz && tar -xzf artifact.tar.gz -C .",
-		tmpDir, url)
-	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-	output, err := command.CombinedOutput()
+	// download the tarball
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return err
-		}
-		return fmt.Errorf("artifact `%s` download failed: %s", url, string(output))
+		return fmt.Errorf("failed to create HTTP request for %s, error: %w", url, err)
 	}
+
+	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	if err != nil {
+		return fmt.Errorf("failed to download artifact from %s, error: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	// check response
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("faild to download artifact from %s, status: %s", url, resp.Status)
+	}
+
+	// extract
+	if _, err = untar.Untar(resp.Body, tmpDir); err != nil {
+		return fmt.Errorf("faild to untar artifact, error: %w", err)
+	}
+
 	return nil
 }
 
