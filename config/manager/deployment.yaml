@@ -15,7 +15,7 @@ spec:
         app: kustomize-controller
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8282"
+        prometheus.io/port: "8080"
     spec:
       terminationGracePeriodSeconds: 10
       containers:
@@ -26,7 +26,7 @@ spec:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
         ports:
-          - containerPort: 8282
+          - containerPort: 8080
             name: http-prom
         env:
           - name: RUNTIME_NAMESPACE
