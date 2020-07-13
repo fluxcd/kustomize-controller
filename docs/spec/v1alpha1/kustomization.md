@@ -164,21 +164,21 @@ The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum va
 
 The kustomization execution can be suspended by setting `spec.susped` to `true`.
 
-The controller can be told to execute the kustomization outside of the specified interval
+The controller can be told to reconcile the kustomization outside of the specified interval
 by annotating the kustomization object with:
 
 ```go
 const (
-	// SyncAtAnnotation is the annotation used for triggering a
-	// sync outside of the specified schedule.
-	SyncAtAnnotation string = "kustomize.fluxcd.io/syncAt"
+	// ReconcileAtAnnotation is the annotation used for triggering a
+	// reconciliation outside of the defined schedule.
+	ReconcileAtAnnotation string = "fluxcd.io/reconcileAt"
 )
 ```
 
 On-demand execution example:
 
 ```bash
-kubectl annotate --overwrite kustomization/podinfo kustomize.fluxcd.io/syncAt="$(date +%s)"
+kubectl annotate --overwrite kustomization/podinfo fluxcd.io/reconcileAt="$(date +%s)"
 ```
 
 ## Garbage collection

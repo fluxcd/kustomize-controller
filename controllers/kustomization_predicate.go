@@ -45,9 +45,9 @@ func (KustomizationSyncAtPredicate) Update(e event.UpdateEvent) bool {
 		return true
 	}
 
-	// handle syncAt annotation
-	if val, ok := e.MetaNew.GetAnnotations()[kustomizev1.SyncAtAnnotation]; ok {
-		if valOld, okOld := e.MetaOld.GetAnnotations()[kustomizev1.SyncAtAnnotation]; okOld {
+	// handle reconcileAt annotation
+	if val, ok := e.MetaNew.GetAnnotations()[kustomizev1.ReconcileAtAnnotation]; ok {
+		if valOld, okOld := e.MetaOld.GetAnnotations()[kustomizev1.ReconcileAtAnnotation]; okOld {
 			if val != valOld {
 				return true
 			}
