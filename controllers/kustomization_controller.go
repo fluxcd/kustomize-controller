@@ -92,7 +92,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	var source sourcev1.Source
 
 	// get artifact source from Git repository
-	if kustomization.Spec.SourceRef.Kind == "GitRepository" {
+	if kustomization.Spec.SourceRef.Kind == sourcev1.GitRepositoryKind {
 		var repository sourcev1.GitRepository
 		repositoryName := types.NamespacedName{
 			Namespace: kustomization.GetNamespace(),
