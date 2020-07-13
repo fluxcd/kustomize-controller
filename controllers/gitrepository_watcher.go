@@ -88,7 +88,7 @@ func (r *GitRepositoryWatcher) SetupWithManager(mgr ctrl.Manager) error {
 	err := mgr.GetFieldIndexer().IndexField(context.TODO(), &kustomizev1.Kustomization{}, kustomizev1.SourceIndexKey,
 		func(rawObj runtime.Object) []string {
 			k := rawObj.(*kustomizev1.Kustomization)
-			if k.Spec.SourceRef.Kind == "GitRepository" {
+			if k.Spec.SourceRef.Kind == sourcev1.GitRepositoryKind {
 				return []string{k.Spec.SourceRef.Name}
 			}
 			return nil
@@ -120,7 +120,7 @@ func (r *GitRepositoryWatcher) requestReconciliation(kustomization kustomizev1.K
 		if kustomization.Annotations == nil {
 			kustomization.Annotations = make(map[string]string)
 		}
-		kustomization.Annotations[kustomizev1.SyncAtAnnotation] = metav1.Now().String()
+		kustomization.Annotations[kustomizev1.ReconcileAtAnnotation] = metav1.Now().String()
 		// Prevent strings can't be nil err as API package does not mark APIGroup with omitempty.
 		if kustomization.Spec.SourceRef.APIGroup == nil {
 			emptyAPIGroup := ""

@@ -78,7 +78,7 @@ kubectl -n gitops-system wait gitrepository/podinfo --for=condition=ready
 The source controller will check for new commits in the master branch every minute. You can force a git sync with:
 
 ```bash
-kubectl -n gitops-system nnotate --overwrite gitrepository/podinfo source.fluxcd.io/syncAt="$(date +%s)"
+kubectl -n gitops-system nnotate --overwrite gitrepository/podinfo fluxcd.io/reconcileAt="$(date +%s)"
 ```
 
 ### Define a kustomization
@@ -159,7 +159,7 @@ You can trigger a kustomization reconciliation any time with:
 
 ```bash
 kubectl -n gitops-system annotate --overwrite kustomization/podinfo-dev \
-kustomize.fluxcd.io/syncAt="$(date +%s)"
+fluxcd.io/reconcileAt="$(date +%s)"
 ```
 
 When the source controller pulls a new Git revision, the kustomize controller will detect that the

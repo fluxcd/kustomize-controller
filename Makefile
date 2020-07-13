@@ -2,7 +2,7 @@
 IMG ?= fluxcd/kustomize-controller:latest
 # Produce CRDs that work back to Kubernetes 1.13
 CRD_OPTIONS ?= crd
-SOURCE_VER ?= v0.0.2
+SOURCE_VER ?= v0.0.5
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))

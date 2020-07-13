@@ -99,15 +99,16 @@ func main() {
 
 	if err = (&controllers.GitRepositoryWatcher{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("GitRepository"),
+		Log:    ctrl.Log.WithName("controllers").WithName(sourcev1.GitRepositoryKind),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GitRepository")
 		os.Exit(1)
 	}
+
 	if err = (&controllers.KustomizationReconciler{
 		Client:                mgr.GetClient(),
-		Log:                   ctrl.Log.WithName("controllers").WithName("Kustomization"),
+		Log:                   ctrl.Log.WithName("controllers").WithName(kustomizev1.KustomizationKind),
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         mgr.GetEventRecorderFor("kustomize-controller"),
 		ExternalEventRecorder: eventRecorder,
@@ -115,7 +116,7 @@ func main() {
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
 	}); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Kustomization")
+		setupLog.Error(err, "unable to create controller", "controller", kustomizev1.KustomizationKind)
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
