@@ -70,13 +70,13 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	log := r.Log.WithValues(strings.ToLower(kustomization.Kind), req.NamespacedName)
+	log := r.Log.WithValues("controller", strings.ToLower(kustomizev1.KustomizationKind), "request", req.NamespacedName)
 
 	if kustomization.Spec.Suspend {
 		msg := "Kustomization is suspended, skipping reconciliation"
 		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.SuspendedReason, msg)
 		if err := r.Status().Update(ctx, &kustomization); err != nil {
-			log.Error(err, "unable to update Kustomization status")
+			log.Error(err, "unable to update status")
 			return ctrl.Result{Requeue: true}, err
 		}
 		log.Info(msg)
@@ -85,7 +85,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	kustomization = kustomizev1.KustomizationProgressing(kustomization)
 	if err := r.Status().Update(ctx, &kustomization); err != nil {
-		log.Error(err, "unable to update Kustomization status")
+		log.Error(err, "unable to update status")
 		return ctrl.Result{Requeue: true}, err
 	}
 
@@ -100,7 +100,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 		err := r.Client.Get(ctx, repositoryName, &repository)
 		if err != nil {
-			log.Error(err, "GitRepository not found", "gitrepository", repositoryName)
+			log.Error(err, fmt.Sprintf("GitRepository '%s' not found", repositoryName))
 			return ctrl.Result{Requeue: true}, err
 		}
 		source = &repository
@@ -117,7 +117,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		msg := "Source is not ready"
 		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
 		if err := r.Status().Update(ctx, &kustomization); err != nil {
-			log.Error(err, "unable to update Kustomization status")
+			log.Error(err, "unable to update status")
 			return ctrl.Result{Requeue: true}, err
 		}
 		log.Info(msg)
@@ -130,7 +130,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			kustomization = kustomizev1.KustomizationNotReady(
 				kustomization, source.GetArtifact().Revision, kustomizev1.DependencyNotReadyReason, err.Error())
 			if err := r.Status().Update(ctx, &kustomization); err != nil {
-				log.Error(err, "unable to update Kustomization status")
+				log.Error(err, "unable to update status")
 				return ctrl.Result{Requeue: true}, err
 			}
 			// we can't rely on exponential backoff because it will prolong the execution too much,
@@ -143,26 +143,31 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		log.Info("All dependencies area ready, proceeding with reconciliation")
 	}
 
-	// try to reconcile revision
-	syncedKustomization, err := r.reconcile(*kustomization.DeepCopy(), source)
-	if err != nil {
-		log.Error(err, "Kustomization reconciliation failed", "revision", source.GetArtifact().Revision)
-		r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityError, err.Error())
+	// reconcile kustomization by applying the latest revision
+	reconciledKustomization, reconcileErr := r.reconcile(*kustomization.DeepCopy(), source)
+	if reconcileErr != nil {
+		// broadcast the error
+		r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityError, reconcileErr.Error())
 	}
 
 	// update status
-	if err := r.Status().Update(ctx, &syncedKustomization); err != nil {
-		log.Error(err, "unable to update Kustomization status after reconciliation")
+	if err := r.Status().Update(ctx, &reconciledKustomization); err != nil {
+		log.Error(err, "unable to update status after reconciliation")
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	// log duration
-	log.Info(fmt.Sprintf("Kustomization reconciliation finished in %s, next run in %s",
+	log.Info(fmt.Sprintf("Reconciliation finished in %s, next run in %s",
 		time.Now().Sub(syncStart).String(),
-		kustomization.Spec.Interval.Duration.String(),
-	))
+		kustomization.Spec.Interval.Duration.String()),
+		"revision",
+		source.GetArtifact().Revision,
+	)
 
-	// requeue kustomization
+	// requeue
+	if reconcileErr != nil {
+		// record the reconciliation error
+		return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, reconcileErr
+	}
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 }
 
@@ -547,7 +552,7 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 			return err
 		}
 	} else {
-		if changeSet != "" {
+		if changeSet != "" && kustomization.Status.LastAppliedRevision != revision {
 			r.event(kustomization, revision, recorder.EventSeverityInfo, changeSet)
 		}
 	}
@@ -622,7 +627,7 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 		}
 	}
 
-	if alerts != "" {
+	if alerts != "" && kustomization.Status.LastAppliedRevision != revision {
 		r.event(kustomization, revision, recorder.EventSeverityInfo, alerts)
 	}
 	return nil
