@@ -89,15 +89,20 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{Requeue: true}, err
 	}
 
+	// resolve source reference
 	var source sourcev1.Source
-
-	// get artifact source from Git repository
 	if kustomization.Spec.SourceRef.Kind == sourcev1.GitRepositoryKind {
+		repositoryNamespace := kustomization.GetNamespace()
+		if kustomization.Spec.SourceRef.Namespace != "" {
+			repositoryNamespace = kustomization.Spec.SourceRef.Namespace
+		}
+
 		var repository sourcev1.GitRepository
 		repositoryName := types.NamespacedName{
-			Namespace: kustomization.GetNamespace(),
+			Namespace: repositoryNamespace,
 			Name:      kustomization.Spec.SourceRef.Name,
 		}
+
 		err := r.Client.Get(ctx, repositoryName, &repository)
 		if err != nil {
 			log.Error(err, fmt.Sprintf("GitRepository '%s' not found", repositoryName))
