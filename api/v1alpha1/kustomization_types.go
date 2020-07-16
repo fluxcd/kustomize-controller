@@ -24,6 +24,7 @@ import (
 )
 
 const KustomizationKind = "Kustomization"
+const KustomizationFinalizer = "finalizers.fluxcd.io"
 
 // KustomizationSpec defines the desired state of a kustomization.
 type KustomizationSpec struct {

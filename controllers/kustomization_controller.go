@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -26,7 +27,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"sigs.k8s.io/yaml"
 	"strings"
 	"time"
 
@@ -40,12 +40,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	kustypes "sigs.k8s.io/kustomize/api/types"
+	"sigs.k8s.io/yaml"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 	"github.com/fluxcd/pkg/lockedfile"
 	"github.com/fluxcd/pkg/recorder"
 	"github.com/fluxcd/pkg/untar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
+
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 )
 
 // KustomizationReconciler reconciles a Kustomization object
@@ -71,6 +73,39 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 
 	log := r.Log.WithValues("controller", strings.ToLower(kustomizev1.KustomizationKind), "request", req.NamespacedName)
+
+	// Examine if the object is under deletion
+	if kustomization.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !containsString(kustomization.ObjectMeta.Finalizers, kustomizev1.KustomizationFinalizer) {
+			kustomization.ObjectMeta.Finalizers = append(kustomization.ObjectMeta.Finalizers, kustomizev1.KustomizationFinalizer)
+			if err := r.Update(ctx, &kustomization); err != nil {
+				log.Error(err, "unable to register finalizer")
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		// The object is being deleted
+		if containsString(kustomization.ObjectMeta.Finalizers, kustomizev1.KustomizationFinalizer) {
+			// Our finalizer is still present, so lets handle garbage collection
+			if kustomization.Spec.Prune && !kustomization.Spec.Suspend {
+				if err := r.prune(kustomization, kustomization.Status.Snapshot, true); err != nil {
+					r.event(kustomization, kustomization.Status.LastAppliedRevision, recorder.EventSeverityError, "pruning for deleted resource failed")
+					// Return the error so we retry the failed garbage collection
+					return ctrl.Result{}, err
+				}
+			}
+			// Remove our finalizer from the list and update it
+			kustomization.ObjectMeta.Finalizers = removeString(kustomization.ObjectMeta.Finalizers, kustomizev1.KustomizationFinalizer)
+			if err := r.Update(ctx, &kustomization); err != nil {
+				return ctrl.Result{}, err
+			}
+			// Stop reconciliation as the object is being deleted
+			return ctrl.Result{}, nil
+		}
+	}
 
 	if kustomization.Spec.Suspend {
 		msg := "Kustomization is suspended, skipping reconciliation"
@@ -185,7 +220,6 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 	r.requeueDependency = opts.DependencyRequeueInterval
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}).
-		WithEventFilter(KustomizationGarbageCollectPredicate{Log: r.Log}).
 		WithEventFilter(KustomizationSyncAtPredicate{}).
 		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
 		Complete(r)
@@ -288,7 +322,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// prune
-	err = r.prune(kustomization, snapshot)
+	err = r.prune(kustomization, snapshot, false)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -564,12 +598,14 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 	return nil
 }
 
-func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization, snapshot *kustomizev1.Snapshot) error {
+func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization, snapshot *kustomizev1.Snapshot, force bool) error {
 	if kustomization.Status.Snapshot == nil || snapshot == nil {
 		return nil
 	}
-	if kustomization.Status.Snapshot.Revision == snapshot.Revision {
-		return nil
+	if !force {
+		if kustomization.Status.Snapshot.Revision == snapshot.Revision {
+			return nil
+		}
 	}
 
 	if output, ok := prune(kustomization.GetTimeout(),
@@ -715,6 +751,107 @@ func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization,
 			return
 		}
 	}
+}
+
+func prune(timeout time.Duration, name string, namespace string, snapshot *kustomizev1.Snapshot, log logr.Logger) (string, bool) {
+	selector := gcSelectors(name, namespace, snapshot.Revision)
+	ok := true
+	changeSet := ""
+	outInfo := ""
+	outErr := ""
+	for ns, kinds := range snapshot.NamespacedKinds() {
+		for _, kind := range kinds {
+			if output, err := deleteByKind(timeout, kind, ns, selector); err != nil {
+				outErr += " " + err.Error()
+				ok = false
+			} else {
+				outInfo += " " + output + "\n"
+			}
+		}
+	}
+	if outErr == "" {
+		log.Info("Garbage collection for namespaced objects completed",
+			"kustomization", fmt.Sprintf("%s/%s", namespace, name),
+			"output", outInfo)
+		changeSet += outInfo
+	} else {
+
+		log.Error(fmt.Errorf(outErr), "Garbage collection for namespaced objects failed",
+			"kustomization", fmt.Sprintf("%s/%s", namespace, name))
+	}
+
+	outInfo = ""
+	outErr = ""
+	for _, kind := range snapshot.NonNamespacedKinds() {
+		if output, err := deleteByKind(timeout, kind, "", selector); err != nil {
+			outErr += " " + err.Error()
+			ok = false
+		} else {
+			outInfo += " " + output + "\n"
+		}
+	}
+	if outErr == "" {
+		log.Info("Garbage collection for non-namespaced objects completed",
+			"kustomization", fmt.Sprintf("%s/%s", namespace, name),
+			"output", outInfo)
+		changeSet += outInfo
+	} else {
+		log.Error(fmt.Errorf(outErr), "Garbage collection for non-namespaced objects failed",
+			"kustomization", fmt.Sprintf("%s/%s", namespace, name))
+	}
+
+	return changeSet, ok
+}
+
+func deleteByKind(timeout time.Duration, kind, namespace, selector string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+time.Second)
+	defer cancel()
+
+	cmd := fmt.Sprintf("kubectl delete %s -l %s", kind, selector)
+	if namespace != "" {
+		cmd = fmt.Sprintf("%s -n=%s", cmd, namespace)
+	}
+
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	if output, err := command.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("%s", string(output))
+	} else {
+		return strings.TrimSuffix(string(output), "\n"), nil
+	}
+}
+
+func gcLabels(name, namespace, revision string) map[string]string {
+	return map[string]string{
+		"kustomization/name":     fmt.Sprintf("%s-%s", name, namespace),
+		"kustomization/revision": checksum(revision),
+	}
+}
+
+func gcSelectors(name, namespace, revision string) string {
+	return fmt.Sprintf("kustomization/name=%s-%s,kustomization/revision=%s", name, namespace, checksum(revision))
+}
+
+func checksum(in string) string {
+	return fmt.Sprintf("%x", sha1.Sum([]byte(in)))
+}
+
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
+}
+
+func removeString(slice []string, s string) (result []string) {
+	for _, item := range slice {
+		if item == s {
+			continue
+		}
+		result = append(result, item)
+	}
+	return
 }
 
 var (
