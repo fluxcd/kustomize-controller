@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.4 (2020-07-16)
+
+This prerelease comes with improvements to the alerting system
+and allows sources to be referenced across namespaces.
+The kustomize/api has been updated to v0.5.1.
+
 ## 0.0.3 (2020-07-13)
 
 This prerelease comes with improvements to logging.
