@@ -118,7 +118,6 @@ var _ = Describe("KustomizationReconciler", func() {
 				Name:      fmt.Sprintf("%s", randStringRunes(5)),
 				Namespace: namespace.Name,
 			}
-			empty := ""
 			k := &kustomizev1.Kustomization{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      kName.Name,
@@ -128,10 +127,9 @@ var _ = Describe("KustomizationReconciler", func() {
 					Interval: metav1.Duration{Duration: reconciliationInterval},
 					Path:     "./",
 					Prune:    true,
-					SourceRef: corev1.TypedLocalObjectReference{
-						APIGroup: &empty,
-						Kind:     "GitRepository",
-						Name:     repository.Name,
+					SourceRef: kustomizev1.CrossNamespaceObjectReference{
+						Kind: sourcev1.GitRepositoryKind,
+						Name: repository.Name,
 					},
 					Suspend:    false,
 					Timeout:    nil,

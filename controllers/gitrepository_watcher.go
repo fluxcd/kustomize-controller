@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -58,8 +59,8 @@ func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 
 	// get the list of kustomizations that are using this Git repository
 	var list kustomizev1.KustomizationList
-	if err := r.List(ctx, &list, client.InNamespace(req.Namespace),
-		client.MatchingFields{kustomizev1.SourceIndexKey: req.Name}); err != nil {
+	if err := r.List(ctx, &list,
+		client.MatchingFields{kustomizev1.SourceIndexKey: fmt.Sprintf("%s/%s", req.Namespace, req.Name)}); err != nil {
 		log.Error(err, "unable to list kustomizations")
 		return ctrl.Result{}, err
 	}
@@ -89,7 +90,11 @@ func (r *GitRepositoryWatcher) SetupWithManager(mgr ctrl.Manager) error {
 		func(rawObj runtime.Object) []string {
 			k := rawObj.(*kustomizev1.Kustomization)
 			if k.Spec.SourceRef.Kind == sourcev1.GitRepositoryKind {
-				return []string{k.Spec.SourceRef.Name}
+				namespace := k.GetNamespace()
+				if k.Spec.SourceRef.Namespace != "" {
+					namespace = k.Spec.SourceRef.Namespace
+				}
+				return []string{fmt.Sprintf("%s/%s", namespace, k.Spec.SourceRef.Name)}
 			}
 			return nil
 		},
@@ -121,11 +126,6 @@ func (r *GitRepositoryWatcher) requestReconciliation(kustomization kustomizev1.K
 			kustomization.Annotations = make(map[string]string)
 		}
 		kustomization.Annotations[kustomizev1.ReconcileAtAnnotation] = metav1.Now().String()
-		// Prevent strings can't be nil err as API package does not mark APIGroup with omitempty.
-		if kustomization.Spec.SourceRef.APIGroup == nil {
-			emptyAPIGroup := ""
-			kustomization.Spec.SourceRef.APIGroup = &emptyAPIGroup
-		}
 		err = r.Update(context.TODO(), &kustomization)
 		return
 	})

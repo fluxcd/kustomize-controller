@@ -40,7 +40,7 @@ type KustomizationSpec struct {
 
 	// Reference of the source where the kustomization file is.
 	// +required
-	SourceRef corev1.TypedLocalObjectReference `json:"sourceRef"`
+	SourceRef CrossNamespaceObjectReference `json:"sourceRef"`
 
 	// This flag tells the controller to suspend subsequent kustomize executions,
 	// it does not apply to already started executions. Defaults to false.

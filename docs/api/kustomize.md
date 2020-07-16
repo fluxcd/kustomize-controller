@@ -149,8 +149,8 @@ ServiceAccount
 <td>
 <code>sourceRef</code><br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#typedlocalobjectreference-v1-core">
-Kubernetes core/v1.TypedLocalObjectReference
+<a href="#kustomize.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">
+CrossNamespaceObjectReference
 </a>
 </em>
 </td>
@@ -302,6 +302,74 @@ transition, complementing reason.</p>
 </table>
 </div>
 </div>
+<h3 id="kustomize.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">CrossNamespaceObjectReference
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kustomize.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
+</p>
+<p>CrossNamespaceObjectReference contains enough information to let you locate the
+typed referenced object at cluster level</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>API version of the referent</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Kind of the referent</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>name</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name of the referent</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Namespace of the referent</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <h3 id="kustomize.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec
 </h3>
 <p>
@@ -400,8 +468,8 @@ ServiceAccount
 <td>
 <code>sourceRef</code><br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#typedlocalobjectreference-v1-core">
-Kubernetes core/v1.TypedLocalObjectReference
+<a href="#kustomize.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">
+CrossNamespaceObjectReference
 </a>
 </em>
 </td>

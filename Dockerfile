@@ -2,12 +2,12 @@ FROM golang:1.13 as builder
 
 WORKDIR /workspace
 
-RUN kustomize_ver=3.8.0 && \
+RUN kustomize_ver=3.8.1 && \
 kustomize_url=https://github.com/kubernetes-sigs/kustomize/releases/download && \
 curl -sL ${kustomize_url}/kustomize%2Fv${kustomize_ver}/kustomize_v${kustomize_ver}_linux_amd64.tar.gz | \
 tar xz && mv kustomize /usr/local/bin/kustomize
 
-RUN kubectl_ver=1.18.3 && \
+RUN kubectl_ver=1.18.4 && \
 curl -sL https://storage.googleapis.com/kubernetes-release/release/v${kubectl_ver}/bin/linux/amd64/kubectl \
 -o /usr/local/bin/kubectl && chmod +x /usr/local/bin/kubectl
 
