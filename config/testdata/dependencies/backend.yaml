@@ -11,7 +11,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: webapp
-  validate: server
+  validation: server
   healthChecks:
     - kind: Deployment
       name: backend

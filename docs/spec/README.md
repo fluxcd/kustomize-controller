@@ -151,7 +151,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: webapp
-  validate: client
+  validation: client
 ---
 apiVersion: kustomize.fluxcd.io/v1alpha1
 kind: Kustomization
@@ -167,7 +167,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: webapp
-  validate: server
+  validation: server
   healthChecks:
     - kind: Deployment
       name: backend
@@ -187,7 +187,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: webapp
-  validate: server
+  validation: server
 ```
 
 
