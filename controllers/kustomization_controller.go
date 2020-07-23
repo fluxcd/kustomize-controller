@@ -713,7 +713,7 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 			return fmt.Errorf("unable to get '%s' dependency: %w", depName, err)
 		}
 
-		if len(k.Status.Conditions) == 0 {
+		if len(k.Status.Conditions) == 0 || k.Generation != k.Status.ObservedGeneration {
 			return fmt.Errorf("dependency '%s' is not ready", depName)
 		}
 
