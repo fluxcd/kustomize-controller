@@ -541,6 +541,18 @@ The validation strategy can be &lsquo;client&rsquo; (local dry-run) or &lsquo;se
 <tbody>
 <tr>
 <td>
+<code>observedGeneration</code><br>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ObservedGeneration is the last reconciled generation.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>conditions</code><br>
 <em>
 <a href="#kustomize.fluxcd.io/v1alpha1.Condition">
