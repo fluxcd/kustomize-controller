@@ -64,6 +64,10 @@ The status sub-resource describes the result of the last kustomization execution
 
 ```go
 type KustomizationStatus struct {
+	// ObservedGeneration is the last reconciled generation.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
 	// +optional
 	Conditions []Condition `json:"conditions,omitempty"`
 

@@ -188,6 +188,10 @@ spec:
                 description: LastAttemptedRevision is the revision of the last reconciliation
                   attempt.
                 type: string
+              observedGeneration:
+                description: ObservedGeneration is the last reconciled generation.
+                format: int64
+                type: integer
               snapshot:
                 description: The last successfully applied revision metadata.
                 properties:

@@ -105,6 +105,10 @@ type ServiceAccount struct {
 
 // KustomizationStatus defines the observed state of a kustomization.
 type KustomizationStatus struct {
+	// ObservedGeneration is the last reconciled generation.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
 	// +optional
 	Conditions []Condition `json:"conditions,omitempty"`
 
@@ -135,6 +139,7 @@ func KustomizationReady(kustomization Kustomization, snapshot *Snapshot, revisio
 	kustomization.Status.Snapshot = snapshot
 	kustomization.Status.LastAppliedRevision = revision
 	kustomization.Status.LastAttemptedRevision = revision
+
 	return kustomization
 }
 
