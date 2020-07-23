@@ -126,25 +126,10 @@ type KustomizationStatus struct {
 	Snapshot *Snapshot `json:"snapshot,omitempty"`
 }
 
-func KustomizationReady(kustomization Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
-	kustomization.Status.Conditions = []Condition{
-		{
-			Type:               ReadyCondition,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.Now(),
-			Reason:             reason,
-			Message:            message,
-		},
-	}
-	kustomization.Status.Snapshot = snapshot
-	kustomization.Status.LastAppliedRevision = revision
-	kustomization.Status.LastAttemptedRevision = revision
-
-	return kustomization
-}
-
-func KustomizationProgressing(kustomization Kustomization) Kustomization {
-	kustomization.Status.Conditions = []Condition{
+// KustomizationProgressing resets the conditions of the given Kustomization to a single
+// ReadyCondition with status ConditionUnknown.
+func KustomizationProgressing(k Kustomization) Kustomization {
+	k.Status.Conditions = []Condition{
 		{
 			Type:               ReadyCondition,
 			Status:             corev1.ConditionUnknown,
@@ -153,39 +138,54 @@ func KustomizationProgressing(kustomization Kustomization) Kustomization {
 			Message:            "reconciliation in progress",
 		},
 	}
-	return kustomization
+	return k
 }
 
-func KustomizationNotReady(kustomization Kustomization, revision, reason, message string) Kustomization {
-	kustomization.Status.Conditions = []Condition{
-		{
-			Type:               ReadyCondition,
-			Status:             corev1.ConditionFalse,
-			LastTransitionTime: metav1.Now(),
-			Reason:             reason,
-			Message:            message,
-		},
-	}
+// SetKustomizationCondition sets the given condition with the given status, reason and message
+// on the Kustomization.
+func SetKustomizationCondition(k *Kustomization, condition string, status corev1.ConditionStatus, reason, message string) {
+	k.Status.Conditions = filterOutCondition(k.Status.Conditions, condition)
+	k.Status.Conditions = append(k.Status.Conditions, Condition{
+		Type:               condition,
+		Status:             status,
+		LastTransitionTime: metav1.Now(),
+		Reason:             reason,
+		Message:            message,
+	})
+}
+
+// SetKustomizeReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision,
+// on the Kustomization.
+func SetKustomizationReadiness(k *Kustomization, status corev1.ConditionStatus, reason, message string, revision string) {
+	SetKustomizationCondition(k, ReadyCondition, status, reason, message)
+	k.Status.ObservedGeneration = k.Generation
+	k.Status.LastAttemptedRevision = revision
+}
+
+// KustomizationNotReady registers a failed apply attempt of the given Kustomization.
+func KustomizationNotReady(k Kustomization, revision, reason, message string) Kustomization {
+	SetKustomizationReadiness(&k, corev1.ConditionFalse, reason, message, revision)
 	if revision != "" {
-		kustomization.Status.LastAttemptedRevision = revision
+		k.Status.LastAttemptedRevision = revision
 	}
-	return kustomization
+	return k
 }
 
-func KustomizationNotReadySnapshot(kustomization Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
-	kustomization.Status.Conditions = []Condition{
-		{
-			Type:               ReadyCondition,
-			Status:             corev1.ConditionFalse,
-			LastTransitionTime: metav1.Now(),
-			Reason:             reason,
-			Message:            message,
-		},
-	}
-	kustomization.Status.Snapshot = snapshot
-	kustomization.Status.LastAttemptedRevision = revision
+// KustomizationNotReady registers a failed apply attempt of the given Kustomization,
+// including a Snapshot.
+func KustomizationNotReadySnapshot(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
+	SetKustomizationReadiness(&k, corev1.ConditionFalse, reason, message, revision)
+	k.Status.Snapshot = snapshot
+	k.Status.LastAttemptedRevision = revision
+	return k
+}
 
-	return kustomization
+// KustomizationReady registers a successful apply attempt of the given Kustomization.
+func KustomizationReady(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
+	SetKustomizationReadiness(&k, corev1.ConditionTrue, reason, message, revision)
+	k.Status.Snapshot = snapshot
+	k.Status.LastAppliedRevision = revision
+	return k
 }
 
 // GetTimeout returns the timeout with default
@@ -238,4 +238,17 @@ type KustomizationList struct {
 
 func init() {
 	SchemeBuilder.Register(&Kustomization{}, &KustomizationList{})
+}
+
+// filterOutCondition returns a new slice of conditions without the
+// condition of the given type.
+func filterOutCondition(conditions []Condition, condition string) []Condition {
+	var newConditions []Condition
+	for _, c := range conditions {
+		if c.Type == condition {
+			continue
+		}
+		newConditions = append(newConditions, c)
+	}
+	return newConditions
 }
