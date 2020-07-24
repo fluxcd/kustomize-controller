@@ -26,11 +26,11 @@ jobs:
       - name: Setup Kubernetes
         uses: engineerd/setup-kind@v0.3.0
       - name: Setup Kustomize
-        uses: ./.github/actions/kustomize
+        uses: fluxcd/pkg//actions/kustomize@master
       - name: Setup Kubebuilder
-        uses: ./.github/actions/kubebuilder
+        uses: fluxcd/pkg//actions/kubebuilder@master
       - name: Setup Kubectl
-        uses: ./.github/actions/kubectl
+        uses: fluxcd/pkg/actions/kubectl@master
       - name: Run tests
         run: make test
         env:
