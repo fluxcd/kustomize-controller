@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.6 (2020-07-25)
+
+This prerelease comes with improvements to the dependency management
+and service account impersonation.
+
 ## 0.0.5 (2020-07-20)
 
 This prerelease drops support for Kubernetes <1.16.
