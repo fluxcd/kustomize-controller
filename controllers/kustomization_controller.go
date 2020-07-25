@@ -528,6 +528,46 @@ func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomizati
 	return nil
 }
 
+func (r *KustomizationReconciler) getServiceAccountToken(kustomization kustomizev1.Kustomization) (string, error) {
+	namespacedName := types.NamespacedName{
+		Namespace: kustomization.Spec.ServiceAccount.Namespace,
+		Name:      kustomization.Spec.ServiceAccount.Name,
+	}
+
+	var serviceAccount corev1.ServiceAccount
+	err := r.Client.Get(context.TODO(), namespacedName, &serviceAccount)
+	if err != nil {
+		return "", err
+	}
+
+	secretName := types.NamespacedName{
+		Namespace: kustomization.Spec.ServiceAccount.Namespace,
+		Name:      kustomization.Spec.ServiceAccount.Name,
+	}
+
+	for _, secret := range serviceAccount.Secrets {
+		if strings.HasPrefix(secret.Name, fmt.Sprintf("%s-token", serviceAccount.Name)) {
+			secretName.Name = secret.Name
+			break
+		}
+	}
+
+	var secret corev1.Secret
+	err = r.Client.Get(context.TODO(), secretName, &secret)
+	if err != nil {
+		return "", err
+	}
+
+	var token string
+	if data, ok := secret.Data["token"]; ok {
+		token = string(data)
+	} else {
+		return "", fmt.Errorf("the service account secret '%s' does not containt a token", secretName.String())
+	}
+
+	return token, nil
+}
+
 func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization, revision, dirPath string) (string, error) {
 	start := time.Now()
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
@@ -538,8 +578,13 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 		dirPath, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String())
 
 	// impersonate SA
-	if sa := kustomization.Spec.ServiceAccount; sa != nil {
-		cmd = fmt.Sprintf("%s --as system:serviceaccount:%s:%s", cmd, sa.Namespace, sa.Name)
+	if kustomization.Spec.ServiceAccount != nil {
+		saToken, err := r.getServiceAccountToken(kustomization)
+		if err != nil {
+			return "", fmt.Errorf("service account impersonation failed: %w", err)
+		}
+
+		cmd = fmt.Sprintf("%s --token %s", cmd, saToken)
 	}
 
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
