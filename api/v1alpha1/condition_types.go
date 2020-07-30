@@ -54,8 +54,8 @@ const (
 )
 
 const (
-	// ApplySucceedReason represents the fact that the kustomization apply succeed.
-	ApplySucceedReason string = "ApplySucceed"
+	// ApplySucceededReason represents the fact that the kustomization apply succeeded.
+	ApplySucceededReason string = "ApplySucceeded"
 
 	// ApplyFailedReason represents the fact that the kustomization apply failed.
 	ApplyFailedReason string = "ApplyFailed"

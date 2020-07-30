@@ -100,8 +100,8 @@ Status condition reasons:
 
 ```go
 const (
-	// ApplySucceedReason represents the fact that the kustomization apply succeed.
-	ApplySucceedReason string = "ApplySucceed"
+	// ApplySucceededReason represents the fact that the kustomization apply succeeded.
+	ApplySucceededReason string = "ApplySucceeded"
 
 	// ApplyFailedReason represents the fact that the kustomization apply failed.
 	ApplyFailedReason string = "ApplyFailed"
@@ -402,7 +402,7 @@ status:
   conditions:
   - lastTransitionTime: "2020-04-23T19:28:48Z"
     message: kustomization was successfully applied
-    reason: ApplySucceed
+    reason: ApplySucceeded
     status: "True"
     type: Ready
   lastAppliedRevision: master/a1afe267b54f38b46b487f6e938a6fd508278c07
