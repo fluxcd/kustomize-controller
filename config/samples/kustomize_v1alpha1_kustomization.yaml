@@ -1,4 +1,4 @@
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: webapp-dev
@@ -19,7 +19,7 @@ spec:
       namespace: webapp
   timeout: 2m
 ---
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: webapp-production

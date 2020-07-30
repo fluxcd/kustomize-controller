@@ -66,7 +66,7 @@ Deleting a suspended pipeline does not trigger garbage collection.
 Alerting can be configured with a Kubernetes custom resource
 that specifies a webhook address, and a group of pipelines to be monitored.
 
-The API design of the controller can be found at [kustomize.fluxcd.io/v1alpha1](v1alpha1/README.md).
+The API design of the controller can be found at [kustomize.toolkit.fluxcd.io/v1alpha1](v1alpha1/README.md).
 
 ## Backward compatibility
 
@@ -94,7 +94,7 @@ Create a source that points to where the Istio control plane manifests are,
 and a kustomization for installing/upgrading Istio:
 
 ```yaml
-apiVersion: source.fluxcd.io/v1alpha1
+apiVersion: source.toolkit.fluxcd.io/v1alpha1
 kind: GitRepository
 metadata:
   name: istio
@@ -105,7 +105,7 @@ spec:
   ref:
     branch: master
 ---
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: istio
@@ -126,7 +126,7 @@ spec:
 Create a source for the app repo, a kustomization for each service defining depends-on relationships:
 
 ```yaml
-apiVersion: source.fluxcd.io/v1alpha1
+apiVersion: source.toolkit.fluxcd.io/v1alpha1
 kind: GitRepository
 metadata:
   name: webapp
@@ -137,7 +137,7 @@ spec:
   ref:
     branch: master
 ---
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: webapp-common
@@ -153,7 +153,7 @@ spec:
     name: webapp
   validation: client
 ---
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: webapp-backend
@@ -173,7 +173,7 @@ spec:
       name: backend
       namespace: webapp
 ---
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: webapp-frontend

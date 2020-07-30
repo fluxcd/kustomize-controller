@@ -16,5 +16,5 @@ limitations under the License.
 
 // Package v1alpha1 contains API Schema definitions for the kustomize v1alpha1 API group
 // +kubebuilder:object:generate=true
-// +groupName=kustomize.fluxcd.io
+// +groupName=kustomize.toolkit.fluxcd.io
 package v1alpha1

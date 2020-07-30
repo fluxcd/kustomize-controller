@@ -2,16 +2,16 @@
 <p>Packages:</p>
 <ul class="simple">
 <li>
-<a href="#kustomize.fluxcd.io%2fv1alpha1">kustomize.fluxcd.io/v1alpha1</a>
+<a href="#kustomize.toolkit.fluxcd.io%2fv1alpha1">kustomize.toolkit.fluxcd.io/v1alpha1</a>
 </li>
 </ul>
-<h2 id="kustomize.fluxcd.io/v1alpha1">kustomize.fluxcd.io/v1alpha1</h2>
+<h2 id="kustomize.toolkit.fluxcd.io/v1alpha1">kustomize.toolkit.fluxcd.io/v1alpha1</h2>
 <p>Package v1alpha1 contains API Schema definitions for the kustomize v1alpha1 API group</p>
 Resource Types:
 <ul class="simple"><li>
-<a href="#kustomize.fluxcd.io/v1alpha1.Kustomization">Kustomization</a>
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Kustomization">Kustomization</a>
 </li></ul>
-<h3 id="kustomize.fluxcd.io/v1alpha1.Kustomization">Kustomization
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Kustomization">Kustomization
 </h3>
 <p>Kustomization is the Schema for the kustomizations API.</p>
 <div class="md-typeset__scrollwrap">
@@ -29,7 +29,7 @@ Resource Types:
 <code>apiVersion</code><br>
 string</td>
 <td>
-<code>kustomize.fluxcd.io/v1alpha1</code>
+<code>kustomize.toolkit.fluxcd.io/v1alpha1</code>
 </td>
 </tr>
 <tr>
@@ -59,7 +59,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br>
 <em>
-<a href="#kustomize.fluxcd.io/v1alpha1.KustomizationSpec">
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">
 KustomizationSpec
 </a>
 </em>
@@ -120,7 +120,7 @@ bool
 <td>
 <code>healthChecks</code><br>
 <em>
-<a href="#kustomize.fluxcd.io/v1alpha1.WorkloadReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.WorkloadReference">
 []WorkloadReference
 </a>
 </em>
@@ -135,7 +135,7 @@ to be included in the health assessment.</p>
 <td>
 <code>serviceAccount</code><br>
 <em>
-<a href="#kustomize.fluxcd.io/v1alpha1.ServiceAccount">
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.ServiceAccount">
 ServiceAccount
 </a>
 </em>
@@ -149,7 +149,7 @@ ServiceAccount
 <td>
 <code>sourceRef</code><br>
 <em>
-<a href="#kustomize.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">
 CrossNamespaceObjectReference
 </a>
 </em>
@@ -206,7 +206,7 @@ The validation strategy can be &lsquo;client&rsquo; (local dry-run) or &lsquo;se
 <td>
 <code>status</code><br>
 <em>
-<a href="#kustomize.fluxcd.io/v1alpha1.KustomizationStatus">
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationStatus">
 KustomizationStatus
 </a>
 </em>
@@ -218,11 +218,11 @@ KustomizationStatus
 </table>
 </div>
 </div>
-<h3 id="kustomize.fluxcd.io/v1alpha1.Condition">Condition
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Condition">Condition
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.fluxcd.io/v1alpha1.KustomizationStatus">KustomizationStatus</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationStatus">KustomizationStatus</a>)
 </p>
 <p>Condition contains condition information for a kustomization.</p>
 <div class="md-typeset__scrollwrap">
@@ -302,11 +302,11 @@ transition, complementing reason.</p>
 </table>
 </div>
 </div>
-<h3 id="kustomize.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">CrossNamespaceObjectReference
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">CrossNamespaceObjectReference
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>CrossNamespaceObjectReference contains enough information to let you locate the
 typed referenced object at cluster level</p>
@@ -370,11 +370,11 @@ string
 </table>
 </div>
 </div>
-<h3 id="kustomize.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.fluxcd.io/v1alpha1.Kustomization">Kustomization</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Kustomization">Kustomization</a>)
 </p>
 <p>KustomizationSpec defines the desired state of a kustomization.</p>
 <div class="md-typeset__scrollwrap">
@@ -439,7 +439,7 @@ bool
 <td>
 <code>healthChecks</code><br>
 <em>
-<a href="#kustomize.fluxcd.io/v1alpha1.WorkloadReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.WorkloadReference">
 []WorkloadReference
 </a>
 </em>
@@ -454,7 +454,7 @@ to be included in the health assessment.</p>
 <td>
 <code>serviceAccount</code><br>
 <em>
-<a href="#kustomize.fluxcd.io/v1alpha1.ServiceAccount">
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.ServiceAccount">
 ServiceAccount
 </a>
 </em>
@@ -468,7 +468,7 @@ ServiceAccount
 <td>
 <code>sourceRef</code><br>
 <em>
-<a href="#kustomize.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">
 CrossNamespaceObjectReference
 </a>
 </em>
@@ -522,11 +522,11 @@ The validation strategy can be &lsquo;client&rsquo; (local dry-run) or &lsquo;se
 </table>
 </div>
 </div>
-<h3 id="kustomize.fluxcd.io/v1alpha1.KustomizationStatus">KustomizationStatus
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationStatus">KustomizationStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.fluxcd.io/v1alpha1.Kustomization">Kustomization</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Kustomization">Kustomization</a>)
 </p>
 <p>KustomizationStatus defines the observed state of a kustomization.</p>
 <div class="md-typeset__scrollwrap">
@@ -555,7 +555,7 @@ int64
 <td>
 <code>conditions</code><br>
 <em>
-<a href="#kustomize.fluxcd.io/v1alpha1.Condition">
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Condition">
 []Condition
 </a>
 </em>
@@ -593,7 +593,7 @@ string
 <td>
 <code>snapshot</code><br>
 <em>
-<a href="#kustomize.fluxcd.io/v1alpha1.Snapshot">
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Snapshot">
 Snapshot
 </a>
 </em>
@@ -607,11 +607,11 @@ Snapshot
 </table>
 </div>
 </div>
-<h3 id="kustomize.fluxcd.io/v1alpha1.ServiceAccount">ServiceAccount
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.ServiceAccount">ServiceAccount
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>ServiceAccount defines a reference to a Kubernetes service account.</p>
 <div class="md-typeset__scrollwrap">
@@ -650,11 +650,11 @@ string
 </table>
 </div>
 </div>
-<h3 id="kustomize.fluxcd.io/v1alpha1.Snapshot">Snapshot
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Snapshot">Snapshot
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.fluxcd.io/v1alpha1.KustomizationStatus">KustomizationStatus</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationStatus">KustomizationStatus</a>)
 </p>
 <p>Snapshot holds the metadata of the Kubernetes objects
 generated for a source revision</p>
@@ -683,7 +683,7 @@ string
 <td>
 <code>entries</code><br>
 <em>
-<a href="#kustomize.fluxcd.io/v1alpha1.SnapshotEntry">
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.SnapshotEntry">
 []SnapshotEntry
 </a>
 </em>
@@ -696,11 +696,11 @@ string
 </table>
 </div>
 </div>
-<h3 id="kustomize.fluxcd.io/v1alpha1.SnapshotEntry">SnapshotEntry
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.SnapshotEntry">SnapshotEntry
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.fluxcd.io/v1alpha1.Snapshot">Snapshot</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Snapshot">Snapshot</a>)
 </p>
 <p>Snapshot holds the metadata of namespaced
 Kubernetes objects</p>
@@ -741,13 +741,13 @@ map[string]string
 </table>
 </div>
 </div>
-<h3 id="kustomize.fluxcd.io/v1alpha1.Unsortable">Unsortable
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Unsortable">Unsortable
 (<code>[][]string</code> alias)</h3>
-<h3 id="kustomize.fluxcd.io/v1alpha1.WorkloadReference">WorkloadReference
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.WorkloadReference">WorkloadReference
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>WorkloadReference defines a reference to a Deployment, DaemonSet or StatefulSet.</p>
 <div class="md-typeset__scrollwrap">

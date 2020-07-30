@@ -1,4 +1,4 @@
-# kustomize.fluxcd.io/v1alpha1
+# kustomize.toolkit.fluxcd.io/v1alpha1
 
 This is the v1alpha1 API specification for defining continuous delivery pipelines
 of Kubernetes objects generated with Kustomize.

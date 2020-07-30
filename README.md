@@ -53,7 +53,7 @@ tk install
 Create a source object that points to a Git repository containing Kubernetes and Kustomize manifests:
 
 ```yaml
-apiVersion: source.fluxcd.io/v1alpha1
+apiVersion: source.toolkit.fluxcd.io/v1alpha1
 kind: GitRepository
 metadata:
   name: podinfo
@@ -86,7 +86,7 @@ kubectl -n gitops-system annotate --overwrite gitrepository/podinfo fluxcd.io/re
 Create a kustomization object that uses the git repository defined above:
 
 ```yaml
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-dev
@@ -193,7 +193,7 @@ When combined with health assessment, a kustomization will run after all its dep
 For example, a service mesh proxy injector should be running before deploying applications inside the mesh:
 
 ```yaml
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: istio
@@ -210,7 +210,7 @@ spec:
       namespace: istio-system
   timeout: 2m
 ---
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-dev
@@ -231,7 +231,7 @@ spec:
 For production deployments, instead of synchronizing with a branch you can use a semver range to target stable releases:
 
 ```yaml
-apiVersion: source.fluxcd.io/v1alpha1
+apiVersion: source.toolkit.fluxcd.io/v1alpha1
 kind: GitRepository
 metadata:
   name: podinfo-releases
@@ -249,7 +249,7 @@ that matches the semver range.
 Create a production kustomization and reference the git source that follows the latest semver release:
 
 ```yaml
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: podinfo-production

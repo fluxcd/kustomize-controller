@@ -6,9 +6,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: kustomizations.kustomize.fluxcd.io
+  name: kustomizations.kustomize.toolkit.fluxcd.io
 spec:
-  group: kustomize.fluxcd.io
+  group: kustomize.toolkit.fluxcd.io
   names:
     kind: Kustomization
     listKind: KustomizationList

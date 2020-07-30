@@ -5,7 +5,7 @@ metadata:
   name: kustomization-viewer-role
 rules:
 - apiGroups:
-  - kustomize.fluxcd.io
+  - kustomize.toolkit.fluxcd.io
   resources:
   - kustomizations
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kustomize.fluxcd.io
+  - kustomize.toolkit.fluxcd.io
   resources:
   - kustomizations/status
   verbs:

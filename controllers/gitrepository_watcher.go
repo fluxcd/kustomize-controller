@@ -42,8 +42,8 @@ type GitRepositoryWatcher struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=source.fluxcd.io,resources=gitrepositories,verbs=get;list;watch
-// +kubebuilder:rbac:groups=source.fluxcd.io,resources=gitrepositories/status,verbs=get
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=gitrepositories,verbs=get;list;watch
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=gitrepositories/status,verbs=get
 
 func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

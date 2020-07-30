@@ -26,7 +26,7 @@ run: generate fmt vet manifests
 	go run ./main.go
 
 download-crd-deps:
-	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.fluxcd.io_gitrepositories.yaml > config/crd/bases/gitrepositories.yaml
+	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_gitrepositories.yaml > config/crd/bases/gitrepositories.yaml
 
 # Install CRDs into a cluster
 install: manifests
