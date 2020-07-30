@@ -348,7 +348,7 @@ func (r *KustomizationReconciler) reconcile(
 		kustomization,
 		snapshot,
 		source.GetArtifact().Revision,
-		kustomizev1.ApplySucceedReason,
+		kustomizev1.ApplySucceededReason,
 		"Applied revision: "+source.GetArtifact().Revision,
 	), nil
 }
