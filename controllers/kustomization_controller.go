@@ -788,7 +788,16 @@ func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization,
 		if revision != "" {
 			meta = map[string]string{"revision": revision}
 		}
-		if err := r.ExternalEventRecorder.Eventf(*objRef, meta, severity, severity, msg); err != nil {
+
+		reason := severity
+		for _, condition := range kustomization.Status.Conditions {
+			if condition.Type == kustomizev1.ReadyCondition {
+				reason = condition.Reason
+				break
+			}
+		}
+
+		if err := r.ExternalEventRecorder.Eventf(*objRef, meta, severity, reason, msg); err != nil {
 			r.Log.WithValues(
 				strings.ToLower(kustomization.Kind),
 				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
