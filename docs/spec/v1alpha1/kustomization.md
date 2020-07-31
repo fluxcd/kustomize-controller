@@ -205,7 +205,7 @@ Assuming the kustomization source contains a Kubernetes Deployment named `backen
 a health check can be defined as follows:
 
 ```yaml
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: backend
@@ -247,7 +247,7 @@ Assuming two kustomizations:
 You can instruct the controller to apply the `common` kustomization before `backend`:
 
 ```yaml
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: common
@@ -259,7 +259,7 @@ spec:
     kind: GitRepository
     name: webapp
 ---
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: backend
@@ -278,7 +278,7 @@ When combined with health assessment, a kustomization will run after all its dep
 For example, a service mesh proxy injector should be running before deploying applications inside the mesh.
 
 ```yaml
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: istio
@@ -294,7 +294,7 @@ spec:
       namespace: istio-system
   timeout: 2m
 ---
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: backend
@@ -368,7 +368,7 @@ subjects:
 Create a kustomization that prevents altering the cluster state outside of the `webapp` namespace:
 
 ```yaml
-apiVersion: kustomize.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: backend
