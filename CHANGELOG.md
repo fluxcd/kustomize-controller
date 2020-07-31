@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.7 (2020-07-31)
+
+This prerelease comes with a breaking change, the CRDs group has been
+renamed to `kustomize.toolkit.fluxcd.io`. The dependency on `source-controller`
+has been updated to `v0.0.7` to be able to work with `source.toolkit.fluxcd.io`
+resources.
+
 ## 0.0.6 (2020-07-25)
 
 This prerelease comes with improvements to the dependency management
