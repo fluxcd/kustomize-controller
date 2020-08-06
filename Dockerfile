@@ -7,7 +7,7 @@ kustomize_url=https://github.com/kubernetes-sigs/kustomize/releases/download && 
 curl -sL ${kustomize_url}/kustomize%2Fv${kustomize_ver}/kustomize_v${kustomize_ver}_linux_amd64.tar.gz | \
 tar xz && mv kustomize /usr/local/bin/kustomize
 
-RUN kubectl_ver=1.18.4 && \
+RUN kubectl_ver=1.18.6 && \
 curl -sL https://storage.googleapis.com/kubernetes-release/release/v${kubectl_ver}/bin/linux/amd64/kubectl \
 -o /usr/local/bin/kubectl && chmod +x /usr/local/bin/kubectl
 
@@ -28,7 +28,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o kustomiz
 
 FROM alpine:3.12
 
-RUN apk add --no-cache ca-certificates tar tini git socat curl bash
+RUN apk add --no-cache ca-certificates tini
 
 COPY --from=builder /usr/local/bin/kustomize /usr/local/bin/
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/
