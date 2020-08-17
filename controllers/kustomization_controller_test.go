@@ -28,9 +28,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
-	"github.com/fluxcd/source-controller/pkg/testserver"
+
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 )
 
 var _ = Describe("KustomizationReconciler", func() {
