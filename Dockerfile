@@ -11,6 +11,9 @@ RUN kubectl_ver=1.18.8 && \
 curl -sL https://storage.googleapis.com/kubernetes-release/release/v${kubectl_ver}/bin/linux/amd64/kubectl \
 -o /usr/local/bin/kubectl && chmod +x /usr/local/bin/kubectl
 
+# copy api submodule
+COPY api/ api/
+
 # copy modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -20,7 +23,6 @@ RUN go mod download
 
 # copy source code
 COPY main.go main.go
-COPY api/ api/
 COPY controllers/ controllers/
 
 # build
