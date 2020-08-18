@@ -28,7 +28,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o kustomiz
 
 FROM alpine:3.12
 
-RUN apk add --no-cache ca-certificates tini
+RUN apk add --no-cache ca-certificates tini git
 
 COPY --from=builder /usr/local/bin/kustomize /usr/local/bin/
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/

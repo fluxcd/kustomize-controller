@@ -486,7 +486,7 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := fmt.Sprintf("cd %s && kustomize build . > %s.yaml",
+	cmd := fmt.Sprintf("cd %s && kustomize build --load_restrictor=none . > %s.yaml",
 		dirPath, kustomization.GetUID())
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
