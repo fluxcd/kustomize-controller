@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.8 (2020-08-18)
+
+This prerelease upgrades the `github.com/fluxcd/pkg/*` dependencies to
+dedicated versioned modules, and makes the `api` package available as
+a dedicated versioned module.
+
 ## 0.0.7 (2020-07-31)
 
 This prerelease comes with a breaking change, the CRDs group has been
