@@ -21,17 +21,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-logr/logr"
-	uzap "go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 	"github.com/fluxcd/kustomize-controller/controllers"
+	"github.com/fluxcd/pkg/logger"
 	"github.com/fluxcd/pkg/recorder"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
@@ -72,7 +69,7 @@ func main() {
 	flag.BoolVar(&logJSON, "log-json", false, "Set logging to JSON format.")
 	flag.Parse()
 
-	ctrl.SetLogger(newLogger(logLevel, logJSON))
+	ctrl.SetLogger(logger.NewLogger(logLevel, logJSON))
 
 	var eventRecorder *recorder.EventRecorder
 	if eventsAddr != "" {
@@ -126,30 +123,4 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-}
-
-// newLogger returns a logger configured for dev or production use.
-// For production the log format is JSON, the timestamps format is ISO8601
-// and stack traces are logged when the level is set to debug.
-func newLogger(level string, production bool) logr.Logger {
-	if !production {
-		return zap.New(zap.UseDevMode(true))
-	}
-
-	encCfg := uzap.NewProductionEncoderConfig()
-	encCfg.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoder := zap.Encoder(zapcore.NewJSONEncoder(encCfg))
-
-	logLevel := zap.Level(zapcore.InfoLevel)
-	stacktraceLevel := zap.StacktraceLevel(zapcore.PanicLevel)
-
-	switch level {
-	case "debug":
-		logLevel = zap.Level(zapcore.DebugLevel)
-		stacktraceLevel = zap.StacktraceLevel(zapcore.ErrorLevel)
-	case "error":
-		logLevel = zap.Level(zapcore.ErrorLevel)
-	}
-
-	return zap.New(encoder, logLevel, stacktraceLevel)
 }
