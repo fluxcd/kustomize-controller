@@ -218,6 +218,10 @@ KustomizationStatus
 </table>
 </div>
 </div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.CircularDependencyError">CircularDependencyError
+(<code>[][]string</code> alias)</h3>
+<p>CircularDependencyError contains the circular dependency chains
+that were detected while sorting &lsquo;HelmReleaseSpec.DependsOn&rsquo;.</p>
 <h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Condition">Condition
 </h3>
 <p>
@@ -741,8 +745,6 @@ map[string]string
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Unsortable">Unsortable
-(<code>[][]string</code> alias)</h3>
 <h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.WorkloadReference">WorkloadReference
 </h3>
 <p>
