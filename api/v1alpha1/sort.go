@@ -20,13 +20,17 @@ import (
 	"fmt"
 )
 
+// CircularDependencyError contains the circular dependency chains
+// that were detected while sorting 'HelmReleaseSpec.DependsOn'.
 // +kubebuilder:object:generate=false
-type Unsortable [][]string
+type CircularDependencyError [][]string
 
-func (e Unsortable) Error() string {
+func (e CircularDependencyError) Error() string {
 	return fmt.Sprintf("circular dependencies: %v", [][]string(e))
 }
 
+// DependencySort sorts the Kustomization slice based on their listed
+// dependencies using Tarjan's strongly connected components algorithm.
 func DependencySort(ks []Kustomization) ([]Kustomization, error) {
 	n := make(graph)
 	lookup := map[string]*Kustomization{}
@@ -36,7 +40,7 @@ func DependencySort(ks []Kustomization) ([]Kustomization, error) {
 	}
 	sccs := tarjanSCC(n)
 	var sorted []Kustomization
-	var unsortable Unsortable
+	var unsortable CircularDependencyError
 	for i := 0; i < len(sccs); i++ {
 		s := sccs[i]
 		if len(s) != 1 {
