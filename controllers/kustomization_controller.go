@@ -39,6 +39,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/kustomize/api/filesys"
+	"sigs.k8s.io/kustomize/api/k8sdeps/kunstruct"
+	"sigs.k8s.io/kustomize/api/konfig"
+	"sigs.k8s.io/kustomize/api/krusty"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
 
@@ -386,20 +390,8 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, revision, dirPath string) error {
 	kfile := filepath.Join(dirPath, kustomizationFileName)
 
-	if _, err := os.Stat(kfile); err != nil {
-		timeout := kustomization.GetTimeout() + (time.Second * 1)
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-
-		cmd := fmt.Sprintf("cd %s && kustomize create --autodetect --recursive", dirPath)
-		command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-		output, err := command.CombinedOutput()
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return err
-			}
-			return fmt.Errorf("kustomize create failed: %s", string(output))
-		}
+	if err := r.generateKustomization(dirPath); err != nil {
+		return fmt.Errorf("kustomize create failed: %w", err)
 	}
 
 	if err := r.generateLabelTransformer(kustomization, revision, dirPath); err != nil {
@@ -445,6 +437,85 @@ func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomizati
 	return ioutil.WriteFile(kfile, kd, os.ModePerm)
 }
 
+func (r *KustomizationReconciler) generateKustomization(dirPath string) error {
+	fs := filesys.MakeFsOnDisk()
+	kfile := filepath.Join(dirPath, kustomizationFileName)
+
+	scan := func(base string) ([]string, error) {
+		var paths []string
+		uf := kunstruct.NewKunstructuredFactoryImpl()
+		err := fs.Walk(base, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if path == base {
+				return nil
+			}
+			if info.IsDir() {
+				// If a sub-directory contains an existing kustomization file add the
+				// directory as a resource and do not decend into it.
+				for _, kfilename := range konfig.RecognizedKustomizationFileNames() {
+					if fs.Exists(filepath.Join(path, kfilename)) {
+						paths = append(paths, path)
+						return filepath.SkipDir
+					}
+				}
+				return nil
+			}
+			fContents, err := fs.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			if _, err := uf.SliceFromBytes(fContents); err != nil {
+				return nil
+			}
+			paths = append(paths, path)
+			return nil
+		})
+		return paths, err
+	}
+
+	if _, err := os.Stat(kfile); err != nil {
+		abs, err := filepath.Abs(dirPath)
+		if err != nil {
+			return err
+		}
+
+		files, err := scan(abs)
+		if err != nil {
+			return err
+		}
+
+		f, err := fs.Create(kfile)
+		if err != nil {
+			return err
+		}
+		f.Close()
+
+		kus := kustypes.Kustomization{
+			TypeMeta: kustypes.TypeMeta{
+				APIVersion: kustypes.KustomizationVersion,
+				Kind:       kustypes.KustomizationKind,
+			},
+		}
+
+		var resources []string
+		for _, file := range files {
+			resources = append(resources, strings.Replace(file, abs, ".", 1))
+		}
+
+		kus.Resources = resources
+		kd, err := yaml.Marshal(kus)
+		if err != nil {
+			return err
+		}
+
+		return ioutil.WriteFile(kfile, kd, os.ModePerm)
+	}
+
+	return nil
+}
+
 func (r *KustomizationReconciler) generateLabelTransformer(kustomization kustomizev1.Kustomization, revision, dirPath string) error {
 	var lt = struct {
 		ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
@@ -482,28 +553,27 @@ func (r *KustomizationReconciler) generateLabelTransformer(kustomization kustomi
 }
 
 func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, revision, dirPath string) (*kustomizev1.Snapshot, error) {
-	timeout := kustomization.GetTimeout() + (time.Second * 1)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	cmd := fmt.Sprintf("cd %s && kustomize build --load_restrictor=none . > %s.yaml",
-		dirPath, kustomization.GetUID())
-	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-	output, err := command.CombinedOutput()
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, err
-		}
-		return nil, fmt.Errorf("kustomize build failed: %s", string(output))
-	}
-
+	fs := filesys.MakeFsOnDisk()
 	manifestsFile := filepath.Join(dirPath, fmt.Sprintf("%s.yaml", kustomization.GetUID()))
-	data, err := ioutil.ReadFile(manifestsFile)
+
+	opt := krusty.MakeDefaultOptions()
+	opt.LoadRestrictions = kustypes.LoadRestrictionsNone
+	k := krusty.MakeKustomizer(fs, opt)
+	m, err := k.Run(dirPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return kustomizev1.NewSnapshot(data, revision)
+	resources, err := m.AsYaml()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := fs.WriteFile(manifestsFile, resources); err != nil {
+		return nil, err
+	}
+
+	return kustomizev1.NewSnapshot(resources, revision)
 }
 
 func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomization, dirPath string) error {

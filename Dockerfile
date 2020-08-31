@@ -2,12 +2,7 @@ FROM golang:1.14 as builder
 
 WORKDIR /workspace
 
-RUN kustomize_ver=3.8.1 && \
-kustomize_url=https://github.com/kubernetes-sigs/kustomize/releases/download && \
-curl -sL ${kustomize_url}/kustomize%2Fv${kustomize_ver}/kustomize_v${kustomize_ver}_linux_amd64.tar.gz | \
-tar xz && mv kustomize /usr/local/bin/kustomize
-
-RUN kubectl_ver=1.18.8 && \
+RUN kubectl_ver=1.19.0 && \
 curl -sL https://storage.googleapis.com/kubernetes-release/release/v${kubectl_ver}/bin/linux/amd64/kubectl \
 -o /usr/local/bin/kubectl && chmod +x /usr/local/bin/kubectl
 
@@ -32,7 +27,6 @@ FROM alpine:3.12
 
 RUN apk add --no-cache ca-certificates tini git
 
-COPY --from=builder /usr/local/bin/kustomize /usr/local/bin/
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/
 COPY --from=builder /workspace/kustomize-controller /usr/local/bin/
 
