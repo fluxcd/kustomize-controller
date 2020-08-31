@@ -938,7 +938,12 @@ func deleteByKind(timeout time.Duration, kind, namespace, selector string) (stri
 
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	if output, err := command.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("%s", string(output))
+		// ignore unknown resource kind
+		if strings.Contains(string(output), "the server doesn't have a resource type") {
+			return strings.TrimSuffix(string(output), "\n"), nil
+		} else {
+			return "", fmt.Errorf("%s", strings.TrimSuffix(string(output), "\n"))
+		}
 	} else {
 		return strings.TrimSuffix(string(output), "\n"), nil
 	}
