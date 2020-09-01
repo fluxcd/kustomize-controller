@@ -71,6 +71,11 @@ jobs:
           kubectl get ns
           kubectl -n kustomize-system delete -k ./config/testdata/overlays
           until kubectl get ns staging 2>&1 | grep NotFound ; do sleep 2; done
+      - name: Run SOPS tests
+        run: |
+          kubectl -n kustomize-system apply -k ./config/testdata/sops
+          kubectl -n kustomize-system wait kustomizations/sops --for=condition=ready --timeout=4m
+          kubectl -n test2 get secrets/test --template={{.data.password}} | base64 -D | grep test
       - name: Logs
         run: |
           kubectl -n kustomize-system logs deploy/source-controller
