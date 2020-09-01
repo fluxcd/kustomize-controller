@@ -22,11 +22,18 @@ const (
 )
 
 type KustomizeGenerator struct {
-	Kustomization kustomizev1.Kustomization
-	Revision      string
+	kustomization kustomizev1.Kustomization
+	revision      string
 }
 
-func (kg KustomizeGenerator) WriteFile(dirPath string) error {
+func NewGenerator(kustomization kustomizev1.Kustomization, revision string) *KustomizeGenerator {
+	return &KustomizeGenerator{
+		kustomization: kustomization,
+		revision:      revision,
+	}
+}
+
+func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
 	kfile := filepath.Join(dirPath, kustomizationFileName)
 
 	if err := kg.generateKustomization(dirPath); err != nil {
@@ -76,7 +83,7 @@ func (kg KustomizeGenerator) WriteFile(dirPath string) error {
 	return ioutil.WriteFile(kfile, kd, os.ModePerm)
 }
 
-func (kg KustomizeGenerator) generateKustomization(dirPath string) error {
+func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 	fs := filesys.MakeFsOnDisk()
 	kfile := filepath.Join(dirPath, kustomizationFileName)
 
@@ -155,7 +162,7 @@ func (kg KustomizeGenerator) generateKustomization(dirPath string) error {
 	return nil
 }
 
-func (kg KustomizeGenerator) generateLabelTransformer(dirPath string) error {
+func (kg *KustomizeGenerator) generateLabelTransformer(dirPath string) error {
 	var lt = struct {
 		ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
 		Kind       string `json:"kind" yaml:"kind"`
@@ -170,9 +177,9 @@ func (kg KustomizeGenerator) generateLabelTransformer(dirPath string) error {
 		Metadata: struct {
 			Name string `json:"name" yaml:"name"`
 		}{
-			Name: kg.Kustomization.GetName(),
+			Name: kg.kustomization.GetName(),
 		},
-		Labels: gcLabels(kg.Kustomization.GetName(), kg.Kustomization.GetNamespace(), kg.Revision),
+		Labels: gcLabels(kg.kustomization.GetName(), kg.kustomization.GetNamespace(), kg.revision),
 		FieldSpecs: []kustypes.FieldSpec{
 			{Path: "metadata/labels", CreateIfNotPresent: true},
 		},

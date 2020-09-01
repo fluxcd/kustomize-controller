@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -279,7 +278,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// generate kustomization.yaml
-	err = KustomizeGenerator{kustomization, source.GetArtifact().Revision}.WriteFile(dirPath)
+	err = r.generate(kustomization, source.GetArtifact().Revision, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -382,6 +381,11 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 	}
 
 	return nil
+}
+
+func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, revision, dirPath string) error {
+	gen := NewGenerator(kustomization, revision)
+	return gen.WriteFile(dirPath)
 }
 
 func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, revision, dirPath string) (*kustomizev1.Snapshot, error) {
@@ -556,11 +560,11 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 		}
 	}
 
-	if output, ok := prune(kustomization.GetTimeout(),
+	gc := NewGarbageCollector(*snapshot, r.Log)
+
+	if output, ok := gc.Prune(kustomization.GetTimeout(),
 		kustomization.GetName(),
 		kustomization.GetNamespace(),
-		kustomization.Status.Snapshot,
-		r.Log,
 	); !ok {
 		return fmt.Errorf("pruning failed")
 	} else {
@@ -708,93 +712,6 @@ func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization,
 			return
 		}
 	}
-}
-
-func prune(timeout time.Duration, name string, namespace string, snapshot *kustomizev1.Snapshot, log logr.Logger) (string, bool) {
-	selector := gcSelectors(name, namespace, snapshot.Revision)
-	ok := true
-	changeSet := ""
-	outInfo := ""
-	outErr := ""
-	for ns, kinds := range snapshot.NamespacedKinds() {
-		for _, kind := range kinds {
-			if output, err := deleteByKind(timeout, kind, ns, selector); err != nil {
-				outErr += " " + err.Error()
-				ok = false
-			} else {
-				outInfo += " " + output + "\n"
-			}
-		}
-	}
-	if outErr == "" {
-		log.Info("Garbage collection for namespaced objects completed",
-			"kustomization", fmt.Sprintf("%s/%s", namespace, name),
-			"output", outInfo)
-		changeSet += outInfo
-	} else {
-
-		log.Error(fmt.Errorf(outErr), "Garbage collection for namespaced objects failed",
-			"kustomization", fmt.Sprintf("%s/%s", namespace, name))
-	}
-
-	outInfo = ""
-	outErr = ""
-	for _, kind := range snapshot.NonNamespacedKinds() {
-		if output, err := deleteByKind(timeout, kind, "", selector); err != nil {
-			outErr += " " + err.Error()
-			ok = false
-		} else {
-			outInfo += " " + output + "\n"
-		}
-	}
-	if outErr == "" {
-		log.Info("Garbage collection for non-namespaced objects completed",
-			"kustomization", fmt.Sprintf("%s/%s", namespace, name),
-			"output", outInfo)
-		changeSet += outInfo
-	} else {
-		log.Error(fmt.Errorf(outErr), "Garbage collection for non-namespaced objects failed",
-			"kustomization", fmt.Sprintf("%s/%s", namespace, name))
-	}
-
-	return changeSet, ok
-}
-
-func deleteByKind(timeout time.Duration, kind, namespace, selector string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout+time.Second)
-	defer cancel()
-
-	cmd := fmt.Sprintf("kubectl delete %s -l %s", kind, selector)
-	if namespace != "" {
-		cmd = fmt.Sprintf("%s -n=%s", cmd, namespace)
-	}
-
-	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-	if output, err := command.CombinedOutput(); err != nil {
-		// ignore unknown resource kind
-		if strings.Contains(string(output), "the server doesn't have a resource type") {
-			return strings.TrimSuffix(string(output), "\n"), nil
-		} else {
-			return "", fmt.Errorf("%s", strings.TrimSuffix(string(output), "\n"))
-		}
-	} else {
-		return strings.TrimSuffix(string(output), "\n"), nil
-	}
-}
-
-func gcLabels(name, namespace, revision string) map[string]string {
-	return map[string]string{
-		"kustomization/name":     fmt.Sprintf("%s-%s", name, namespace),
-		"kustomization/revision": checksum(revision),
-	}
-}
-
-func gcSelectors(name, namespace, revision string) string {
-	return fmt.Sprintf("kustomization/name=%s-%s,kustomization/revision=%s", name, namespace, checksum(revision))
-}
-
-func checksum(in string) string {
-	return fmt.Sprintf("%x", sha1.Sum([]byte(in)))
 }
 
 func containsString(slice []string, s string) bool {
