@@ -48,6 +48,27 @@ spec:
           spec:
             description: KustomizationSpec defines the desired state of a kustomization.
             properties:
+              decryption:
+                description: Decrypt Kubernetes secrets before applying them on the
+                  cluster.
+                properties:
+                  provider:
+                    description: Provider is the name of the decryption engine.
+                    enum:
+                    - sops
+                    type: string
+                  secretRef:
+                    description: The secret name containing the private OpenPGP keys
+                      used for decryption.
+                    properties:
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    type: object
+                required:
+                - provider
+                type: object
               dependsOn:
                 description: A list of kustomizations that must be ready before this
                   kustomization can be applied.

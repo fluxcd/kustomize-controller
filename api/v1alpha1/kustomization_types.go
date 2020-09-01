@@ -33,6 +33,10 @@ type KustomizationSpec struct {
 	// +optional
 	DependsOn []string `json:"dependsOn,omitempty"`
 
+	// Decrypt Kubernetes secrets before applying them on the cluster.
+	// +optional
+	Decryption *Decryption `json:"decryption,omitempty"`
+
 	// The interval at which to apply the kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`
@@ -101,6 +105,18 @@ type ServiceAccount struct {
 	// Namespace is the namespace of the service account being referenced.
 	// +required
 	Namespace string `json:"namespace"`
+}
+
+// Decryption defines how decryption is handled for Kubernetes manifests.
+type Decryption struct {
+	// Provider is the name of the decryption engine.
+	// +kubebuilder:validation:Enum=sops
+	// +required
+	Provider string `json:"provider"`
+
+	// The secret name containing the private OpenPGP keys used for decryption.
+	// +optional
+	SecretRef corev1.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
 // KustomizationStatus defines the observed state of a kustomization.

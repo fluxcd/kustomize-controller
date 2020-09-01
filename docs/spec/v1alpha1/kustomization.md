@@ -16,6 +16,10 @@ type KustomizationSpec struct {
 	// +optional
 	DependsOn []string `json:"dependsOn,omitempty"`
 
+	// Decrypt Kubernetes secrets before applying them on the cluster.
+	// +optional
+	Decryption Decryption `json:"decryption,omitempty"`
+
 	// The interval at which to apply the kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`
@@ -57,6 +61,21 @@ type KustomizationSpec struct {
 	// +kubebuilder:validation:Enum=client;server
 	// +optional
 	Validation string `json:"validation,omitempty"`
+}
+```
+
+The decryption section defines how decryption is handled for Kubernetes manifests:
+
+```go
+type Decryption struct {
+	// Provider is the name of the decryption engine.
+	// +kubebuilder:validation:Enum=sops
+	// +required
+	Provider string `json:"provider"`
+
+	// The secret name containing the private OpenPGP keys used for decryption.
+	// +optional
+	SecretRef corev1.LocalObjectReference `json:"secretRef,omitempty"`
 }
 ```
 
