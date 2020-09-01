@@ -75,7 +75,7 @@ jobs:
         run: |
           kubectl -n kustomize-system apply -k ./config/testdata/sops
           kubectl -n kustomize-system wait kustomizations/sops --for=condition=ready --timeout=4m
-          kubectl -n test2 get secrets/test --template={{.data.password}} | base64 -D | grep test
+          kubectl -n test2 get secrets/test --template={{.data.password}} | base64 -d | grep test
       - name: Logs
         run: |
           kubectl -n kustomize-system logs deploy/source-controller

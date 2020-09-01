@@ -18,7 +18,7 @@ type KustomizationSpec struct {
 
 	// Decrypt Kubernetes secrets before applying them on the cluster.
 	// +optional
-	Decryption Decryption `json:"decryption,omitempty"`
+	Decryption *Decryption `json:"decryption,omitempty"`
 
 	// The interval at which to apply the kustomization.
 	// +required
@@ -75,7 +75,7 @@ type Decryption struct {
 
 	// The secret name containing the private OpenPGP keys used for decryption.
 	// +optional
-	SecretRef corev1.LocalObjectReference `json:"secretRef,omitempty"`
+	SecretRef *corev1.LocalObjectReference `json:"secretRef,omitempty"`
 }
 ```
 
@@ -409,6 +409,52 @@ When the controller reconciles the `frontend-webapp` kustomization, it will impe
 account. If the kustomization contains cluster level objects like CRDs or objects belonging to a different
 namespace, the reconciliation will fail since the account it runs under has no permissions to alter objects
 outside of the `webapp` namespace.
+
+## Secrets decryption
+
+In order to store secrets safely in a public or private Git repository,
+you can use [Mozilla SOPS](https://github.com/mozilla/sops)
+and encrypt your Kubernetes Secrets data with OpenPGP keys. 
+
+Generate a GPG key **without passphrase** using [gnupg](https://www.gnupg.org/)
+then use sops to encrypt a Kubernetes secret:
+
+```sh
+sops --pgp=FBC7B9E2A4F9289AC0C1D4843D16CEE4A27381B4 \
+--encrypt --encrypted-regex '^(data|stringData)$' --in-place my-secret.yaml
+```
+
+Commit and push the encrypted file to Git.
+
+> **Note** that you should encrypt only the `data` section, encrypting the Kubernetes secret
+> metadata, kind or apiVersion is not supported by kustomize-controller.
+
+Create a secret in the `gitops-system` namespace with the OpenPGP private key:
+
+```sh
+gpg --export-secret-keys --armor FBC7B9E2A4F9289AC0C1D4843D16CEE4A27381B4 |
+kubectl -n gitops-system create secret generic sops-gpg \
+--from-file=sops.asc=/dev/stdin
+```
+
+Configure decryption by referring the private key secret:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: my-secrets
+spec:
+  interval: 5m
+  path: "./"
+  sourceRef:
+    kind: GitRepository
+    name: my-secrets
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-pgp
+```
 
 ## Status
 
