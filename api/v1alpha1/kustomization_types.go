@@ -116,7 +116,7 @@ type Decryption struct {
 
 	// The secret name containing the private OpenPGP keys used for decryption.
 	// +optional
-	SecretRef corev1.LocalObjectReference `json:"secretRef,omitempty"`
+	SecretRef *corev1.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
 // KustomizationStatus defines the observed state of a kustomization.

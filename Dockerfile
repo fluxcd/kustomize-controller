@@ -25,15 +25,20 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o kustomiz
 
 FROM alpine:3.12
 
-RUN apk add --no-cache ca-certificates tini git
+RUN apk add --no-cache ca-certificates tini git gnupg
 
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/
 COPY --from=builder /workspace/kustomize-controller /usr/local/bin/
+
+# Create minimal nsswitch.conf file to prioritize the usage of /etc/hosts over DNS queries.
+# https://github.com/gliderlabs/docker-alpine/issues/367#issuecomment-354316460
+RUN [ ! -e /etc/nsswitch.conf ] && echo 'hosts: files dns' > /etc/nsswitch.conf
 
 RUN addgroup -S controller && adduser -S -g controller controller
 
 USER controller
 
+ENV GNUPGHOME=/tmp
 COPY config/kubeconfig /home/controller/.kube/config
 
 ENTRYPOINT [ "/sbin/tini", "--", "kustomize-controller" ]

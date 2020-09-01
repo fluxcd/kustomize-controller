@@ -389,6 +389,17 @@ func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomizati
 }
 
 func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, revision, dirPath string) (*kustomizev1.Snapshot, error) {
+	timeout := kustomization.GetTimeout()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	dec := NewDecryptor(r.Client, kustomization)
+
+	// import OpenPGP keys if any
+	if err := dec.ImportKeys(ctx); err != nil {
+		return nil, err
+	}
+
 	fs := filesys.MakeFsOnDisk()
 	manifestsFile := filepath.Join(dirPath, fmt.Sprintf("%s.yaml", kustomization.GetUID()))
 
@@ -399,6 +410,23 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 	m, err := k.Run(dirPath)
 	if err != nil {
 		return nil, err
+	}
+
+	// check if resources are encrypted and decrypt them before generating the final YAML
+	if kustomization.Spec.Decryption != nil {
+		for _, res := range m.Resources() {
+			outRes, err := dec.Decrypt(res)
+			if err != nil {
+				return nil, fmt.Errorf("decryption failed for '%s': %w", res.GetName(), err)
+			}
+
+			if outRes != nil {
+				_, err = m.Replace(res)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 
 	resources, err := m.AsYaml()
