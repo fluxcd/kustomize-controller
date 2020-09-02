@@ -47,7 +47,9 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64
-          tags: ghcr.io/fluxcd/kustomize-controller:${{ steps.get_version.outputs.VERSION }},docker.io/fluxcd/kustomize-controller:${{ steps.get_version.outputs.VERSION }}
+          tags: |
+            ghcr.io/fluxcd/kustomize-controller:${{ steps.get_version.outputs.VERSION }}
+            docker.io/fluxcd/kustomize-controller:${{ steps.get_version.outputs.VERSION }}
       - name: Publish arm64 image
         uses: docker/build-push-action@v2-build-push
         with:

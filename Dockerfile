@@ -32,6 +32,8 @@ RUN CGO_ENABLED=0 go build -a -o kustomize-controller main.go
 
 FROM alpine:3.12
 
+LABEL org.opencontainers.image.source="https://github.com/fluxcd/kustomize-controller"
+
 RUN apk add --no-cache ca-certificates tini git gnupg
 
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/
