@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -40,11 +39,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/kustomize/api/filesys"
-	"sigs.k8s.io/kustomize/api/k8sdeps/kunstruct"
-	"sigs.k8s.io/kustomize/api/konfig"
 	"sigs.k8s.io/kustomize/api/krusty"
 	kustypes "sigs.k8s.io/kustomize/api/types"
-	"sigs.k8s.io/yaml"
 
 	"github.com/fluxcd/pkg/lockedfile"
 	"github.com/fluxcd/pkg/recorder"
@@ -388,180 +384,53 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 }
 
 func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, revision, dirPath string) error {
-	kfile := filepath.Join(dirPath, kustomizationFileName)
-
-	if err := r.generateKustomization(dirPath); err != nil {
-		return fmt.Errorf("kustomize create failed: %w", err)
-	}
-
-	if err := r.generateLabelTransformer(kustomization, revision, dirPath); err != nil {
-		return err
-	}
-
-	data, err := ioutil.ReadFile(kfile)
-	if err != nil {
-		return err
-	}
-
-	kus := kustypes.Kustomization{
-		TypeMeta: kustypes.TypeMeta{
-			APIVersion: kustypes.KustomizationVersion,
-			Kind:       kustypes.KustomizationKind,
-		},
-	}
-
-	if err := yaml.Unmarshal(data, &kus); err != nil {
-		return err
-	}
-
-	if len(kus.Transformers) == 0 {
-		kus.Transformers = []string{transformerFileName}
-	} else {
-		var exists bool
-		for _, transformer := range kus.Transformers {
-			if transformer == transformerFileName {
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			kus.Transformers = append(kus.Transformers, transformerFileName)
-		}
-	}
-
-	kd, err := yaml.Marshal(kus)
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(kfile, kd, os.ModePerm)
-}
-
-func (r *KustomizationReconciler) generateKustomization(dirPath string) error {
-	fs := filesys.MakeFsOnDisk()
-	kfile := filepath.Join(dirPath, kustomizationFileName)
-
-	scan := func(base string) ([]string, error) {
-		var paths []string
-		uf := kunstruct.NewKunstructuredFactoryImpl()
-		err := fs.Walk(base, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if path == base {
-				return nil
-			}
-			if info.IsDir() {
-				// If a sub-directory contains an existing kustomization file add the
-				// directory as a resource and do not decend into it.
-				for _, kfilename := range konfig.RecognizedKustomizationFileNames() {
-					if fs.Exists(filepath.Join(path, kfilename)) {
-						paths = append(paths, path)
-						return filepath.SkipDir
-					}
-				}
-				return nil
-			}
-			fContents, err := fs.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			if _, err := uf.SliceFromBytes(fContents); err != nil {
-				return nil
-			}
-			paths = append(paths, path)
-			return nil
-		})
-		return paths, err
-	}
-
-	if _, err := os.Stat(kfile); err != nil {
-		abs, err := filepath.Abs(dirPath)
-		if err != nil {
-			return err
-		}
-
-		files, err := scan(abs)
-		if err != nil {
-			return err
-		}
-
-		f, err := fs.Create(kfile)
-		if err != nil {
-			return err
-		}
-		f.Close()
-
-		kus := kustypes.Kustomization{
-			TypeMeta: kustypes.TypeMeta{
-				APIVersion: kustypes.KustomizationVersion,
-				Kind:       kustypes.KustomizationKind,
-			},
-		}
-
-		var resources []string
-		for _, file := range files {
-			resources = append(resources, strings.Replace(file, abs, ".", 1))
-		}
-
-		kus.Resources = resources
-		kd, err := yaml.Marshal(kus)
-		if err != nil {
-			return err
-		}
-
-		return ioutil.WriteFile(kfile, kd, os.ModePerm)
-	}
-
-	return nil
-}
-
-func (r *KustomizationReconciler) generateLabelTransformer(kustomization kustomizev1.Kustomization, revision, dirPath string) error {
-	var lt = struct {
-		ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
-		Kind       string `json:"kind" yaml:"kind"`
-		Metadata   struct {
-			Name string `json:"name" yaml:"name"`
-		} `json:"metadata" yaml:"metadata"`
-		Labels     map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
-		FieldSpecs []kustypes.FieldSpec `json:"fieldSpecs,omitempty" yaml:"fieldSpecs,omitempty"`
-	}{
-		ApiVersion: "builtin",
-		Kind:       "LabelTransformer",
-		Metadata: struct {
-			Name string `json:"name" yaml:"name"`
-		}{
-			Name: kustomization.GetName(),
-		},
-		Labels: gcLabels(kustomization.GetName(), kustomization.GetNamespace(), revision),
-		FieldSpecs: []kustypes.FieldSpec{
-			{Path: "metadata/labels", CreateIfNotPresent: true},
-		},
-	}
-
-	data, err := yaml.Marshal(lt)
-	if err != nil {
-		return err
-	}
-
-	labelsFile := filepath.Join(dirPath, transformerFileName)
-	if err := ioutil.WriteFile(labelsFile, data, os.ModePerm); err != nil {
-		return err
-	}
-
-	return nil
+	gen := NewGenerator(kustomization, revision)
+	return gen.WriteFile(dirPath)
 }
 
 func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, revision, dirPath string) (*kustomizev1.Snapshot, error) {
+	timeout := kustomization.GetTimeout()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	dec, cleanup, err := NewTempDecryptor(r.Client, kustomization)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	// import OpenPGP keys if any
+	if err := dec.ImportKeys(ctx); err != nil {
+		return nil, err
+	}
+
 	fs := filesys.MakeFsOnDisk()
 	manifestsFile := filepath.Join(dirPath, fmt.Sprintf("%s.yaml", kustomization.GetUID()))
 
 	opt := krusty.MakeDefaultOptions()
 	opt.LoadRestrictions = kustypes.LoadRestrictionsNone
+	opt.DoLegacyResourceSort = true
 	k := krusty.MakeKustomizer(fs, opt)
 	m, err := k.Run(dirPath)
 	if err != nil {
 		return nil, err
+	}
+
+	// check if resources are encrypted and decrypt them before generating the final YAML
+	if kustomization.Spec.Decryption != nil {
+		for _, res := range m.Resources() {
+			outRes, err := dec.Decrypt(res)
+			if err != nil {
+				return nil, fmt.Errorf("decryption failed for '%s': %w", res.GetName(), err)
+			}
+
+			if outRes != nil {
+				_, err = m.Replace(res)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 
 	resources, err := m.AsYaml()
@@ -723,11 +592,11 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 		}
 	}
 
-	if output, ok := prune(kustomization.GetTimeout(),
+	gc := NewGarbageCollector(*snapshot, r.Log)
+
+	if output, ok := gc.Prune(kustomization.GetTimeout(),
 		kustomization.GetName(),
 		kustomization.GetNamespace(),
-		kustomization.Status.Snapshot,
-		r.Log,
 	); !ok {
 		return fmt.Errorf("pruning failed")
 	} else {
@@ -877,93 +746,6 @@ func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization,
 	}
 }
 
-func prune(timeout time.Duration, name string, namespace string, snapshot *kustomizev1.Snapshot, log logr.Logger) (string, bool) {
-	selector := gcSelectors(name, namespace, snapshot.Revision)
-	ok := true
-	changeSet := ""
-	outInfo := ""
-	outErr := ""
-	for ns, kinds := range snapshot.NamespacedKinds() {
-		for _, kind := range kinds {
-			if output, err := deleteByKind(timeout, kind, ns, selector); err != nil {
-				outErr += " " + err.Error()
-				ok = false
-			} else {
-				outInfo += " " + output + "\n"
-			}
-		}
-	}
-	if outErr == "" {
-		log.Info("Garbage collection for namespaced objects completed",
-			"kustomization", fmt.Sprintf("%s/%s", namespace, name),
-			"output", outInfo)
-		changeSet += outInfo
-	} else {
-
-		log.Error(fmt.Errorf(outErr), "Garbage collection for namespaced objects failed",
-			"kustomization", fmt.Sprintf("%s/%s", namespace, name))
-	}
-
-	outInfo = ""
-	outErr = ""
-	for _, kind := range snapshot.NonNamespacedKinds() {
-		if output, err := deleteByKind(timeout, kind, "", selector); err != nil {
-			outErr += " " + err.Error()
-			ok = false
-		} else {
-			outInfo += " " + output + "\n"
-		}
-	}
-	if outErr == "" {
-		log.Info("Garbage collection for non-namespaced objects completed",
-			"kustomization", fmt.Sprintf("%s/%s", namespace, name),
-			"output", outInfo)
-		changeSet += outInfo
-	} else {
-		log.Error(fmt.Errorf(outErr), "Garbage collection for non-namespaced objects failed",
-			"kustomization", fmt.Sprintf("%s/%s", namespace, name))
-	}
-
-	return changeSet, ok
-}
-
-func deleteByKind(timeout time.Duration, kind, namespace, selector string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout+time.Second)
-	defer cancel()
-
-	cmd := fmt.Sprintf("kubectl delete %s -l %s", kind, selector)
-	if namespace != "" {
-		cmd = fmt.Sprintf("%s -n=%s", cmd, namespace)
-	}
-
-	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-	if output, err := command.CombinedOutput(); err != nil {
-		// ignore unknown resource kind
-		if strings.Contains(string(output), "the server doesn't have a resource type") {
-			return strings.TrimSuffix(string(output), "\n"), nil
-		} else {
-			return "", fmt.Errorf("%s", strings.TrimSuffix(string(output), "\n"))
-		}
-	} else {
-		return strings.TrimSuffix(string(output), "\n"), nil
-	}
-}
-
-func gcLabels(name, namespace, revision string) map[string]string {
-	return map[string]string{
-		"kustomization/name":     fmt.Sprintf("%s-%s", name, namespace),
-		"kustomization/revision": checksum(revision),
-	}
-}
-
-func gcSelectors(name, namespace, revision string) string {
-	return fmt.Sprintf("kustomization/name=%s-%s,kustomization/revision=%s", name, namespace, checksum(revision))
-}
-
-func checksum(in string) string {
-	return fmt.Sprintf("%x", sha1.Sum([]byte(in)))
-}
-
 func containsString(slice []string, s string) bool {
 	for _, item := range slice {
 		if item == s {
@@ -982,8 +764,3 @@ func removeString(slice []string, s string) (result []string) {
 	}
 	return
 }
-
-var (
-	kustomizationFileName = "kustomization.yaml"
-	transformerFileName   = "kustomization-gc-labels.yaml"
-)

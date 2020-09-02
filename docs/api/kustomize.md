@@ -83,6 +83,20 @@ kustomization can be applied.</p>
 </tr>
 <tr>
 <td>
+<code>decryption</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Decryption">
+Decryption
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Decrypt Kubernetes secrets before applying them on the cluster.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>interval</code><br>
 <em>
 <a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
@@ -374,6 +388,52 @@ string
 </table>
 </div>
 </div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Decryption">Decryption
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
+</p>
+<p>Decryption defines how decryption is handled for Kubernetes manifests.</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>provider</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Provider is the name of the decryption engine.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secretRef</code><br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#localobjectreference-v1-core">
+Kubernetes core/v1.LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The secret name containing the private OpenPGP keys used for decryption.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec
 </h3>
 <p>
@@ -402,6 +462,20 @@ string
 <em>(Optional)</em>
 <p>A list of kustomizations that must be ready before this
 kustomization can be applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>decryption</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Decryption">
+Decryption
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Decrypt Kubernetes secrets before applying them on the cluster.</p>
 </td>
 </tr>
 <tr>

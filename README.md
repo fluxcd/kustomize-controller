@@ -45,7 +45,7 @@ curl -s https://toolkit.fluxcd.io/install.sh | sudo bash
 Install the toolkit controllers in the `gitops-system` namespace:
 
 ```bash
-tk install
+gotk install
 ```
 
 ### Define a Git repository source
