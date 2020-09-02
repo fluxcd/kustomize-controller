@@ -12,6 +12,7 @@ import (
 	"go.mozilla.org/sops/v3/aes"
 	"go.mozilla.org/sops/v3/cmd/sops/common"
 	"go.mozilla.org/sops/v3/cmd/sops/formats"
+	"go.mozilla.org/sops/v3/keyservice"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,6 +20,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
 )
 
 const DecryptionProviderSOPS = "sops"
@@ -26,13 +28,26 @@ const DecryptionProviderSOPS = "sops"
 type KustomizeDecryptor struct {
 	client.Client
 	kustomization kustomizev1.Kustomization
+	homeDir       string
 }
 
-func NewDecryptor(kubeClient client.Client, kustomization kustomizev1.Kustomization) *KustomizeDecryptor {
+func NewDecryptor(kubeClient client.Client,
+	kustomization kustomizev1.Kustomization, homeDir string) *KustomizeDecryptor {
 	return &KustomizeDecryptor{
 		Client:        kubeClient,
 		kustomization: kustomization,
+		homeDir:       homeDir,
 	}
+}
+
+func NewTempDecryptor(kubeClient client.Client,
+	kustomization kustomizev1.Kustomization) (*KustomizeDecryptor, func(), error) {
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("decryptor-%s-", kustomization.Name))
+	if err != nil {
+		return nil, nil, fmt.Errorf("tmp dir error: %w", err)
+	}
+	cleanup := func() { os.RemoveAll(tmpDir) }
+	return NewDecryptor(kubeClient, kustomization, tmpDir), cleanup, nil
 }
 
 func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resource, error) {
@@ -50,7 +65,11 @@ func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resourc
 			return nil, fmt.Errorf("LoadEncryptedFile: %w", err)
 		}
 
-		key, err := tree.Metadata.GetDataKey()
+		key, err := tree.Metadata.GetDataKeyWithKeyServices(
+			[]keyservice.KeyServiceClient{
+				intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir)),
+			},
+		)
 		if err != nil {
 			return nil, fmt.Errorf("GetDataKey: %w", err)
 		}
@@ -95,6 +114,7 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("tmp dir error: %w", err)
 		}
+		defer os.RemoveAll(tmpDir)
 
 		for name, key := range secret.Data {
 			keyPath := path.Join(tmpDir, name)
@@ -111,7 +131,11 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 }
 
 func (kd *KustomizeDecryptor) gpgImport(path string) error {
-	cmd := exec.Command("gpg", "--import", path)
+	args := []string{"--import", path}
+	if kd.homeDir != "" {
+		args = append([]string{"--homedir", kd.homeDir}, args...)
+	}
+	cmd := exec.Command("gpg", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("gpg import error: %s", string(out))

@@ -19,6 +19,7 @@ RUN go mod download
 # copy source code
 COPY main.go main.go
 COPY controllers/ controllers/
+COPY internal/ internal/
 
 # build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o kustomize-controller main.go

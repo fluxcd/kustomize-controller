@@ -393,7 +393,11 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	dec := NewDecryptor(r.Client, kustomization)
+	dec, cleanup, err := NewTempDecryptor(r.Client, kustomization)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
 
 	// import OpenPGP keys if any
 	if err := dec.ImportKeys(ctx); err != nil {
