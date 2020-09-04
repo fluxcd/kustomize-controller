@@ -1,10 +1,16 @@
-FROM golang:1.14 as builder
+FROM golang:1.14-alpine as builder
+
+ARG TARGETPLATFORM
 
 WORKDIR /workspace
 
-RUN kubectl_ver=1.19.0 && \
-curl -sL https://storage.googleapis.com/kubernetes-release/release/v${kubectl_ver}/bin/linux/amd64/kubectl \
+RUN apk add --no-cache ca-certificates curl
+
+RUN arch=${TARGETPLATFORM:-linux/amd64} && kubectl_ver=1.19.0 && \
+curl -sL https://storage.googleapis.com/kubernetes-release/release/v${kubectl_ver}/bin/${arch}/kubectl \
 -o /usr/local/bin/kubectl && chmod +x /usr/local/bin/kubectl
+
+RUN kubectl version --client=true
 
 # copy api submodule
 COPY api/ api/
@@ -22,9 +28,11 @@ COPY controllers/ controllers/
 COPY internal/ internal/
 
 # build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o kustomize-controller main.go
+RUN CGO_ENABLED=0 go build -a -o kustomize-controller main.go
 
 FROM alpine:3.12
+
+LABEL org.opencontainers.image.source="https://github.com/fluxcd/kustomize-controller"
 
 RUN apk add --no-cache ca-certificates tini git gnupg
 
