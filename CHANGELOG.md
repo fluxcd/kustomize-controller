@@ -6,7 +6,7 @@ All notable changes to this project are documented in this file.
 
 This prerelease comes with support for decrypting Kubernetes secrets
 with Mozilla SOPS.
-Container images for linux/amd64 and amd64 are published to GHCR.
+Container images for linux/amd64 and linux/arm64 are published to GHCR.
 
 ## 0.0.8 (2020-08-18)
 

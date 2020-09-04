@@ -11,7 +11,7 @@ require (
 	github.com/fluxcd/pkg/recorder v0.0.6
 	github.com/fluxcd/pkg/testserver v0.0.2
 	github.com/fluxcd/pkg/untar v0.0.5
-	github.com/fluxcd/source-controller/api v0.0.11
+	github.com/fluxcd/source-controller/api v0.0.13
 	github.com/go-logr/logr v0.1.0
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
 	github.com/onsi/ginkgo v1.12.1
