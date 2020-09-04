@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.9 (2020-09-04)
+
+This prerelease comes with support for decrypting Kubernetes secrets
+with Mozilla SOPS.
+Container images for linux/amd64 and amd64 are published to GHCR.
+
 ## 0.0.8 (2020-08-18)
 
 This prerelease upgrades the `github.com/fluxcd/pkg/*` dependencies to
