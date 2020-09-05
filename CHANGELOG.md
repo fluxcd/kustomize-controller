@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.10 (2020-09-05)
+
+This prerelease comes with a bug fix to garbage collection.
+
 ## 0.0.9 (2020-09-04)
 
 This prerelease comes with support for decrypting Kubernetes secrets
