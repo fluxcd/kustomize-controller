@@ -592,7 +592,7 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 		}
 	}
 
-	gc := NewGarbageCollector(*snapshot, r.Log)
+	gc := NewGarbageCollector(*kustomization.Status.Snapshot, r.Log)
 
 	if output, ok := gc.Prune(kustomization.GetTimeout(),
 		kustomization.GetName(),
