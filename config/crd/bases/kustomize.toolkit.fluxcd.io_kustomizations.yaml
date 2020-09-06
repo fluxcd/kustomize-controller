@@ -82,13 +82,17 @@ spec:
                   description: WorkloadReference defines a reference to a Deployment,
                     DaemonSet or StatefulSet.
                   properties:
-                    kind:
-                      description: Kind is the type of resource being referenced.
-                      enum:
-                      - Deployment
-                      - DaemonSet
-                      - StatefulSet
-                      type: string
+                    groupKind:
+                      description: GroupKind is the type of resource being referenced.
+                      properties:
+                        group:
+                          type: string
+                        kind:
+                          type: string
+                      required:
+                      - group
+                      - kind
+                      type: object
                     name:
                       description: Name is the name of resource being referenced.
                       type: string
@@ -96,7 +100,7 @@ spec:
                       description: Namespace is the namespace of resource being referenced.
                       type: string
                   required:
-                  - kind
+                  - groupKind
                   - name
                   - namespace
                   type: object

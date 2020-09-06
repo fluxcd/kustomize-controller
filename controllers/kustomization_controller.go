@@ -621,39 +621,37 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 	return nil
 }
 
-func toObjMetadata(ww []kustomizev1.WorkloadReference) []object.ObjMetadata {
-	objects := []object.ObjMetadata{}
-	for _, w := range ww {
-		object := object.ObjMetadata{
-			GroupKind: schema.GroupKind{
-				Group: "apps",
-				Kind:  w.Kind,
-			},
+func toObjMetadata(wr []kustomizev1.WorkloadReference) []object.ObjMetadata {
+	oo := []object.ObjMetadata{}
+	for _, w := range wr {
+		oo = append(oo, object.ObjMetadata{
 			Name:      w.Name,
 			Namespace: w.Namespace,
-		}
-		objects = append(objects, object)
+			GroupKind: schema.GroupKind{
+				Group: w.GroupKind.Group,
+				Kind:  w.GroupKind.Kind,
+			},
+		})
 	}
-
-	return objects
+	return oo
 }
 
-func toCompleteCheck(oo []object.ObjMetadata) map[string]bool {
-	check := map[string]bool{}
-	for _, o := range oo {
-		check[o.String()] = false
+func toHealthySet(wr []kustomizev1.WorkloadReference) map[string]bool {
+	hs := map[string]bool{}
+	for _, w := range wr {
+		hs[w.String()] = false
 	}
-	return check
+	return hs
 }
 
-func hasCompleted(cc map[string]bool) bool {
-	for _, v := range cc {
-		if v == false {
-			return false
+func filterHealthSet(hs map[string]bool, healthy bool) []string {
+	res := []string{}
+	for k, v := range hs {
+		if v == healthy {
+			res = append(res, k)
 		}
 	}
-
-	return true
+	return res
 }
 
 func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomization, revision string) error {
@@ -666,31 +664,26 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 	defer cancel()
 
 	opts := polling.Options{PollInterval: 500 * time.Millisecond, UseCache: true}
-	objMetadata := toObjMetadata(kustomization.Spec.HealthChecks)
-	completeCheck := toCompleteCheck(objMetadata)
-	eventsChan := r.Poller.Poll(ctx, objMetadata, opts)
+	healthySet := toHealthySet(kustomization.Spec.HealthChecks)
+	eventsChan := r.Poller.Poll(ctx, toObjMetadata(kustomization.Spec.HealthChecks), opts)
 
-	var alerts string
 	for {
 		select {
 		case <-ctx.Done():
-			return errors.New("health check timeout")
+			notHealthy := filterHealthSet(healthySet, false)
+			return fmt.Errorf("Health check timeout for [%v]", strings.Join(notHealthy, ", "))
 		case e := <-eventsChan:
 			switch e.EventType {
 			case event.ResourceUpdateEvent:
+				id := fmt.Sprintf("%s/%s/%s", e.Resource.Identifier.GroupKind.String(), e.Resource.Identifier.Namespace, e.Resource.Identifier.Name)
 				if e.Resource.Status == status.CurrentStatus {
-					completeCheck[e.Resource.Identifier.String()] = true
-					msg := fmt.Sprintf("Health check passed for %s '%s/%s'",
-						e.Resource.Identifier.GroupKind.String(),
-						e.Resource.Identifier.Namespace,
-						e.Resource.Identifier.Name)
+					healthySet[id] = true
 					r.Log.WithValues(
 						strings.ToLower(kustomization.Kind),
 						fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-					).Info(msg)
-					alerts += msg + "\n"
+					).Info(fmt.Sprintf("Health check passed for %s", id))
 				} else {
-					completeCheck[e.Resource.Identifier.String()] = false
+					healthySet[id] = false
 				}
 			case event.ErrorEvent:
 				return e.Error
@@ -703,9 +696,10 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 				return nil*/
 			}
 
-			if hasCompleted(completeCheck) {
-				if alerts != "" && kustomization.Status.LastAppliedRevision != revision {
-					r.event(kustomization, revision, recorder.EventSeverityInfo, alerts)
+			if len(filterHealthSet(healthySet, false)) == 0 {
+				if kustomization.Status.LastAppliedRevision != revision {
+					healthy := filterHealthSet(healthySet, true)
+					r.event(kustomization, revision, recorder.EventSeverityInfo, "Health check passed for "+strings.Join(healthy, ", "))
 				}
 				return nil
 			}

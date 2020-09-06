@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -82,10 +83,9 @@ type KustomizationSpec struct {
 
 // WorkloadReference defines a reference to a Deployment, DaemonSet or StatefulSet.
 type WorkloadReference struct {
-	// Kind is the type of resource being referenced.
-	// +kubebuilder:validation:Enum=Deployment;DaemonSet;StatefulSet
+	// GroupKind is the type of resource being referenced.
 	// +required
-	Kind string `json:"kind"`
+	GroupKind metav1.GroupKind `json:"groupKind"`
 
 	// Name is the name of resource being referenced.
 	// +required
@@ -94,6 +94,10 @@ type WorkloadReference struct {
 	// Namespace is the namespace of resource being referenced.
 	// +required
 	Namespace string `json:"namespace"`
+}
+
+func (w WorkloadReference) String() string {
+	return fmt.Sprintf("%s/%s/%s", w.GroupKind.String(), w.Namespace, w.Name)
 }
 
 // ServiceAccount defines a reference to a Kubernetes service account.
