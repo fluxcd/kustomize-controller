@@ -32,9 +32,14 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kuberecorder "k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
+	"sigs.k8s.io/cli-utils/pkg/object"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -58,6 +63,7 @@ type KustomizationReconciler struct {
 	Scheme                *runtime.Scheme
 	EventRecorder         kuberecorder.EventRecorder
 	ExternalEventRecorder *recorder.EventRecorder
+	Poller                *polling.StatusPoller
 }
 
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
@@ -615,47 +621,96 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 	return nil
 }
 
+func toObjMetadata(ww []kustomizev1.WorkloadReference) []object.ObjMetadata {
+	objects := []object.ObjMetadata{}
+	for _, w := range ww {
+		object := object.ObjMetadata{
+			GroupKind: schema.GroupKind{
+				Group: "apps",
+				Kind:  w.Kind,
+			},
+			Name:      w.Name,
+			Namespace: w.Namespace,
+		}
+		objects = append(objects, object)
+	}
+
+	return objects
+}
+
+func toCompleteCheck(oo []object.ObjMetadata) map[string]bool {
+	check := map[string]bool{}
+	for _, o := range oo {
+		check[o.String()] = false
+	}
+	return check
+}
+
+func hasCompleted(cc map[string]bool) bool {
+	for _, v := range cc {
+		if v == false {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomization, revision string) error {
+	if len(kustomization.Spec.HealthChecks) == 0 {
+		return nil
+	}
+
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
+	opts := polling.Options{PollInterval: 500 * time.Millisecond, UseCache: true}
+	objMetadata := toObjMetadata(kustomization.Spec.HealthChecks)
+	completeCheck := toCompleteCheck(objMetadata)
+	eventsChan := r.Poller.Poll(ctx, objMetadata, opts)
+
 	var alerts string
-
-	for _, check := range kustomization.Spec.HealthChecks {
-		cmd := fmt.Sprintf("until kubectl -n %s get %s %s ; do sleep 2; done",
-			check.Namespace, check.Kind, check.Name)
-		command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-		if _, err := command.CombinedOutput(); err != nil {
-			return fmt.Errorf("health check timeout for %s '%s/%s': %w",
-				check.Kind, check.Namespace, check.Name, err)
-		}
-
-		cmd = fmt.Sprintf("kubectl -n %s rollout status %s %s --timeout=%s",
-			check.Namespace, check.Kind, check.Name, kustomization.GetTimeout())
-		command = exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
-		output, err := command.CombinedOutput()
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return fmt.Errorf("health check timeout for %s '%s/%s': %w",
-					check.Kind, check.Namespace, check.Name, err)
+	for {
+		select {
+		case <-ctx.Done():
+			return errors.New("health check timeout")
+		case e := <-eventsChan:
+			switch e.EventType {
+			case event.ResourceUpdateEvent:
+				if e.Resource.Status == status.CurrentStatus {
+					completeCheck[e.Resource.Identifier.String()] = true
+					msg := fmt.Sprintf("Health check passed for %s '%s/%s'",
+						e.Resource.Identifier.GroupKind.String(),
+						e.Resource.Identifier.Namespace,
+						e.Resource.Identifier.Name)
+					r.Log.WithValues(
+						strings.ToLower(kustomization.Kind),
+						fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+					).Info(msg)
+					alerts += msg + "\n"
+				} else {
+					completeCheck[e.Resource.Identifier.String()] = false
+				}
+			case event.ErrorEvent:
+				return e.Error
+				// Event does not behave like expected and will not occur when all the
+				// resources are in a current state.
+				/*case event.CompletedEvent:
+				if alerts != "" && kustomization.Status.LastAppliedRevision != revision {
+					r.event(kustomization, revision, recorder.EventSeverityInfo, alerts)
+				}
+				return nil*/
 			}
-			return fmt.Errorf("health check failed for %s '%s/%s': %s",
-				check.Kind, check.Namespace, check.Name, string(output))
-		} else {
-			msg := fmt.Sprintf("Health check passed for %s '%s/%s'",
-				check.Kind, check.Namespace, check.Name)
-			r.Log.WithValues(
-				strings.ToLower(kustomization.Kind),
-				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-			).Info(msg)
-			alerts += msg + "\n"
+
+			if hasCompleted(completeCheck) {
+				if alerts != "" && kustomization.Status.LastAppliedRevision != revision {
+					r.event(kustomization, revision, recorder.EventSeverityInfo, alerts)
+				}
+				return nil
+			}
 		}
 	}
-
-	if alerts != "" && kustomization.Status.LastAppliedRevision != revision {
-		r.event(kustomization, revision, recorder.EventSeverityInfo, alerts)
-	}
-	return nil
 }
 
 func (r *KustomizationReconciler) lock(name string) (unlock func(), err error) {
