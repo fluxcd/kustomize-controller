@@ -621,25 +621,34 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 	return nil
 }
 
-func toObjMetadata(wr []kustomizev1.WorkloadReference) []object.ObjMetadata {
+func toObjMetadata(cr []kustomizev1.CrossNamespaceObjectReference) ([]object.ObjMetadata, error) {
 	oo := []object.ObjMetadata{}
-	for _, w := range wr {
-		oo = append(oo, object.ObjMetadata{
-			Name:      w.Name,
-			Namespace: w.Namespace,
-			GroupKind: schema.GroupKind{
-				Group: w.GroupKind.Group,
-				Kind:  w.GroupKind.Kind,
-			},
-		})
+	for _, c := range cr {
+		// For backwards compatibility
+		if c.APIVersion == "" {
+			c.APIVersion = "apps/v1"
+		}
+
+		gv, err := schema.ParseGroupVersion(c.APIVersion)
+		if err != nil {
+			return []object.ObjMetadata{}, err
+		}
+
+		gk := schema.GroupKind{Group: gv.Group, Kind: c.Kind}
+		o, err := object.CreateObjMetadata(c.Namespace, c.Name, gk)
+		if err != nil {
+			return []object.ObjMetadata{}, err
+		}
+
+		oo = append(oo, o)
 	}
-	return oo
+	return oo, nil
 }
 
-func toHealthySet(wr []kustomizev1.WorkloadReference) map[string]bool {
+func toHealthySet(oo []object.ObjMetadata) map[string]bool {
 	hs := map[string]bool{}
-	for _, w := range wr {
-		hs[w.String()] = false
+	for _, o := range oo {
+		hs[o.String()] = false
 	}
 	return hs
 }
@@ -659,31 +668,35 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 		return nil
 	}
 
+	objMetadata, err := toObjMetadata(kustomization.Spec.HealthChecks)
+	if err != nil {
+		return err
+	}
+
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	opts := polling.Options{PollInterval: 500 * time.Millisecond, UseCache: true}
-	healthySet := toHealthySet(kustomization.Spec.HealthChecks)
-	eventsChan := r.Poller.Poll(ctx, toObjMetadata(kustomization.Spec.HealthChecks), opts)
+	healthySet := toHealthySet(objMetadata)
+	eventsChan := r.Poller.Poll(ctx, objMetadata, opts)
 
 	for {
 		select {
 		case <-ctx.Done():
 			notHealthy := filterHealthSet(healthySet, false)
-			return fmt.Errorf("Health check timeout for [%v]", strings.Join(notHealthy, ", "))
+			return fmt.Errorf("Health check timed out for [%v]", strings.Join(notHealthy, ", "))
 		case e := <-eventsChan:
 			switch e.EventType {
 			case event.ResourceUpdateEvent:
-				id := fmt.Sprintf("%s/%s/%s", e.Resource.Identifier.GroupKind.String(), e.Resource.Identifier.Namespace, e.Resource.Identifier.Name)
 				if e.Resource.Status == status.CurrentStatus {
-					healthySet[id] = true
+					healthySet[e.Resource.Identifier.String()] = true
 					r.Log.WithValues(
 						strings.ToLower(kustomization.Kind),
 						fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-					).Info(fmt.Sprintf("Health check passed for %s", id))
+					).Info(fmt.Sprintf("Health check passed for %s", e.Resource.Identifier.String()))
 				} else {
-					healthySet[id] = false
+					healthySet[e.Resource.Identifier.String()] = false
 				}
 			case event.ErrorEvent:
 				return e.Error
