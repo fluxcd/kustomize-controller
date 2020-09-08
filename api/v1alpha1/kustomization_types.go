@@ -50,8 +50,7 @@ type KustomizationSpec struct {
 	// +required
 	Prune bool `json:"prune"`
 
-	// A list of workloads (Deployments, DaemonSets and StatefulSets)
-	// to be included in the health assessment.
+	// A list of resources to be included in the health assessment.
 	// +optional
 	HealthChecks []CrossNamespaceObjectReference `json:"healthChecks,omitempty"`
 
@@ -61,7 +60,7 @@ type KustomizationSpec struct {
 
 	// Reference of the source where the kustomization file is.
 	// +required
-	SourceRef CrossNamespaceObjectReference `json:"sourceRef"`
+	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
 
 	// This flag tells the controller to suspend subsequent kustomize executions,
 	// it does not apply to already started executions. Defaults to false.
