@@ -37,6 +37,8 @@ import (
 	kuberecorder "k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/aggregator"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/collector"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 	"sigs.k8s.io/cli-utils/pkg/object"
@@ -645,22 +647,8 @@ func toObjMetadata(cr []kustomizev1.CrossNamespaceObjectReference) ([]object.Obj
 	return oo, nil
 }
 
-func toHealthySet(oo []object.ObjMetadata) map[string]bool {
-	hs := map[string]bool{}
-	for _, o := range oo {
-		hs[o.String()] = false
-	}
-	return hs
-}
-
-func filterHealthSet(hs map[string]bool, healthy bool) []string {
-	res := []string{}
-	for k, v := range hs {
-		if v == healthy {
-			res = append(res, k)
-		}
-	}
-	return res
+func objMetadataToString(om object.ObjMetadata) string {
+	return fmt.Sprintf("%s '%s/%s'", om.GroupKind.Kind, om.Namespace, om.Name)
 }
 
 func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomization, revision string) error {
@@ -678,46 +666,44 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 	defer cancel()
 
 	opts := polling.Options{PollInterval: 500 * time.Millisecond, UseCache: true}
-	healthySet := toHealthySet(objMetadata)
 	eventsChan := r.Poller.Poll(ctx, objMetadata, opts)
-
-	for {
-		select {
-		case <-ctx.Done():
-			notHealthy := filterHealthSet(healthySet, false)
-			return fmt.Errorf("Health check timed out for [%v]", strings.Join(notHealthy, ", "))
-		case e := <-eventsChan:
-			switch e.EventType {
-			case event.ResourceUpdateEvent:
-				if e.Resource.Status == status.CurrentStatus {
-					healthySet[e.Resource.Identifier.String()] = true
-					r.Log.WithValues(
-						strings.ToLower(kustomization.Kind),
-						fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-					).Info(fmt.Sprintf("Health check passed for %s", e.Resource.Identifier.String()))
-				} else {
-					healthySet[e.Resource.Identifier.String()] = false
-				}
-			case event.ErrorEvent:
-				return e.Error
-				// Event does not behave like expected and will not occur when all the
-				// resources are in a current state.
-				/*case event.CompletedEvent:
-				if alerts != "" && kustomization.Status.LastAppliedRevision != revision {
-					r.event(kustomization, revision, recorder.EventSeverityInfo, alerts)
-				}
-				return nil*/
+	coll := collector.NewResourceStatusCollector(objMetadata)
+	done := coll.ListenWithObserver(eventsChan, collector.ObserverFunc(
+		func(statusCollector *collector.ResourceStatusCollector) {
+			var rss []*event.ResourceStatus
+			for _, rs := range statusCollector.ResourceStatuses {
+				rss = append(rss, rs)
 			}
+			desired := status.CurrentStatus
+			aggStatus := aggregator.AggregateStatus(rss, desired)
+			if aggStatus == desired {
+				cancel()
+				return
+			}
+		}),
+	)
 
-			if len(filterHealthSet(healthySet, false)) == 0 {
-				if kustomization.Status.LastAppliedRevision != revision {
-					healthy := filterHealthSet(healthySet, true)
-					r.event(kustomization, revision, recorder.EventSeverityInfo, "Health check passed for "+strings.Join(healthy, ", "))
-				}
-				return nil
+	<-done
+
+	if coll.Error != nil {
+		return coll.Error
+	}
+
+	if ctx.Err() == context.DeadlineExceeded {
+		ids := []string{}
+		for _, rs := range coll.ResourceStatuses {
+			if rs.Status != status.CurrentStatus {
+				id := objMetadataToString(rs.Identifier)
+				ids = append(ids, id)
 			}
 		}
+		return fmt.Errorf("Health check timed out for [%v]", strings.Join(ids, ", "))
 	}
+
+	if kustomization.Status.LastAppliedRevision != revision {
+		r.event(kustomization, revision, recorder.EventSeverityInfo, "Health check passed")
+	}
+	return nil
 }
 
 func (r *KustomizationReconciler) lock(name string) (unlock func(), err error) {

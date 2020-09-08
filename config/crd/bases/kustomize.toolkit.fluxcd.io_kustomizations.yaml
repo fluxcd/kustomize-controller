@@ -76,8 +76,7 @@ spec:
                   type: string
                 type: array
               healthChecks:
-                description: A list of workloads (Deployments, DaemonSets and StatefulSets)
-                  to be included in the health assessment.
+                description: A list of resources to be included in the health assessment.
                 items:
                   description: CrossNamespaceObjectReference contains enough information
                     to let you locate the typed referenced object at cluster level
