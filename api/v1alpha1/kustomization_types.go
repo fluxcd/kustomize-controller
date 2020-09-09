@@ -217,10 +217,6 @@ func (in *Kustomization) GetTimeout() time.Duration {
 }
 
 const (
-	// ReconcileAtAnnotation is the annotation used for triggering a
-	// reconciliation outside of the defined schedule.
-	ReconcileAtAnnotation string = "fluxcd.io/reconcileAt"
-
 	// SourceIndexKey is the key used for indexing kustomizations
 	// based on their sources.
 	SourceIndexKey string = ".metadata.source"
