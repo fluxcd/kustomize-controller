@@ -19,9 +19,11 @@ package v1alpha1
 import (
 	"bytes"
 	"io"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -84,7 +86,7 @@ func (s *Snapshot) addEntry(item *unstructured.Unstructured) {
 	found := false
 	for _, tracker := range s.Entries {
 		if tracker.Namespace == item.GetNamespace() {
-			tracker.Kinds[item.GetKind()] = item.GetAPIVersion()
+			tracker.Kinds[item.GroupVersionKind().String()] = item.GetKind()
 			found = true
 			break
 		}
@@ -93,31 +95,42 @@ func (s *Snapshot) addEntry(item *unstructured.Unstructured) {
 		s.Entries = append(s.Entries, SnapshotEntry{
 			Namespace: item.GetNamespace(),
 			Kinds: map[string]string{
-				item.GetKind(): item.GetAPIVersion(),
+				item.GroupVersionKind().String(): item.GetKind(),
 			},
 		})
 	}
 }
 
-func (s *Snapshot) NonNamespacedKinds() []string {
-	kinds := make([]string, 0)
+func (s *Snapshot) NonNamespacedKinds() []schema.GroupVersionKind {
+	kinds := make([]schema.GroupVersionKind, 0)
+
 	for _, tracker := range s.Entries {
 		if tracker.Namespace == "" {
-			for k, _ := range tracker.Kinds {
-				kinds = append(kinds, k)
+			for gvk, kind := range tracker.Kinds {
+				if strings.Contains(gvk, ",") {
+					gv, err := schema.ParseGroupVersion(strings.Split(gvk, ",")[0])
+					if err == nil {
+						kinds = append(kinds, gv.WithKind(kind))
+					}
+				}
 			}
 		}
 	}
 	return kinds
 }
 
-func (s *Snapshot) NamespacedKinds() map[string][]string {
-	nsk := make(map[string][]string)
+func (s *Snapshot) NamespacedKinds() map[string][]schema.GroupVersionKind {
+	nsk := make(map[string][]schema.GroupVersionKind)
 	for _, tracker := range s.Entries {
 		if tracker.Namespace != "" {
-			var kinds []string
-			for k, _ := range tracker.Kinds {
-				kinds = append(kinds, k)
+			var kinds []schema.GroupVersionKind
+			for gvk, kind := range tracker.Kinds {
+				if strings.Contains(gvk, ",") {
+					gv, err := schema.ParseGroupVersion(strings.Split(gvk, ",")[0])
+					if err == nil {
+						kinds = append(kinds, gv.WithKind(kind))
+					}
+				}
 			}
 			nsk[tracker.Namespace] = kinds
 		}
