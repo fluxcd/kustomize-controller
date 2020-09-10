@@ -592,24 +592,20 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 		}
 	}
 
-	gc := NewGarbageCollector(*kustomization.Status.Snapshot, r.Log)
+	gc := NewGarbageCollector(r.Client, *kustomization.Status.Snapshot, r.Log)
 
 	if output, ok := gc.Prune(kustomization.GetTimeout(),
 		kustomization.GetName(),
 		kustomization.GetNamespace(),
 	); !ok {
-		return fmt.Errorf("pruning failed")
+		return fmt.Errorf("garbage collection failed: %s", output)
 	} else {
-		changeSet := ""
-		input := strings.Split(output, "\n")
-		for _, action := range input {
-			if strings.Contains(action, "deleted") {
-				changeSet += action + "\n"
-			}
-		}
-
-		if changeSet != "" {
-			r.event(kustomization, snapshot.Revision, recorder.EventSeverityInfo, changeSet)
+		if output != "" {
+			r.Log.WithValues(
+				strings.ToLower(kustomization.Kind),
+				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+			).Info(fmt.Sprintf("garbage collection completed: %s", output))
+			r.event(kustomization, snapshot.Revision, recorder.EventSeverityInfo, output)
 		}
 	}
 	return nil
