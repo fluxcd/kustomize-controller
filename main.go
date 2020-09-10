@@ -28,8 +28,8 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 	"github.com/fluxcd/kustomize-controller/controllers"
-	"github.com/fluxcd/pkg/logger"
 	"github.com/fluxcd/pkg/recorder"
+	"github.com/fluxcd/pkg/runtime/logger"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )

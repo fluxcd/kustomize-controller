@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	consts "github.com/fluxcd/pkg/runtime"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
 
@@ -125,7 +126,7 @@ func (r *GitRepositoryWatcher) requestReconciliation(kustomization kustomizev1.K
 		if kustomization.Annotations == nil {
 			kustomization.Annotations = make(map[string]string)
 		}
-		kustomization.Annotations[kustomizev1.ReconcileAtAnnotation] = metav1.Now().String()
+		kustomization.Annotations[consts.ReconcileAtAnnotation] = metav1.Now().String()
 		err = r.Update(context.TODO(), &kustomization)
 		return
 	})
