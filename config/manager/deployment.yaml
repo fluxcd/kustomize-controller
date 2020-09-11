@@ -38,9 +38,10 @@ spec:
             port: http-prom
             path: /metrics
         args:
-        - --enable-leader-election
-        - --log-level=info
-        - --log-json
+          - --watch-all-namespaces
+          - --log-level=info
+          - --log-json
+          - --enable-leader-election
         resources:
           limits:
             cpu: 1000m
