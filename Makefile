@@ -2,7 +2,7 @@
 IMG ?= fluxcd/kustomize-controller:latest
 # Produce CRDs that work back to Kubernetes 1.16
 CRD_OPTIONS ?= crd:crdVersions=v1
-SOURCE_VER ?= v0.0.13
+SOURCE_VER ?= v0.0.16
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -15,7 +15,8 @@ all: manager
 
 # Run tests
 test: generate fmt vet manifests api-docs download-crd-deps
-	find . -maxdepth 2 -type f -name 'go.mod' -execdir go test ./... -coverprofile cover.out \;
+	go test ./... -coverprofile cover.out
+	cd api; go test ./... -coverprofile cover.out
 
 # Build manager binary
 manager: generate fmt vet
@@ -67,11 +68,13 @@ api-docs: gen-crd-api-reference-docs
 
 # Run go fmt against code
 fmt:
-	find . -maxdepth 2 -type f -name 'go.mod' -execdir go fmt ./... \;
+	go fmt ./...
+	cd api; go fmt ./...
 
 # Run go vet against code
 vet:
-	find . -maxdepth 2 -type f -name 'go.mod' -execdir go vet ./... \;
+	go vet ./...
+	cd api; go vet ./...
 
 # Generate code
 generate: controller-gen
