@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.11 (2020-09-12)
+
+This prerelease comes with the option to watch for resources
+in the runtime namespace of the controller or at cluster level.
+
 ## 0.0.10 (2020-09-05)
 
 This prerelease comes with a bug fix to garbage collection.
