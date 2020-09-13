@@ -665,7 +665,7 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	opts := polling.Options{PollInterval: 500 * time.Millisecond, UseCache: true}
+	opts := polling.Options{PollInterval: 1 * time.Second, UseCache: true}
 	eventsChan := r.Poller.Poll(ctx, objMetadata, opts)
 	coll := collector.NewResourceStatusCollector(objMetadata)
 	done := coll.ListenWithObserver(eventsChan, collector.ObserverFunc(
