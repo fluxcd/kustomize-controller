@@ -346,7 +346,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>API version of the referent</p>
+<p>API version of the referent, defaults to &lsquo;apps/v1&rsquo;</p>
 </td>
 </tr>
 <tr>
@@ -448,7 +448,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Namespace of the referent</p>
+<p>Namespace of the referent, defaults to the Kustomization namespace</p>
 </td>
 </tr>
 </tbody>

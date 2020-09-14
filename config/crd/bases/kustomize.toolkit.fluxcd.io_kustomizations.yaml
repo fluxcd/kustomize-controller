@@ -82,7 +82,7 @@ spec:
                     to let you locate the typed referenced object at cluster level
                   properties:
                     apiVersion:
-                      description: API version of the referent
+                      description: API version of the referent, defaults to 'apps/v1'
                       type: string
                     kind:
                       description: Kind of the referent
@@ -139,7 +139,8 @@ spec:
                     description: Name of the referent
                     type: string
                   namespace:
-                    description: Namespace of the referent
+                    description: Namespace of the referent, defaults to the Kustomization
+                      namespace
                     type: string
                 required:
                 - kind
