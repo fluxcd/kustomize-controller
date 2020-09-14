@@ -33,10 +33,9 @@ type KustomizationSpec struct {
 	// +required
 	Prune bool `json:"prune"`
 
-	// A list of workloads (Deployments, DaemonSets and StatefulSets)
-	// to be included in the health assessment.
+	// A list of resources to be included in the health assessment.
 	// +optional
-	HealthChecks []WorkloadReference `json:"healthChecks,omitempty"`
+	HealthChecks []CrossNamespaceObjectReference `json:"healthChecks,omitempty"`
 
 	// The Kubernetes service account used for applying the kustomization.
 	// +optional
@@ -44,7 +43,7 @@ type KustomizationSpec struct {
 
 	// Reference of the source where the kustomization file is.
 	// +required
-	SourceRef CrossNamespaceObjectReference `json:"sourceRef"`
+	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
 
 	// This flag tells the controller to suspend subsequent kustomize executions,
 	// it does not apply to already started executions. Defaults to false.
@@ -217,8 +216,13 @@ triggering a removal of all Kubernetes objects previously applied on the cluster
 
 A kustomization can contain a series of health checks used to determine the
 [rollout status](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#deployment-status)
-of the deployed workloads. A health check entry can reference one of the following Kubernetes types:
-Deployment, DaemonSet or StatefulSet.
+of the deployed workloads and the ready status of custom resources.
+
+A health check entry can reference one of the following types:
+
+* Kubernetes builtin kinds: Deployment, DaemonSet, StatefulSet, PersistentVolumeClaim, Pod, PodDisruptionBudget, Job, CronJob, Service, Secret, ConfigMap, CustomResourceDefinition
+* Toolkit kinds: HelmRelease, HelmRepository, GitRepository, etc
+* Custom resources that are compatible with [kstatus](https://github.com/kubernetes-sigs/cli-utils/tree/master/pkg/kstatus)
 
 Assuming the kustomization source contains a Kubernetes Deployment named `backend`,
 a health check can be defined as follows:
@@ -236,7 +240,8 @@ spec:
     kind: GitRepository
     name: webapp
   healthChecks:
-    - kind: Deployment
+    - apiVersion: apps/v1
+      kind: Deployment
       name: backend
       namespace: dev
   timeout: 2m
@@ -247,6 +252,35 @@ If the deployment was successful, the kustomization ready condition is marked as
 if the rollout failed, or if it takes more than the specified timeout to complete, then the 
 kustomization ready condition is set to `false`. If the deployment becomes healthy on the next
 execution, then the kustomization is marked as ready.
+
+When a Kustomization contains HelmRelease objects, instead of checking the underling Deployments, you can
+define a health check that waits for the HelmReleases to be reconciled with:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
+kind: Kustomization
+metadata:
+  name: webapp
+spec:
+  interval: 15m
+  path: "./releases/"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: webapp
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1alpha1
+      kind: HelmRelease
+      name: frontend
+      namespace: dev
+    - apiVersion: helm.toolkit.fluxcd.io/v1alpha1
+      kind: HelmRelease
+      name: backend
+      namespace: dev
+  timeout: 5m
+```
+
+If all the HelmRelease objects are successfully installed or upgraded, then the Kustomization will be marked as ready.
 
 ## Kustomization dependencies 
 
