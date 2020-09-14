@@ -128,7 +128,7 @@ var _ = Describe("KustomizationReconciler", func() {
 					Interval: metav1.Duration{Duration: reconciliationInterval},
 					Path:     "./",
 					Prune:    true,
-					SourceRef: kustomizev1.CrossNamespaceObjectReference{
+					SourceRef: kustomizev1.CrossNamespaceSourceReference{
 						Kind: sourcev1.GitRepositoryKind,
 						Name: repository.Name,
 					},

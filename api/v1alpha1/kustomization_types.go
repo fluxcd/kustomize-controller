@@ -50,10 +50,9 @@ type KustomizationSpec struct {
 	// +required
 	Prune bool `json:"prune"`
 
-	// A list of workloads (Deployments, DaemonSets and StatefulSets)
-	// to be included in the health assessment.
+	// A list of resources to be included in the health assessment.
 	// +optional
-	HealthChecks []WorkloadReference `json:"healthChecks,omitempty"`
+	HealthChecks []CrossNamespaceObjectReference `json:"healthChecks,omitempty"`
 
 	// The Kubernetes service account used for applying the kustomization.
 	// +optional
@@ -61,7 +60,7 @@ type KustomizationSpec struct {
 
 	// Reference of the source where the kustomization file is.
 	// +required
-	SourceRef CrossNamespaceObjectReference `json:"sourceRef"`
+	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
 
 	// This flag tells the controller to suspend subsequent kustomize executions,
 	// it does not apply to already started executions. Defaults to false.
@@ -78,22 +77,6 @@ type KustomizationSpec struct {
 	// +kubebuilder:validation:Enum=client;server
 	// +optional
 	Validation string `json:"validation,omitempty"`
-}
-
-// WorkloadReference defines a reference to a Deployment, DaemonSet or StatefulSet.
-type WorkloadReference struct {
-	// Kind is the type of resource being referenced.
-	// +kubebuilder:validation:Enum=Deployment;DaemonSet;StatefulSet
-	// +required
-	Kind string `json:"kind"`
-
-	// Name is the name of resource being referenced.
-	// +required
-	Name string `json:"name"`
-
-	// Namespace is the namespace of resource being referenced.
-	// +required
-	Namespace string `json:"namespace"`
 }
 
 // ServiceAccount defines a reference to a Kubernetes service account.
