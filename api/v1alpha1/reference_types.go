@@ -19,7 +19,7 @@ package v1alpha1
 // CrossNamespaceObjectReference contains enough information to let you locate the
 // typed referenced object at cluster level
 type CrossNamespaceObjectReference struct {
-	// API version of the referent
+	// API version of the referent, defaults to 'apps/v1'
 	// +optional
 	APIVersion string `json:"apiVersion,omitempty"`
 
@@ -52,7 +52,7 @@ type CrossNamespaceSourceReference struct {
 	// +required
 	Name string `json:"name"`
 
-	// Namespace of the referent
+	// Namespace of the referent, defaults to the Kustomization namespace
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 }

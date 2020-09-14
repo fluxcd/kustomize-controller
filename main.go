@@ -119,7 +119,7 @@ func main() {
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         mgr.GetEventRecorderFor("kustomize-controller"),
 		ExternalEventRecorder: eventRecorder,
-		Poller:                polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper()),
+		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper()),
 	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
