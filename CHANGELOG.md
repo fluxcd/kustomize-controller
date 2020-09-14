@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.12 (2020-09-14)
+
+This prerelease comes with improvements to health assessment.
+The health checks leverage the kstatus library to support
+custom resources such as HelmReleases that implement the Ready condition.
+
 ## 0.0.11 (2020-09-12)
 
 This prerelease comes with the option to watch for resources
