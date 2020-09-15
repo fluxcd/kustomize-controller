@@ -72,13 +72,16 @@ KustomizationSpec
 <td>
 <code>dependsOn</code><br>
 <em>
-[]string
+<a href="https://godoc.org/github.com/fluxcd/pkg/runtime/dependency#CrossNamespaceDependencyReference">
+[]Runtime dependency.CrossNamespaceDependencyReference
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>A list of kustomizations that must be ready before this
-kustomization can be applied.</p>
+<p>DependsOn may contain a dependency.CrossNamespaceDependencyReference slice
+with references to Kustomization resources that must be ready before this
+Kustomization can be reconciled.</p>
 </td>
 </tr>
 <tr>
@@ -231,10 +234,6 @@ KustomizationStatus
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.CircularDependencyError">CircularDependencyError
-(<code>[][]string</code> alias)</h3>
-<p>CircularDependencyError contains the circular dependency chains
-that were detected while sorting &lsquo;HelmReleaseSpec.DependsOn&rsquo;.</p>
 <h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Condition">Condition
 </h3>
 <p>
@@ -522,13 +521,16 @@ Kubernetes core/v1.LocalObjectReference
 <td>
 <code>dependsOn</code><br>
 <em>
-[]string
+<a href="https://godoc.org/github.com/fluxcd/pkg/runtime/dependency#CrossNamespaceDependencyReference">
+[]Runtime dependency.CrossNamespaceDependencyReference
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>A list of kustomizations that must be ready before this
-kustomization can be applied.</p>
+<p>DependsOn may contain a dependency.CrossNamespaceDependencyReference slice
+with references to Kustomization resources that must be ready before this
+Kustomization can be reconciled.</p>
 </td>
 </tr>
 <tr>

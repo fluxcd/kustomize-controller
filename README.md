@@ -217,7 +217,7 @@ metadata:
   namespace: gitops-system
 spec:
   dependsOn:
-    - istio
+    - name: istio
   interval: 5m
   path: "./deploy/overlays/dev/"
   prune: true

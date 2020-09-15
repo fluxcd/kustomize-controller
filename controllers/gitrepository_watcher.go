@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fluxcd/pkg/runtime/dependency"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,7 +67,11 @@ func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		return ctrl.Result{}, err
 	}
 
-	sorted, err := kustomizev1.DependencySort(list.Items)
+	var dd []dependency.Dependent
+	for _, d := range list.Items {
+		dd = append(dd, d)
+	}
+	sorted, err := dependency.Sort(dd)
 	if err != nil {
 		log.Error(err, "unable to dependency sort kustomizations")
 		return ctrl.Result{}, err
@@ -74,12 +79,12 @@ func (r *GitRepositoryWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 
 	// trigger apply for each kustomization using this Git repository
 	for _, k := range sorted {
-		namespacedName := types.NamespacedName{Namespace: k.Namespace, Name: k.Name}
-		if err := r.requestReconciliation(k); err != nil {
-			log.Error(err, "unable to annotate Kustomization", "kustomization", namespacedName)
+		name := types.NamespacedName(k)
+		if err := r.requestReconciliation(name); err != nil {
+			log.Error(err, "unable to annotate Kustomization", "kustomization", name)
 			continue
 		}
-		log.Info("requested immediate reconciliation", "kustomization", namespacedName)
+		log.Info("requested immediate reconciliation", "kustomization", name)
 	}
 
 	return ctrl.Result{}, nil
@@ -110,19 +115,13 @@ func (r *GitRepositoryWatcher) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *GitRepositoryWatcher) requestReconciliation(kustomization kustomizev1.Kustomization) error {
-	firstTry := true
+func (r *GitRepositoryWatcher) requestReconciliation(name types.NamespacedName) error {
+	var kustomization kustomizev1.Kustomization
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
-		if !firstTry {
-			if err := r.Get(context.TODO(),
-				types.NamespacedName{Namespace: kustomization.Namespace, Name: kustomization.Name},
-				&kustomization,
-			); err != nil {
-				return err
-			}
+		if err := r.Get(context.TODO(), name, &kustomization); err != nil {
+			return err
 		}
 
-		firstTry = false
 		if kustomization.Annotations == nil {
 			kustomization.Annotations = make(map[string]string)
 		}

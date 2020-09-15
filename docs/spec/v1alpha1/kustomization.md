@@ -318,7 +318,7 @@ metadata:
   name: backend
 spec:
   dependsOn:
-    - common
+    - name: common
   interval: 5m
   path: "./webapp/backend/"
   prune: true
@@ -353,8 +353,8 @@ metadata:
   name: backend
 spec:
   dependsOn:
-    - common
-    - istio
+    - name: common
+    - name: istio
   interval: 5m
   path: "./webapp/backend/"
   prune: true
@@ -427,7 +427,7 @@ metadata:
   name: backend
 spec:
   dependsOn:
-    - common
+    - name: common
   serviceAccount:
     name: webapp-reconciler
     namespace: webapp
