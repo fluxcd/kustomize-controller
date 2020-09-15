@@ -72,7 +72,9 @@ KustomizationSpec
 <td>
 <code>dependsOn</code><br>
 <em>
-[]github.com/fluxcd/pkg/runtime/dependency.CrossNamespaceDependencyReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/runtime/dependency#CrossNamespaceDependencyReference">
+[]Runtime dependency.CrossNamespaceDependencyReference
+</a>
 </em>
 </td>
 <td>
@@ -519,7 +521,9 @@ Kubernetes core/v1.LocalObjectReference
 <td>
 <code>dependsOn</code><br>
 <em>
-[]github.com/fluxcd/pkg/runtime/dependency.CrossNamespaceDependencyReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/runtime/dependency#CrossNamespaceDependencyReference">
+[]Runtime dependency.CrossNamespaceDependencyReference
+</a>
 </em>
 </td>
 <td>
