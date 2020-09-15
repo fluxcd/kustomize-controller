@@ -21,6 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/fluxcd/pkg/runtime/dependency"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -156,7 +157,7 @@ func (in *KustomizationSpec) DeepCopyInto(out *KustomizationSpec) {
 	*out = *in
 	if in.DependsOn != nil {
 		in, out := &in.DependsOn, &out.DependsOn
-		*out = make([]string, len(*in))
+		*out = make([]dependency.CrossNamespaceDependencyReference, len(*in))
 		copy(*out, *in)
 	}
 	if in.Decryption != nil {

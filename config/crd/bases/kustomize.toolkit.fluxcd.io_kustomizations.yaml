@@ -70,10 +70,22 @@ spec:
                 - provider
                 type: object
               dependsOn:
-                description: A list of kustomizations that must be ready before this
-                  kustomization can be applied.
+                description: DependsOn may contain a dependency.CrossNamespaceDependencyReference
+                  slice with references to Kustomization resources that must be ready
+                  before this Kustomization can be reconciled.
                 items:
-                  type: string
+                  description: CrossNamespaceDependencyReference holds the reference
+                    to a dependency.
+                  properties:
+                    name:
+                      description: Name holds the name reference of a dependency.
+                      type: string
+                    namespace:
+                      description: Namespace holds the namespace reference of a dependency.
+                      type: string
+                  required:
+                  - name
+                  type: object
                 type: array
               healthChecks:
                 description: A list of resources to be included in the health assessment.

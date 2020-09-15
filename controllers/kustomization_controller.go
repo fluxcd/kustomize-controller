@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	consts "github.com/fluxcd/pkg/runtime"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -660,24 +661,24 @@ func (r *KustomizationReconciler) parseApplyOutput(in []byte) map[string]string 
 }
 
 func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Kustomization) error {
-	for _, dep := range kustomization.Spec.DependsOn {
-		depName := types.NamespacedName{
-			Namespace: kustomization.GetNamespace(),
-			Name:      dep,
+	for _, d := range kustomization.Spec.DependsOn {
+		if d.Namespace == "" {
+			d.Namespace = kustomization.GetNamespace()
 		}
+		dName := types.NamespacedName(d)
 		var k kustomizev1.Kustomization
-		err := r.Get(context.Background(), depName, &k)
+		err := r.Get(context.Background(), dName, &k)
 		if err != nil {
-			return fmt.Errorf("unable to get '%s' dependency: %w", depName, err)
+			return fmt.Errorf("unable to get '%s' dependency: %w", dName, err)
 		}
 
 		if len(k.Status.Conditions) == 0 || k.Generation != k.Status.ObservedGeneration {
-			return fmt.Errorf("dependency '%s' is not ready", depName)
+			return fmt.Errorf("dependency '%s' is not ready", dName)
 		}
 
 		for _, condition := range k.Status.Conditions {
-			if condition.Type == kustomizev1.ReadyCondition && condition.Status != corev1.ConditionTrue {
-				return fmt.Errorf("dependency '%s' is not ready", depName)
+			if condition.Type == consts.ReadyCondition && condition.Status != corev1.ConditionTrue {
+				return fmt.Errorf("dependency '%s' is not ready", dName)
 			}
 		}
 	}

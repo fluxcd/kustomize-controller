@@ -21,6 +21,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/fluxcd/pkg/runtime/dependency"
 )
 
 const KustomizationKind = "Kustomization"
@@ -28,10 +31,11 @@ const KustomizationFinalizer = "finalizers.fluxcd.io"
 
 // KustomizationSpec defines the desired state of a kustomization.
 type KustomizationSpec struct {
-	// A list of kustomizations that must be ready before this
-	// kustomization can be applied.
+	// DependsOn may contain a dependency.CrossNamespaceDependencyReference slice
+	// with references to Kustomization resources that must be ready before this
+	// Kustomization can be reconciled.
 	// +optional
-	DependsOn []string `json:"dependsOn,omitempty"`
+	DependsOn []dependency.CrossNamespaceDependencyReference `json:"dependsOn,omitempty"`
 
 	// Decrypt Kubernetes secrets before applying them on the cluster.
 	// +optional
@@ -187,8 +191,8 @@ func KustomizationReady(k Kustomization, snapshot *Snapshot, revision, reason, m
 	return k
 }
 
-// GetTimeout returns the timeout with default
-func (in *Kustomization) GetTimeout() time.Duration {
+// GetTimeout returns the timeout with default.
+func (in Kustomization) GetTimeout() time.Duration {
 	duration := in.Spec.Interval.Duration
 	if in.Spec.Timeout != nil {
 		duration = in.Spec.Timeout.Duration
@@ -197,6 +201,13 @@ func (in *Kustomization) GetTimeout() time.Duration {
 		return time.Minute
 	}
 	return duration
+}
+
+func (in Kustomization) GetDependsOn() (types.NamespacedName, []dependency.CrossNamespaceDependencyReference) {
+	return types.NamespacedName{
+		Namespace: in.Namespace,
+		Name:      in.Name,
+	}, in.Spec.DependsOn
 }
 
 const (

@@ -144,7 +144,7 @@ metadata:
   namespace: gitops-system
 spec:
   dependsOn:
-    - istio
+    - name: istio
   interval: 5m
   path: "./webapp/common/"
   prune: true
@@ -160,7 +160,7 @@ metadata:
   namespace: gitops-system
 spec:
   dependsOn:
-    - webapp-common
+    - name: webapp-common
   interval: 5m
   path: "./webapp/backend/"
   prune: true
@@ -180,7 +180,7 @@ metadata:
   namespace: gitops-system
 spec:
   dependsOn:
-    - webapp-backend
+    - name: webapp-backend
   interval: 5m
   path: "./webapp/frontend/"
   prune: true

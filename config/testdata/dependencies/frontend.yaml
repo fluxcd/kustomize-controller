@@ -4,8 +4,8 @@ metadata:
   name: frontend
 spec:
   dependsOn:
-    - common
-    - backend
+    - name: common
+    - name: backend
   interval: 5m
   path: "./deploy/webapp/frontend/"
   prune: true
