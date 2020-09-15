@@ -458,7 +458,7 @@ func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomizati
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s",
+	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s --cache-dir=/tmp",
 		dirPath, kustomization.GetUID(), kustomization.GetTimeout().String(), kustomization.Spec.Validation)
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
@@ -517,7 +517,7 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s",
+	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --cache-dir=/tmp",
 		dirPath, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String())
 
 	// impersonate SA
