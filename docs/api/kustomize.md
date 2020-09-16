@@ -816,13 +816,13 @@ generated for a source revision</p>
 <tbody>
 <tr>
 <td>
-<code>revision</code><br>
+<code>checksum</code><br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>The source revision.</p>
+<p>The manifests sha1 checksum.</p>
 </td>
 </tr>
 <tr>

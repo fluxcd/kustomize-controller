@@ -30,9 +30,9 @@ import (
 // Snapshot holds the metadata of the Kubernetes objects
 // generated for a source revision
 type Snapshot struct {
-	// The source revision.
+	// The manifests sha1 checksum.
 	// +required
-	Revision string `json:"revision"`
+	Checksum string `json:"checksum"`
 
 	// A list of Kubernetes kinds grouped by namespace.
 	// +required
@@ -51,9 +51,9 @@ type SnapshotEntry struct {
 	Kinds map[string]string `json:"kinds"`
 }
 
-func NewSnapshot(manifests []byte, revision string) (*Snapshot, error) {
+func NewSnapshot(manifests []byte, checksum string) (*Snapshot, error) {
 	snapshot := Snapshot{
-		Revision: revision,
+		Checksum: checksum,
 		Entries:  []SnapshotEntry{},
 	}
 

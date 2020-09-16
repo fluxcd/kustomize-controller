@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"crypto/sha1"
 	"fmt"
 	"time"
 
@@ -52,7 +51,7 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 				Version: gvk.Version,
 			})
 
-			err := kgc.List(ctx, ulist, client.InNamespace(ns), kgc.matchingLabels(name, namespace, kgc.snapshot.Revision))
+			err := kgc.List(ctx, ulist, client.InNamespace(ns), kgc.matchingLabels(name, namespace, kgc.snapshot.Checksum))
 			if err == nil {
 				for _, item := range ulist.Items {
 					if item.GetDeletionTimestamp().IsZero() {
@@ -81,7 +80,7 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 			Version: gvk.Version,
 		})
 
-		err := kgc.List(ctx, ulist, kgc.matchingLabels(name, namespace, kgc.snapshot.Revision))
+		err := kgc.List(ctx, ulist, kgc.matchingLabels(name, namespace, kgc.snapshot.Checksum))
 		if err == nil {
 			for _, item := range ulist.Items {
 				if item.GetDeletionTimestamp().IsZero() {
@@ -107,20 +106,16 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 	return changeSet, true
 }
 
-func (kgc *KustomizeGarbageCollector) matchingLabels(name, namespace, revision string) client.MatchingLabels {
+func (kgc *KustomizeGarbageCollector) matchingLabels(name, namespace, checksum string) client.MatchingLabels {
 	return client.MatchingLabels{
-		"kustomization/name":     fmt.Sprintf("%s-%s", name, namespace),
-		"kustomization/revision": checksum(revision),
+		fmt.Sprintf("%s/name", kustomizev1.GroupVersion.Group):     fmt.Sprintf("%s-%s", name, namespace),
+		fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group): checksum,
 	}
 }
 
-func gcLabels(name, namespace, revision string) map[string]string {
+func gcLabels(name, namespace, checksum string) map[string]string {
 	return map[string]string{
-		"kustomization/name":     fmt.Sprintf("%s-%s", name, namespace),
-		"kustomization/revision": checksum(revision),
+		fmt.Sprintf("%s/name", kustomizev1.GroupVersion.Group):     fmt.Sprintf("%s-%s", name, namespace),
+		fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group): checksum,
 	}
-}
-
-func checksum(in string) string {
-	return fmt.Sprintf("%x", sha1.Sum([]byte(in)))
 }

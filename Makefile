@@ -24,7 +24,7 @@ manager: generate fmt vet
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
-	go run ./main.go
+	go run ./main.go --metrics-addr=:8089
 
 # Download the CRDs the controller depends on
 download-crd-deps:
