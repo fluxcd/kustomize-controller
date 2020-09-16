@@ -107,15 +107,13 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 }
 
 func (kgc *KustomizeGarbageCollector) matchingLabels(name, namespace, checksum string) client.MatchingLabels {
-	return client.MatchingLabels{
-		fmt.Sprintf("%s/name", kustomizev1.GroupVersion.Group):     fmt.Sprintf("%s-%s", name, namespace),
-		fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group): checksum,
-	}
+	return gcLabels(name, namespace, checksum)
 }
 
 func gcLabels(name, namespace, checksum string) map[string]string {
 	return map[string]string{
-		fmt.Sprintf("%s/name", kustomizev1.GroupVersion.Group):     fmt.Sprintf("%s-%s", name, namespace),
-		fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group): checksum,
+		fmt.Sprintf("%s/name", kustomizev1.GroupVersion.Group):      name,
+		fmt.Sprintf("%s/namespace", kustomizev1.GroupVersion.Group): namespace,
+		fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group):  checksum,
 	}
 }
