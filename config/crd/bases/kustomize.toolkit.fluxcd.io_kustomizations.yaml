@@ -228,6 +228,9 @@ spec:
               snapshot:
                 description: The last successfully applied revision metadata.
                 properties:
+                  checksum:
+                    description: The manifests sha1 checksum.
+                    type: string
                   entries:
                     description: A list of Kubernetes kinds grouped by namespace.
                     items:
@@ -246,12 +249,9 @@ spec:
                       - kinds
                       type: object
                     type: array
-                  revision:
-                    description: The source revision.
-                    type: string
                 required:
+                - checksum
                 - entries
-                - revision
                 type: object
             type: object
         type: object

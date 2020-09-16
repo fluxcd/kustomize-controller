@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/k8sdeps/kunstruct"
 	"sigs.k8s.io/kustomize/api/konfig"
+	"sigs.k8s.io/kustomize/api/krusty"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
 
@@ -23,30 +25,29 @@ const (
 
 type KustomizeGenerator struct {
 	kustomization kustomizev1.Kustomization
-	revision      string
 }
 
-func NewGenerator(kustomization kustomizev1.Kustomization, revision string) *KustomizeGenerator {
+func NewGenerator(kustomization kustomizev1.Kustomization) *KustomizeGenerator {
 	return &KustomizeGenerator{
 		kustomization: kustomization,
-		revision:      revision,
 	}
 }
 
-func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
+func (kg *KustomizeGenerator) WriteFile(dirPath string) (string, error) {
 	kfile := filepath.Join(dirPath, kustomizationFileName)
 
-	if err := kg.generateKustomization(dirPath); err != nil {
-		return fmt.Errorf("kustomize create failed: %w", err)
+	checksum, err := kg.checksum(dirPath)
+	if err != nil {
+		return "", err
 	}
 
-	if err := kg.generateLabelTransformer(dirPath); err != nil {
-		return err
+	if err := kg.generateLabelTransformer(checksum, dirPath); err != nil {
+		return "", err
 	}
 
 	data, err := ioutil.ReadFile(kfile)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	kus := kustypes.Kustomization{
@@ -57,7 +58,7 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
 	}
 
 	if err := yaml.Unmarshal(data, &kus); err != nil {
-		return err
+		return "", err
 	}
 
 	if len(kus.Transformers) == 0 {
@@ -77,10 +78,10 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
 
 	kd, err := yaml.Marshal(kus)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return ioutil.WriteFile(kfile, kd, os.ModePerm)
+	return checksum, ioutil.WriteFile(kfile, kd, os.ModePerm)
 }
 
 func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
@@ -162,7 +163,30 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 	return nil
 }
 
-func (kg *KustomizeGenerator) generateLabelTransformer(dirPath string) error {
+func (kg *KustomizeGenerator) checksum(dirPath string) (string, error) {
+	if err := kg.generateKustomization(dirPath); err != nil {
+		return "", fmt.Errorf("kustomize create failed: %w", err)
+	}
+
+	fs := filesys.MakeFsOnDisk()
+	opt := krusty.MakeDefaultOptions()
+	opt.LoadRestrictions = kustypes.LoadRestrictionsNone
+	opt.DoLegacyResourceSort = true
+	k := krusty.MakeKustomizer(fs, opt)
+	m, err := k.Run(dirPath)
+	if err != nil {
+		return "", fmt.Errorf("kustomize build failed: %w", err)
+	}
+
+	resources, err := m.AsYaml()
+	if err != nil {
+		return "", fmt.Errorf("kustomize build failed: %w", err)
+	}
+
+	return fmt.Sprintf("%x", sha1.Sum(resources)), nil
+}
+
+func (kg *KustomizeGenerator) generateLabelTransformer(checksum, dirPath string) error {
 	var lt = struct {
 		ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
 		Kind       string `json:"kind" yaml:"kind"`
@@ -179,7 +203,7 @@ func (kg *KustomizeGenerator) generateLabelTransformer(dirPath string) error {
 		}{
 			Name: kg.kustomization.GetName(),
 		},
-		Labels: gcLabels(kg.kustomization.GetName(), kg.kustomization.GetNamespace(), kg.revision),
+		Labels: gcLabels(kg.kustomization.GetName(), kg.kustomization.GetNamespace(), checksum),
 		FieldSpecs: []kustypes.FieldSpec{
 			{Path: "metadata/labels", CreateIfNotPresent: true},
 		},

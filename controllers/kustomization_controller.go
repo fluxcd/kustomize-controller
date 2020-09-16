@@ -282,8 +282,8 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
-	// generate kustomization.yaml
-	err = r.generate(kustomization, source.GetArtifact().Revision, dirPath)
+	// generate kustomization.yaml and calculate the manifests checksum
+	checksum, err := r.generate(kustomization, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -293,8 +293,8 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
-	// kustomize build
-	snapshot, err := r.build(kustomization, source.GetArtifact().Revision, dirPath)
+	// build the kustomization and generate the GC snapshot
+	snapshot, err := r.build(kustomization, checksum, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -388,12 +388,12 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 	return nil
 }
 
-func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, revision, dirPath string) error {
-	gen := NewGenerator(kustomization, revision)
+func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
+	gen := NewGenerator(kustomization)
 	return gen.WriteFile(dirPath)
 }
 
-func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, revision, dirPath string) (*kustomizev1.Snapshot, error) {
+func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, checksum, dirPath string) (*kustomizev1.Snapshot, error) {
 	timeout := kustomization.GetTimeout()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -447,7 +447,7 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 		return nil, err
 	}
 
-	return kustomizev1.NewSnapshot(resources, revision)
+	return kustomizev1.NewSnapshot(resources, checksum)
 }
 
 func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomization, dirPath string) error {
@@ -592,7 +592,7 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 		return nil
 	}
 	if !force {
-		if kustomization.Status.Snapshot.Revision == snapshot.Revision {
+		if kustomization.Status.Snapshot.Checksum == snapshot.Checksum {
 			return nil
 		}
 	}
@@ -610,7 +610,7 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 				strings.ToLower(kustomization.Kind),
 				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
 			).Info(fmt.Sprintf("garbage collection completed: %s", output))
-			r.event(kustomization, snapshot.Revision, recorder.EventSeverityInfo, output)
+			r.event(kustomization, snapshot.Checksum, recorder.EventSeverityInfo, output)
 		}
 	}
 	return nil

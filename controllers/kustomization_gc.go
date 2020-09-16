@@ -2,16 +2,13 @@ package controllers
 
 import (
 	"context"
-	"crypto/sha1"
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/go-logr/logr"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 )
@@ -52,7 +49,7 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 				Version: gvk.Version,
 			})
 
-			err := kgc.List(ctx, ulist, client.InNamespace(ns), kgc.matchingLabels(name, namespace, kgc.snapshot.Revision))
+			err := kgc.List(ctx, ulist, client.InNamespace(ns), kgc.matchingLabels(name, namespace, kgc.snapshot.Checksum))
 			if err == nil {
 				for _, item := range ulist.Items {
 					if item.GetDeletionTimestamp().IsZero() {
@@ -62,9 +59,9 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 							outErr += fmt.Sprintf("delete failed for %s: %v\n", name, err)
 						} else {
 							if len(item.GetFinalizers()) > 0 {
-								changeSet += fmt.Sprintf("%s/%s marked for deletion\n", item.GetNamespace(), item.GetName())
+								changeSet += fmt.Sprintf("%s marked for deletion\n", name)
 							} else {
-								changeSet += fmt.Sprintf("%s/%s deleted\n", item.GetNamespace(), item.GetName())
+								changeSet += fmt.Sprintf("%s deleted\n", name)
 							}
 						}
 					}
@@ -81,7 +78,7 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 			Version: gvk.Version,
 		})
 
-		err := kgc.List(ctx, ulist, kgc.matchingLabels(name, namespace, kgc.snapshot.Revision))
+		err := kgc.List(ctx, ulist, kgc.matchingLabels(name, namespace, kgc.snapshot.Checksum))
 		if err == nil {
 			for _, item := range ulist.Items {
 				if item.GetDeletionTimestamp().IsZero() {
@@ -107,20 +104,14 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 	return changeSet, true
 }
 
-func (kgc *KustomizeGarbageCollector) matchingLabels(name, namespace, revision string) client.MatchingLabels {
-	return client.MatchingLabels{
-		"kustomization/name":     fmt.Sprintf("%s-%s", name, namespace),
-		"kustomization/revision": checksum(revision),
-	}
+func (kgc *KustomizeGarbageCollector) matchingLabels(name, namespace, checksum string) client.MatchingLabels {
+	return gcLabels(name, namespace, checksum)
 }
 
-func gcLabels(name, namespace, revision string) map[string]string {
+func gcLabels(name, namespace, checksum string) map[string]string {
 	return map[string]string{
-		"kustomization/name":     fmt.Sprintf("%s-%s", name, namespace),
-		"kustomization/revision": checksum(revision),
+		fmt.Sprintf("%s/name", kustomizev1.GroupVersion.Group):      name,
+		fmt.Sprintf("%s/namespace", kustomizev1.GroupVersion.Group): namespace,
+		fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group):  checksum,
 	}
-}
-
-func checksum(in string) string {
-	return fmt.Sprintf("%x", sha1.Sum([]byte(in)))
 }
