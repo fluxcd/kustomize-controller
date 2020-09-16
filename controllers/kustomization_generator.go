@@ -8,11 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sigs.k8s.io/kustomize/api/krusty"
-
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/k8sdeps/kunstruct"
 	"sigs.k8s.io/kustomize/api/konfig"
+	"sigs.k8s.io/kustomize/api/krusty"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
 
