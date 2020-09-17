@@ -1,20 +1,21 @@
 # Kustomization
 
-The `Kustomization` API defines a pipeline for fetching, building, testing and applying Kubernetes manifests.
+The `Kustomization` API defines a pipeline for fetching, decrypting, building, validating and applying Kubernetes manifests.
 
 ## Specification
 
-A **kustomization** object defines the source of Kubernetes manifests by referencing an object 
+A **Kustomization** object defines the source of Kubernetes manifests by referencing an object 
 managed by [source-controller](https://github.com/fluxcd/source-controller),
 the path to the kustomization file within that source,
 and the interval at which the kustomize build output is applied on the cluster.
 
 ```go
 type KustomizationSpec struct {
-	// A list of kustomization that must be ready before this
-	// kustomization can be applied.
+	// DependsOn may contain a dependency.CrossNamespaceDependencyReference slice
+	// with references to Kustomization resources that must be ready before this
+	// Kustomization can be reconciled.
 	// +optional
-	DependsOn []string `json:"dependsOn,omitempty"`
+	DependsOn []dependency.CrossNamespaceDependencyReference `json:"dependsOn,omitempty"`
 
 	// Decrypt Kubernetes secrets before applying them on the cluster.
 	// +optional
@@ -78,7 +79,7 @@ type Decryption struct {
 }
 ```
 
-The status sub-resource describes the result of the last kustomization execution:
+The status sub-resource records the result of the last reconciliation:
 
 ```go
 type KustomizationStatus struct {
@@ -108,8 +109,8 @@ Status condition types:
 
 ```go
 const (
-	// ReadyCondition represents the fact that a given kustomization has passed
-	// validation and was successfully applied on the cluster.
+	// ReadyCondition is the name of the condition that
+	// records the readiness status of a Kustomization.
 	ReadyCondition string = "Ready"
 )
 ```
@@ -118,38 +119,44 @@ Status condition reasons:
 
 ```go
 const (
-	// ApplySucceededReason represents the fact that the kustomization apply succeeded.
-	ApplySucceededReason string = "ApplySucceeded"
+	// ReconciliationSucceededReason represents the fact that the
+	// reconciliation of the Kustomization has succeeded.
+	ReconciliationSucceededReason string = "ReconciliationSucceeded"
 
-	// ApplyFailedReason represents the fact that the kustomization apply failed.
-	ApplyFailedReason string = "ApplyFailed"
+	// ReconciliationFailedReason represents the fact that the
+	// reconciliation of the Kustomization has failed.
+	ReconciliationFailedReason string = "ReconciliationFailed"
 
-	// ArtifactFailedReason represents the fact that the artifact download failed.
-	ArtifactFailedReason string = "ArtifactFailed"
-
-	// BuildFailedReason represents the fact that the kustomize build command failed.
-	BuildFailedReason string = "BuildFailed"
-
-	// DependencyNotReady represents the fact that the one of the dependencies is not ready.
-	DependencyNotReadyReason string = "DependencyNotReady"
-
-	// HealthCheckFailedReason represents the fact that the one of the health check failed.
-	HealthCheckFailedReason string = "HealthCheckFailed"
-
-	// InitializedReason represents the fact that a given resource has been initialized.
-	InitializedReason string = "Initialized"
-
-	// ProgressingReason represents the fact that a kustomization reconciliation
-	// is underway.
+	// ProgressingReason represents the fact that the
+	// reconciliation of the Kustomization is underway.
 	ProgressingReason string = "Progressing"
 
-	// PruneFailedReason represents the fact that the kustomization pruning failed.
-	PruneFailedReason string = "PruneFailed"
-
-	// SuspendedReason represents the fact that the kustomization execution is suspended.
+	// SuspendedReason represents the fact that the
+	// reconciliation of the Kustomization has been suspended.
 	SuspendedReason string = "Suspended"
 
-	// ValidationFailedReason represents the fact that the dry-run apply failed.
+	// DependencyNotReady represents the fact that
+	// one of the dependencies of the Kustomization is not ready.
+	DependencyNotReadyReason string = "DependencyNotReady"
+
+	// PruneFailedReason represents the fact that the
+	// pruning of the Kustomization failed.
+	PruneFailedReason string = "PruneFailed"
+
+	// ArtifactFailedReason represents the fact that the
+	// artifact download of the kustomization failed.
+	ArtifactFailedReason string = "ArtifactFailed"
+
+	// BuildFailedReason represents the fact that the
+	// kustomize build of the Kustomization failed.
+	BuildFailedReason string = "BuildFailed"
+
+	// HealthCheckFailedReason represents the fact that
+	// one of the health checks of the Kustomization failed.
+	HealthCheckFailedReason string = "HealthCheckFailed"
+
+	// ValidationFailedReason represents the fact that the
+	// validation of the Kustomization manifests has failed.
 	ValidationFailedReason string = "ValidationFailed"
 )
 ```
@@ -167,7 +174,7 @@ Source supported types:
 
 > **Note** that the source should contain the kustomization.yaml and all the
 > Kubernetes manifests and configuration files referenced in the kustomization.yaml.
-> If your repository contains only plain manifests, then you should enable kustomization.yaml generation.
+> If your repository contains only plain manifests, then a kustomization.yaml will be automatically generated.
 
 ## Generate kustomization.yaml
 
@@ -335,6 +342,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
 kind: Kustomization
 metadata:
   name: istio
+  namespace: istio-system
 spec:
   interval: 5m
   path: "./profiles/default/"
@@ -355,6 +363,7 @@ spec:
   dependsOn:
     - name: common
     - name: istio
+      namespace: istio-system
   interval: 5m
   path: "./webapp/backend/"
   prune: true
@@ -499,9 +508,9 @@ A successful reconciliation sets the ready condition to `true` and updates the r
 ```yaml
 status:
   conditions:
-  - lastTransitionTime: "2020-04-23T19:28:48Z"
-    message: kustomization was successfully applied
-    reason: ApplySucceeded
+  - lastTransitionTime: "2020-09-17T19:28:48Z"
+    message: "Applied revision: master/a1afe267b54f38b46b487f6e938a6fd508278c07"
+    reason: ReconciliationSucceeded
     status: "True"
     type: Ready
   lastAppliedRevision: master/a1afe267b54f38b46b487f6e938a6fd508278c07
@@ -519,7 +528,7 @@ The controller logs the Kubernetes objects:
 ```json
 {
   "level": "info",
-  "ts": 1587195448.071468,
+  "ts": "2020-09-17T07:27:11.921Z",
   "logger": "controllers.Kustomization",
   "msg": "Kustomization applied in 1.436096591s",
   "kustomization": "default/backend",
@@ -536,8 +545,8 @@ A failed reconciliation sets the ready condition to `false`:
 ```yaml
 status:
   conditions:
-  - lastTransitionTime: "2020-04-23T19:29:48Z"
-    message: 'server-side validation failed'
+  - lastTransitionTime: "2020-09-17T07:26:48Z"
+    message: "The Service 'backend' is invalid: spec.type: Unsupported value: 'Ingress'"
     reason: ValidationFailed
     status: "False"
     type: Ready
@@ -547,14 +556,13 @@ status:
 
 > **Note** that the last applied revision is updated only on a successful reconciliation.
 
-When a reconciliation fails, the controller logs the error:
+When a reconciliation fails, the controller logs the error and issues a Kubernetes event:
 
 ```json
 {
   "level": "error",
-  "ts": 1587195448.071468,
+  "ts": "2020-09-17T07:27:11.921Z",
   "logger": "controllers.Kustomization",
-  "msg": "server-side validation failed",
   "kustomization": "default/backend",
   "error": "The Service 'backend' is invalid: spec.type: Unsupported value: 'Ingress'"
 }

@@ -48,43 +48,49 @@ type Condition struct {
 }
 
 const (
-	// ReadyCondition represents the fact that a given kustomization has passed
-	// validation and was successfully applied on the cluster.
+	// ReadyCondition is the name of the condition that
+	// records the readiness status of a Kustomization.
 	ReadyCondition string = "Ready"
 )
 
 const (
-	// ApplySucceededReason represents the fact that the kustomization apply succeeded.
-	ApplySucceededReason string = "ApplySucceeded"
+	// ReconciliationSucceededReason represents the fact that the
+	// reconciliation of the Kustomization has succeeded.
+	ReconciliationSucceededReason string = "ReconciliationSucceeded"
 
-	// ApplyFailedReason represents the fact that the kustomization apply failed.
-	ApplyFailedReason string = "ApplyFailed"
+	// ReconciliationFailedReason represents the fact that the
+	// reconciliation of the Kustomization has failed.
+	ReconciliationFailedReason string = "ReconciliationFailed"
 
-	// PruneFailedReason represents the fact that the kustomization pruning failed.
-	PruneFailedReason string = "PruneFailed"
-
-	// ArtifactFailedReason represents the fact that the artifact download failed.
-	ArtifactFailedReason string = "ArtifactFailed"
-
-	// BuildFailedReason represents the fact that the kustomize build command failed.
-	BuildFailedReason string = "BuildFailed"
-
-	// DependencyNotReady represents the fact that the one of the dependencies is not ready.
-	DependencyNotReadyReason string = "DependencyNotReady"
-
-	// HealthCheckFailedReason represents the fact that the one of the health check failed.
-	HealthCheckFailedReason string = "HealthCheckFailed"
-
-	// InitializedReason represents the fact that a given resource has been initialized.
-	InitializedReason string = "Initialized"
-
-	// ProgressingReason represents the fact that a kustomization reconciliation
-	// is underway.
+	// ProgressingReason represents the fact that the
+	// reconciliation of the Kustomization is underway.
 	ProgressingReason string = "Progressing"
 
-	// SuspendedReason represents the fact that the kustomization execution is suspended.
+	// SuspendedReason represents the fact that the
+	// reconciliation of the Kustomization has been suspended.
 	SuspendedReason string = "Suspended"
 
-	// ValidationFailedReason represents the fact that the dry-run apply failed.
+	// DependencyNotReady represents the fact that
+	// one of the dependencies of the Kustomization is not ready.
+	DependencyNotReadyReason string = "DependencyNotReady"
+
+	// PruneFailedReason represents the fact that the
+	// pruning of the Kustomization failed.
+	PruneFailedReason string = "PruneFailed"
+
+	// ArtifactFailedReason represents the fact that the
+	// artifact download of the kustomization failed.
+	ArtifactFailedReason string = "ArtifactFailed"
+
+	// BuildFailedReason represents the fact that the
+	// kustomize build of the Kustomization failed.
+	BuildFailedReason string = "BuildFailed"
+
+	// HealthCheckFailedReason represents the fact that
+	// one of the health checks of the Kustomization failed.
+	HealthCheckFailedReason string = "HealthCheckFailed"
+
+	// ValidationFailedReason represents the fact that the
+	// validation of the Kustomization manifests has failed.
 	ValidationFailedReason string = "ValidationFailed"
 )

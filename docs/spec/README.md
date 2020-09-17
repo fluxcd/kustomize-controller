@@ -37,6 +37,7 @@ that describes a pipeline such as:
 - **fetch** manifests from Git repository X
 - **generate** a kustomization if needed
 - **build** the manifest using kustomization X
+- **decrypt** Kubernetes secrets using Mozilla SOPS
 - **validate** the resulting objects 
 - **apply** the objects 
 - **prune** the objects removed from source
