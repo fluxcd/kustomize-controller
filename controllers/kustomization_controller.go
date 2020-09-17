@@ -266,7 +266,7 @@ func (r *KustomizationReconciler) reconcile(
 			kustomization,
 			source.GetArtifact().Revision,
 			kustomizev1.ArtifactFailedReason,
-			"artifact acquisition failed",
+			err.Error(),
 		), err
 	}
 
@@ -289,7 +289,7 @@ func (r *KustomizationReconciler) reconcile(
 			kustomization,
 			source.GetArtifact().Revision,
 			kustomizev1.BuildFailedReason,
-			"kustomize create failed",
+			err.Error(),
 		), err
 	}
 
@@ -300,7 +300,7 @@ func (r *KustomizationReconciler) reconcile(
 			kustomization,
 			source.GetArtifact().Revision,
 			kustomizev1.BuildFailedReason,
-			"kustomize build failed",
+			err.Error(),
 		), err
 	}
 
@@ -311,7 +311,7 @@ func (r *KustomizationReconciler) reconcile(
 			kustomization,
 			source.GetArtifact().Revision,
 			kustomizev1.ValidationFailedReason,
-			fmt.Sprintf("%s-side validation failed", kustomization.Spec.Validation),
+			err.Error(),
 		), err
 	}
 
@@ -321,8 +321,8 @@ func (r *KustomizationReconciler) reconcile(
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			source.GetArtifact().Revision,
-			kustomizev1.ApplyFailedReason,
-			"apply failed",
+			kustomizev1.ReconciliationFailedReason,
+			err.Error(),
 		), err
 	}
 
@@ -345,7 +345,7 @@ func (r *KustomizationReconciler) reconcile(
 			snapshot,
 			source.GetArtifact().Revision,
 			kustomizev1.HealthCheckFailedReason,
-			"health check failed",
+			err.Error(),
 		), err
 	}
 
@@ -353,7 +353,7 @@ func (r *KustomizationReconciler) reconcile(
 		kustomization,
 		snapshot,
 		source.GetArtifact().Revision,
-		kustomizev1.ApplySucceededReason,
+		kustomizev1.ReconciliationSucceededReason,
 		"Applied revision: "+source.GetArtifact().Revision,
 	), nil
 }

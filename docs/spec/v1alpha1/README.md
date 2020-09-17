@@ -13,6 +13,7 @@ of Kubernetes objects generated with Kustomize.
     + [Health assessment](kustomization.md#health-assessment)
     + [Kustomization dependencies](kustomization.md#kustomization-dependencies)
     + [Role-based access control](kustomization.md#role-based-access-control)
+    + [Secrets decryption](kustomization.md#secrets-decryption)
     + [Status](kustomization.md#status)
 
 ## Implementation

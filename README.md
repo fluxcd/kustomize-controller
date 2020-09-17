@@ -17,6 +17,7 @@ Features:
 * watches `Source` objects for revision changes 
 * generates the `kustomization.yaml` file if needed
 * generates Kubernetes manifests with kustomize build
+* decrypts Kubernetes secrets with Mozilla SOPS
 * validates the build output with client-side or APIServer dry-run
 * applies the generated manifests on the cluster
 * prunes the Kubernetes objects removed from source
@@ -139,7 +140,7 @@ kubectl -n gitops-system logs deploy/kustomize-controller | jq .
 ```json
 {
   "level": "info",
-  "ts": 1587195448.071468,
+  "ts": "2020-09-17T07:27:11.921Z",
   "logger": "controllers.Kustomization",
   "msg": "Kustomization applied in 1.436096591s",
   "kustomization": "gitops-system/podinfo-dev",
@@ -170,9 +171,9 @@ If the kustomization reconciliation fails, the controller sets the ready conditi
 ```yaml
 status:
   conditions:
-  - lastTransitionTime: "2020-04-16T07:27:58Z"
-    message: 'apply failed'
-    reason: ApplyFailed
+  - lastTransitionTime: "2020-09-17T07:27:58Z"
+    message: 'namespaces dev not found'
+    reason: ReconciliationFailed
     status: "False"
     type: Ready
 ``` 

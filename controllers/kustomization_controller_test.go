@@ -178,7 +178,7 @@ metadata:
 `,
 					},
 				},
-				waitForReason:  kustomizev1.ApplySucceededReason,
+				waitForReason:  kustomizev1.ReconciliationSucceededReason,
 				expectStatus:   corev1.ConditionTrue,
 				expectRevision: "branch/commit1",
 			}),

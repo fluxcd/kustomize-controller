@@ -26,8 +26,11 @@ import (
 	"github.com/fluxcd/pkg/runtime/dependency"
 )
 
-const KustomizationKind = "Kustomization"
-const KustomizationFinalizer = "finalizers.fluxcd.io"
+const (
+	KustomizationKind         = "Kustomization"
+	KustomizationFinalizer    = "finalizers.fluxcd.io"
+	MaxConditionMessageLength = 4000
+)
 
 // KustomizationSpec defines the desired state of a kustomization.
 type KustomizationSpec struct {
@@ -153,7 +156,7 @@ func SetKustomizationCondition(k *Kustomization, condition string, status corev1
 		Status:             status,
 		LastTransitionTime: metav1.Now(),
 		Reason:             reason,
-		Message:            message,
+		Message:            trimString(message, MaxConditionMessageLength),
 	})
 }
 
@@ -258,4 +261,17 @@ func filterOutCondition(conditions []Condition, condition string) []Condition {
 		newConditions = append(newConditions, c)
 	}
 	return newConditions
+}
+
+func trimString(str string, limit int) string {
+	result := str
+	chars := 0
+	for i := range str {
+		if chars >= limit {
+			result = str[:i] + "..."
+			break
+		}
+		chars++
+	}
+	return result
 }
