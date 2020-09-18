@@ -215,8 +215,11 @@ func (in Kustomization) GetDependsOn() (types.NamespacedName, []dependency.Cross
 
 const (
 	// SourceIndexKey is the key used for indexing kustomizations
-	// based on their sources.
+	// based on their Git sources.
 	SourceIndexKey string = ".metadata.source"
+	// BucketIndexKey is the key used for indexing kustomizations
+	// based on their S3 sources.
+	BucketIndexKey string = ".metadata.bucket"
 )
 
 // +genclient

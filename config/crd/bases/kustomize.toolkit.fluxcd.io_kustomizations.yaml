@@ -146,6 +146,7 @@ spec:
                     description: Kind of the referent
                     enum:
                     - GitRepository
+                    - Bucket
                     type: string
                   name:
                     description: Name of the referent

@@ -130,30 +130,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 
 	// resolve source reference
-	var source sourcev1.Source
-	if kustomization.Spec.SourceRef.Kind == sourcev1.GitRepositoryKind {
-		repositoryNamespace := kustomization.GetNamespace()
-		if kustomization.Spec.SourceRef.Namespace != "" {
-			repositoryNamespace = kustomization.Spec.SourceRef.Namespace
-		}
-
-		var repository sourcev1.GitRepository
-		repositoryName := types.NamespacedName{
-			Namespace: repositoryNamespace,
-			Name:      kustomization.Spec.SourceRef.Name,
-		}
-
-		err := r.Client.Get(ctx, repositoryName, &repository)
-		if err != nil {
-			log.Error(err, fmt.Sprintf("GitRepository '%s' not found", repositoryName))
-			return ctrl.Result{Requeue: true}, err
-		}
-		source = &repository
-	}
-
-	if source == nil {
-		err := fmt.Errorf("source `%s` kind '%s' not supported",
-			kustomization.Spec.SourceRef.Name, kustomization.Spec.SourceRef.Kind)
+	source, err := r.getSource(ctx, kustomization)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -388,6 +366,38 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 	}
 
 	return nil
+}
+
+func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization kustomizev1.Kustomization) (sourcev1.Source, error) {
+	var source sourcev1.Source
+	sourceNamespace := kustomization.GetNamespace()
+	if kustomization.Spec.SourceRef.Namespace != "" {
+		sourceNamespace = kustomization.Spec.SourceRef.Namespace
+	}
+	namespacedName := types.NamespacedName{
+		Namespace: sourceNamespace,
+		Name:      kustomization.Spec.SourceRef.Name,
+	}
+	switch kustomization.Spec.SourceRef.Kind {
+	case sourcev1.GitRepositoryKind:
+		var repository sourcev1.GitRepository
+		err := r.Client.Get(ctx, namespacedName, &repository)
+		if err != nil {
+			return source, fmt.Errorf("source '%s' not found: %w", namespacedName, err)
+		}
+		source = &repository
+	case sourcev1.BucketKind:
+		var bucket sourcev1.Bucket
+		err := r.Client.Get(ctx, namespacedName, &bucket)
+		if err != nil {
+			return source, fmt.Errorf("source '%s' not found: %w", namespacedName, err)
+		}
+		source = &bucket
+	default:
+		return source, fmt.Errorf("source `%s` kind '%s' not supported",
+			kustomization.Spec.SourceRef.Name, kustomization.Spec.SourceRef.Kind)
+	}
+	return source, nil
 }
 
 func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
