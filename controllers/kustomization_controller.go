@@ -97,7 +97,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			// Our finalizer is still present, so lets handle garbage collection
 			if kustomization.Spec.Prune && !kustomization.Spec.Suspend {
 				if err := r.prune(kustomization, kustomization.Status.Snapshot, true); err != nil {
-					r.event(kustomization, kustomization.Status.LastAppliedRevision, recorder.EventSeverityError, "pruning for deleted resource failed", map[string]string{})
+					r.event(kustomization, kustomization.Status.LastAppliedRevision, recorder.EventSeverityError, "pruning for deleted resource failed", nil)
 					// Return the error so we retry the failed garbage collection
 					return ctrl.Result{}, err
 				}
@@ -160,7 +160,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			// instead we requeue on a fix interval.
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Error(err, msg)
-			r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo, msg, map[string]string{})
+			r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo, msg, nil)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
 		log.Info("All dependencies area ready, proceeding with reconciliation")
@@ -170,7 +170,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	reconciledKustomization, reconcileErr := r.reconcile(*kustomization.DeepCopy(), source)
 	if reconcileErr != nil {
 		// broadcast the error
-		r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityError, reconcileErr.Error(), map[string]string{})
+		r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityError, reconcileErr.Error(), nil)
 	}
 
 	// update status
@@ -192,7 +192,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, reconcileErr
 	}
 
-	r.event(reconciledKustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo, "Update completed", map[string]string{"commit_status": "update"})
+	r.event(reconciledKustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo,
+		"Update completed", map[string]string{"commit_status": "update"})
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 }
 
@@ -585,7 +586,7 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 				return err
 			} else {
 				if changeSet != "" {
-					r.event(kustomization, revision, recorder.EventSeverityInfo, changeSet, map[string]string{})
+					r.event(kustomization, revision, recorder.EventSeverityInfo, changeSet, nil)
 				}
 			}
 		} else {
@@ -593,7 +594,7 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 		}
 	} else {
 		if changeSet != "" && kustomization.Status.LastAppliedRevision != revision {
-			r.event(kustomization, revision, recorder.EventSeverityInfo, changeSet, map[string]string{})
+			r.event(kustomization, revision, recorder.EventSeverityInfo, changeSet, nil)
 		}
 	}
 	return nil
@@ -622,7 +623,7 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 				strings.ToLower(kustomization.Kind),
 				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
 			).Info(fmt.Sprintf("garbage collection completed: %s", output))
-			r.event(kustomization, snapshot.Checksum, recorder.EventSeverityInfo, output, map[string]string{})
+			r.event(kustomization, snapshot.Checksum, recorder.EventSeverityInfo, output, nil)
 		}
 	}
 	return nil
@@ -640,7 +641,7 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 	}
 
 	if kustomization.Status.LastAppliedRevision != revision {
-		r.event(kustomization, revision, recorder.EventSeverityInfo, "Health check passed", map[string]string{})
+		r.event(kustomization, revision, recorder.EventSeverityInfo, "Health check passed", nil)
 	}
 	return nil
 }
@@ -710,6 +711,9 @@ func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization,
 	}
 
 	if r.ExternalEventRecorder != nil {
+		if meta == nil {
+			meta = map[string]string{}
+		}
 		if revision != "" {
 			meta["revision"] = revision
 		}
