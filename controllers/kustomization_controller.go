@@ -214,7 +214,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, reconcileErr
 	}
 
-	r.event(reconciledKustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo, "Updated Kustomization", map[string]string{"commit_status": "update"})
+	r.event(reconciledKustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo, "Update completed", map[string]string{"commit_status": "update"})
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 }
 
