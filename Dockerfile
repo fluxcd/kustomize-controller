@@ -6,7 +6,9 @@ WORKDIR /workspace
 
 RUN apk add --no-cache ca-certificates curl
 
-RUN arch=${TARGETPLATFORM:-linux/amd64} && kubectl_ver=1.19.0 && \
+RUN kubectl_ver=1.19.2 && \
+arch=${TARGETPLATFORM:-linux/amd64} && \
+if [ "$TARGETPLATFORM" == "linux/arm/v7" ]; then arch="linux/arm"; fi && \
 curl -sL https://storage.googleapis.com/kubernetes-release/release/v${kubectl_ver}/bin/${arch}/kubectl \
 -o /usr/local/bin/kubectl && chmod +x /usr/local/bin/kubectl
 
