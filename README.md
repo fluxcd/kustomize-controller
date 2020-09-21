@@ -33,7 +33,7 @@ Specifications:
 
 The kustomize-controller is part of a composable [GitOps toolkit](https://toolkit.fluxcd.io)
 and depends on [source-controller](https://github.com/fluxcd/source-controller)
-to acquire the Kubernetes manifests from Git repositories.
+to acquire the Kubernetes manifests from Git repositories and S3 compatible storage buckets.
 
 ### Install the toolkit controllers
 

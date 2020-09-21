@@ -36,6 +36,20 @@ rules:
 - apiGroups:
   - source.toolkit.fluxcd.io
   resources:
+  - buckets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - buckets/status
+  verbs:
+  - get
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
   - gitrepositories
   verbs:
   - get

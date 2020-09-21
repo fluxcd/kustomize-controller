@@ -171,10 +171,12 @@ changes, it generates a Kubernetes event that triggers a kustomize build and app
 Source supported types:
 
 * [GitRepository](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/gitrepositories.md)
+* [Bucket](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/buckets.md)
 
 > **Note** that the source should contain the kustomization.yaml and all the
 > Kubernetes manifests and configuration files referenced in the kustomization.yaml.
-> If your repository contains only plain manifests, then a kustomization.yaml will be automatically generated.
+> If your Git repository or S3 bucket contains only plain manifests,
+> then a kustomization.yaml will be automatically generated.
 
 ## Generate kustomization.yaml
 

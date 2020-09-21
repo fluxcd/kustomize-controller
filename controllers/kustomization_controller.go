@@ -97,7 +97,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			// Our finalizer is still present, so lets handle garbage collection
 			if kustomization.Spec.Prune && !kustomization.Spec.Suspend {
 				if err := r.prune(kustomization, kustomization.Status.Snapshot, true); err != nil {
-					r.event(kustomization, kustomization.Status.LastAppliedRevision, recorder.EventSeverityError, "pruning for deleted resource failed", map[string]string{})
+					r.event(kustomization, kustomization.Status.LastAppliedRevision, recorder.EventSeverityError, "pruning for deleted resource failed", nil)
 					// Return the error so we retry the failed garbage collection
 					return ctrl.Result{}, err
 				}
@@ -130,30 +130,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 
 	// resolve source reference
-	var source sourcev1.Source
-	if kustomization.Spec.SourceRef.Kind == sourcev1.GitRepositoryKind {
-		repositoryNamespace := kustomization.GetNamespace()
-		if kustomization.Spec.SourceRef.Namespace != "" {
-			repositoryNamespace = kustomization.Spec.SourceRef.Namespace
-		}
-
-		var repository sourcev1.GitRepository
-		repositoryName := types.NamespacedName{
-			Namespace: repositoryNamespace,
-			Name:      kustomization.Spec.SourceRef.Name,
-		}
-
-		err := r.Client.Get(ctx, repositoryName, &repository)
-		if err != nil {
-			log.Error(err, fmt.Sprintf("GitRepository '%s' not found", repositoryName))
-			return ctrl.Result{Requeue: true}, err
-		}
-		source = &repository
-	}
-
-	if source == nil {
-		err := fmt.Errorf("source `%s` kind '%s' not supported",
-			kustomization.Spec.SourceRef.Name, kustomization.Spec.SourceRef.Kind)
+	source, err := r.getSource(ctx, kustomization)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -182,7 +160,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			// instead we requeue on a fix interval.
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Error(err, msg)
-			r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo, msg, map[string]string{})
+			r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo, msg, nil)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
 		log.Info("All dependencies area ready, proceeding with reconciliation")
@@ -192,7 +170,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	reconciledKustomization, reconcileErr := r.reconcile(*kustomization.DeepCopy(), source)
 	if reconcileErr != nil {
 		// broadcast the error
-		r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityError, reconcileErr.Error(), map[string]string{})
+		r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityError, reconcileErr.Error(), nil)
 	}
 
 	// update status
@@ -214,7 +192,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, reconcileErr
 	}
 
-	r.event(reconciledKustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo, "Update completed", map[string]string{"commit_status": "update"})
+	r.event(reconciledKustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo,
+		"Update completed", map[string]string{"commit_status": "update"})
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 }
 
@@ -388,6 +367,38 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 	}
 
 	return nil
+}
+
+func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization kustomizev1.Kustomization) (sourcev1.Source, error) {
+	var source sourcev1.Source
+	sourceNamespace := kustomization.GetNamespace()
+	if kustomization.Spec.SourceRef.Namespace != "" {
+		sourceNamespace = kustomization.Spec.SourceRef.Namespace
+	}
+	namespacedName := types.NamespacedName{
+		Namespace: sourceNamespace,
+		Name:      kustomization.Spec.SourceRef.Name,
+	}
+	switch kustomization.Spec.SourceRef.Kind {
+	case sourcev1.GitRepositoryKind:
+		var repository sourcev1.GitRepository
+		err := r.Client.Get(ctx, namespacedName, &repository)
+		if err != nil {
+			return source, fmt.Errorf("source '%s' not found: %w", namespacedName, err)
+		}
+		source = &repository
+	case sourcev1.BucketKind:
+		var bucket sourcev1.Bucket
+		err := r.Client.Get(ctx, namespacedName, &bucket)
+		if err != nil {
+			return source, fmt.Errorf("source '%s' not found: %w", namespacedName, err)
+		}
+		source = &bucket
+	default:
+		return source, fmt.Errorf("source `%s` kind '%s' not supported",
+			kustomization.Spec.SourceRef.Name, kustomization.Spec.SourceRef.Kind)
+	}
+	return source, nil
 }
 
 func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
@@ -575,7 +586,7 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 				return err
 			} else {
 				if changeSet != "" {
-					r.event(kustomization, revision, recorder.EventSeverityInfo, changeSet, map[string]string{})
+					r.event(kustomization, revision, recorder.EventSeverityInfo, changeSet, nil)
 				}
 			}
 		} else {
@@ -583,7 +594,7 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 		}
 	} else {
 		if changeSet != "" && kustomization.Status.LastAppliedRevision != revision {
-			r.event(kustomization, revision, recorder.EventSeverityInfo, changeSet, map[string]string{})
+			r.event(kustomization, revision, recorder.EventSeverityInfo, changeSet, nil)
 		}
 	}
 	return nil
@@ -612,7 +623,7 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 				strings.ToLower(kustomization.Kind),
 				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
 			).Info(fmt.Sprintf("garbage collection completed: %s", output))
-			r.event(kustomization, snapshot.Checksum, recorder.EventSeverityInfo, output, map[string]string{})
+			r.event(kustomization, snapshot.Checksum, recorder.EventSeverityInfo, output, nil)
 		}
 	}
 	return nil
@@ -630,7 +641,7 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 	}
 
 	if kustomization.Status.LastAppliedRevision != revision {
-		r.event(kustomization, revision, recorder.EventSeverityInfo, "Health check passed", map[string]string{})
+		r.event(kustomization, revision, recorder.EventSeverityInfo, "Health check passed", nil)
 	}
 	return nil
 }
@@ -700,6 +711,9 @@ func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization,
 	}
 
 	if r.ExternalEventRecorder != nil {
+		if meta == nil {
+			meta = map[string]string{}
+		}
 		if revision != "" {
 			meta["revision"] = revision
 		}
