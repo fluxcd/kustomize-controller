@@ -5,7 +5,7 @@ go 1.14
 replace github.com/fluxcd/kustomize-controller/api => ./api
 
 require (
-	github.com/fluxcd/kustomize-controller/api v0.0.12
+	github.com/fluxcd/kustomize-controller/api v0.0.13
 	github.com/fluxcd/pkg/lockedfile v0.0.5
 	github.com/fluxcd/pkg/recorder v0.0.6
 	github.com/fluxcd/pkg/runtime v0.0.3
@@ -17,7 +17,7 @@ require (
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	go.mozilla.org/gopgagent v0.0.0-20170926210634-4d7ea76ff71a
-	go.mozilla.org/sops/v3 v3.6.0
+	go.mozilla.org/sops/v3 v3.6.1
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
 	google.golang.org/grpc v1.26.0

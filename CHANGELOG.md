@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.0.13 (2020-09-22)
+
+This prerelease comes with support for S3 bucket sources and
+cross-namespace dependencies.
+Container images for ARMv7 and ARMv8 are published to
+`ghcr.io/fluxcd/kustomize-controller-arm64`.
+
 ## 0.0.12 (2020-09-14)
 
 This prerelease comes with improvements to health assessment.
