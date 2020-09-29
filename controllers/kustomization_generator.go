@@ -76,6 +76,10 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) (string, error) {
 		}
 	}
 
+	if kg.kustomization.Spec.TargetNamespace != "" {
+		kus.Namespace = kg.kustomization.Spec.TargetNamespace
+	}
+
 	kd, err := yaml.Marshal(kus)
 	if err != nil {
 		return "", err

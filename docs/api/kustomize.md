@@ -196,7 +196,8 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>TargetNamespace sets or overrides the kustomization namespace.</p>
+<p>TargetNamespace sets or overrides the namespace in the
+kustomization.yaml file.</p>
 </td>
 </tr>
 <tr>
@@ -657,7 +658,8 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>TargetNamespace sets or overrides the kustomization namespace.</p>
+<p>TargetNamespace sets or overrides the namespace in the
+kustomization.yaml file.</p>
 </td>
 </tr>
 <tr>
