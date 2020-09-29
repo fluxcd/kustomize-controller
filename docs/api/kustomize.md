@@ -763,6 +763,19 @@ string
 </tr>
 <tr>
 <td>
+<code>lastHandledReconcileAt</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>LastHandledReconcileAt is the last manual reconciliation request (by
+annotating the Kustomization) handled by the reconciler.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>snapshot</code><br>
 <em>
 <a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Snapshot">
