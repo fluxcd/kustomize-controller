@@ -228,6 +228,10 @@ spec:
                 description: LastAttemptedRevision is the revision of the last reconciliation
                   attempt.
                 type: string
+              lastHandledReconcileAt:
+                description: LastHandledReconcileAt is the last manual reconciliation
+                  request (by annotating the Kustomization) handled by the reconciler.
+                type: string
               observedGeneration:
                 description: ObservedGeneration is the last reconciled generation.
                 format: int64

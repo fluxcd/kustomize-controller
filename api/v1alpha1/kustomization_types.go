@@ -135,6 +135,11 @@ type KustomizationStatus struct {
 	// +optional
 	LastAttemptedRevision string `json:"lastAttemptedRevision,omitempty"`
 
+	// LastHandledReconcileAt is the last manual reconciliation request (by
+	// annotating the Kustomization) handled by the reconciler.
+	// +optional
+	LastHandledReconcileAt string `json:"lastHandledReconcileAt,omitempty"`
+
 	// The last successfully applied revision metadata.
 	// +optional
 	Snapshot *Snapshot `json:"snapshot,omitempty"`

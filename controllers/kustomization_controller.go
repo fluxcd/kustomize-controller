@@ -44,7 +44,6 @@ import (
 	"sigs.k8s.io/kustomize/api/krusty"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 
-	"github.com/fluxcd/pkg/lockedfile"
 	"github.com/fluxcd/pkg/recorder"
 	"github.com/fluxcd/pkg/runtime/predicates"
 	"github.com/fluxcd/pkg/untar"
@@ -214,18 +213,10 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 func (r *KustomizationReconciler) reconcile(
 	kustomization kustomizev1.Kustomization,
 	source sourcev1.Source) (kustomizev1.Kustomization, error) {
-	// acquire lock
-	unlock, err := r.lock(fmt.Sprintf("%s-%s", kustomization.GetName(), kustomization.GetNamespace()))
-	if err != nil {
-		err = fmt.Errorf("lockfile error: %w", err)
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			source.GetArtifact().Revision,
-			sourcev1.StorageOperationFailedReason,
-			err.Error(),
-		), err
+	// record the value of the reconciliation request, if any
+	if v, ok := kustomization.GetAnnotations()[consts.ReconcileAtAnnotation]; ok {
+		kustomization.Status.LastHandledReconcileAt = v
 	}
-	defer unlock()
 
 	// create tmp dir
 	tmpDir, err := ioutil.TempDir("", kustomization.Name)
@@ -644,12 +635,6 @@ func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomiz
 		r.event(kustomization, revision, recorder.EventSeverityInfo, "Health check passed", nil)
 	}
 	return nil
-}
-
-func (r *KustomizationReconciler) lock(name string) (unlock func(), err error) {
-	lockFile := path.Join(os.TempDir(), name+".lock")
-	mutex := lockedfile.MutexAt(lockFile)
-	return mutex.Lock()
 }
 
 func (r *KustomizationReconciler) parseApplyOutput(in []byte) map[string]string {
