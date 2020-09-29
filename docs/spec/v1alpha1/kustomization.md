@@ -51,6 +51,11 @@ type KustomizationSpec struct {
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
 
+	// TargetNamespace sets or overrides the namespace in the
+	// kustomization.yaml file.
+	// +optional
+	TargetNamespace string `json:"targetNamespace,omitempty"`
+
 	// Timeout for validation, apply and health checking operations.
 	// Defaults to 'Interval' duration.
 	// +optional

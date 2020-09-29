@@ -164,6 +164,12 @@ spec:
                   kustomize executions, it does not apply to already started executions.
                   Defaults to false.
                 type: boolean
+              targetNamespace:
+                description: TargetNamespace sets or overrides the namespace in the
+                  kustomization.yaml file.
+                maxLength: 63
+                minLength: 1
+                type: string
               timeout:
                 description: Timeout for validation, apply and health checking operations.
                   Defaults to 'Interval' duration.

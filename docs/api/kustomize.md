@@ -189,6 +189,19 @@ it does not apply to already started executions. Defaults to false.</p>
 </tr>
 <tr>
 <td>
+<code>targetNamespace</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetNamespace sets or overrides the namespace in the
+kustomization.yaml file.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>timeout</code><br>
 <em>
 <a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
@@ -634,6 +647,19 @@ bool
 <em>(Optional)</em>
 <p>This flag tells the controller to suspend subsequent kustomize executions,
 it does not apply to already started executions. Defaults to false.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetNamespace</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetNamespace sets or overrides the namespace in the
+kustomization.yaml file.</p>
 </td>
 </tr>
 <tr>

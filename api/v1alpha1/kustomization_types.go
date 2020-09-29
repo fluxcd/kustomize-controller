@@ -74,6 +74,14 @@ type KustomizationSpec struct {
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
 
+	// TargetNamespace sets or overrides the namespace in the
+	// kustomization.yaml file.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Optional
+	// +optional
+	TargetNamespace string `json:"targetNamespace,omitempty"`
+
 	// Timeout for validation, apply and health checking operations.
 	// Defaults to 'Interval' duration.
 	// +optional
