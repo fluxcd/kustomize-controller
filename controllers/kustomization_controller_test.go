@@ -28,10 +28,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
-
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
 )
 
 var _ = Describe("KustomizationReconciler", func() {
@@ -141,7 +141,7 @@ var _ = Describe("KustomizationReconciler", func() {
 			defer k8sClient.Delete(context.Background(), k)
 
 			got := &kustomizev1.Kustomization{}
-			var cond kustomizev1.Condition
+			var cond meta.Condition
 			Eventually(func() bool {
 				_ = k8sClient.Get(context.Background(), kName, got)
 				for _, c := range got.Status.Conditions {
@@ -178,7 +178,7 @@ metadata:
 `,
 					},
 				},
-				waitForReason:  kustomizev1.ReconciliationSucceededReason,
+				waitForReason:  meta.ReconciliationSucceededReason,
 				expectStatus:   corev1.ConditionTrue,
 				expectRevision: "branch/commit1",
 			}),

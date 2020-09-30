@@ -261,90 +261,6 @@ KustomizationStatus
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Condition">Condition
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationStatus">KustomizationStatus</a>)
-</p>
-<p>Condition contains condition information for a kustomization.</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>type</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Type of the condition, currently (&lsquo;Ready&rsquo;).</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code><br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#conditionstatus-v1-core">
-Kubernetes core/v1.ConditionStatus
-</a>
-</em>
-</td>
-<td>
-<p>Status of the condition, one of (&lsquo;True&rsquo;, &lsquo;False&rsquo;, &lsquo;Unknown&rsquo;).</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>lastTransitionTime</code><br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#time-v1-meta">
-Kubernetes meta/v1.Time
-</a>
-</em>
-</td>
-<td>
-<p>LastTransitionTime is the timestamp corresponding to the last status
-change of this condition.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>reason</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Reason is a brief machine readable explanation for the condition&rsquo;s last
-transition.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>message</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Message is a human readable description of the details of the last
-transition, complementing reason.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
 <h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">CrossNamespaceObjectReference
 </h3>
 <p>
@@ -792,8 +708,8 @@ int64
 <td>
 <code>conditions</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Condition">
-[]Condition
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#Condition">
+[]github.com/fluxcd/pkg/apis/meta.Condition
 </a>
 </em>
 </td>

@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fluxcd/pkg/runtime/dependency"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,7 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
-	consts "github.com/fluxcd/pkg/runtime"
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/dependency"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
 )
 
@@ -125,7 +125,7 @@ func (r *BucketWatcher) requestReconciliation(name types.NamespacedName) error {
 		if kustomization.Annotations == nil {
 			kustomization.Annotations = make(map[string]string)
 		}
-		kustomization.Annotations[consts.ReconcileAtAnnotation] = metav1.Now().String()
+		kustomization.Annotations[meta.ReconcileAtAnnotation] = metav1.Now().String()
 		err = r.Update(context.TODO(), &kustomization)
 		return
 	})

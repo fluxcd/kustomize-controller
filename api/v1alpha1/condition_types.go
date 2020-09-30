@@ -16,64 +16,7 @@ limitations under the License.
 
 package v1alpha1
 
-import (
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-// Condition contains condition information for a kustomization.
-type Condition struct {
-	// Type of the condition, currently ('Ready').
-	// +required
-	Type string `json:"type"`
-
-	// Status of the condition, one of ('True', 'False', 'Unknown').
-	// +required
-	Status corev1.ConditionStatus `json:"status"`
-
-	// LastTransitionTime is the timestamp corresponding to the last status
-	// change of this condition.
-	// +required
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
-
-	// Reason is a brief machine readable explanation for the condition's last
-	// transition.
-	// +required
-	Reason string `json:"reason,omitempty"`
-
-	// Message is a human readable description of the details of the last
-	// transition, complementing reason.
-	// +optional
-	Message string `json:"message,omitempty"`
-}
-
 const (
-	// ReadyCondition is the name of the condition that
-	// records the readiness status of a Kustomization.
-	ReadyCondition string = "Ready"
-)
-
-const (
-	// ReconciliationSucceededReason represents the fact that the
-	// reconciliation of the Kustomization has succeeded.
-	ReconciliationSucceededReason string = "ReconciliationSucceeded"
-
-	// ReconciliationFailedReason represents the fact that the
-	// reconciliation of the Kustomization has failed.
-	ReconciliationFailedReason string = "ReconciliationFailed"
-
-	// ProgressingReason represents the fact that the
-	// reconciliation of the Kustomization is underway.
-	ProgressingReason string = "Progressing"
-
-	// SuspendedReason represents the fact that the
-	// reconciliation of the Kustomization has been suspended.
-	SuspendedReason string = "Suspended"
-
-	// DependencyNotReady represents the fact that
-	// one of the dependencies of the Kustomization is not ready.
-	DependencyNotReadyReason string = "DependencyNotReady"
-
 	// PruneFailedReason represents the fact that the
 	// pruning of the Kustomization failed.
 	PruneFailedReason string = "PruneFailed"
