@@ -465,6 +465,15 @@ func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomizati
 
 	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s --cache-dir=/tmp",
 		dirPath, kustomization.GetUID(), kustomization.GetTimeout().String(), kustomization.Spec.Validation)
+
+	if kustomization.Spec.KubeConfig != nil {
+		kubeConfig, err := r.getKubeConfig(kustomization, dirPath)
+		if err != nil {
+			return err
+		}
+		cmd = fmt.Sprintf("%s --kubeconfig=%s", cmd, kubeConfig)
+	}
+
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
 	if err != nil {
@@ -474,6 +483,33 @@ func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomizati
 		return fmt.Errorf("validation failed: %s", string(output))
 	}
 	return nil
+}
+
+func (r *KustomizationReconciler) getKubeConfig(kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
+	timeout := kustomization.GetTimeout()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	secretName := types.NamespacedName{
+		Namespace: kustomization.GetNamespace(),
+		Name:      kustomization.Spec.KubeConfig.SecretRef.Name,
+	}
+
+	var secret corev1.Secret
+	if err := r.Get(ctx, secretName, &secret); err != nil {
+		return "", fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
+	}
+
+	if kubeConfig, ok := secret.Data["value"]; ok {
+		kubeConfigPath := path.Join(dirPath, secretName.Name)
+		if err := ioutil.WriteFile(kubeConfigPath, kubeConfig, os.ModePerm); err != nil {
+			return "", fmt.Errorf("unable to write KubeConfig secret '%s' to storage: %w", secretName.String(), err)
+		}
+	} else {
+		return "", fmt.Errorf("KubeConfig secret '%s' doesn't contain a 'value' key ", secretName.String())
+	}
+
+	return secretName.Name, nil
 }
 
 func (r *KustomizationReconciler) getServiceAccountToken(kustomization kustomizev1.Kustomization) (string, error) {
@@ -516,7 +552,7 @@ func (r *KustomizationReconciler) getServiceAccountToken(kustomization kustomize
 	return token, nil
 }
 
-func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization, revision, dirPath string) (string, error) {
+func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
 	start := time.Now()
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -525,14 +561,22 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --cache-dir=/tmp",
 		dirPath, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String())
 
-	// impersonate SA
-	if kustomization.Spec.ServiceAccount != nil {
-		saToken, err := r.getServiceAccountToken(kustomization)
+	if kustomization.Spec.KubeConfig != nil {
+		kubeConfig, err := r.getKubeConfig(kustomization, dirPath)
 		if err != nil {
-			return "", fmt.Errorf("service account impersonation failed: %w", err)
+			return "", err
 		}
+		cmd = fmt.Sprintf("%s --kubeconfig=%s", cmd, kubeConfig)
+	} else {
+		// impersonate SA
+		if kustomization.Spec.ServiceAccount != nil {
+			saToken, err := r.getServiceAccountToken(kustomization)
+			if err != nil {
+				return "", fmt.Errorf("service account impersonation failed: %w", err)
+			}
 
-		cmd = fmt.Sprintf("%s --token %s", cmd, saToken)
+			cmd = fmt.Sprintf("%s --token %s", cmd, saToken)
+		}
 	}
 
 	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
@@ -564,7 +608,7 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 }
 
 func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kustomization, revision, dirPath string, delay time.Duration) error {
-	changeSet, err := r.apply(kustomization, revision, dirPath)
+	changeSet, err := r.apply(kustomization, dirPath)
 	if err != nil {
 		// retry apply due to CRD/CR race
 		if strings.Contains(err.Error(), "could not find the requested resource") ||
@@ -573,7 +617,7 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 				"error", err.Error(),
 				"kustomization", fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()))
 			time.Sleep(delay)
-			if changeSet, err := r.apply(kustomization, revision, dirPath); err != nil {
+			if changeSet, err := r.apply(kustomization, dirPath); err != nil {
 				return err
 			} else {
 				if changeSet != "" {
@@ -592,6 +636,14 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 }
 
 func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization, snapshot *kustomizev1.Snapshot, force bool) error {
+	if kustomization.Spec.KubeConfig != nil {
+		// TODO: implement pruning for remote clusters
+		r.Log.WithValues(
+			strings.ToLower(kustomization.Kind),
+			fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+		).V(2).Info("skipping pruning, garbage collection is not implemented for remote clusters")
+		return nil
+	}
 	if kustomization.Status.Snapshot == nil || snapshot == nil {
 		return nil
 	}

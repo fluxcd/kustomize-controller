@@ -111,14 +111,28 @@ spec:
                   type: object
                 type: array
               interval:
-                description: The interval at which to apply the kustomization.
+                description: The interval at which to reconcile the kustomization.
                 type: string
+              kubeConfig:
+                description: The KubeConfig for reconciling the Kustomization on a
+                  remote cluster.
+                properties:
+                  secretRef:
+                    description: 'The secret name containing a ''value'' key with
+                      the kubeconfig file as the value. Ref: https://github.com/kubernetes-sigs/cluster-api/blob/release-0.3/util/secret/consts.go#L24'
+                    properties:
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    type: object
+                type: object
               path:
                 description: Path to the directory containing the kustomization file.
                 pattern: ^\./
                 type: string
               prune:
-                description: Enables garbage collection.
+                description: Prune enables garbage collection.
                 type: boolean
               serviceAccount:
                 description: The Kubernetes service account used for applying the
