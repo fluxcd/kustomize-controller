@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.1.0 (2020-09-30)
+
+This is the first MINOR prerelease, it promotes the
+`kustomize.toolkit.fluxcd.io` API to `v1beta1`
+and removes support for `v1alpha1`.
+
+Going forward, changes to the API will be accompanied by a conversion
+mechanism. With this release the API becomes more stable, but while in
+beta phase there are no guarantees about backwards compatibility
+between beta releases.
+
 ## 0.0.13 (2020-09-22)
 
 This prerelease comes with support for S3 bucket sources and
