@@ -29,7 +29,6 @@ import (
 	"strings"
 	"time"
 
-	consts "github.com/fluxcd/pkg/runtime"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,6 +43,7 @@ import (
 	"sigs.k8s.io/kustomize/api/krusty"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 
+	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/recorder"
 	"github.com/fluxcd/pkg/runtime/predicates"
 	"github.com/fluxcd/pkg/untar"
@@ -113,7 +113,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	if kustomization.Spec.Suspend {
 		msg := "Kustomization is suspended, skipping reconciliation"
-		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.SuspendedReason, msg)
+		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", meta.SuspendedReason, msg)
 		if err := r.Status().Update(ctx, &kustomization); err != nil {
 			log.Error(err, "unable to update status")
 			return ctrl.Result{Requeue: true}, err
@@ -150,7 +150,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	if len(kustomization.Spec.DependsOn) > 0 {
 		if err := r.checkDependencies(kustomization); err != nil {
 			kustomization = kustomizev1.KustomizationNotReady(
-				kustomization, source.GetArtifact().Revision, kustomizev1.DependencyNotReadyReason, err.Error())
+				kustomization, source.GetArtifact().Revision, meta.DependencyNotReadyReason, err.Error())
 			if err := r.Status().Update(ctx, &kustomization); err != nil {
 				log.Error(err, "unable to update status")
 				return ctrl.Result{Requeue: true}, err
@@ -214,7 +214,7 @@ func (r *KustomizationReconciler) reconcile(
 	kustomization kustomizev1.Kustomization,
 	source sourcev1.Source) (kustomizev1.Kustomization, error) {
 	// record the value of the reconciliation request, if any
-	if v, ok := kustomization.GetAnnotations()[consts.ReconcileAtAnnotation]; ok {
+	if v, ok := kustomization.GetAnnotations()[meta.ReconcileAtAnnotation]; ok {
 		kustomization.Status.LastHandledReconcileAt = v
 	}
 
@@ -293,7 +293,7 @@ func (r *KustomizationReconciler) reconcile(
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			source.GetArtifact().Revision,
-			kustomizev1.ReconciliationFailedReason,
+			meta.ReconciliationFailedReason,
 			err.Error(),
 		), err
 	}
@@ -325,7 +325,7 @@ func (r *KustomizationReconciler) reconcile(
 		kustomization,
 		snapshot,
 		source.GetArtifact().Revision,
-		kustomizev1.ReconciliationSucceededReason,
+		meta.ReconciliationSucceededReason,
 		"Applied revision: "+source.GetArtifact().Revision,
 	), nil
 }
@@ -726,17 +726,15 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 			return fmt.Errorf("dependency '%s' is not ready", dName)
 		}
 
-		for _, condition := range k.Status.Conditions {
-			if condition.Type == consts.ReadyCondition && condition.Status != corev1.ConditionTrue {
-				return fmt.Errorf("dependency '%s' is not ready", dName)
-			}
+		if c := meta.GetCondition(k.Status.Conditions, meta.ReadyCondition); c == nil || c.Status != corev1.ConditionTrue {
+			return fmt.Errorf("dependency '%s' is not ready", dName)
 		}
 	}
 
 	return nil
 }
 
-func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization, revision, severity, msg string, meta map[string]string) {
+func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization, revision, severity, msg string, metadata map[string]string) {
 	r.EventRecorder.Event(&kustomization, "Normal", severity, msg)
 	objRef, err := reference.GetReference(r.Scheme, &kustomization)
 	if err != nil {
@@ -748,22 +746,19 @@ func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization,
 	}
 
 	if r.ExternalEventRecorder != nil {
-		if meta == nil {
-			meta = map[string]string{}
+		if metadata == nil {
+			metadata = map[string]string{}
 		}
 		if revision != "" {
-			meta["revision"] = revision
+			metadata["revision"] = revision
 		}
 
 		reason := severity
-		for _, condition := range kustomization.Status.Conditions {
-			if condition.Type == kustomizev1.ReadyCondition {
-				reason = condition.Reason
-				break
-			}
+		if c := meta.GetCondition(kustomization.Status.Conditions, meta.ReadyCondition); c != nil {
+			reason = c.Reason
 		}
 
-		if err := r.ExternalEventRecorder.Eventf(*objRef, meta, severity, reason, msg); err != nil {
+		if err := r.ExternalEventRecorder.Eventf(*objRef, metadata, severity, reason, msg); err != nil {
 			r.Log.WithValues(
 				strings.ToLower(kustomization.Kind),
 				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),

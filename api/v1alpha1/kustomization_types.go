@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/dependency"
 )
 
@@ -138,7 +139,7 @@ type KustomizationStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// +optional
-	Conditions []Condition `json:"conditions,omitempty"`
+	Conditions []meta.Condition `json:"conditions,omitempty"`
 
 	// The last successfully applied revision.
 	// The revision format for Git sources is <branch|tag>/<commit-sha>.
@@ -162,12 +163,12 @@ type KustomizationStatus struct {
 // KustomizationProgressing resets the conditions of the given Kustomization to a single
 // ReadyCondition with status ConditionUnknown.
 func KustomizationProgressing(k Kustomization) Kustomization {
-	k.Status.Conditions = []Condition{
+	k.Status.Conditions = []meta.Condition{
 		{
-			Type:               ReadyCondition,
+			Type:               meta.ReadyCondition,
 			Status:             corev1.ConditionUnknown,
 			LastTransitionTime: metav1.Now(),
-			Reason:             ProgressingReason,
+			Reason:             meta.ProgressingReason,
 			Message:            "reconciliation in progress",
 		},
 	}
@@ -177,8 +178,8 @@ func KustomizationProgressing(k Kustomization) Kustomization {
 // SetKustomizationCondition sets the given condition with the given status, reason and message
 // on the Kustomization.
 func SetKustomizationCondition(k *Kustomization, condition string, status corev1.ConditionStatus, reason, message string) {
-	k.Status.Conditions = filterOutCondition(k.Status.Conditions, condition)
-	k.Status.Conditions = append(k.Status.Conditions, Condition{
+	k.Status.Conditions = meta.FilterOutCondition(k.Status.Conditions, condition)
+	k.Status.Conditions = append(k.Status.Conditions, meta.Condition{
 		Type:               condition,
 		Status:             status,
 		LastTransitionTime: metav1.Now(),
@@ -190,7 +191,7 @@ func SetKustomizationCondition(k *Kustomization, condition string, status corev1
 // SetKustomizeReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision,
 // on the Kustomization.
 func SetKustomizationReadiness(k *Kustomization, status corev1.ConditionStatus, reason, message string, revision string) {
-	SetKustomizationCondition(k, ReadyCondition, status, reason, message)
+	SetKustomizationCondition(k, meta.ReadyCondition, status, reason, message)
 	k.Status.ObservedGeneration = k.Generation
 	k.Status.LastAttemptedRevision = revision
 }
@@ -278,19 +279,6 @@ type KustomizationList struct {
 
 func init() {
 	SchemeBuilder.Register(&Kustomization{}, &KustomizationList{})
-}
-
-// filterOutCondition returns a new slice of conditions without the
-// condition of the given type.
-func filterOutCondition(conditions []Condition, condition string) []Condition {
-	var newConditions []Condition
-	for _, c := range conditions {
-		if c.Type == condition {
-			continue
-		}
-		newConditions = append(newConditions, c)
-	}
-	return newConditions
 }
 
 func trimString(str string, limit int) string {
