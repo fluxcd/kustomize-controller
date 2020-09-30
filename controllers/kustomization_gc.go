@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
 
 type KustomizeGarbageCollector struct {

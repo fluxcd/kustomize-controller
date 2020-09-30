@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 	"sigs.k8s.io/cli-utils/pkg/object"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
 
 type KustomizeHealthCheck struct {

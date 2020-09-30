@@ -15,7 +15,7 @@ import (
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
 
 const (
