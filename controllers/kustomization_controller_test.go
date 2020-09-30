@@ -28,10 +28,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1alpha1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1alpha1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 )
 
 var _ = Describe("KustomizationReconciler", func() {
@@ -94,9 +94,9 @@ var _ = Describe("KustomizationReconciler", func() {
 					Interval: metav1.Duration{Duration: reconciliationInterval},
 				},
 				Status: sourcev1.GitRepositoryStatus{
-					Conditions: []sourcev1.SourceCondition{
+					Conditions: []meta.Condition{
 						{
-							Type:               sourcev1.ReadyCondition,
+							Type:               meta.ReadyCondition,
 							Status:             corev1.ConditionTrue,
 							LastTransitionTime: metav1.Now(),
 							Reason:             sourcev1.GitOperationSucceedReason,

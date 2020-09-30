@@ -2,16 +2,16 @@
 <p>Packages:</p>
 <ul class="simple">
 <li>
-<a href="#kustomize.toolkit.fluxcd.io%2fv1alpha1">kustomize.toolkit.fluxcd.io/v1alpha1</a>
+<a href="#kustomize.toolkit.fluxcd.io%2fv1beta1">kustomize.toolkit.fluxcd.io/v1beta1</a>
 </li>
 </ul>
-<h2 id="kustomize.toolkit.fluxcd.io/v1alpha1">kustomize.toolkit.fluxcd.io/v1alpha1</h2>
-<p>Package v1alpha1 contains API Schema definitions for the kustomize v1alpha1 API group</p>
+<h2 id="kustomize.toolkit.fluxcd.io/v1beta1">kustomize.toolkit.fluxcd.io/v1beta1</h2>
+<p>Package v1beta1 contains API Schema definitions for the kustomize v1beta1 API group</p>
 Resource Types:
 <ul class="simple"><li>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Kustomization">Kustomization</a>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Kustomization">Kustomization</a>
 </li></ul>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Kustomization">Kustomization
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.Kustomization">Kustomization
 </h3>
 <p>Kustomization is the Schema for the kustomizations API.</p>
 <div class="md-typeset__scrollwrap">
@@ -29,7 +29,7 @@ Resource Types:
 <code>apiVersion</code><br>
 string</td>
 <td>
-<code>kustomize.toolkit.fluxcd.io/v1alpha1</code>
+<code>kustomize.toolkit.fluxcd.io/v1beta1</code>
 </td>
 </tr>
 <tr>
@@ -59,7 +59,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">
 KustomizationSpec
 </a>
 </em>
@@ -88,7 +88,7 @@ Kustomization can be reconciled.</p>
 <td>
 <code>decryption</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Decryption">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Decryption">
 Decryption
 </a>
 </em>
@@ -115,7 +115,7 @@ Kubernetes meta/v1.Duration
 <td>
 <code>kubeConfig</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KubeConfig">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KubeConfig">
 KubeConfig
 </a>
 </em>
@@ -151,7 +151,7 @@ bool
 <td>
 <code>healthChecks</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.CrossNamespaceObjectReference">
 []CrossNamespaceObjectReference
 </a>
 </em>
@@ -165,7 +165,7 @@ bool
 <td>
 <code>serviceAccount</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.ServiceAccount">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.ServiceAccount">
 ServiceAccount
 </a>
 </em>
@@ -179,7 +179,7 @@ ServiceAccount
 <td>
 <code>sourceRef</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.CrossNamespaceSourceReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.CrossNamespaceSourceReference">
 CrossNamespaceSourceReference
 </a>
 </em>
@@ -249,7 +249,7 @@ The validation strategy can be &lsquo;client&rsquo; (local dry-run) or &lsquo;se
 <td>
 <code>status</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationStatus">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationStatus">
 KustomizationStatus
 </a>
 </em>
@@ -261,11 +261,11 @@ KustomizationStatus
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">CrossNamespaceObjectReference
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.CrossNamespaceObjectReference">CrossNamespaceObjectReference
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>CrossNamespaceObjectReference contains enough information to let you locate the
 typed referenced object at cluster level</p>
@@ -329,11 +329,11 @@ string
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.CrossNamespaceSourceReference">CrossNamespaceSourceReference
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.CrossNamespaceSourceReference">CrossNamespaceSourceReference
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>CrossNamespaceSourceReference contains enough information to let you locate the
 typed referenced object at cluster level</p>
@@ -397,11 +397,11 @@ string
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Decryption">Decryption
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.Decryption">Decryption
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>Decryption defines how decryption is handled for Kubernetes manifests.</p>
 <div class="md-typeset__scrollwrap">
@@ -443,11 +443,11 @@ Kubernetes core/v1.LocalObjectReference
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.KubeConfig">KubeConfig
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.KubeConfig">KubeConfig
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>KubeConfig references a Kubernetes secret generated by CAPI.
 that contains a kubeconfig file.</p>
@@ -480,11 +480,11 @@ Ref: <a href="https://github.com/kubernetes-sigs/cluster-api/blob/release-0.3/ut
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Kustomization">Kustomization</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Kustomization">Kustomization</a>)
 </p>
 <p>KustomizationSpec defines the desired state of a kustomization.</p>
 <div class="md-typeset__scrollwrap">
@@ -517,7 +517,7 @@ Kustomization can be reconciled.</p>
 <td>
 <code>decryption</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Decryption">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Decryption">
 Decryption
 </a>
 </em>
@@ -544,7 +544,7 @@ Kubernetes meta/v1.Duration
 <td>
 <code>kubeConfig</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KubeConfig">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KubeConfig">
 KubeConfig
 </a>
 </em>
@@ -580,7 +580,7 @@ bool
 <td>
 <code>healthChecks</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.CrossNamespaceObjectReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.CrossNamespaceObjectReference">
 []CrossNamespaceObjectReference
 </a>
 </em>
@@ -594,7 +594,7 @@ bool
 <td>
 <code>serviceAccount</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.ServiceAccount">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.ServiceAccount">
 ServiceAccount
 </a>
 </em>
@@ -608,7 +608,7 @@ ServiceAccount
 <td>
 <code>sourceRef</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.CrossNamespaceSourceReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.CrossNamespaceSourceReference">
 CrossNamespaceSourceReference
 </a>
 </em>
@@ -675,11 +675,11 @@ The validation strategy can be &lsquo;client&rsquo; (local dry-run) or &lsquo;se
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationStatus">KustomizationStatus
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.KustomizationStatus">KustomizationStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Kustomization">Kustomization</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Kustomization">Kustomization</a>)
 </p>
 <p>KustomizationStatus defines the observed state of a kustomization.</p>
 <div class="md-typeset__scrollwrap">
@@ -759,7 +759,7 @@ annotating the Kustomization) handled by the reconciler.</p>
 <td>
 <code>snapshot</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Snapshot">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Snapshot">
 Snapshot
 </a>
 </em>
@@ -773,11 +773,11 @@ Snapshot
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.ServiceAccount">ServiceAccount
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.ServiceAccount">ServiceAccount
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>ServiceAccount defines a reference to a Kubernetes service account.</p>
 <div class="md-typeset__scrollwrap">
@@ -816,11 +816,11 @@ string
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.Snapshot">Snapshot
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.Snapshot">Snapshot
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.KustomizationStatus">KustomizationStatus</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationStatus">KustomizationStatus</a>)
 </p>
 <p>Snapshot holds the metadata of the Kubernetes objects
 generated for a source revision</p>
@@ -849,7 +849,7 @@ string
 <td>
 <code>entries</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.SnapshotEntry">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.SnapshotEntry">
 []SnapshotEntry
 </a>
 </em>
@@ -862,11 +862,11 @@ string
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1alpha1.SnapshotEntry">SnapshotEntry
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.SnapshotEntry">SnapshotEntry
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1alpha1.Snapshot">Snapshot</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Snapshot">Snapshot</a>)
 </p>
 <p>Snapshot holds the metadata of namespaced
 Kubernetes objects</p>
