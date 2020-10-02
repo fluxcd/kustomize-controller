@@ -99,7 +99,7 @@ apiVersion: source.toolkit.fluxcd.io/v1beta1
 kind: GitRepository
 metadata:
   name: istio
-  namespace: gitops-system
+  namespace: gotk-system
 spec:
   interval: 5m
   url: https://github.com/stefanprodan/gitops-istio
@@ -110,7 +110,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: istio
-  namespace: gitops-system
+  namespace: gotk-system
 spec:
   interval: 10m
   path: "./istio/"
@@ -131,7 +131,7 @@ apiVersion: source.toolkit.fluxcd.io/v1beta1
 kind: GitRepository
 metadata:
   name: webapp
-  namespace: gitops-system
+  namespace: gotk-system
 spec:
   interval: 1m
   url: https://github.com/stefanprodan/podinfo-deploy
@@ -142,7 +142,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: webapp-common
-  namespace: gitops-system
+  namespace: gotk-system
 spec:
   dependsOn:
     - name: istio
@@ -158,7 +158,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: webapp-backend
-  namespace: gitops-system
+  namespace: gotk-system
 spec:
   dependsOn:
     - name: webapp-common
@@ -178,7 +178,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: webapp-frontend
-  namespace: gitops-system
+  namespace: gotk-system
 spec:
   dependsOn:
     - name: webapp-backend

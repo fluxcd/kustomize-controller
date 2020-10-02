@@ -499,11 +499,11 @@ Commit and push the encrypted file to Git.
 > **Note** that you should encrypt only the `data` section, encrypting the Kubernetes secret
 > metadata, kind or apiVersion is not supported by kustomize-controller.
 
-Create a secret in the `gitops-system` namespace with the OpenPGP private key:
+Create a secret in the `gotk-system` namespace with the OpenPGP private key:
 
 ```sh
 gpg --export-secret-keys --armor FBC7B9E2A4F9289AC0C1D4843D16CEE4A27381B4 |
-kubectl -n gitops-system create secret generic sops-gpg \
+kubectl -n gotk-system create secret generic sops-gpg \
 --from-file=sops.asc=/dev/stdin
 ```
 

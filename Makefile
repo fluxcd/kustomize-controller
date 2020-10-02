@@ -96,7 +96,7 @@ docker-push:
 
 # Set the docker image in-cluster
 docker-deploy:
-	kubectl -n gitops-system set image deployment/kustomize-controller manager=${IMG}
+	kubectl -n gotk-system set image deployment/kustomize-controller manager=${IMG}
 
 # find or download controller-gen
 # download controller-gen if necessary
