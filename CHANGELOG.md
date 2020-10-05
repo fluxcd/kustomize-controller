@@ -82,7 +82,7 @@ of kustomization objects.
 This prerelease comes with improvements to the alerting system.
 The reconciliation events can be forwarded to notification controller
 and alerting can be configured for Slack, MS Teams, Discord and Rocket chat
-using the [notification.fluxcd.io API](https://github.com/fluxcd/notification-controller/tree/master/docs/spec).
+using the [notification.fluxcd.io API](https://github.com/fluxcd/notification-controller/tree/main/docs/spec).
 
 ## 0.0.1 (2020-06-24)
 
@@ -151,9 +151,9 @@ The controller design and motivation can be found at
 ## 0.0.1-alpha.2 (2020-04-21)
 
 This alpha release introduces the
-[Profile CRD](https://github.com/fluxcd/kustomize-controller/blob/master/docs/spec/v1alpha1/profile.md)
+[Profile CRD](https://github.com/fluxcd/kustomize-controller/blob/main/docs/spec/v1alpha1/profile.md)
 that allows grouping
-[Kustomization](https://github.com/fluxcd/kustomize-controller/blob/master/docs/spec/v1alpha1/kustomization.md)
+[Kustomization](https://github.com/fluxcd/kustomize-controller/blob/main/docs/spec/v1alpha1/kustomization.md)
 objects and defining a common behavior for them.
 The v1alpha1 profiles can be used for
 [configuring Slack and Discord alerting](https://github.com/fluxcd/kustomize-controller/tree/v0.0.1-alpha.2#configure-alerting).
