@@ -4,7 +4,7 @@ The `Kustomization` API defines a pipeline for fetching, decrypting, building, v
 
 ## Specification
 
-A **Kustomization** object defines the source of Kubernetes manifests by referencing an object 
+A **Kustomization** object defines the source of Kubernetes manifests by referencing an object
 managed by [source-controller](https://github.com/fluxcd/source-controller),
 the path to the kustomization file within that source,
 and the interval at which the kustomize build output is applied on the cluster.
@@ -190,7 +190,7 @@ const (
 
 The kustomization `spec.sourceRef` is a reference to an object managed by
 [source-controller](https://github.com/fluxcd/source-controller). When the source
-[revision](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1beta1/common.md#source-status) 
+[revision](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1beta1/common.md#source-status)
 changes, it generates a Kubernetes event that triggers a kustomize build and apply.
 
 Source supported types:
@@ -258,6 +258,10 @@ A health check entry can reference one of the following types:
 * Toolkit kinds: HelmRelease, HelmRepository, GitRepository, etc
 * Custom resources that are compatible with [kstatus](https://github.com/kubernetes-sigs/cli-utils/tree/master/pkg/kstatus)
 
+> :warning: **If you are using health checks for HelmRelease**: Helm charts containing a single replica will not behave as expected.
+> Its health check will allways succeed no matter the status of the pod. This is due to a [bug in Helms wait functionality](https://github.com/helm/helm/issues/8660).
+> A workaround until this issue is fixed is to add a Helm test with a job that waits until the pod is ready.
+
 Assuming the kustomization source contains a Kubernetes Deployment named `backend`,
 a health check can be defined as follows:
 
@@ -283,7 +287,7 @@ spec:
 
 After applying the kustomize build output, the controller verifies if the rollout completed successfully.
 If the deployment was successful, the kustomization ready condition is marked as `true`,
-if the rollout failed, or if it takes more than the specified timeout to complete, then the 
+if the rollout failed, or if it takes more than the specified timeout to complete, then the
 kustomization ready condition is set to `false`. If the deployment becomes healthy on the next
 execution, then the kustomization is marked as ready.
 
@@ -316,7 +320,7 @@ spec:
 
 If all the HelmRelease objects are successfully installed or upgraded, then the Kustomization will be marked as ready.
 
-## Kustomization dependencies 
+## Kustomization dependencies
 
 When applying a kustomization, you may need to make sure other resources exist before the
 workloads defined in your kustomization are deployed.
@@ -324,7 +328,7 @@ For example, a namespace must exist before applying resources to it.
 
 With `spec.dependsOn` you can specify that the execution of a kustomization follows another.
 When you add `dependsOn` entries to a kustomization, that kustomization is applied
-only after all of its dependencies are ready. The readiness state of a kustomization is determined by 
+only after all of its dependencies are ready. The readiness state of a kustomization is determined by
 its last apply status condition.
 
 Assuming two kustomizations:
@@ -450,8 +454,8 @@ subjects:
   namespace: webapp
 ```
 
-> **Note** that the namespace, RBAC and service account manifests should be 
-> placed in a Git source and applied with a kustomization. The kustomizations that 
+> **Note** that the namespace, RBAC and service account manifests should be
+> placed in a Git source and applied with a kustomization. The kustomizations that
 > are running under that service account should depend-on the one that contains the account.
 
 Create a kustomization that prevents altering the cluster state outside of the `webapp` namespace:
@@ -484,7 +488,7 @@ outside of the `webapp` namespace.
 
 In order to store secrets safely in a public or private Git repository,
 you can use [Mozilla SOPS](https://github.com/mozilla/sops)
-and encrypt your Kubernetes Secrets data with OpenPGP keys. 
+and encrypt your Kubernetes Secrets data with OpenPGP keys.
 
 Generate a GPG key **without passphrase** using [gnupg](https://www.gnupg.org/)
 then use sops to encrypt a Kubernetes secret:
@@ -579,7 +583,7 @@ status:
     type: Ready
   lastAppliedRevision: master/a1afe267b54f38b46b487f6e938a6fd508278c07
   lastAttemptedRevision: master/7c500d302e38e7e4a3f327343a8a5c21acaaeb87
-``` 
+```
 
 > **Note** that the last applied revision is updated only on a successful reconciliation.
 
