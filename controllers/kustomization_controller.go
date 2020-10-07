@@ -34,11 +34,13 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/clientcmd"
 	kuberecorder "k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
@@ -98,7 +100,14 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		if containsString(kustomization.ObjectMeta.Finalizers, kustomizev1.KustomizationFinalizer) {
 			// Our finalizer is still present, so lets handle garbage collection
 			if kustomization.Spec.Prune && !kustomization.Spec.Suspend {
-				if err := r.prune(kustomization, kustomization.Status.Snapshot, true); err != nil {
+				// create any necessary kube-clients
+				client, _, err := r.newKustomizationClient(kustomization)
+				if err != nil {
+					err = fmt.Errorf("Failed to build kube client for Kustomization: %w", err)
+					log.Error(err, "Unable to prune for finalizer")
+					return ctrl.Result{}, err
+				}
+				if err := r.prune(client, kustomization, kustomization.Status.Snapshot, true); err != nil {
 					r.event(kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
 					// Return the error so we retry the failed garbage collection
 					return ctrl.Result{}, err
@@ -335,8 +344,19 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
+	// create any necessary kube-clients
+	client, statusPoller, err := r.newKustomizationClient(kustomization)
+	if err != nil {
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			source.GetArtifact().Revision,
+			meta.ReconciliationFailedReason,
+			err.Error(),
+		), fmt.Errorf("Failed to build kube client for Kustomization: %w", err)
+	}
+
 	// prune
-	err = r.prune(kustomization, snapshot, false)
+	err = r.prune(client, kustomization, snapshot, false)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -347,7 +367,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// health assessment
-	err = r.checkHealth(kustomization, source.GetArtifact().Revision)
+	err = r.checkHealth(statusPoller, kustomization, source.GetArtifact().Revision)
 	if err != nil {
 		return kustomizev1.KustomizationNotReadySnapshot(
 			kustomization,
@@ -510,7 +530,7 @@ func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomizati
 		dirPath, kustomization.GetUID(), kustomization.GetTimeout().String(), kustomization.Spec.Validation)
 
 	if kustomization.Spec.KubeConfig != nil {
-		kubeConfig, err := r.getKubeConfig(kustomization, dirPath)
+		kubeConfig, err := r.writeKubeConfig(kustomization, dirPath)
 		if err != nil {
 			return err
 		}
@@ -528,7 +548,26 @@ func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomizati
 	return nil
 }
 
-func (r *KustomizationReconciler) getKubeConfig(kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
+func (r *KustomizationReconciler) writeKubeConfig(kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
+	secretName := types.NamespacedName{
+		Namespace: kustomization.GetNamespace(),
+		Name:      kustomization.Spec.KubeConfig.SecretRef.Name,
+	}
+
+	kubeConfig, err := r.getKubeConfig(kustomization)
+	if err != nil {
+		return "", err
+	}
+
+	kubeConfigPath := path.Join(dirPath, secretName.Name)
+	if err := ioutil.WriteFile(kubeConfigPath, kubeConfig, os.ModePerm); err != nil {
+		return "", fmt.Errorf("unable to write KubeConfig secret '%s' to storage: %w", secretName.String(), err)
+	}
+
+	return secretName.Name, nil
+}
+
+func (r *KustomizationReconciler) getKubeConfig(kustomization kustomizev1.Kustomization) ([]byte, error) {
 	timeout := kustomization.GetTimeout()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -540,19 +579,15 @@ func (r *KustomizationReconciler) getKubeConfig(kustomization kustomizev1.Kustom
 
 	var secret corev1.Secret
 	if err := r.Get(ctx, secretName, &secret); err != nil {
-		return "", fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
+		return nil, fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
 	}
 
-	if kubeConfig, ok := secret.Data["value"]; ok {
-		kubeConfigPath := path.Join(dirPath, secretName.Name)
-		if err := ioutil.WriteFile(kubeConfigPath, kubeConfig, os.ModePerm); err != nil {
-			return "", fmt.Errorf("unable to write KubeConfig secret '%s' to storage: %w", secretName.String(), err)
-		}
-	} else {
-		return "", fmt.Errorf("KubeConfig secret '%s' doesn't contain a 'value' key ", secretName.String())
+	kubeConfig, ok := secret.Data["value"]
+	if !ok {
+		return nil, fmt.Errorf("KubeConfig secret '%s' doesn't contain a 'value' key ", secretName.String())
 	}
 
-	return secretName.Name, nil
+	return kubeConfig, nil
 }
 
 func (r *KustomizationReconciler) getServiceAccountToken(kustomization kustomizev1.Kustomization) (string, error) {
@@ -605,7 +640,7 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 		dirPath, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String())
 
 	if kustomization.Spec.KubeConfig != nil {
-		kubeConfig, err := r.getKubeConfig(kustomization, dirPath)
+		kubeConfig, err := r.writeKubeConfig(kustomization, dirPath)
 		if err != nil {
 			return "", err
 		}
@@ -678,15 +713,7 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 	return nil
 }
 
-func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization, snapshot *kustomizev1.Snapshot, force bool) error {
-	if kustomization.Spec.KubeConfig != nil {
-		// TODO: implement pruning for remote clusters
-		r.Log.WithValues(
-			strings.ToLower(kustomization.Kind),
-			fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-		).V(2).Info("skipping pruning, garbage collection is not implemented for remote clusters")
-		return nil
-	}
+func (r *KustomizationReconciler) prune(client client.Client, kustomization kustomizev1.Kustomization, snapshot *kustomizev1.Snapshot, force bool) error {
 	if kustomization.Status.Snapshot == nil || snapshot == nil {
 		return nil
 	}
@@ -696,7 +723,7 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 		}
 	}
 
-	gc := NewGarbageCollector(r.Client, *kustomization.Status.Snapshot, r.Log)
+	gc := NewGarbageCollector(client, *kustomization.Status.Snapshot, r.Log)
 
 	if output, ok := gc.Prune(kustomization.GetTimeout(),
 		kustomization.GetName(),
@@ -715,12 +742,12 @@ func (r *KustomizationReconciler) prune(kustomization kustomizev1.Kustomization,
 	return nil
 }
 
-func (r *KustomizationReconciler) checkHealth(kustomization kustomizev1.Kustomization, revision string) error {
+func (r *KustomizationReconciler) checkHealth(statusPoller *polling.StatusPoller, kustomization kustomizev1.Kustomization, revision string) error {
 	if len(kustomization.Spec.HealthChecks) == 0 {
 		return nil
 	}
 
-	hc := NewHealthCheck(kustomization, r.StatusPoller)
+	hc := NewHealthCheck(kustomization, statusPoller)
 
 	if err := hc.Assess(1 * time.Second); err != nil {
 		return err
@@ -832,6 +859,41 @@ func (r *KustomizationReconciler) recordReadiness(kustomization kustomizev1.Kust
 			Status: corev1.ConditionUnknown,
 		}, deleted)
 	}
+}
+
+func (r *KustomizationReconciler) newKustomizationClient(kustomization kustomizev1.Kustomization) (client.Client, *polling.StatusPoller, error) {
+	if kustomization.Spec.KubeConfig == nil {
+		// TODO: implement impersonation overrides for in-cluster
+		return r.Client, r.StatusPoller, nil
+	}
+
+	kubeConfigBytes, err := r.getKubeConfig(kustomization)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	restConfig, err := clientcmd.RESTConfigFromKubeConfig(kubeConfigBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// TODO: implement impersonation overrides on the target cluster restConfig
+
+	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// this client does not have a cache like the normal controller-runtime default client
+	// this is intentional but one could be added
+	client, err := client.New(restConfig, client.Options{Mapper: restMapper})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	statusPoller := polling.NewStatusPoller(client, restMapper)
+
+	return client, statusPoller, err
 }
 
 func containsString(slice []string, s string) bool {
