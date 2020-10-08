@@ -26,7 +26,7 @@ Features:
 * notifies whenever a `Kustomization` status changes
 
 Specifications:
-* [API](docs/spec/v1alpha1/README.md)
+* [API](docs/spec/v1beta1/README.md)
 * [Controller](docs/spec/README.md)
 
 ## Usage
@@ -54,7 +54,7 @@ gotk install
 Create a source object that points to a Git repository containing Kubernetes and Kustomize manifests:
 
 ```yaml
-apiVersion: source.toolkit.fluxcd.io/v1alpha1
+apiVersion: source.toolkit.fluxcd.io/v1beta1
 kind: GitRepository
 metadata:
   name: podinfo
@@ -67,7 +67,7 @@ spec:
 ```
 
 For private repositories, SSH or token based authentication can be
-[configured with Kubernetes secrets](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/gitrepositories.md).
+[configured with Kubernetes secrets](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1beta1/gitrepositories.md).
 
 Save the above file and apply it on the cluster.
 You can wait for the source controller to assemble an artifact from the head of the repo master branch with:
@@ -87,7 +87,7 @@ kubectl -n gotk-system annotate --overwrite gitrepository/podinfo fluxcd.io/reco
 Create a kustomization object that uses the git repository defined above:
 
 ```yaml
-apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: podinfo-dev
@@ -111,11 +111,11 @@ spec:
 ```
 
 > **Note** that if your repository contains only plain Kubernetes manifests, the controller will
-> [automatically generate](docs/spec/v1alpha1/kustomization.md#generate-kustomizationyaml)
+> [automatically generate](docs/spec/v1beta1/kustomization.md#generate-kustomizationyaml)
 > a kustomization.yaml file inside the specified path.
 
 A detailed explanation of the Kustomization object and its fields
-can be found in the [specification doc](docs/spec/v1alpha1/README.md). 
+can be found in the [specification doc](docs/spec/v1beta1/README.md). 
 
 Based on the above definition, the kustomize-controller fetches the Git repository content from source-controller,
 generates Kubernetes manifests by running kustomize build inside `./deploy/overlays/dev/`,
@@ -194,7 +194,7 @@ When combined with health assessment, a kustomization will run after all its dep
 For example, a service mesh proxy injector should be running before deploying applications inside the mesh:
 
 ```yaml
-apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: istio
@@ -211,7 +211,7 @@ spec:
       namespace: istio-system
   timeout: 2m
 ---
-apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: podinfo-dev
@@ -232,7 +232,7 @@ spec:
 For production deployments, instead of synchronizing with a branch you can use a semver range to target stable releases:
 
 ```yaml
-apiVersion: source.toolkit.fluxcd.io/v1alpha1
+apiVersion: source.toolkit.fluxcd.io/v1beta1
 kind: GitRepository
 metadata:
   name: podinfo-releases
@@ -250,7 +250,7 @@ that matches the semver range.
 Create a production kustomization and reference the git source that follows the latest semver release:
 
 ```yaml
-apiVersion: kustomize.toolkit.fluxcd.io/v1alpha1
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: podinfo-production
@@ -276,7 +276,7 @@ to Slack, Microsoft Teams, Discord or Rocket chart.
 Create a notification provider for Slack:
 
 ```yaml
-apiVersion: notification.fluxcd.io/v1alpha1
+apiVersion: notification.fluxcd.io/v1beta1
 kind: Provider
 metadata:
   name: slack
@@ -299,7 +299,7 @@ data:
 Create an alert for a list of GitRepositories and Kustomizations:
 
 ```yaml
-apiVersion: notification.fluxcd.io/v1alpha1
+apiVersion: notification.fluxcd.io/v1beta1
 kind: Alert
 metadata:
   name: on-call
