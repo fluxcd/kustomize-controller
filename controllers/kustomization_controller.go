@@ -128,11 +128,13 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, nil
 	}
 
+	// set the reconciliation status to progressing
 	kustomization = kustomizev1.KustomizationProgressing(kustomization)
 	if err := r.Status().Update(ctx, &kustomization); err != nil {
 		log.Error(err, "unable to update status")
 		return ctrl.Result{Requeue: true}, err
 	}
+	r.recordReadiness(kustomization, false)
 
 	// resolve source reference
 	source, err := r.getSource(ctx, kustomization)
