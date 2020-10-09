@@ -796,6 +796,11 @@ func (r *KustomizationReconciler) recordReadiness(kustomization kustomizev1.Kust
 	}
 	if rc := meta.GetCondition(kustomization.Status.Conditions, meta.ReadyCondition); rc != nil {
 		r.MetricsRecorder.RecordReadyStatus(*objRef, *rc, deleted)
+	} else {
+		r.MetricsRecorder.RecordReadyStatus(*objRef, meta.Condition{
+			Type:   meta.ReadyCondition,
+			Status: corev1.ConditionUnknown,
+		}, deleted)
 	}
 }
 
