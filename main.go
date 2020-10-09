@@ -26,9 +26,11 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 	"github.com/fluxcd/kustomize-controller/controllers"
+	"github.com/fluxcd/kustomize-controller/internal/metrics"
 	"github.com/fluxcd/pkg/recorder"
 	"github.com/fluxcd/pkg/runtime/logger"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
@@ -85,6 +87,9 @@ func main() {
 		}
 	}
 
+	metricsRecorder := metrics.NewRecorder()
+	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
+
 	watchNamespace := ""
 	if !watchAllNamespaces {
 		watchNamespace = os.Getenv("RUNTIME_NAMESPACE")
@@ -126,6 +131,7 @@ func main() {
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         mgr.GetEventRecorderFor("kustomize-controller"),
 		ExternalEventRecorder: eventRecorder,
+		MetricsRecorder:       metricsRecorder,
 		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper()),
 	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,

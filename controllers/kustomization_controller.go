@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/kustomize/api/krusty"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 
+	"github.com/fluxcd/kustomize-controller/internal/metrics"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/recorder"
 	"github.com/fluxcd/pkg/runtime/predicates"
@@ -60,6 +61,7 @@ type KustomizationReconciler struct {
 	Scheme                *runtime.Scheme
 	EventRecorder         kuberecorder.EventRecorder
 	ExternalEventRecorder *recorder.EventRecorder
+	MetricsRecorder       *metrics.Recorder
 	StatusPoller          *polling.StatusPoller
 }
 
@@ -101,6 +103,9 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 					return ctrl.Result{}, err
 				}
 			}
+			// Record deleted status
+			r.recordReadiness(kustomization, true)
+
 			// Remove our finalizer from the list and update it
 			kustomization.ObjectMeta.Finalizers = removeString(kustomization.ObjectMeta.Finalizers, kustomizev1.KustomizationFinalizer)
 			if err := r.Update(ctx, &kustomization); err != nil {
@@ -118,6 +123,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			log.Error(err, "unable to update status")
 			return ctrl.Result{Requeue: true}, err
 		}
+		r.recordReadiness(kustomization, false)
 		log.Info(msg)
 		return ctrl.Result{}, nil
 	}
@@ -142,6 +148,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			log.Error(err, "unable to update status")
 			return ctrl.Result{Requeue: true}, err
 		}
+		r.recordReadiness(kustomization, false)
 		log.Info(msg)
 		return ctrl.Result{}, nil
 	}
@@ -160,6 +167,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Error(err, msg)
 			r.event(kustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo, msg, nil)
+			r.recordReadiness(kustomization, false)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
 		log.Info("All dependencies area ready, proceeding with reconciliation")
@@ -188,11 +196,14 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	// requeue
 	if reconcileErr != nil {
 		// record the reconciliation error
+		r.recordReadiness(reconciledKustomization, false)
 		return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, reconcileErr
 	}
 
+	// record the reconciliation result
 	r.event(reconciledKustomization, source.GetArtifact().Revision, recorder.EventSeverityInfo,
 		"Update completed", map[string]string{"commit_status": "update"})
+	r.recordReadiness(reconciledKustomization, false)
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 }
 
@@ -765,6 +776,24 @@ func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization,
 			).Error(err, "unable to send event")
 			return
 		}
+	}
+}
+
+func (r *KustomizationReconciler) recordReadiness(kustomization kustomizev1.Kustomization, deleted bool) {
+	if r.MetricsRecorder == nil {
+		return
+	}
+
+	objRef, err := reference.GetReference(r.Scheme, &kustomization)
+	if err != nil {
+		r.Log.WithValues(
+			strings.ToLower(kustomization.Kind),
+			fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
+		).Error(err, "unable to record readiness metric")
+		return
+	}
+	if rc := meta.GetCondition(kustomization.Status.Conditions, meta.ReadyCondition); rc != nil {
+		r.MetricsRecorder.RecordReadyStatus(*objRef, *rc, deleted)
 	}
 }
 

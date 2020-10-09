@@ -17,6 +17,7 @@ require (
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
+	github.com/prometheus/client_golang v1.0.0
 	go.mozilla.org/gopgagent v0.0.0-20170926210634-4d7ea76ff71a
 	go.mozilla.org/sops/v3 v3.6.1
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
