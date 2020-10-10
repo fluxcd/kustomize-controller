@@ -12,28 +12,26 @@ const (
 )
 
 type Recorder struct {
-	readyGauge *prometheus.GaugeVec
+	conditionGauge *prometheus.GaugeVec
 }
 
 func NewRecorder() *Recorder {
 	return &Recorder{
-		readyGauge: prometheus.NewGaugeVec(
+		conditionGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Namespace: "",
-				Subsystem: "",
-				Name:      "gitops_toolkit_ready_condition",
-				Help:      "The current ready condition status of a GitOps Toolkit resource.",
+				Name: "gitops_toolkit_condition",
+				Help: "The current condition status of a GitOps Toolkit resource.",
 			},
-			[]string{"kind", "name", "namespace", "status"},
+			[]string{"type", "kind", "name", "namespace", "status"},
 		),
 	}
 }
 
 func (r *Recorder) Collectors() []prometheus.Collector {
-	return []prometheus.Collector{r.readyGauge}
+	return []prometheus.Collector{r.conditionGauge}
 }
 
-func (r *Recorder) RecordReadyStatus(ref corev1.ObjectReference, condition meta.Condition, deleted bool) {
+func (r *Recorder) RecordCondition(ref corev1.ObjectReference, condition meta.Condition, deleted bool) {
 	for _, status := range []string{string(corev1.ConditionTrue), string(corev1.ConditionFalse), string(corev1.ConditionUnknown), ConditionDeleted} {
 		var value float64
 		if deleted {
@@ -41,22 +39,11 @@ func (r *Recorder) RecordReadyStatus(ref corev1.ObjectReference, condition meta.
 				value = 1
 			}
 		} else {
-			switch condition.Status {
-			case corev1.ConditionTrue:
-				if status == string(condition.Status) {
-					value = 1
-				}
-			case corev1.ConditionFalse:
-				if status == string(condition.Status) {
-					value = 1
-				}
-			case corev1.ConditionUnknown:
-				if status == string(condition.Status) {
-					value = 1
-				}
+			if status == string(condition.Status) {
+				value = 1
 			}
 		}
 
-		r.readyGauge.WithLabelValues(ref.Kind, ref.Name, ref.Namespace, status).Set(value)
+		r.conditionGauge.WithLabelValues(condition.Type, ref.Kind, ref.Name, ref.Namespace, status).Set(value)
 	}
 }
