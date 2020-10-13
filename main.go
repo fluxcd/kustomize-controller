@@ -30,9 +30,9 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 	"github.com/fluxcd/kustomize-controller/controllers"
-	"github.com/fluxcd/kustomize-controller/internal/metrics"
-	"github.com/fluxcd/pkg/recorder"
+	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/logger"
+	"github.com/fluxcd/pkg/runtime/metrics"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
@@ -77,9 +77,9 @@ func main() {
 
 	ctrl.SetLogger(logger.NewLogger(logLevel, logJSON))
 
-	var eventRecorder *recorder.EventRecorder
+	var eventRecorder *events.Recorder
 	if eventsAddr != "" {
-		if er, err := recorder.NewEventRecorder(eventsAddr, "kustomize-controller"); err != nil {
+		if er, err := events.NewRecorder(eventsAddr, "kustomize-controller"); err != nil {
 			setupLog.Error(err, "unable to create event recorder")
 			os.Exit(1)
 		} else {
