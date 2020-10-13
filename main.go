@@ -26,11 +26,13 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 	"github.com/fluxcd/kustomize-controller/controllers"
-	"github.com/fluxcd/pkg/recorder"
+	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/logger"
+	"github.com/fluxcd/pkg/runtime/metrics"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
@@ -75,15 +77,18 @@ func main() {
 
 	ctrl.SetLogger(logger.NewLogger(logLevel, logJSON))
 
-	var eventRecorder *recorder.EventRecorder
+	var eventRecorder *events.Recorder
 	if eventsAddr != "" {
-		if er, err := recorder.NewEventRecorder(eventsAddr, "kustomize-controller"); err != nil {
+		if er, err := events.NewRecorder(eventsAddr, "kustomize-controller"); err != nil {
 			setupLog.Error(err, "unable to create event recorder")
 			os.Exit(1)
 		} else {
 			eventRecorder = er
 		}
 	}
+
+	metricsRecorder := metrics.NewRecorder()
+	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
 
 	watchNamespace := ""
 	if !watchAllNamespaces {
@@ -126,6 +131,7 @@ func main() {
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         mgr.GetEventRecorderFor("kustomize-controller"),
 		ExternalEventRecorder: eventRecorder,
+		MetricsRecorder:       metricsRecorder,
 		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper()),
 	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
