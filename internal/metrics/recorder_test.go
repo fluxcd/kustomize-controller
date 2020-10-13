@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
@@ -29,15 +30,15 @@ func TestRecorder_RecordCondition(t *testing.T) {
 
 	metricFamilies, err := reg.Gather()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if len(metricFamilies) != 1 {
-		t.Errorf("expected one metric family, got %v", metricFamilies)
+		t.Fatalf("expected one metric family, got %v", metricFamilies)
 	}
 
 	if len(metricFamilies[0].Metric) != 4 {
-		t.Errorf("expected four metrics, got %v", metricFamilies[0].Metric)
+		t.Fatalf("expected four metrics, got %v", metricFamilies[0].Metric)
 	}
 
 	var conditionTrueValue float64
@@ -56,5 +57,56 @@ func TestRecorder_RecordCondition(t *testing.T) {
 
 	if conditionTrueValue != 1 {
 		t.Errorf("expected guage value to be 1, got %v", conditionTrueValue)
+	}
+}
+
+func TestRecorder_RecordDuration(t *testing.T) {
+	rec := NewRecorder()
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(rec.durationHistogram)
+
+	ref := corev1.ObjectReference{
+		Kind:      "GitRepository",
+		Namespace: "default",
+		Name:      "test",
+	}
+
+	reconcileStart := time.Now().Add(-time.Second)
+	rec.RecordDuration(ref, reconcileStart)
+
+	metricFamilies, err := reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(metricFamilies) != 1 {
+		t.Fatalf("expected one metric family, got %v", metricFamilies)
+	}
+
+	if len(metricFamilies[0].Metric) != 1 {
+		t.Fatalf("expected one metric, got %v", metricFamilies[0].Metric)
+	}
+
+	sampleCount := metricFamilies[0].Metric[0].Histogram.GetSampleCount()
+	if sampleCount != 1 {
+		t.Errorf("expected histogram sample count to be 1, got %v", sampleCount)
+	}
+
+	labels := metricFamilies[0].Metric[0].GetLabel()
+
+	if len(labels) != 3 {
+		t.Fatalf("expected three labels, got %v", metricFamilies[0].Metric[0].GetLabel())
+	}
+
+	for _, pair := range labels {
+		if *pair.Name == "kind" && *pair.Value != ref.Kind {
+			t.Errorf("expected kind label to be %s, got %s", ref.Kind, *pair.Value)
+		}
+		if *pair.Name == "name" && *pair.Value != ref.Name {
+			t.Errorf("expected name label to be %s, got %s", ref.Name, *pair.Value)
+		}
+		if *pair.Name == "namespace" && *pair.Value != ref.Namespace {
+			t.Errorf("expected namespace label to be %s, got %s", ref.Namespace, *pair.Value)
+		}
 	}
 }
