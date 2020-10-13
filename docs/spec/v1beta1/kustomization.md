@@ -258,10 +258,6 @@ A health check entry can reference one of the following types:
 * Toolkit kinds: HelmRelease, HelmRepository, GitRepository, etc
 * Custom resources that are compatible with [kstatus](https://github.com/kubernetes-sigs/cli-utils/tree/master/pkg/kstatus)
 
-> :warning: **If you are using health checks for HelmRelease**: Helm charts containing a single replica will not behave as expected.
-> Its health check will allways succeed no matter the status of the pod. This is due to a [bug in Helms wait functionality](https://github.com/helm/helm/issues/8660).
-> A workaround until this issue is fixed is to add a Helm test with a job that waits until the pod is ready.
-
 Assuming the kustomization source contains a Kubernetes Deployment named `backend`,
 a health check can be defined as follows:
 
@@ -270,6 +266,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: backend
+  namespace: default
 spec:
   interval: 5m
   path: "./webapp/backend/"
@@ -299,6 +296,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: webapp
+  namespace: default
 spec:
   interval: 15m
   path: "./releases/"
@@ -342,6 +340,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: common
+  namespace: default
 spec:
   interval: 5m
   path: "./webapp/common/"
@@ -354,6 +353,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: backend
+  namespace: default
 spec:
   dependsOn:
     - name: common
@@ -390,6 +390,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: backend
+  namespace: default
 spec:
   dependsOn:
     - name: common
@@ -465,6 +466,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: backend
+  namespace: webapp
 spec:
   dependsOn:
     - name: common
@@ -503,11 +505,11 @@ Commit and push the encrypted file to Git.
 > **Note** that you should encrypt only the `data` section, encrypting the Kubernetes secret
 > metadata, kind or apiVersion is not supported by kustomize-controller.
 
-Create a secret in the `gotk-system` namespace with the OpenPGP private key:
+Create a secret in the `default` namespace with the OpenPGP private key:
 
 ```sh
 gpg --export-secret-keys --armor FBC7B9E2A4F9289AC0C1D4843D16CEE4A27381B4 |
-kubectl -n gotk-system create secret generic sops-gpg \
+kubectl -n default create secret generic sops-gpg \
 --from-file=sops.asc=/dev/stdin
 ```
 
@@ -518,6 +520,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: my-secrets
+  namespace: default
 spec:
   interval: 5m
   path: "./"
@@ -598,4 +601,3 @@ When a reconciliation fails, the controller logs the error and issues a Kubernet
   "error": "The Service 'backend' is invalid: spec.type: Unsupported value: 'Ingress'"
 }
 ```
-
