@@ -113,12 +113,19 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 				}
 				return nil
 			}
+
+			extension := filepath.Ext(path)
+			if !containsString([]string{".yaml", ".yml"}, extension) {
+				return nil
+			}
+
 			fContents, err := fs.ReadFile(path)
 			if err != nil {
 				return err
 			}
+
 			if _, err := uf.SliceFromBytes(fContents); err != nil {
-				return nil
+				return fmt.Errorf("failed to decode Kubernetes YAML from %s: %w", path, err)
 			}
 			paths = append(paths, path)
 			return nil
