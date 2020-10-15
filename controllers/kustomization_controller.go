@@ -188,7 +188,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	reconciledKustomization, reconcileErr := r.reconcile(*kustomization.DeepCopy(), source)
 	if reconcileErr != nil {
 		// broadcast the error
-		r.event(kustomization, source.GetArtifact().Revision, events.EventSeverityError, reconcileErr.Error(), nil)
+		r.event(reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityError, reconcileErr.Error(), nil)
 	}
 
 	// update status
