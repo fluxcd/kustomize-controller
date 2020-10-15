@@ -31,6 +31,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kuberecorder "k8s.io/client-go/tools/record"
@@ -148,12 +149,25 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	// resolve source reference
 	source, err := r.getSource(ctx, kustomization)
 	if err != nil {
-		return ctrl.Result{}, err
+		if apierrors.IsNotFound(err) {
+			msg := "Source not found"
+			kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
+			if err := r.Status().Update(ctx, &kustomization); err != nil {
+				log.Error(err, "unable to update status")
+				return ctrl.Result{Requeue: true}, err
+			}
+			r.recordReadiness(kustomization, false)
+			log.Info(msg)
+			// do not requeue, when the source is created the watcher should trigger a reconciliation
+			return ctrl.Result{}, nil
+		} else {
+			// retry on transient errors
+			return ctrl.Result{Requeue: true}, err
+		}
 	}
 
-	// check source readiness
 	if source.GetArtifact() == nil {
-		msg := "Source is not ready"
+		msg := "Source is not ready, artifact not found"
 		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
 		if err := r.Status().Update(ctx, &kustomization); err != nil {
 			log.Error(err, "unable to update status")
@@ -161,6 +175,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 		r.recordReadiness(kustomization, false)
 		log.Info(msg)
+		// do not requeue, when the artifact is created the watcher should trigger a reconciliation
 		return ctrl.Result{}, nil
 	}
 
@@ -397,14 +412,20 @@ func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization k
 		var repository sourcev1.GitRepository
 		err := r.Client.Get(ctx, namespacedName, &repository)
 		if err != nil {
-			return source, fmt.Errorf("source '%s' not found: %w", namespacedName, err)
+			if apierrors.IsNotFound(err) {
+				return source, err
+			}
+			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
 		source = &repository
 	case sourcev1.BucketKind:
 		var bucket sourcev1.Bucket
 		err := r.Client.Get(ctx, namespacedName, &bucket)
 		if err != nil {
-			return source, fmt.Errorf("source '%s' not found: %w", namespacedName, err)
+			if apierrors.IsNotFound(err) {
+				return source, err
+			}
+			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
 		source = &bucket
 	default:
