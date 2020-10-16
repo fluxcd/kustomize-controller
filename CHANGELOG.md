@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.1.2 (2020-10-16)
+
+This prerelease comes with support for
+[targeting remote clusters](https://github.com/fluxcd/kustomize-controller/blob/main/docs/spec/v1beta1/kustomization.md#cluster-api--remote-clusters)
+created with Cluster-API.
+
+Improvements:
+* Implement non-caching, per-kustomization GC-client/statusPoller for cross-cluster kubeconfigs
+    [#135](https://github.com/fluxcd/kustomize-controller/pull/135)
+
+Fixes:
+* Fix status reporting when the source is not found
+    [#141](https://github.com/fluxcd/kustomize-controller/pull/141)
+* Validate manifests when generating kustomization.yaml
+    [#143](https://github.com/fluxcd/kustomize-controller/pull/143)
+* Set correct status on failure events
+    [#145](https://github.com/fluxcd/kustomize-controller/pull/145)
+
 ## 0.1.1 (2020-10-13)
 
 This prerelease comes with Prometheus instrumentation for the controller's resources.

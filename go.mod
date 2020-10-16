@@ -5,7 +5,7 @@ go 1.15
 replace github.com/fluxcd/kustomize-controller/api => ./api
 
 require (
-	github.com/fluxcd/kustomize-controller/api v0.1.1
+	github.com/fluxcd/kustomize-controller/api v0.1.2
 	github.com/fluxcd/pkg/apis/meta v0.0.2
 	github.com/fluxcd/pkg/runtime v0.1.0
 	github.com/fluxcd/pkg/testserver v0.0.2
