@@ -122,8 +122,7 @@ KubeConfig
 </td>
 <td>
 <em>(Optional)</em>
-<p>The KubeConfig for reconciling the Kustomization on a remote cluster.
-Apply, Prune, HealthCheck, and Delete are all functional.</p>
+<p>The KubeConfig for reconciling the Kustomization on a remote cluster.</p>
 </td>
 </tr>
 <tr>
@@ -562,8 +561,7 @@ KubeConfig
 </td>
 <td>
 <em>(Optional)</em>
-<p>The KubeConfig for reconciling the Kustomization on a remote cluster.
-Apply, Prune, HealthCheck, and Delete are all functional.</p>
+<p>The KubeConfig for reconciling the Kustomization on a remote cluster.</p>
 </td>
 </tr>
 <tr>

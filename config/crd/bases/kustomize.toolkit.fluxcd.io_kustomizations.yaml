@@ -115,7 +115,7 @@ spec:
                 type: string
               kubeConfig:
                 description: The KubeConfig for reconciling the Kustomization on a
-                  remote cluster. Apply, Prune, HealthCheck, and Delete are all functional.
+                  remote cluster.
                 properties:
                   secretRef:
                     description: 'The secret name containing a ''value'' key with
