@@ -122,7 +122,8 @@ KubeConfig
 </td>
 <td>
 <em>(Optional)</em>
-<p>The KubeConfig for reconciling the Kustomization on a remote cluster.</p>
+<p>The KubeConfig for reconciling the Kustomization on a remote cluster.
+Apply, Prune, HealthCheck, and Delete are all functional.</p>
 </td>
 </tr>
 <tr>
@@ -471,9 +472,19 @@ Kubernetes core/v1.LocalObjectReference
 </em>
 </td>
 <td>
-<p>The secret name containing a &lsquo;value&rsquo; key
-with the kubeconfig file as the value.
-Ref: <a href="https://github.com/kubernetes-sigs/cluster-api/blob/release-0.3/util/secret/consts.go#L24">https://github.com/kubernetes-sigs/cluster-api/blob/release-0.3/util/secret/consts.go#L24</a></p>
+<p>The secret name containing a &lsquo;value&rsquo; key with the kubeconfig file as the value.
+This secret must be in the same Namespace as the Kustomization.
+KubeConfig secrets maintained by Cluster API bootstrap providers can be used here.
+(ex: If your CAPI Cluster&rsquo;s name is <code>stage</code>, set this to <code>stage-kubeconfig</code>.
+Ensure the Kustomization is in the same Namespace as the Cluster object.
+Ref: <a href="https://github.com/kubernetes-sigs/cluster-api/blob/release-0.3/util/secret/consts.go#L24)">https://github.com/kubernetes-sigs/cluster-api/blob/release-0.3/util/secret/consts.go#L24)</a>
+The reconciliation clients are regularly refreshed from the Secret, so
+rotating kubeconfigs for KaaS control-planes from cloud-providers are supported.
+These kubeconfigs follow the same design constraints as Cluster API.
+It is recommended that kubeconfigs be self-contained, and the Secret be
+regularly updated if credentials such as a cloud-access-token expire.
+Cloud-specific <code>cmd-path</code> auth helpers will not function without adding
+binaries and credentials to the kustomize-controller Pod.</p>
 </td>
 </tr>
 </tbody>
@@ -551,7 +562,8 @@ KubeConfig
 </td>
 <td>
 <em>(Optional)</em>
-<p>The KubeConfig for reconciling the Kustomization on a remote cluster.</p>
+<p>The KubeConfig for reconciling the Kustomization on a remote cluster.
+Apply, Prune, HealthCheck, and Delete are all functional.</p>
 </td>
 </tr>
 <tr>

@@ -115,11 +115,24 @@ spec:
                 type: string
               kubeConfig:
                 description: The KubeConfig for reconciling the Kustomization on a
-                  remote cluster.
+                  remote cluster. Apply, Prune, HealthCheck, and Delete are all functional.
                 properties:
                   secretRef:
                     description: 'The secret name containing a ''value'' key with
-                      the kubeconfig file as the value. Ref: https://github.com/kubernetes-sigs/cluster-api/blob/release-0.3/util/secret/consts.go#L24'
+                      the kubeconfig file as the value. This secret must be in the
+                      same Namespace as the Kustomization. KubeConfig secrets maintained
+                      by Cluster API bootstrap providers can be used here. (ex: If
+                      your CAPI Cluster''s name is `stage`, set this to `stage-kubeconfig`.
+                      Ensure the Kustomization is in the same Namespace as the Cluster
+                      object. Ref: https://github.com/kubernetes-sigs/cluster-api/blob/release-0.3/util/secret/consts.go#L24)
+                      The reconciliation clients are regularly refreshed from the
+                      Secret, so rotating kubeconfigs for KaaS control-planes from
+                      cloud-providers are supported. These kubeconfigs follow the
+                      same design constraints as Cluster API. It is recommended that
+                      kubeconfigs be self-contained, and the Secret be regularly updated
+                      if credentials such as a cloud-access-token expire. Cloud-specific
+                      `cmd-path` auth helpers will not function without adding binaries
+                      and credentials to the kustomize-controller Pod.'
                     properties:
                       name:
                         description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
