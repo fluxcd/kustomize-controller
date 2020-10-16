@@ -50,7 +50,6 @@ type KustomizationSpec struct {
 	Interval metav1.Duration `json:"interval"`
 
 	// The KubeConfig for reconciling the Kustomization on a remote cluster.
-	// Apply, Prune, HealthCheck, and Delete are all functional.
 	// +optional
 	KubeConfig *KubeConfig `json:"kubeConfig,omitempty"`
 

@@ -543,15 +543,15 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
-  name: backend
+  name: cluster-addons
   namespace: capi-stage
 spec:
   interval: 5m
-  path: "./webapp/backend/"
+  path: "./config/addons/"
   prune: true
   sourceRef:
     kind: GitRepository
-    name: webapp
+    name: cluster-addons
   kubeConfig:
     secretRef:
       name: stage-kubeconfig  # Cluster API creates this for the matching Cluster
@@ -560,10 +560,19 @@ spec:
 The Cluster and Kustomization can be created at the same time.
 The Kustomization will eventually reconcile once the cluster is available.
 
-> **Note** that the KubeConfig should be self-contained and not rely on binaries, environment, or credential files
-> from the kustomize-controller Pod.
+If you wish to target clusters created by other means than CAPI, you can create a ServiceAccount on the remote cluster,
+generate a kube config for that account, then create a secret on the cluster where kustomize-controller is running e.g.:
+
+```sh
+kubectl create secret generic prod-kubeconfig \
+    --from-file=value=./kubeconfig
+```
+
+> **Note** that the KubeConfig should be self-contained and not rely on binaries, environment,
+> or credential files from the kustomize-controller Pod.
 > This matches the constraints of KubeConfigs from current Cluster API providers.
-> KubeConfigs with `cmd-path` in them likely won't work without a custom, per-cluster installation of kustomize-controller.
+> KubeConfigs with `cmd-path` in them likely won't work without a custom,
+> per-provider installation of kustomize-controller.
 
 ## Secrets decryption
 
