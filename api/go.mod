@@ -8,4 +8,5 @@ require (
 	k8s.io/api v0.18.9
 	k8s.io/apimachinery v0.18.9
 	sigs.k8s.io/controller-runtime v0.6.3
+	sigs.k8s.io/kustomize/api v0.6.3
 )

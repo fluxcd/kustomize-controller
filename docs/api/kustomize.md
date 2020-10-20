@@ -231,6 +231,19 @@ Defaults to &lsquo;Interval&rsquo; duration.</p>
 </tr>
 <tr>
 <td>
+<code>images</code><br>
+<em>
+[]sigs.k8s.io/kustomize/api/types.Image
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Images override image definitions in manifests
+It can set the same configuration parameters with kustomization.yaml</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>validation</code><br>
 <em>
 string
@@ -666,6 +679,19 @@ Kubernetes meta/v1.Duration
 <em>(Optional)</em>
 <p>Timeout for validation, apply and health checking operations.
 Defaults to &lsquo;Interval&rsquo; duration.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br>
+<em>
+[]sigs.k8s.io/kustomize/api/types.Image
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Images override image definitions in manifests
+It can set the same configuration parameters with kustomization.yaml</p>
 </td>
 </tr>
 <tr>

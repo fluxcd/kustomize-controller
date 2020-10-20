@@ -25,6 +25,7 @@ import (
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/dependency"
+	kustypes "sigs.k8s.io/kustomize/api/types"
 )
 
 const (
@@ -91,6 +92,11 @@ type KustomizationSpec struct {
 	// Defaults to 'Interval' duration.
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
+
+	// Images override image definitions in manifests
+	// It can set the same configuration parameters with kustomization.yaml
+	// +optional
+	Images []kustypes.Image `json:"images,omitempty"`
 
 	// Validate the Kubernetes objects before applying them on the cluster.
 	// The validation strategy can be 'client' (local dry-run) or 'server' (APIServer dry-run).

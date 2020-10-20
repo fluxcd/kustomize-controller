@@ -80,6 +80,8 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) (string, error) {
 		kus.Namespace = kg.kustomization.Spec.TargetNamespace
 	}
 
+	kus.Images = kg.kustomization.Spec.Images
+
 	kd, err := yaml.Marshal(kus)
 	if err != nil {
 		return "", err
