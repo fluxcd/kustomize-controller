@@ -32,6 +32,7 @@ import (
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	kustypes "sigs.k8s.io/kustomize/api/types"
 )
 
 var _ = Describe("KustomizationReconciler", func() {
@@ -128,6 +129,7 @@ var _ = Describe("KustomizationReconciler", func() {
 					Interval: metav1.Duration{Duration: reconciliationInterval},
 					Path:     "./",
 					Prune:    true,
+					Images:   nil,
 					SourceRef: kustomizev1.CrossNamespaceSourceReference{
 						Kind: sourcev1.GitRepositoryKind,
 						Name: repository.Name,
@@ -138,6 +140,15 @@ var _ = Describe("KustomizationReconciler", func() {
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), k)).Should(Succeed())
+
+			k.Spec.Images = []kustypes.Image{
+				{
+					Name:    "test",
+					NewName: "new-name",
+					NewTag:  "new-tag",
+				},
+			}
+			Expect(k8sClient.Update(context.Background(), k)).Should(Succeed())
 			defer k8sClient.Delete(context.Background(), k)
 
 			got := &kustomizev1.Kustomization{}
