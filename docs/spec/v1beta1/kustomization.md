@@ -93,19 +93,14 @@ This can be used with Cluster API:
 
 ```go
 type KubeConfig struct {
-	// The secret name containing a 'value' key with the kubeconfig file as the value.
-	// This secret must be in the same Namespace as the Kustomization.
-	// KubeConfig secrets maintained by Cluster API bootstrap providers can be used here.
-	// (ex: If your CAPI Cluster's name is `stage`, set this to `stage-kubeconfig`.
-	// Ensure the Kustomization is in the same Namespace as the Cluster object.
-	// Ref: https://github.com/kubernetes-sigs/cluster-api/blob/release-0.3/util/secret/consts.go#L24)
-	// The reconciliation clients are regularly refreshed from the Secret, so
-	// rotating kubeconfigs for KaaS control-planes from cloud-providers are supported.
-	// These kubeconfigs follow the same design constraints as Cluster API.
-	// It is recommended that kubeconfigs be self-contained, and the Secret be
-	// regularly updated if credentials such as a cloud-access-token expire.
-	// Cloud-specific `cmd-path` auth helpers will not function without adding
-	// binaries and credentials to the kustomize-controller Pod.
+	// SecretRef holds the name to a secret that contains a 'value' key with
+	// the kubeconfig file as the value. It must be in the same namespace as
+	// the Kustomization.
+	// It is recommended that the kubeconfig is self-contained, and the secret
+	// is regularly updated if credentials such as a cloud-access-token expire.
+	// Cloud specific `cmd-path` auth helpers will not function without adding
+	// binaries and credentials to the Pod that is responsible for reconciling
+	// the Kustomization.
 	// +required
 	SecretRef corev1.LocalObjectReference `json:"secretRef,omitempty"`
 }
@@ -498,18 +493,19 @@ account. If the kustomization contains cluster level objects like CRDs or object
 namespace, the reconciliation will fail since the account it runs under has no permissions to alter objects
 outside of the `webapp` namespace.
 
-## Cluster-API / Remote Clusters
+## Remote Clusters / Cluster-API
 
 If the `kubeConfig` field is set, objects will be applied, health-checked, pruned, and deleted for the default
 cluster specified in that KubeConfig instead of using the in-cluster ServiceAccount.
 
-This is done by specifying a KubeConfig from a Secret in the same Namespace as the Kustomization.
-The KubeConfig bytes are loaded from the `value` key of the Secret's data.
-This Secret can be regularly updated if cluster-access-tokens have to rotate due to expiration.
+The secret defined in the `kubeConfig.SecretRef` must exist in the same namespace as the Kustomization.
+On every reconciliation, the KubeConfig bytes will be loaded from the `values` key of the secret's data, and
+the secret can thus be regularly updated if cluster-access-tokens have to rotate due to expiration.
 
-This composes well with Cluster API bootstrap providers such as CAPBK(kubeadm) as well as the CAPA(aws) EKS integration.
+This composes well with Cluster API bootstrap providers such as CAPBK (kubeadm) as well as the CAPA (AWS) EKS
+integration.
 
-To reconcile a kustomization to a CAPI controlled cluster, put the `Kustomization` in the same Namespace as your
+To reconcile a Kustomization to a CAPI controlled cluster, put the `Kustomization` in the same namespace as your
 `Cluster` object, and set the `kubeConfig.secretRef.name` to `<cluster-name>-kubeconfig`:
 
 ```yaml
@@ -560,8 +556,9 @@ spec:
 The Cluster and Kustomization can be created at the same time.
 The Kustomization will eventually reconcile once the cluster is available.
 
-If you wish to target clusters created by other means than CAPI, you can create a ServiceAccount on the remote cluster,
-generate a kube config for that account, then create a secret on the cluster where kustomize-controller is running e.g.:
+If you wish to target clusters created by other means than CAPI, you can create a ServiceAccount
+on the remote cluster, generate a KubeConfig for that account, and then create a secret on the
+cluster where kustomize-controller is running e.g.:
 
 ```sh
 kubectl create secret generic prod-kubeconfig \
