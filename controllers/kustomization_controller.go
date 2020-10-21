@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
 	kustypes "sigs.k8s.io/kustomize/api/types"
@@ -83,47 +84,18 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	log := r.Log.WithValues("controller", strings.ToLower(kustomizev1.KustomizationKind), "request", req.NamespacedName)
 
-	// Examine if the object is under deletion
-	if kustomization.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !containsString(kustomization.ObjectMeta.Finalizers, kustomizev1.KustomizationFinalizer) {
-			kustomization.ObjectMeta.Finalizers = append(kustomization.ObjectMeta.Finalizers, kustomizev1.KustomizationFinalizer)
-			if err := r.Update(ctx, &kustomization); err != nil {
-				log.Error(err, "unable to register finalizer")
-				return ctrl.Result{}, err
-			}
+	// Add our finalizer if it does not exist
+	if !controllerutil.ContainsFinalizer(&kustomization, kustomizev1.KustomizationFinalizer) {
+		controllerutil.AddFinalizer(&kustomization, kustomizev1.KustomizationFinalizer)
+		if err := r.Update(ctx, &kustomization); err != nil {
+			log.Error(err, "unable to register finalizer")
+			return ctrl.Result{}, err
 		}
-	} else {
-		// The object is being deleted
-		if containsString(kustomization.ObjectMeta.Finalizers, kustomizev1.KustomizationFinalizer) {
-			// Our finalizer is still present, so lets handle garbage collection
-			if kustomization.Spec.Prune && !kustomization.Spec.Suspend {
-				// create any necessary kube-clients
-				client, _, err := r.newKustomizationClient(kustomization)
-				if err != nil {
-					err = fmt.Errorf("Failed to build kube client for Kustomization: %w", err)
-					log.Error(err, "Unable to prune for finalizer")
-					return ctrl.Result{}, err
-				}
-				if err := r.prune(client, kustomization, kustomization.Status.Snapshot, true); err != nil {
-					r.event(kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
-					// Return the error so we retry the failed garbage collection
-					return ctrl.Result{}, err
-				}
-			}
-			// Record deleted status
-			r.recordReadiness(kustomization, true)
+	}
 
-			// Remove our finalizer from the list and update it
-			kustomization.ObjectMeta.Finalizers = removeString(kustomization.ObjectMeta.Finalizers, kustomizev1.KustomizationFinalizer)
-			if err := r.Update(ctx, &kustomization); err != nil {
-				return ctrl.Result{}, err
-			}
-			// Stop reconciliation as the object is being deleted
-			return ctrl.Result{}, nil
-		}
+	// Examine if the object is under deletion
+	if !kustomization.ObjectMeta.DeletionTimestamp.IsZero() {
+		return r.reconcileDelete(ctx, log, kustomization)
 	}
 
 	if kustomization.Spec.Suspend {
@@ -517,6 +489,35 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 	return kustomizev1.NewSnapshot(resources, checksum)
 }
 
+func (r *KustomizationReconciler) reconcileDelete(ctx context.Context, log logr.Logger, kustomization kustomizev1.Kustomization) (ctrl.Result, error) {
+	if kustomization.Spec.Prune && !kustomization.Spec.Suspend {
+		// create any necessary kube-clients
+		client, _, err := r.newKustomizationClient(kustomization)
+		if err != nil {
+			err = fmt.Errorf("failed to build kube client for Kustomization: %w", err)
+			log.Error(err, "Unable to prune for finalizer")
+			return ctrl.Result{}, err
+		}
+		if err := r.prune(client, kustomization, kustomization.Status.Snapshot, true); err != nil {
+			r.event(kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
+			// Return the error so we retry the failed garbage collection
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Record deleted status
+	r.recordReadiness(kustomization, true)
+
+	// Remove our finalizer from the list and update it
+	controllerutil.RemoveFinalizer(&kustomization, kustomizev1.KustomizationFinalizer)
+	if err := r.Update(ctx, &kustomization); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Stop reconciliation as the object is being deleted
+	return ctrl.Result{}, nil
+}
+
 func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomization, dirPath string) error {
 	if kustomization.Spec.Validation == "" {
 		return nil
@@ -903,14 +904,4 @@ func containsString(slice []string, s string) bool {
 		}
 	}
 	return false
-}
-
-func removeString(slice []string, s string) (result []string) {
-	for _, item := range slice {
-		if item == s {
-			continue
-		}
-		result = append(result, item)
-	}
-	return
 }
