@@ -753,7 +753,7 @@ func (r *KustomizationReconciler) checkHealth(statusPoller *polling.StatusPoller
 		return err
 	}
 
-	if kustomization.Status.LastAppliedRevision != revision && (changed || len(kustomization.Spec.DependsOn) > 0) {
+	if kustomization.Status.LastAppliedRevision != revision && changed {
 		r.event(kustomization, revision, events.EventSeverityInfo, "Health check passed", nil)
 	}
 	return nil
