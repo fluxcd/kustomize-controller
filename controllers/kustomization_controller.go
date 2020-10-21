@@ -334,7 +334,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// apply
-	err = r.applyWithRetry(kustomization, source.GetArtifact().Revision, dirPath, 5*time.Second)
+	changeSet, err := r.applyWithRetry(kustomization, source.GetArtifact().Revision, dirPath, 5*time.Second)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -367,7 +367,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// health assessment
-	err = r.checkHealth(statusPoller, kustomization, source.GetArtifact().Revision)
+	err = r.checkHealth(statusPoller, kustomization, source.GetArtifact().Revision, changeSet != "")
 	if err != nil {
 		return kustomizev1.KustomizationNotReadySnapshot(
 			kustomization,
@@ -685,7 +685,7 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	return changeSet, nil
 }
 
-func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kustomization, revision, dirPath string, delay time.Duration) error {
+func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kustomization, revision, dirPath string, delay time.Duration) (string, error) {
 	changeSet, err := r.apply(kustomization, dirPath)
 	if err != nil {
 		// retry apply due to CRD/CR race
@@ -696,21 +696,21 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 				"kustomization", fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()))
 			time.Sleep(delay)
 			if changeSet, err := r.apply(kustomization, dirPath); err != nil {
-				return err
+				return "", err
 			} else {
 				if changeSet != "" {
 					r.event(kustomization, revision, events.EventSeverityInfo, changeSet, nil)
 				}
 			}
 		} else {
-			return err
+			return "", err
 		}
 	} else {
 		if changeSet != "" && kustomization.Status.LastAppliedRevision != revision {
 			r.event(kustomization, revision, events.EventSeverityInfo, changeSet, nil)
 		}
 	}
-	return nil
+	return changeSet, nil
 }
 
 func (r *KustomizationReconciler) prune(client client.Client, kustomization kustomizev1.Kustomization, snapshot *kustomizev1.Snapshot, force bool) error {
@@ -742,7 +742,7 @@ func (r *KustomizationReconciler) prune(client client.Client, kustomization kust
 	return nil
 }
 
-func (r *KustomizationReconciler) checkHealth(statusPoller *polling.StatusPoller, kustomization kustomizev1.Kustomization, revision string) error {
+func (r *KustomizationReconciler) checkHealth(statusPoller *polling.StatusPoller, kustomization kustomizev1.Kustomization, revision string, changed bool) error {
 	if len(kustomization.Spec.HealthChecks) == 0 {
 		return nil
 	}
@@ -753,7 +753,7 @@ func (r *KustomizationReconciler) checkHealth(statusPoller *polling.StatusPoller
 		return err
 	}
 
-	if kustomization.Status.LastAppliedRevision != revision {
+	if kustomization.Status.LastAppliedRevision != revision && (changed || len(kustomization.Spec.DependsOn) > 0) {
 		r.event(kustomization, revision, events.EventSeverityInfo, "Health check passed", nil)
 	}
 	return nil
