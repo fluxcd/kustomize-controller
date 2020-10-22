@@ -250,8 +250,8 @@ spec:
                   attempt.
                 type: string
               lastHandledReconcileAt:
-                description: LastHandledReconcileAt is the last manual reconciliation
-                  request (by annotating the Kustomization) handled by the reconciler.
+                description: LastHandledReconcileAt holds the value of the most recent
+                  reconcile request value, so a change can be detected.
                 type: string
               observedGeneration:
                 description: ObservedGeneration is the last reconciled generation.

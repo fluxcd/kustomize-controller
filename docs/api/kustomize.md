@@ -748,15 +748,15 @@ string
 </tr>
 <tr>
 <td>
-<code>lastHandledReconcileAt</code><br>
+<code>ReconcileRequestStatus</code><br>
 <em>
-string
+github.com/fluxcd/pkg/apis/meta.ReconcileRequestStatus
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>LastHandledReconcileAt is the last manual reconciliation request (by
-annotating the Kustomization) handled by the reconciler.</p>
+<p>
+(Members of <code>ReconcileRequestStatus</code> are embedded into this type.)
+</p>
 </td>
 </tr>
 <tr>
