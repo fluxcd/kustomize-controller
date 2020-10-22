@@ -750,7 +750,9 @@ string
 <td>
 <code>ReconcileRequestStatus</code><br>
 <em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#ReconcileRequestStatus">
 github.com/fluxcd/pkg/apis/meta.ReconcileRequestStatus
+</a>
 </em>
 </td>
 <td>
