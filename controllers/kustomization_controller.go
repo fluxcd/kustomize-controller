@@ -232,8 +232,8 @@ func (r *KustomizationReconciler) reconcile(
 	kustomization kustomizev1.Kustomization,
 	source sourcev1.Source) (kustomizev1.Kustomization, error) {
 	// record the value of the reconciliation request, if any
-	if v, ok := kustomization.GetAnnotations()[meta.ReconcileAtAnnotation]; ok {
-		kustomization.Status.LastHandledReconcileAt = v
+	if v, ok := meta.ReconcileAnnotationValue(kustomization.GetAnnotations()); ok {
+		kustomization.Status.SetLastHandledReconcileRequest(v)
 	}
 
 	// create tmp dir
