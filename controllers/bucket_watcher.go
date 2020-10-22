@@ -23,15 +23,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
-	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/dependency"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 )
@@ -80,7 +77,7 @@ func (r *BucketWatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// trigger apply for each kustomization using this Bucket taking into account the dependency order
 	for _, k := range sorted {
 		name := types.NamespacedName(k)
-		if err := r.requestReconciliation(name); err != nil {
+		if err := requestReconciliation(r, name); err != nil {
 			log.Error(err, "unable to annotate Kustomization", "kustomization", name)
 			continue
 		}
@@ -113,20 +110,4 @@ func (r *BucketWatcher) SetupWithManager(mgr ctrl.Manager) error {
 		For(&sourcev1.Bucket{}).
 		WithEventFilter(BucketRevisionChangePredicate{}).
 		Complete(r)
-}
-
-func (r *BucketWatcher) requestReconciliation(name types.NamespacedName) error {
-	var kustomization kustomizev1.Kustomization
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
-		if err := r.Get(context.TODO(), name, &kustomization); err != nil {
-			return err
-		}
-
-		if kustomization.Annotations == nil {
-			kustomization.Annotations = make(map[string]string)
-		}
-		kustomization.Annotations[meta.ReconcileAtAnnotation] = metav1.Now().String()
-		err = r.Update(context.TODO(), &kustomization)
-		return
-	})
 }

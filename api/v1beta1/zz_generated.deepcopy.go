@@ -210,6 +210,7 @@ func (in *KustomizationStatus) DeepCopyInto(out *KustomizationStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	out.ReconcileRequestStatus = in.ReconcileRequestStatus
 	if in.Snapshot != nil {
 		in, out := &in.Snapshot, &out.Snapshot
 		*out = new(Snapshot)
