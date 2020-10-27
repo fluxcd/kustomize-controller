@@ -39,15 +39,20 @@ import (
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/dependency"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/predicates"
@@ -56,6 +61,11 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
+
+// +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets;gitrepositories,verbs=get;list;watch
 
 // KustomizationReconciler reconciles a Kustomization object
 type KustomizationReconciler struct {
@@ -69,9 +79,61 @@ type KustomizationReconciler struct {
 	StatusPoller          *polling.StatusPoller
 }
 
-// +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+type KustomizationReconcilerOptions struct {
+	MaxConcurrentReconciles   int
+	DependencyRequeueInterval time.Duration
+}
+
+func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
+	// Index the Kustomizations by the GitRepository references they (may) point at.
+	if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &kustomizev1.Kustomization{}, kustomizev1.SourceIndexKey,
+		func(rawObj runtime.Object) []string {
+			k := rawObj.(*kustomizev1.Kustomization)
+			if k.Spec.SourceRef.Kind == sourcev1.GitRepositoryKind {
+				namespace := k.GetNamespace()
+				if k.Spec.SourceRef.Namespace != "" {
+					namespace = k.Spec.SourceRef.Namespace
+				}
+				return []string{fmt.Sprintf("%s/%s", namespace, k.Spec.SourceRef.Name)}
+			}
+			return nil
+		},
+	); err != nil {
+		return err
+	}
+	// Index the Kustomizations by the Bucket references they (may) point at.
+	if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &kustomizev1.Kustomization{}, kustomizev1.BucketIndexKey,
+		func(rawObj runtime.Object) []string {
+			k := rawObj.(*kustomizev1.Kustomization)
+			if k.Spec.SourceRef.Kind == sourcev1.BucketKind {
+				namespace := k.GetNamespace()
+				if k.Spec.SourceRef.Namespace != "" {
+					namespace = k.Spec.SourceRef.Namespace
+				}
+				return []string{fmt.Sprintf("%s/%s", namespace, k.Spec.SourceRef.Name)}
+			}
+			return nil
+		},
+	); err != nil {
+		return err
+	}
+
+	r.requeueDependency = opts.DependencyRequeueInterval
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&kustomizev1.Kustomization{}, builder.WithPredicates(predicates.ChangePredicate{})).
+		Watches(
+			&source.Kind{Type: &sourcev1.GitRepository{}},
+			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(r.kustomizationsForGitRepository)},
+			builder.WithPredicates(GitRepositoryRevisionChangePredicate{}),
+		).
+		Watches(
+			&source.Kind{Type: &sourcev1.Bucket{}},
+			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(r.kustomizationsForBucket)},
+			builder.WithPredicates(BucketRevisionChangePredicate{}),
+		).
+		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
+		Complete(r)
+}
 
 func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -212,20 +274,6 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		"Update completed", map[string]string{"commit_status": "update"})
 	r.recordReadiness(reconciledKustomization, false)
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
-}
-
-type KustomizationReconcilerOptions struct {
-	MaxConcurrentReconciles   int
-	DependencyRequeueInterval time.Duration
-}
-
-func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
-	r.requeueDependency = opts.DependencyRequeueInterval
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&kustomizev1.Kustomization{}).
-		WithEventFilter(predicates.ChangePredicate{}).
-		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
-		Complete(r)
 }
 
 func (r *KustomizationReconciler) reconcile(
@@ -803,6 +851,58 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 	}
 
 	return nil
+}
+
+func (r *KustomizationReconciler) kustomizationsForGitRepository(obj handler.MapObject) []reconcile.Request {
+	ctx := context.Background()
+	var list kustomizev1.KustomizationList
+	if err := r.List(ctx, &list, client.MatchingFields{
+		kustomizev1.SourceIndexKey: fmt.Sprintf("%s/%s", obj.Meta.GetNamespace(), obj.Meta.GetName()),
+	}); err != nil {
+		r.Log.Error(err, "failed to list Kustomizations for GitRepository")
+		return nil
+	}
+	var dd []dependency.Dependent
+	for _, d := range list.Items {
+		dd = append(dd, d)
+	}
+	sorted, err := dependency.Sort(dd)
+	if err != nil {
+		r.Log.Error(err, "unable to dependency sort Kustomization list")
+		return nil
+	}
+	reqs := make([]reconcile.Request, len(sorted), len(sorted))
+	for i := range sorted {
+		reqs[i].NamespacedName.Name = sorted[i].Name
+		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
+	}
+	return reqs
+}
+
+func (r *KustomizationReconciler) kustomizationsForBucket(obj handler.MapObject) []reconcile.Request {
+	ctx := context.Background()
+	var list kustomizev1.KustomizationList
+	if err := r.List(ctx, &list, client.MatchingFields{
+		kustomizev1.BucketIndexKey: fmt.Sprintf("%s/%s", obj.Meta.GetNamespace(), obj.Meta.GetName()),
+	}); err != nil {
+		r.Log.Error(err, "failed to list Kustomizations for GitRepository")
+		return nil
+	}
+	var dd []dependency.Dependent
+	for _, d := range list.Items {
+		dd = append(dd, d)
+	}
+	sorted, err := dependency.Sort(dd)
+	if err != nil {
+		r.Log.Error(err, "unable to dependency sort Kustomization list")
+		return nil
+	}
+	reqs := make([]reconcile.Request, len(sorted), len(sorted))
+	for i := range sorted {
+		reqs[i].NamespacedName.Name = sorted[i].Name
+		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
+	}
+	return reqs
 }
 
 func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization, revision, severity, msg string, metadata map[string]string) {
