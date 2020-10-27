@@ -115,22 +115,6 @@ func main() {
 
 	setupChecks(mgr)
 
-	if err = (&controllers.GitRepositoryWatcher{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName(sourcev1.GitRepositoryKind),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", sourcev1.GitRepositoryKind)
-		os.Exit(1)
-	}
-	if err = (&controllers.BucketWatcher{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName(sourcev1.BucketKind),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", sourcev1.BucketKind)
-		os.Exit(1)
-	}
 	if err = (&controllers.KustomizationReconciler{
 		Client:                mgr.GetClient(),
 		Log:                   ctrl.Log.WithName("controllers").WithName(kustomizev1.KustomizationKind),
