@@ -28,6 +28,16 @@ rules:
 - apiGroups:
   - kustomize.toolkit.fluxcd.io
   resources:
+  - kustomizations/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - kustomize.toolkit.fluxcd.io
+  resources:
   - kustomizations/status
   verbs:
   - get
