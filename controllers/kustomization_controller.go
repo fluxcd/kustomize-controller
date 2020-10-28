@@ -125,12 +125,12 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(predicates.ChangePredicate{})).
 		Watches(
 			&source.Kind{Type: &sourcev1.GitRepository{}},
-			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(r.kustomizationsForGitRepository)},
+			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(r.requestsForGitRepositoryRevisionChange)},
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
 			&source.Kind{Type: &sourcev1.Bucket{}},
-			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(r.kustomizationsForBucket)},
+			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(r.requestsForBucketRevisionChange)},
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
@@ -855,7 +855,16 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 	return nil
 }
 
-func (r *KustomizationReconciler) kustomizationsForGitRepository(obj handler.MapObject) []reconcile.Request {
+func (r *KustomizationReconciler) requestsForGitRepositoryRevisionChange(obj handler.MapObject) []reconcile.Request {
+	repo, ok := obj.Object.(*sourcev1.GitRepository)
+	if !ok {
+		panic(fmt.Sprintf("Expected a GitRepository but got a %T", obj))
+	}
+	// If we do not have an artifact, we have no requests to make
+	if repo.GetArtifact() == nil {
+		return nil
+	}
+
 	ctx := context.Background()
 	var list kustomizev1.KustomizationList
 	if err := r.List(ctx, &list, client.MatchingFields{
@@ -866,6 +875,11 @@ func (r *KustomizationReconciler) kustomizationsForGitRepository(obj handler.Map
 	}
 	var dd []dependency.Dependent
 	for _, d := range list.Items {
+		// If the revision of the artifact equals to the last attempted revision,
+		// we should not make a request for this Kustomization
+		if repo.GetArtifact().Revision == d.Status.LastAttemptedRevision {
+			continue
+		}
 		dd = append(dd, d)
 	}
 	sorted, err := dependency.Sort(dd)
@@ -878,22 +892,38 @@ func (r *KustomizationReconciler) kustomizationsForGitRepository(obj handler.Map
 		reqs[i].NamespacedName.Name = sorted[i].Name
 		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
 
-		r.Log.Info("requesting reconciliation", kustomizev1.KustomizationKind, reqs[i].NamespacedName)
+		r.Log.Info("requesting reconciliation due to GitRepository revision change",
+			strings.ToLower(kustomizev1.KustomizationKind), &reqs[i].NamespacedName,
+			"revision", repo.GetArtifact().Revision)
 	}
 	return reqs
 }
 
-func (r *KustomizationReconciler) kustomizationsForBucket(obj handler.MapObject) []reconcile.Request {
+func (r *KustomizationReconciler) requestsForBucketRevisionChange(obj handler.MapObject) []reconcile.Request {
+	bucket, ok := obj.Object.(*sourcev1.Bucket)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Bucket but got a %T", obj))
+	}
+	// If we do not have an artifact, we have no requests to make
+	if bucket.GetArtifact() == nil {
+		return nil
+	}
+
 	ctx := context.Background()
 	var list kustomizev1.KustomizationList
 	if err := r.List(ctx, &list, client.MatchingFields{
 		kustomizev1.BucketIndexKey: fmt.Sprintf("%s/%s", obj.Meta.GetNamespace(), obj.Meta.GetName()),
 	}); err != nil {
-		r.Log.Error(err, "failed to list Kustomizations for GitRepository")
+		r.Log.Error(err, "failed to list Kustomizations for Bucket")
 		return nil
 	}
 	var dd []dependency.Dependent
 	for _, d := range list.Items {
+		// If the revision of the artifact equals to the last attempted revision,
+		// we should not make a request for this Kustomization
+		if bucket.GetArtifact().Revision == d.Status.LastAttemptedRevision {
+			continue
+		}
 		dd = append(dd, d)
 	}
 	sorted, err := dependency.Sort(dd)
@@ -906,7 +936,9 @@ func (r *KustomizationReconciler) kustomizationsForBucket(obj handler.MapObject)
 		reqs[i].NamespacedName.Name = sorted[i].Name
 		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
 
-		r.Log.Info("requesting reconciliation", kustomizev1.KustomizationKind, reqs[i].NamespacedName)
+		r.Log.Info("requesting reconciliation due to Bucket revision change",
+			strings.ToLower(kustomizev1.KustomizationKind), &reqs[i].NamespacedName,
+			"revision", bucket.GetArtifact().Revision)
 	}
 	return reqs
 }
