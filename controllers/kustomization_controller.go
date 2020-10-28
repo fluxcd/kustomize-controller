@@ -64,8 +64,10 @@ import (
 
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations/finalizers,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets;gitrepositories,verbs=get;list;watch
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets/status;gitrepositories/status,verbs=get
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // KustomizationReconciler reconciles a Kustomization object
 type KustomizationReconciler struct {
@@ -875,6 +877,8 @@ func (r *KustomizationReconciler) kustomizationsForGitRepository(obj handler.Map
 	for i := range sorted {
 		reqs[i].NamespacedName.Name = sorted[i].Name
 		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
+
+		r.Log.Info("requesting reconciliation", kustomizev1.KustomizationKind, reqs[i].NamespacedName)
 	}
 	return reqs
 }
@@ -901,6 +905,8 @@ func (r *KustomizationReconciler) kustomizationsForBucket(obj handler.MapObject)
 	for i := range sorted {
 		reqs[i].NamespacedName.Name = sorted[i].Name
 		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
+
+		r.Log.Info("requesting reconciliation", kustomizev1.KustomizationKind, reqs[i].NamespacedName)
 	}
 	return reqs
 }
