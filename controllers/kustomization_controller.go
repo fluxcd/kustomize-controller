@@ -126,12 +126,12 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 		Watches(
 			&source.Kind{Type: &sourcev1.GitRepository{}},
 			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(r.kustomizationsForGitRepository)},
-			builder.WithPredicates(GitRepositoryRevisionChangePredicate{}),
+			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
 			&source.Kind{Type: &sourcev1.Bucket{}},
 			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(r.kustomizationsForBucket)},
-			builder.WithPredicates(BucketRevisionChangePredicate{}),
+			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
 		Complete(r)
