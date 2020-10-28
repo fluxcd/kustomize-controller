@@ -23,41 +23,41 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 )
 
-type BucketRevisionChangePredicate struct {
+type SourceRevisionChangePredicate struct {
 	predicate.Funcs
 }
 
-func (BucketRevisionChangePredicate) Update(e event.UpdateEvent) bool {
+func (SourceRevisionChangePredicate) Update(e event.UpdateEvent) bool {
 	if e.MetaOld == nil || e.MetaNew == nil {
 		return false
 	}
 
-	oldRepo, ok := e.ObjectOld.(*sourcev1.Bucket)
+	oldSource, ok := e.ObjectOld.(sourcev1.Source)
 	if !ok {
 		return false
 	}
 
-	newRepo, ok := e.ObjectNew.(*sourcev1.Bucket)
+	newSource, ok := e.ObjectNew.(sourcev1.Source)
 	if !ok {
 		return false
 	}
 
-	if oldRepo.GetArtifact() == nil && newRepo.GetArtifact() != nil {
+	if oldSource.GetArtifact() == nil && newSource.GetArtifact() != nil {
 		return true
 	}
 
-	if oldRepo.GetArtifact() != nil && newRepo.GetArtifact() != nil &&
-		oldRepo.GetArtifact().Checksum != newRepo.GetArtifact().Checksum {
+	if oldSource.GetArtifact() != nil && newSource.GetArtifact() != nil &&
+		oldSource.GetArtifact().Revision != newSource.GetArtifact().Revision {
 		return true
 	}
 
 	return false
 }
 
-func (BucketRevisionChangePredicate) Create(e event.CreateEvent) bool {
+func (SourceRevisionChangePredicate) Create(e event.CreateEvent) bool {
 	return false
 }
 
-func (BucketRevisionChangePredicate) Delete(e event.DeleteEvent) bool {
+func (SourceRevisionChangePredicate) Delete(e event.DeleteEvent) bool {
 	return false
 }
