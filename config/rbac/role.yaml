@@ -42,3 +42,10 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - buckets/status
+  - gitrepositories/status
+  verbs:
+  - get
