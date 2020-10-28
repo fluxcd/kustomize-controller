@@ -875,6 +875,8 @@ func (r *KustomizationReconciler) kustomizationsForGitRepository(obj handler.Map
 	for i := range sorted {
 		reqs[i].NamespacedName.Name = sorted[i].Name
 		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
+
+		r.Log.Info("requesting reconciliation", kustomizev1.KustomizationKind, reqs[i].NamespacedName)
 	}
 	return reqs
 }
@@ -901,6 +903,8 @@ func (r *KustomizationReconciler) kustomizationsForBucket(obj handler.MapObject)
 	for i := range sorted {
 		reqs[i].NamespacedName.Name = sorted[i].Name
 		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
+
+		r.Log.Info("requesting reconciliation", kustomizev1.KustomizationKind, reqs[i].NamespacedName)
 	}
 	return reqs
 }
