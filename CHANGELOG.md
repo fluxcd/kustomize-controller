@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.2.0 (2020-10-29)
+
+This is the second MINOR prerelease, it comes with breaking changes:
+* the histogram metric `gotk_reconcile_duration` was renamed to `gotk_reconcile_duration_seconds`
+* the annotation `fluxcd.io/reconcileAt` was renamed to `reconcile.fluxcd.io/requestedAt`
+
+Improvements:
+* Refactor predicates and enqueuers
+    [#156](https://github.com/fluxcd/kustomize-controller/pull/156)
+    [#155](https://github.com/fluxcd/kustomize-controller/pull/155)
+    [#153](https://github.com/fluxcd/kustomize-controller/pull/153)
+* Use annotation helpers
+    [#152](https://github.com/fluxcd/kustomize-controller/pull/152)
+* Suppress health check events when no changes made
+    [#151](https://github.com/fluxcd/kustomize-controller/pull/151)
+* Use controller-runtime utils for finalizer and health checks
+    [#150](https://github.com/fluxcd/kustomize-controller/pull/150)
+* Improve remote cluster documentation
+    [#148](https://github.com/fluxcd/kustomize-controller/pull/148)
+
 ## 0.1.2 (2020-10-16)
 
 This prerelease comes with support for

@@ -37,16 +37,16 @@ to acquire the Kubernetes manifests from Git repositories and S3 compatible stor
 
 ### Install the toolkit controllers
 
-Download the [toolkit CLI](https://github.com/fluxcd/toolkit/tree/master/install):
+Download the flux CLI:
 
 ```bash
 curl -s https://toolkit.fluxcd.io/install.sh | sudo bash
 ```
 
-Install the toolkit controllers in the `gotk-system` namespace:
+Install the toolkit controllers in the `flux-system` namespace:
 
 ```bash
-gotk install
+flux install
 ```
 
 ### Define a Git repository source
@@ -58,7 +58,7 @@ apiVersion: source.toolkit.fluxcd.io/v1beta1
 kind: GitRepository
 metadata:
   name: podinfo
-  namespace: gotk-system
+  namespace: flux-system
 spec:
   interval: 1m
   url: https://github.com/stefanprodan/podinfo
@@ -73,13 +73,13 @@ Save the above file and apply it on the cluster.
 You can wait for the source controller to assemble an artifact from the head of the repo master branch with:
 
 ```bash
-kubectl -n gotk-system wait gitrepository/podinfo --for=condition=ready
+kubectl -n flux-system wait gitrepository/podinfo --for=condition=ready
 ```
 
 The source controller will check for new commits in the master branch every minute. You can force a git sync with:
 
 ```bash
-kubectl -n gotk-system annotate --overwrite gitrepository/podinfo fluxcd.io/reconcileAt="$(date +%s)"
+kubectl -n flux-system annotate --overwrite gitrepository/podinfo reconcile.fluxcd.io/requestedAt="$(date +%s)"
 ```
 
 ### Define a kustomization
@@ -91,7 +91,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: podinfo-dev
-  namespace: gotk-system
+  namespace: flux-system
 spec:
   interval: 5m
   path: "./deploy/overlays/dev/"
@@ -128,13 +128,13 @@ Kustomization object status transitions to a ready state.
 You can wait for the kustomize controller to complete the deployment with:
 
 ```bash
-kubectl -n gotk-system wait kustomization/podinfo-dev --for=condition=ready
+kubectl -n flux-system wait kustomization/podinfo-dev --for=condition=ready
 ```
 
 When the controller finishes the reconciliation, it will log the applied objects:
 
 ```bash
-kubectl -n gotk-system logs deploy/kustomize-controller | jq .
+kubectl -n flux-system logs deploy/kustomize-controller | jq .
 ```
 
 ```json
@@ -143,7 +143,7 @@ kubectl -n gotk-system logs deploy/kustomize-controller | jq .
   "ts": "2020-09-17T07:27:11.921Z",
   "logger": "controllers.Kustomization",
   "msg": "Kustomization applied in 1.436096591s",
-  "kustomization": "gotk-system/podinfo-dev",
+  "kustomization": "flux-system/podinfo-dev",
   "output": {
     "namespace/dev": "created",
     "service/frontend": "created",
@@ -159,7 +159,7 @@ kubectl -n gotk-system logs deploy/kustomize-controller | jq .
 You can trigger a kustomization reconciliation any time with:
 
 ```bash
-kubectl -n gotk-system annotate --overwrite kustomization/podinfo-dev \
+kubectl -n flux-system annotate --overwrite kustomization/podinfo-dev \
 fluxcd.io/reconcileAt="$(date +%s)"
 ```
 
@@ -180,7 +180,7 @@ status:
 
 ```json
 {
-  "kustomization": "gotk-system/podinfo-dev",
+  "kustomization": "flux-system/podinfo-dev",
   "error": "Error from server (NotFound): error when creating podinfo-dev.yaml: namespaces dev not found"
 }
 ```
@@ -198,7 +198,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: istio
-  namespace: gotk-system
+  namespace: flux-system
 spec:
   interval: 10m
   path: "./istio/system/"
@@ -215,7 +215,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: podinfo-dev
-  namespace: gotk-system
+  namespace: flux-system
 spec:
   dependsOn:
     - name: istio
@@ -236,7 +236,7 @@ apiVersion: source.toolkit.fluxcd.io/v1beta1
 kind: GitRepository
 metadata:
   name: podinfo-releases
-  namespace: gotk-system
+  namespace: flux-system
 spec:
   interval: 5m
   url: https://github.com/stefanprodan/podinfo
@@ -254,7 +254,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: podinfo-production
-  namespace: gotk-system
+  namespace: flux-system
 spec:
   interval: 10m
   path: "./deploy/overlays/production/"
@@ -280,7 +280,7 @@ apiVersion: notification.fluxcd.io/v1beta1
 kind: Provider
 metadata:
   name: slack
-  namespace: gotk-system
+  namespace: flux-system
 spec:
   type: slack
   channel: alerts
@@ -291,7 +291,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: slack-url
-  namespace: gotk-system
+  namespace: flux-system
 data:
   address: <encoded-url>
 ```
@@ -303,7 +303,7 @@ apiVersion: notification.fluxcd.io/v1beta1
 kind: Alert
 metadata:
   name: on-call
-  namespace: gotk-system
+  namespace: flux-system
 spec:
   providerRef: 
     name: slack
