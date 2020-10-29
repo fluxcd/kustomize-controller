@@ -36,7 +36,7 @@ FROM alpine:3.12
 
 LABEL org.opencontainers.image.source="https://github.com/fluxcd/kustomize-controller"
 
-RUN apk add --no-cache ca-certificates tini git gnupg
+RUN apk add --no-cache ca-certificates tini git openssh-client gnupg
 
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/
 COPY --from=builder /workspace/kustomize-controller /usr/local/bin/
