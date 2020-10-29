@@ -234,14 +234,14 @@ by annotating the kustomization object with:
 const (
 	// ReconcileAtAnnotation is the annotation used for triggering a
 	// reconciliation outside of the defined schedule.
-	ReconcileAtAnnotation string = "fluxcd.io/reconcileAt"
+	ReconcileAtAnnotation string = "reconcile.fluxcd.io/requestedAt"
 )
 ```
 
 On-demand execution example:
 
 ```bash
-kubectl annotate --overwrite kustomization/podinfo fluxcd.io/reconcileAt="$(date +%s)"
+kubectl annotate --overwrite kustomization/podinfo reconcile.fluxcd.io/requestedAt="$(date +%s)"
 ```
 
 ## Garbage collection
