@@ -137,6 +137,10 @@ spec:
                 description: Path to the directory containing the kustomization file.
                 pattern: ^\./
                 type: string
+              pluginHome:
+                description: Path to the directory containing the plugins.
+                pattern: ^\./
+                type: string
               prune:
                 description: Prune enables garbage collection.
                 type: boolean

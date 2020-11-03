@@ -322,8 +322,23 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
+	pluginHome := ""
+	if kustomization.Spec.PluginHome != "" {
+		pluginHome = path.Join(tmpDir, kustomization.Spec.PluginHome)
+		// check plugin home exists
+		if _, err := os.Stat(pluginHome); err != nil {
+			err = fmt.Errorf("plugin home not found: %w", err)
+			return kustomizev1.KustomizationNotReady(
+				kustomization,
+				source.GetArtifact().Revision,
+				kustomizev1.ArtifactFailedReason,
+				err.Error(),
+			), err
+		}
+	}
+
 	// generate kustomization.yaml and calculate the manifests checksum
-	checksum, err := r.generate(kustomization, dirPath)
+	checksum, err := r.generate(kustomization, dirPath, pluginHome)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -334,7 +349,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// build the kustomization and generate the GC snapshot
-	snapshot, err := r.build(kustomization, checksum, dirPath)
+	snapshot, err := r.build(kustomization, checksum, dirPath, pluginHome)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -477,12 +492,12 @@ func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization k
 	return source, nil
 }
 
-func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
+func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, dirPath string, pluginHome string) (string, error) {
 	gen := NewGenerator(kustomization)
-	return gen.WriteFile(dirPath)
+	return gen.WriteFile(dirPath, pluginHome)
 }
 
-func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, checksum, dirPath string) (*kustomizev1.Snapshot, error) {
+func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, checksum, dirPath string, pluginHome string) (*kustomizev1.Snapshot, error) {
 	timeout := kustomization.GetTimeout()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -504,6 +519,10 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 	opt := krusty.MakeDefaultOptions()
 	opt.LoadRestrictions = kustypes.LoadRestrictionsNone
 	opt.DoLegacyResourceSort = true
+	if pluginHome != "" {
+		opt.PluginConfig.PluginRestrictions = kustypes.PluginRestrictionsNone
+		opt.PluginConfig.AbsPluginHome = pluginHome
+	}
 	k := krusty.MakeKustomizer(fs, opt)
 	m, err := k.Run(dirPath)
 	if err != nil {

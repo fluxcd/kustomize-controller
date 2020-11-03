@@ -138,6 +138,18 @@ string
 </tr>
 <tr>
 <td>
+<code>pluginHome</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Path to the directory containing the plugins.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>prune</code><br>
 <em>
 bool
@@ -567,6 +579,18 @@ string
 </td>
 <td>
 <p>Path to the directory containing the kustomization file.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>pluginHome</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Path to the directory containing the plugins.</p>
 </td>
 </tr>
 <tr>

@@ -49,10 +49,10 @@ func NewGenerator(kustomization kustomizev1.Kustomization) *KustomizeGenerator {
 	}
 }
 
-func (kg *KustomizeGenerator) WriteFile(dirPath string) (string, error) {
+func (kg *KustomizeGenerator) WriteFile(dirPath string, pluginHome string) (string, error) {
 	kfile := filepath.Join(dirPath, kustomizationFileName)
 
-	checksum, err := kg.checksum(dirPath)
+	checksum, err := kg.checksum(dirPath, pluginHome)
 	if err != nil {
 		return "", err
 	}
@@ -190,7 +190,7 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 	return nil
 }
 
-func (kg *KustomizeGenerator) checksum(dirPath string) (string, error) {
+func (kg *KustomizeGenerator) checksum(dirPath string, pluginHome string) (string, error) {
 	if err := kg.generateKustomization(dirPath); err != nil {
 		return "", fmt.Errorf("kustomize create failed: %w", err)
 	}
@@ -199,6 +199,10 @@ func (kg *KustomizeGenerator) checksum(dirPath string) (string, error) {
 	opt := krusty.MakeDefaultOptions()
 	opt.LoadRestrictions = kustypes.LoadRestrictionsNone
 	opt.DoLegacyResourceSort = true
+	if pluginHome != "" {
+		opt.PluginConfig.PluginRestrictions = kustypes.PluginRestrictionsNone
+		opt.PluginConfig.AbsPluginHome = pluginHome
+	}
 	k := krusty.MakeKustomizer(fs, opt)
 	m, err := k.Run(dirPath)
 	if err != nil {
