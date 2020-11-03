@@ -131,3 +131,10 @@ func gcLabels(name, namespace, checksum string) map[string]string {
 		fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group):  checksum,
 	}
 }
+
+func selectorLabels(name, namespace string) map[string]string {
+	return map[string]string{
+		fmt.Sprintf("%s/name", kustomizev1.GroupVersion.Group):      name,
+		fmt.Sprintf("%s/namespace", kustomizev1.GroupVersion.Group): namespace,
+	}
+}

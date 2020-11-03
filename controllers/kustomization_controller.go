@@ -186,7 +186,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	// set the reconciliation status to progressing
 	kustomization = kustomizev1.KustomizationProgressing(kustomization)
 	if err := r.Status().Update(ctx, &kustomization); err != nil {
-		log.Error(err, "unable to update status")
+		log.Error(err, "unable to update status to progressing")
 		return ctrl.Result{Requeue: true}, err
 	}
 	r.recordReadiness(kustomization, false)
@@ -765,13 +765,11 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 }
 
 func (r *KustomizationReconciler) prune(client client.Client, kustomization kustomizev1.Kustomization, snapshot *kustomizev1.Snapshot, force bool) error {
-	if kustomization.Status.Snapshot == nil || snapshot == nil {
+	if !kustomization.Spec.Prune || kustomization.Status.Snapshot == nil || snapshot == nil {
 		return nil
 	}
-	if !force {
-		if kustomization.Status.Snapshot.Checksum == snapshot.Checksum {
-			return nil
-		}
+	if !force && kustomization.Status.Snapshot.Checksum == snapshot.Checksum {
+		return nil
 	}
 
 	gc := NewGarbageCollector(client, *kustomization.Status.Snapshot, r.Log)
