@@ -244,6 +244,14 @@ On-demand execution example:
 kubectl annotate --overwrite kustomization/podinfo reconcile.fluxcd.io/requestedAt="$(date +%s)"
 ```
 
+List all Kubernetes objects reconciled from a Kustomization:
+
+```sh
+kubectl get all --all-namespaces \
+-l=kustomize.toolkit.fluxcd.io/name="<Kustomization name>" \
+-l=kustomize.toolkit.fluxcd.io/namespace="<Kustomization namespace>"
+```
+
 ## Garbage collection
 
 To enable garbage collection, set `spec.prune` to `true`.
@@ -252,6 +260,19 @@ Garbage collection means that the Kubernetes objects that were previously applie
 but are missing from the current source revision, are removed from cluster automatically.
 Garbage collection is also performed when a Kustomization object is deleted,
 triggering a removal of all Kubernetes objects previously applied on the cluster.
+
+To keep track of the Kubernetes objects reconciled from a Kustomization, the following labels 
+are injected into the manifests:
+
+```yaml
+labels:
+  kustomize.toolkit.fluxcd.io/name: "<Kustomization name>"
+  kustomize.toolkit.fluxcd.io/namespace: "<Kustomization namespace>"
+  kustomize.toolkit.fluxcd.io/checksum: "<manifests checksum>"
+```
+
+The checksum label value is updated if the content of `spec.path` changes.
+When pruning is disabled, the checksum label is omitted. 
 
 ## Health assessment
 
