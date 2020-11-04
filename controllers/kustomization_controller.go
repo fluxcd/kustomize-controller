@@ -252,7 +252,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 
 	// update status
-	if err := r.Status().Update(ctx, &reconciledKustomization); err != nil {
+	if err := r.updateStatus(ctx, req, reconciledKustomization.Status); err != nil {
 		log.Error(err, "unable to update status after reconciliation")
 		return ctrl.Result{Requeue: true}, err
 	}
@@ -1031,6 +1031,16 @@ func (r *KustomizationReconciler) newKustomizationClient(kustomization kustomize
 	statusPoller := polling.NewStatusPoller(client, restMapper)
 
 	return client, statusPoller, err
+}
+
+func (r *KustomizationReconciler) updateStatus(ctx context.Context, req ctrl.Request, newStatus kustomizev1.KustomizationStatus) error {
+	var kustomization kustomizev1.Kustomization
+	if err := r.Get(ctx, req.NamespacedName, &kustomization); err != nil {
+		return err
+	}
+
+	kustomization.Status = newStatus
+	return r.Status().Update(ctx, &kustomization)
 }
 
 func containsString(slice []string, s string) bool {
