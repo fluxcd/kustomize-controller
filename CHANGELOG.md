@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.2.1 (2020-11-04)
+
+This prerelease comes with improvements to garbage collection.
+The Kubernetes packages have been updated to v1.19.
+
+Improvements:
+* Update k8s to 1.19 + kustomize 0.6.4
+    [#161](https://github.com/fluxcd/kustomize-controller/pull/161)
+* Add openssh client to support git+ssh Kustomize resources
+    [#159](https://github.com/fluxcd/kustomize-controller/pull/159)
+
+Fixes:
+* Use latest generation when updating final status
+    [#164](https://github.com/fluxcd/kustomize-controller/pull/164)
+* Omit checksum label if GC is disabled
+    [#162](https://github.com/fluxcd/kustomize-controller/pull/162)
+
 ## 0.2.0 (2020-10-29)
 
 This is the second MINOR prerelease, it comes with breaking changes:
