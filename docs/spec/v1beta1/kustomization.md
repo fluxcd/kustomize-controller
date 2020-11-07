@@ -225,7 +225,7 @@ The kustomization `spec.interval` tells the controller at which interval to fetc
 Kubernetes manifest for the source, build the kustomization and apply it on the cluster.
 The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
 
-The kustomization execution can be suspended by setting `spec.susped` to `true`.
+The kustomization execution can be suspended by setting `spec.suspend` to `true`.
 
 The controller can be told to reconcile the kustomization outside of the specified interval
 by annotating the kustomization object with:
