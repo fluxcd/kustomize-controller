@@ -569,7 +569,7 @@ func (r *KustomizationReconciler) reconcileDelete(ctx context.Context, log logr.
 }
 
 func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomization, dirPath string) error {
-	if kustomization.Spec.Validation == "" {
+	if kustomization.Spec.Validation == "" || kustomization.Spec.Validation == "none" {
 		return nil
 	}
 
