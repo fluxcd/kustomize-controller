@@ -239,7 +239,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>Validate the Kubernetes objects before applying them on the cluster.
-The validation strategy can be &lsquo;client&rsquo; (local dry-run) or &lsquo;server&rsquo; (APIServer dry-run).</p>
+The validation strategy can be &lsquo;client&rsquo; (local dry-run), &lsquo;server&rsquo; (APIServer dry-run) or &lsquo;none&rsquo;.</p>
 </td>
 </tr>
 </table>
@@ -672,7 +672,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>Validate the Kubernetes objects before applying them on the cluster.
-The validation strategy can be &lsquo;client&rsquo; (local dry-run) or &lsquo;server&rsquo; (APIServer dry-run).</p>
+The validation strategy can be &lsquo;client&rsquo; (local dry-run), &lsquo;server&rsquo; (APIServer dry-run) or &lsquo;none&rsquo;.</p>
 </td>
 </tr>
 </tbody>
