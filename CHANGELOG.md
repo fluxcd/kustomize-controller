@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.2.2 (2020-11-12)
+
+This prerelease comes with improvements to status reporting.
+The Kustomization dry-run can now be explicitly disabled
+by setting `spec.validation` to `none`.
+
+Improvements:
+* Patch status sub-resource
+    [#171](https://github.com/fluxcd/kustomize-controller/pull/171)
+* Update kustomize/api to v0.6.5
+    [#170](https://github.com/fluxcd/kustomize-controller/pull/170)
+* Allow disabling validation
+    [#168](https://github.com/fluxcd/kustomize-controller/pull/168)
+
 ## 0.2.1 (2020-11-04)
 
 This prerelease comes with improvements to garbage collection.
