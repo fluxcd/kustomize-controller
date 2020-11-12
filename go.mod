@@ -5,12 +5,12 @@ go 1.15
 replace github.com/fluxcd/kustomize-controller/api => ./api
 
 require (
-	github.com/fluxcd/kustomize-controller/api v0.2.1
+	github.com/fluxcd/kustomize-controller/api v0.2.2
 	github.com/fluxcd/pkg/apis/meta v0.2.0
 	github.com/fluxcd/pkg/runtime v0.2.0
 	github.com/fluxcd/pkg/testserver v0.0.2
 	github.com/fluxcd/pkg/untar v0.0.5
-	github.com/fluxcd/source-controller/api v0.2.0
+	github.com/fluxcd/source-controller/api v0.2.1
 	github.com/go-logr/logr v0.2.1
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
 	github.com/onsi/ginkgo v1.12.1
