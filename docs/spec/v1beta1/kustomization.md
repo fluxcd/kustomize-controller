@@ -66,8 +66,8 @@ type KustomizationSpec struct {
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
 	// Validate the Kubernetes objects before applying them on the cluster.
-	// The validation strategy can be 'client' (local dry-run) or 'server' (APIServer dry-run).
-	// +kubebuilder:validation:Enum=client;server
+	// The validation strategy can be 'client' (local dry-run), 'server' (APIServer dry-run) or 'none'.
+	// +kubebuilder:validation:Enum=none;client;server
 	// +optional
 	Validation string `json:"validation,omitempty"`
 }
@@ -225,7 +225,7 @@ The kustomization `spec.interval` tells the controller at which interval to fetc
 Kubernetes manifest for the source, build the kustomization and apply it on the cluster.
 The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
 
-The kustomization execution can be suspended by setting `spec.susped` to `true`.
+The kustomization execution can be suspended by setting `spec.suspend` to `true`.
 
 The controller can be told to reconcile the kustomization outside of the specified interval
 by annotating the kustomization object with:
@@ -244,6 +244,14 @@ On-demand execution example:
 kubectl annotate --overwrite kustomization/podinfo reconcile.fluxcd.io/requestedAt="$(date +%s)"
 ```
 
+List all Kubernetes objects reconciled from a Kustomization:
+
+```sh
+kubectl get all --all-namespaces \
+-l=kustomize.toolkit.fluxcd.io/name="<Kustomization name>" \
+-l=kustomize.toolkit.fluxcd.io/namespace="<Kustomization namespace>"
+```
+
 ## Garbage collection
 
 To enable garbage collection, set `spec.prune` to `true`.
@@ -252,6 +260,19 @@ Garbage collection means that the Kubernetes objects that were previously applie
 but are missing from the current source revision, are removed from cluster automatically.
 Garbage collection is also performed when a Kustomization object is deleted,
 triggering a removal of all Kubernetes objects previously applied on the cluster.
+
+To keep track of the Kubernetes objects reconciled from a Kustomization, the following labels 
+are injected into the manifests:
+
+```yaml
+labels:
+  kustomize.toolkit.fluxcd.io/name: "<Kustomization name>"
+  kustomize.toolkit.fluxcd.io/namespace: "<Kustomization namespace>"
+  kustomize.toolkit.fluxcd.io/checksum: "<manifests checksum>"
+```
+
+The checksum label value is updated if the content of `spec.path` changes.
+When pruning is disabled, the checksum label is omitted. 
 
 ## Health assessment
 

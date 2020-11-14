@@ -218,6 +218,13 @@ func (kg *KustomizeGenerator) checksum(dirPath string, pluginHome string) (strin
 }
 
 func (kg *KustomizeGenerator) generateLabelTransformer(checksum, dirPath string) error {
+	labels := selectorLabels(kg.kustomization.GetName(), kg.kustomization.GetNamespace())
+
+	// add checksum label only if GC is enabled
+	if kg.kustomization.Spec.Prune {
+		labels = gcLabels(kg.kustomization.GetName(), kg.kustomization.GetNamespace(), checksum)
+	}
+
 	var lt = struct {
 		ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
 		Kind       string `json:"kind" yaml:"kind"`
@@ -234,7 +241,7 @@ func (kg *KustomizeGenerator) generateLabelTransformer(checksum, dirPath string)
 		}{
 			Name: kg.kustomization.GetName(),
 		},
-		Labels: gcLabels(kg.kustomization.GetName(), kg.kustomization.GetNamespace(), checksum),
+		Labels: labels,
 		FieldSpecs: []kustypes.FieldSpec{
 			{Path: "metadata/labels", CreateIfNotPresent: true},
 		},

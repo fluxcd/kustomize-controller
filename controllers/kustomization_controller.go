@@ -165,7 +165,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	if kustomization.Spec.Suspend {
 		msg := "Kustomization is suspended, skipping reconciliation"
 		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", meta.SuspendedReason, msg)
-		if err := r.Status().Update(ctx, &kustomization); err != nil {
+		if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
 			log.Error(err, "unable to update status")
 			return ctrl.Result{Requeue: true}, err
 		}
@@ -185,8 +185,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	// set the reconciliation status to progressing
 	kustomization = kustomizev1.KustomizationProgressing(kustomization)
-	if err := r.Status().Update(ctx, &kustomization); err != nil {
-		log.Error(err, "unable to update status")
+	if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
+		log.Error(err, "unable to update status to progressing")
 		return ctrl.Result{Requeue: true}, err
 	}
 	r.recordReadiness(kustomization, false)
@@ -197,8 +197,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		if apierrors.IsNotFound(err) {
 			msg := "Source not found"
 			kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
-			if err := r.Status().Update(ctx, &kustomization); err != nil {
-				log.Error(err, "unable to update status")
+			if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
+				log.Error(err, "unable to update status for source not found")
 				return ctrl.Result{Requeue: true}, err
 			}
 			r.recordReadiness(kustomization, false)
@@ -214,8 +214,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	if source.GetArtifact() == nil {
 		msg := "Source is not ready, artifact not found"
 		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
-		if err := r.Status().Update(ctx, &kustomization); err != nil {
-			log.Error(err, "unable to update status")
+		if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
+			log.Error(err, "unable to update status for artifact not found")
 			return ctrl.Result{Requeue: true}, err
 		}
 		r.recordReadiness(kustomization, false)
@@ -229,8 +229,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		if err := r.checkDependencies(kustomization); err != nil {
 			kustomization = kustomizev1.KustomizationNotReady(
 				kustomization, source.GetArtifact().Revision, meta.DependencyNotReadyReason, err.Error())
-			if err := r.Status().Update(ctx, &kustomization); err != nil {
-				log.Error(err, "unable to update status")
+			if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
+				log.Error(err, "unable to update status for dependency not ready")
 				return ctrl.Result{Requeue: true}, err
 			}
 			// we can't rely on exponential backoff because it will prolong the execution too much,
@@ -252,7 +252,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 
 	// update status
-	if err := r.Status().Update(ctx, &reconciledKustomization); err != nil {
+	if err := r.updateStatus(ctx, req, reconciledKustomization.Status); err != nil {
 		log.Error(err, "unable to update status after reconciliation")
 		return ctrl.Result{Requeue: true}, err
 	}
@@ -588,7 +588,7 @@ func (r *KustomizationReconciler) reconcileDelete(ctx context.Context, log logr.
 }
 
 func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomization, dirPath string) error {
-	if kustomization.Spec.Validation == "" {
+	if kustomization.Spec.Validation == "" || kustomization.Spec.Validation == "none" {
 		return nil
 	}
 
@@ -784,13 +784,11 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 }
 
 func (r *KustomizationReconciler) prune(client client.Client, kustomization kustomizev1.Kustomization, snapshot *kustomizev1.Snapshot, force bool) error {
-	if kustomization.Status.Snapshot == nil || snapshot == nil {
+	if !kustomization.Spec.Prune || kustomization.Status.Snapshot == nil || snapshot == nil {
 		return nil
 	}
-	if !force {
-		if kustomization.Status.Snapshot.Checksum == snapshot.Checksum {
-			return nil
-		}
+	if !force && kustomization.Status.Snapshot.Checksum == snapshot.Checksum {
+		return nil
 	}
 
 	gc := NewGarbageCollector(client, *kustomization.Status.Snapshot, r.Log)
@@ -1052,6 +1050,18 @@ func (r *KustomizationReconciler) newKustomizationClient(kustomization kustomize
 	statusPoller := polling.NewStatusPoller(client, restMapper)
 
 	return client, statusPoller, err
+}
+
+func (r *KustomizationReconciler) updateStatus(ctx context.Context, req ctrl.Request, newStatus kustomizev1.KustomizationStatus) error {
+	var kustomization kustomizev1.Kustomization
+	if err := r.Get(ctx, req.NamespacedName, &kustomization); err != nil {
+		return err
+	}
+
+	patch := client.MergeFrom(kustomization.DeepCopy())
+	kustomization.Status = newStatus
+
+	return r.Status().Patch(ctx, &kustomization, patch)
 }
 
 func containsString(slice []string, s string) bool {

@@ -200,9 +200,10 @@ spec:
                 type: string
               validation:
                 description: Validate the Kubernetes objects before applying them
-                  on the cluster. The validation strategy can be 'client' (local dry-run)
-                  or 'server' (APIServer dry-run).
+                  on the cluster. The validation strategy can be 'client' (local dry-run),
+                  'server' (APIServer dry-run) or 'none'.
                 enum:
+                - none
                 - client
                 - server
                 type: string

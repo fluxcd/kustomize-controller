@@ -98,8 +98,8 @@ type KustomizationSpec struct {
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
 	// Validate the Kubernetes objects before applying them on the cluster.
-	// The validation strategy can be 'client' (local dry-run) or 'server' (APIServer dry-run).
-	// +kubebuilder:validation:Enum=client;server
+	// The validation strategy can be 'client' (local dry-run), 'server' (APIServer dry-run) or 'none'.
+	// +kubebuilder:validation:Enum=none;client;server
 	// +optional
 	Validation string `json:"validation,omitempty"`
 }
