@@ -32,6 +32,8 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
@@ -845,7 +847,7 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 			return fmt.Errorf("dependency '%s' is not ready", dName)
 		}
 
-		if c := meta.GetCondition(k.Status.Conditions, meta.ReadyCondition); c == nil || c.Status != corev1.ConditionTrue {
+		if !apimeta.IsStatusConditionTrue(k.Status.Conditions, meta.ReadyCondition) {
 			return fmt.Errorf("dependency '%s' is not ready", dName)
 		}
 	}
@@ -961,7 +963,7 @@ func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization,
 		}
 
 		reason := severity
-		if c := meta.GetCondition(kustomization.Status.Conditions, meta.ReadyCondition); c != nil {
+		if c := apimeta.FindStatusCondition(kustomization.Status.Conditions, meta.ReadyCondition); c != nil {
 			reason = c.Reason
 		}
 
@@ -988,12 +990,12 @@ func (r *KustomizationReconciler) recordReadiness(kustomization kustomizev1.Kust
 		).Error(err, "unable to record readiness metric")
 		return
 	}
-	if rc := meta.GetCondition(kustomization.Status.Conditions, meta.ReadyCondition); rc != nil {
+	if rc := apimeta.FindStatusCondition(kustomization.Status.Conditions, meta.ReadyCondition); rc != nil {
 		r.MetricsRecorder.RecordCondition(*objRef, *rc, !kustomization.DeletionTimestamp.IsZero())
 	} else {
-		r.MetricsRecorder.RecordCondition(*objRef, meta.Condition{
+		r.MetricsRecorder.RecordCondition(*objRef, metav1.Condition{
 			Type:   meta.ReadyCondition,
-			Status: corev1.ConditionUnknown,
+			Status: metav1.ConditionUnknown,
 		}, !kustomization.DeletionTimestamp.IsZero())
 	}
 }

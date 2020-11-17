@@ -143,7 +143,7 @@ type KustomizationStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// +optional
-	Conditions []meta.Condition `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// The last successfully applied revision.
 	// The revision format for Git sources is <branch|tag>/<commit-sha>.
@@ -164,42 +164,21 @@ type KustomizationStatus struct {
 // KustomizationProgressing resets the conditions of the given Kustomization to a single
 // ReadyCondition with status ConditionUnknown.
 func KustomizationProgressing(k Kustomization) Kustomization {
-	k.Status.Conditions = []meta.Condition{
-		{
-			Type:               meta.ReadyCondition,
-			Status:             corev1.ConditionUnknown,
-			LastTransitionTime: metav1.Now(),
-			Reason:             meta.ProgressingReason,
-			Message:            "reconciliation in progress",
-		},
-	}
+	meta.SetResourceCondition(&k, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
 	return k
-}
-
-// SetKustomizationCondition sets the given condition with the given status, reason and message
-// on the Kustomization.
-func SetKustomizationCondition(k *Kustomization, condition string, status corev1.ConditionStatus, reason, message string) {
-	k.Status.Conditions = meta.FilterOutCondition(k.Status.Conditions, condition)
-	k.Status.Conditions = append(k.Status.Conditions, meta.Condition{
-		Type:               condition,
-		Status:             status,
-		LastTransitionTime: metav1.Now(),
-		Reason:             reason,
-		Message:            trimString(message, MaxConditionMessageLength),
-	})
 }
 
 // SetKustomizeReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision,
 // on the Kustomization.
-func SetKustomizationReadiness(k *Kustomization, status corev1.ConditionStatus, reason, message string, revision string) {
-	SetKustomizationCondition(k, meta.ReadyCondition, status, reason, message)
+func SetKustomizationReadiness(k *Kustomization, status metav1.ConditionStatus, reason, message string, revision string) {
+	meta.SetResourceCondition(k, meta.ReadyCondition, status, reason, message)
 	k.Status.ObservedGeneration = k.Generation
 	k.Status.LastAttemptedRevision = revision
 }
 
 // KustomizationNotReady registers a failed apply attempt of the given Kustomization.
 func KustomizationNotReady(k Kustomization, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, corev1.ConditionFalse, reason, message, revision)
+	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, message, revision)
 	if revision != "" {
 		k.Status.LastAttemptedRevision = revision
 	}
@@ -209,7 +188,7 @@ func KustomizationNotReady(k Kustomization, revision, reason, message string) Ku
 // KustomizationNotReady registers a failed apply attempt of the given Kustomization,
 // including a Snapshot.
 func KustomizationNotReadySnapshot(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, corev1.ConditionFalse, reason, message, revision)
+	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, message, revision)
 	k.Status.Snapshot = snapshot
 	k.Status.LastAttemptedRevision = revision
 	return k
@@ -217,7 +196,7 @@ func KustomizationNotReadySnapshot(k Kustomization, snapshot *Snapshot, revision
 
 // KustomizationReady registers a successful apply attempt of the given Kustomization.
 func KustomizationReady(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, corev1.ConditionTrue, reason, message, revision)
+	SetKustomizationReadiness(&k, metav1.ConditionTrue, reason, message, revision)
 	k.Status.Snapshot = snapshot
 	k.Status.LastAppliedRevision = revision
 	return k
@@ -240,6 +219,11 @@ func (in Kustomization) GetDependsOn() (types.NamespacedName, []dependency.Cross
 		Namespace: in.Namespace,
 		Name:      in.Name,
 	}, in.Spec.DependsOn
+}
+
+// GetStatusConditions returns a pointer to the Status.Conditions slice
+func (in *Kustomization) GetStatusConditions() *[]metav1.Condition {
+	return &in.Status.Conditions
 }
 
 const (

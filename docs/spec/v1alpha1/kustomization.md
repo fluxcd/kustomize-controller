@@ -108,7 +108,7 @@ type KustomizationStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// +optional
-	Conditions []Condition `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// The last successfully applied revision.
 	// The revision format for Git sources is <branch|tag>/<commit-sha>.
