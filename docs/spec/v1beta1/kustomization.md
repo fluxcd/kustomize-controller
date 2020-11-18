@@ -214,7 +214,25 @@ Source supported types:
 
 If your repository contains plain Kubernetes manifests, the `kustomization.yaml`
 file is automatically generated for all the Kubernetes manifests
-in the `spec.path` and sub-directories.
+in the `spec.path` and sub-directories. This expects all YAML files present under that path to be valid kubernetes manifests
+and needs non-kubernetes ones to be excluded using `.sourceignore` file or `spec.ignore` on `GitRepository` object.
+
+Example of excluding gitlab ci workflows and sops rules creation files:
+
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: podinfo
+  namespace: default
+spec:
+  interval: 5m
+  url: https://github.com/stefanprodan/podinfo
+  ignore: |
+    .git/
+    .sops.yaml
+    .gitlab-ci.yml
+```
 
 If the `spec.prune` is enable, the controller generates a label transformer to enable
 [garbage collection](#garbage-collection).
