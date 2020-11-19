@@ -69,7 +69,7 @@ var _ = Describe("KustomizationReconciler", func() {
 		type refTestCase struct {
 			artifacts      []testserver.File
 			waitForReason  string
-			expectStatus   corev1.ConditionStatus
+			expectStatus   metav1.ConditionStatus
 			expectMessage  string
 			expectRevision string
 		}
@@ -94,10 +94,10 @@ var _ = Describe("KustomizationReconciler", func() {
 					Interval: metav1.Duration{Duration: reconciliationInterval},
 				},
 				Status: sourcev1.GitRepositoryStatus{
-					Conditions: []meta.Condition{
+					Conditions: []metav1.Condition{
 						{
 							Type:               meta.ReadyCondition,
-							Status:             corev1.ConditionTrue,
+							Status:             metav1.ConditionTrue,
 							LastTransitionTime: metav1.Now(),
 							Reason:             sourcev1.GitOperationSucceedReason,
 						},
@@ -141,7 +141,7 @@ var _ = Describe("KustomizationReconciler", func() {
 			defer k8sClient.Delete(context.Background(), k)
 
 			got := &kustomizev1.Kustomization{}
-			var cond meta.Condition
+			var cond metav1.Condition
 			Eventually(func() bool {
 				_ = k8sClient.Get(context.Background(), kName, got)
 				for _, c := range got.Status.Conditions {
@@ -179,7 +179,7 @@ metadata:
 					},
 				},
 				waitForReason:  meta.ReconciliationSucceededReason,
-				expectStatus:   corev1.ConditionTrue,
+				expectStatus:   metav1.ConditionTrue,
 				expectRevision: "branch/commit1",
 			}),
 		)
