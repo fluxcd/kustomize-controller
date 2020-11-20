@@ -50,6 +50,7 @@ type KustomizationSpec struct {
 	Interval metav1.Duration `json:"interval"`
 
 	// The KubeConfig for reconciling the Kustomization on a remote cluster.
+	// When specified, KubeConfig takes precedence over ServiceAccountName.
 	// +optional
 	KubeConfig *KubeConfig `json:"kubeConfig,omitempty"`
 

@@ -115,7 +115,8 @@ spec:
                 type: string
               kubeConfig:
                 description: The KubeConfig for reconciling the Kustomization on a
-                  remote cluster.
+                  remote cluster. When specified, KubeConfig takes precedence over
+                  ServiceAccountName.
                 properties:
                   secretRef:
                     description: SecretRef holds the name to a secret that contains

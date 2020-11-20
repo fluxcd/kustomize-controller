@@ -122,7 +122,8 @@ KubeConfig
 </td>
 <td>
 <em>(Optional)</em>
-<p>The KubeConfig for reconciling the Kustomization on a remote cluster.</p>
+<p>The KubeConfig for reconciling the Kustomization on a remote cluster.
+When specified, KubeConfig takes precedence over ServiceAccountName.</p>
 </td>
 </tr>
 <tr>
@@ -554,7 +555,8 @@ KubeConfig
 </td>
 <td>
 <em>(Optional)</em>
-<p>The KubeConfig for reconciling the Kustomization on a remote cluster.</p>
+<p>The KubeConfig for reconciling the Kustomization on a remote cluster.
+When specified, KubeConfig takes precedence over ServiceAccountName.</p>
 </td>
 </tr>
 <tr>
