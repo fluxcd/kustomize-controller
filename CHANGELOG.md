@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.3.0 (2020-11-20)
+
+This is the third MINOR prerelease. It introduces two breaking changes:
+* the `ServiceAccount` field has been removed and replaced by `ServiceAccountName`;
+    it is no longer possible to specify a namespace for a service account,
+    the namespace is inferred from the Kustomization namespace 
+* the status condition type has changed to the type introduced in Kubernetes API machinery `v1.19.0`
+
+Improvements:
+* Use ServiceAccountName for impersonation
+    [#180](https://github.com/fluxcd/kustomize-controller/pull/180)
+* Adopt Kubernetes condition type 
+    [#174](https://github.com/fluxcd/kustomize-controller/pull/174)
+* Add docs for excluding non-k8 YAML files in kustomization generation
+    [#176](https://github.com/fluxcd/kustomize-controller/pull/176)
+* Use DeletionTimestamp for prune and readiness
+    [#177](https://github.com/fluxcd/kustomize-controller/pull/177)
+
+Fixes:
+* Add fsGroup to security context (fix for AWS KMS IAM Role bindings)
+    [#178](https://github.com/fluxcd/kustomize-controller/pull/178)
+
 ## 0.2.2 (2020-11-12)
 
 This prerelease comes with improvements to status reporting.
