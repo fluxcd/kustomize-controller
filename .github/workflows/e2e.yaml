@@ -76,6 +76,10 @@ jobs:
           kubectl -n kustomize-system apply -k ./config/testdata/sops
           kubectl -n kustomize-system wait kustomizations/sops --for=condition=ready --timeout=4m
           kubectl -n test2 get secrets/test --template={{.data.password}} | base64 -d | grep test
+      - name: Run impersonation tests
+        run: |
+          kubectl -n impersonation apply -f ./config/testdata/impersonation
+          kubectl -n impersonation wait kustomizations/podinfo --for=condition=ready --timeout=4m
       - name: Logs
         run: |
           kubectl -n kustomize-system logs deploy/source-controller
