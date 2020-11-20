@@ -26,6 +26,7 @@ type KustomizationSpec struct {
 	Interval metav1.Duration `json:"interval"`
 
 	// The KubeConfig for reconciling the Kustomization on a remote cluster.
+	// When specified, KubeConfig takes precedence over ServiceAccountName.
 	// +optional
 	KubeConfig *KubeConfig `json:"kubeConfig,omitempty"`
 
@@ -42,9 +43,10 @@ type KustomizationSpec struct {
 	// +optional
 	HealthChecks []CrossNamespaceObjectReference `json:"healthChecks,omitempty"`
 
-	// The Kubernetes service account used for applying the kustomization.
+	// The name of the Kubernetes service account to impersonate
+	// when reconciling this Kustomization.
 	// +optional
-	ServiceAccount *ServiceAccount `json:"serviceAccount,omitempty"`
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// Reference of the source where the kustomization file is.
 	// +required
@@ -217,7 +219,7 @@ file is automatically generated for all the Kubernetes manifests
 in the `spec.path` and sub-directories. This expects all YAML files present under that path to be valid kubernetes manifests
 and needs non-kubernetes ones to be excluded using `.sourceignore` file or `spec.ignore` on `GitRepository` object.
 
-Example of excluding gitlab ci workflows and sops rules creation files:
+Example of excluding CI workflows and SOPS config files:
 
 ```yaml
 apiVersion: source.toolkit.fluxcd.io/v1beta1
@@ -230,6 +232,7 @@ spec:
   url: https://github.com/stefanprodan/podinfo
   ignore: |
     .git/
+    .github/
     .sops.yaml
     .gitlab-ci.yml
 ```
@@ -514,11 +517,9 @@ metadata:
   name: backend
   namespace: webapp
 spec:
+  serviceAccountName: webapp-reconciler
   dependsOn:
     - name: common
-  serviceAccount:
-    name: webapp-reconciler
-    namespace: webapp
   interval: 5m
   path: "./webapp/backend/"
   prune: true

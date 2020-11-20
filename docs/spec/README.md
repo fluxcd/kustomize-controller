@@ -34,11 +34,12 @@ of the frontend app was deployed and if the deployment is healthy, no matter the
 The reconciliation process can be defined with a Kubernetes custom resource
 that describes a pipeline such as:
 - **check** if depends-on conditions are meet  
-- **fetch** manifests from Git repository X
+- **fetch** manifests from source-controller (Git repository or S3 bucket)
 - **generate** a kustomization if needed
 - **build** the manifest using kustomization X
 - **decrypt** Kubernetes secrets using Mozilla SOPS
 - **validate** the resulting objects 
+- **impersonate** Kubernetes account
 - **apply** the objects 
 - **prune** the objects removed from source
 - **verify** the deployment status
@@ -76,6 +77,7 @@ The API design of the controller can be found at [kustomize.toolkit.fluxcd.io/v1
 | Plain Kubernetes manifests sync              | :heavy_check_mark:      | :heavy_check_mark: |
 | Kustomize build sync                         | :heavy_check_mark:      | :heavy_check_mark: |
 | Garbage collection                           | :heavy_check_mark:      | :heavy_check_mark: |
+| Secrets decryption                           | :heavy_check_mark:      | :heavy_check_mark: |
 | Container image updates                      | :x:                     | :heavy_check_mark: |
 | Generate manifests with shell scripts        | :x:                     | :heavy_check_mark: |
 

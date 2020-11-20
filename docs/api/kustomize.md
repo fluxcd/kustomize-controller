@@ -122,7 +122,8 @@ KubeConfig
 </td>
 <td>
 <em>(Optional)</em>
-<p>The KubeConfig for reconciling the Kustomization on a remote cluster.</p>
+<p>The KubeConfig for reconciling the Kustomization on a remote cluster.
+When specified, KubeConfig takes precedence over ServiceAccountName.</p>
 </td>
 </tr>
 <tr>
@@ -163,16 +164,15 @@ bool
 </tr>
 <tr>
 <td>
-<code>serviceAccount</code><br>
+<code>serviceAccountName</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.ServiceAccount">
-ServiceAccount
-</a>
+string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>The Kubernetes service account used for applying the kustomization.</p>
+<p>The name of the Kubernetes service account to impersonate
+when reconciling this Kustomization.</p>
 </td>
 </tr>
 <tr>
@@ -555,7 +555,8 @@ KubeConfig
 </td>
 <td>
 <em>(Optional)</em>
-<p>The KubeConfig for reconciling the Kustomization on a remote cluster.</p>
+<p>The KubeConfig for reconciling the Kustomization on a remote cluster.
+When specified, KubeConfig takes precedence over ServiceAccountName.</p>
 </td>
 </tr>
 <tr>
@@ -596,16 +597,15 @@ bool
 </tr>
 <tr>
 <td>
-<code>serviceAccount</code><br>
+<code>serviceAccountName</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.ServiceAccount">
-ServiceAccount
-</a>
+string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>The Kubernetes service account used for applying the kustomization.</p>
+<p>The name of the Kubernetes service account to impersonate
+when reconciling this Kustomization.</p>
 </td>
 </tr>
 <tr>
@@ -773,49 +773,6 @@ Snapshot
 <td>
 <em>(Optional)</em>
 <p>The last successfully applied revision metadata.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.ServiceAccount">ServiceAccount
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
-</p>
-<p>ServiceAccount defines a reference to a Kubernetes service account.</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Name is the name of the service account being referenced.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>namespace</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Namespace is the namespace of the service account being referenced.</p>
 </td>
 </tr>
 </tbody>

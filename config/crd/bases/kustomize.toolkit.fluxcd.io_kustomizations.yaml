@@ -115,7 +115,8 @@ spec:
                 type: string
               kubeConfig:
                 description: The KubeConfig for reconciling the Kustomization on a
-                  remote cluster.
+                  remote cluster. When specified, KubeConfig takes precedence over
+                  ServiceAccountName.
                 properties:
                   secretRef:
                     description: SecretRef holds the name to a secret that contains
@@ -140,21 +141,10 @@ spec:
               prune:
                 description: Prune enables garbage collection.
                 type: boolean
-              serviceAccount:
-                description: The Kubernetes service account used for applying the
-                  kustomization.
-                properties:
-                  name:
-                    description: Name is the name of the service account being referenced.
-                    type: string
-                  namespace:
-                    description: Namespace is the namespace of the service account
-                      being referenced.
-                    type: string
-                required:
-                - name
-                - namespace
-                type: object
+              serviceAccountName:
+                description: The name of the Kubernetes service account to impersonate
+                  when reconciling this Kustomization.
+                type: string
               sourceRef:
                 description: Reference of the source where the kustomization file
                   is.

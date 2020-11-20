@@ -50,6 +50,7 @@ type KustomizationSpec struct {
 	Interval metav1.Duration `json:"interval"`
 
 	// The KubeConfig for reconciling the Kustomization on a remote cluster.
+	// When specified, KubeConfig takes precedence over ServiceAccountName.
 	// +optional
 	KubeConfig *KubeConfig `json:"kubeConfig,omitempty"`
 
@@ -66,9 +67,10 @@ type KustomizationSpec struct {
 	// +optional
 	HealthChecks []CrossNamespaceObjectReference `json:"healthChecks,omitempty"`
 
-	// The Kubernetes service account used for applying the kustomization.
+	// The name of the Kubernetes service account to impersonate
+	// when reconciling this Kustomization.
 	// +optional
-	ServiceAccount *ServiceAccount `json:"serviceAccount,omitempty"`
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// Reference of the source where the kustomization file is.
 	// +required
@@ -97,17 +99,6 @@ type KustomizationSpec struct {
 	// +kubebuilder:validation:Enum=none;client;server
 	// +optional
 	Validation string `json:"validation,omitempty"`
-}
-
-// ServiceAccount defines a reference to a Kubernetes service account.
-type ServiceAccount struct {
-	// Name is the name of the service account being referenced.
-	// +required
-	Name string `json:"name"`
-
-	// Namespace is the namespace of the service account being referenced.
-	// +required
-	Namespace string `json:"namespace"`
 }
 
 // Decryption defines how decryption is handled for Kubernetes manifests.

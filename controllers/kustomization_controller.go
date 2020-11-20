@@ -645,8 +645,8 @@ func (r *KustomizationReconciler) getKubeConfig(kustomization kustomizev1.Kustom
 
 func (r *KustomizationReconciler) getServiceAccountToken(kustomization kustomizev1.Kustomization) (string, error) {
 	namespacedName := types.NamespacedName{
-		Namespace: kustomization.Spec.ServiceAccount.Namespace,
-		Name:      kustomization.Spec.ServiceAccount.Name,
+		Namespace: kustomization.Namespace,
+		Name:      kustomization.Spec.ServiceAccountName,
 	}
 
 	var serviceAccount corev1.ServiceAccount
@@ -656,8 +656,8 @@ func (r *KustomizationReconciler) getServiceAccountToken(kustomization kustomize
 	}
 
 	secretName := types.NamespacedName{
-		Namespace: kustomization.Spec.ServiceAccount.Namespace,
-		Name:      kustomization.Spec.ServiceAccount.Name,
+		Namespace: kustomization.Namespace,
+		Name:      kustomization.Spec.ServiceAccountName,
 	}
 
 	for _, secret := range serviceAccount.Secrets {
@@ -700,7 +700,7 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 		cmd = fmt.Sprintf("%s --kubeconfig=%s", cmd, kubeConfig)
 	} else {
 		// impersonate SA
-		if kustomization.Spec.ServiceAccount != nil {
+		if kustomization.Spec.ServiceAccountName != "" {
 			saToken, err := r.getServiceAccountToken(kustomization)
 			if err != nil {
 				return "", fmt.Errorf("service account impersonation failed: %w", err)
