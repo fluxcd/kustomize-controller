@@ -205,8 +205,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			}
 			r.recordReadiness(kustomization)
 			log.Info(msg)
-			// do not requeue, when the source is created the watcher should trigger a reconciliation
-			return ctrl.Result{}, nil
+			// do not requeue immediately, when the source is created the watcher should trigger a reconciliation
+			return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 		} else {
 			// retry on transient errors
 			return ctrl.Result{Requeue: true}, err
@@ -222,8 +222,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 		r.recordReadiness(kustomization)
 		log.Info(msg)
-		// do not requeue, when the artifact is created the watcher should trigger a reconciliation
-		return ctrl.Result{}, nil
+		// do not requeue immediately, when the artifact is created the watcher should trigger a reconciliation
+		return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 	}
 
 	// check dependencies
