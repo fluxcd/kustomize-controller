@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.4.0 (2020-11-26)
+
+This is the fourth MINOR prerelease. Suspended Kustomizations are
+no longer marked as not ready, the status sub-resource is left untouched. 
+
+Improvements:
+* Do not mark suspended resource as not ready
+    [#183](https://github.com/fluxcd/kustomize-controller/pull/183)
+* Set field manager to `kustomize-controller` instead of `kubectl`
+    [#184](https://github.com/fluxcd/kustomize-controller/pull/184)
+
+Fixes:
+* Requeue after interval on source not found errors
+    [#182](https://github.com/fluxcd/kustomize-controller/pull/182)
+
 ## 0.3.0 (2020-11-20)
 
 This is the third MINOR prerelease. It introduces two breaking changes:
