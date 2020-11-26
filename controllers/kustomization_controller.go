@@ -682,9 +682,10 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+	fieldManager := "kustomize-controller"
 
-	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --cache-dir=/tmp",
-		dirPath, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String())
+	cmd := fmt.Sprintf("cd %s && kubectl apply --field-manager=%s -f %s.yaml --timeout=%s --cache-dir=/tmp",
+		dirPath, fieldManager, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String())
 
 	if kustomization.Spec.KubeConfig != nil {
 		kubeConfig, err := r.writeKubeConfig(kustomization, dirPath)
