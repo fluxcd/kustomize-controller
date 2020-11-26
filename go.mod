@@ -7,7 +7,7 @@ replace github.com/fluxcd/kustomize-controller/api => ./api
 require (
 	github.com/fluxcd/kustomize-controller/api v0.3.0
 	github.com/fluxcd/pkg/apis/meta v0.4.0
-	github.com/fluxcd/pkg/runtime v0.3.0
+	github.com/fluxcd/pkg/runtime v0.3.1
 	github.com/fluxcd/pkg/testserver v0.0.2
 	github.com/fluxcd/pkg/untar v0.0.5
 	github.com/fluxcd/source-controller/api v0.3.0

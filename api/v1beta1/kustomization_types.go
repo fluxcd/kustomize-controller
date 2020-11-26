@@ -78,8 +78,10 @@ type KustomizationSpec struct {
 
 	// This flag tells the controller to suspend subsequent kustomize executions,
 	// it does not apply to already started executions. Defaults to false.
+	// +kubebuilder:default:=false
+	// +kubebuilder:validation:Optional
 	// +optional
-	Suspend bool `json:"suspend,omitempty"`
+	Suspend bool `json:"suspend"`
 
 	// TargetNamespace sets or overrides the namespace in the
 	// kustomization.yaml file.
@@ -233,6 +235,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
+// +kubebuilder:printcolumn:name="Suspended",type="boolean",JSONPath=".spec.suspend",description=""
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
 
 // Kustomization is the Schema for the kustomizations API.

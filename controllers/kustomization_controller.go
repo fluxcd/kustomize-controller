@@ -164,34 +164,11 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return r.reconcileDelete(ctx, log, kustomization)
 	}
 
+	// Return early if the Kustomization is suspended.
 	if kustomization.Spec.Suspend {
-		msg := "Kustomization is suspended, skipping reconciliation"
-		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", meta.SuspendedReason, msg)
-		if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
-			log.Error(err, "unable to update status")
-			return ctrl.Result{Requeue: true}, err
-		}
-		r.recordReadiness(kustomization)
-		log.Info(msg)
+		log.Info("Reconciliation is suspended for this object")
 		return ctrl.Result{}, nil
 	}
-
-	// record reconciliation duration
-	if r.MetricsRecorder != nil {
-		objRef, err := reference.GetReference(r.Scheme, &kustomization)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		defer r.MetricsRecorder.RecordDuration(*objRef, reconcileStart)
-	}
-
-	// set the reconciliation status to progressing
-	kustomization = kustomizev1.KustomizationProgressing(kustomization)
-	if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
-		log.Error(err, "unable to update status to progressing")
-		return ctrl.Result{Requeue: true}, err
-	}
-	r.recordReadiness(kustomization)
 
 	// resolve source reference
 	source, err := r.getSource(ctx, kustomization)
@@ -245,6 +222,23 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 		log.Info("All dependencies area ready, proceeding with reconciliation")
 	}
+
+	// record reconciliation duration
+	if r.MetricsRecorder != nil {
+		objRef, err := reference.GetReference(r.Scheme, &kustomization)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		defer r.MetricsRecorder.RecordDuration(*objRef, reconcileStart)
+	}
+
+	// set the reconciliation status to progressing
+	kustomization = kustomizev1.KustomizationProgressing(kustomization)
+	if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
+		log.Error(err, "unable to update status to progressing")
+		return ctrl.Result{Requeue: true}, err
+	}
+	r.recordReadiness(kustomization)
 
 	// reconcile kustomization by applying the latest revision
 	reconciledKustomization, reconcileErr := r.reconcile(*kustomization.DeepCopy(), source)
