@@ -25,9 +25,6 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].message
       name: Status
       type: string
-    - jsonPath: .spec.suspend
-      name: Suspended
-      type: boolean
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -173,7 +170,6 @@ spec:
                 - name
                 type: object
               suspend:
-                default: false
                 description: This flag tells the controller to suspend subsequent
                   kustomize executions, it does not apply to already started executions.
                   Defaults to false.
