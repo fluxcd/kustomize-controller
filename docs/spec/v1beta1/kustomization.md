@@ -6,7 +6,7 @@ The `Kustomization` API defines a pipeline for fetching, decrypting, building, v
 
 A **Kustomization** object defines the source of Kubernetes manifests by referencing an object
 managed by [source-controller](https://github.com/fluxcd/source-controller),
-the path to the kustomization file within that source,
+the path to the Kustomization file within that source,
 and the interval at which the kustomize build output is applied on the cluster.
 
 ```go
@@ -197,7 +197,7 @@ const (
 
 ## Source reference
 
-The kustomization `spec.sourceRef` is a reference to an object managed by
+The Kustomization `spec.sourceRef` is a reference to an object managed by
 [source-controller](https://github.com/fluxcd/source-controller). When the source
 [revision](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1beta1/common.md#source-status)
 changes, it generates a Kubernetes event that triggers a kustomize build and apply.
@@ -242,14 +242,14 @@ If the `spec.prune` is enable, the controller generates a label transformer to e
 
 ## Reconciliation
 
-The kustomization `spec.interval` tells the controller at which interval to fetch the
-Kubernetes manifest for the source, build the kustomization and apply it on the cluster.
+The Kustomization `spec.interval` tells the controller at which interval to fetch the
+Kubernetes manifest for the source, build the Kustomization and apply it on the cluster.
 The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
 
-The kustomization execution can be suspended by setting `spec.suspend` to `true`.
+The Kustomization execution can be suspended by setting `spec.suspend` to `true`.
 
-The controller can be told to reconcile the kustomization outside of the specified interval
-by annotating the kustomization object with:
+The controller can be told to reconcile the Kustomization outside of the specified interval
+by annotating the Kustomization object with:
 
 ```go
 const (
@@ -297,7 +297,7 @@ When pruning is disabled, the checksum label is omitted.
 
 ## Health assessment
 
-A kustomization can contain a series of health checks used to determine the
+A Kustomization can contain a series of health checks used to determine the
 [rollout status](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#deployment-status)
 of the deployed workloads and the ready status of custom resources.
 
@@ -307,7 +307,7 @@ A health check entry can reference one of the following types:
 * Toolkit kinds: HelmRelease, HelmRepository, GitRepository, etc
 * Custom resources that are compatible with [kstatus](https://github.com/kubernetes-sigs/cli-utils/tree/master/pkg/kstatus)
 
-Assuming the kustomization source contains a Kubernetes Deployment named `backend`,
+Assuming the Kustomization source contains a Kubernetes Deployment named `backend`,
 a health check can be defined as follows:
 
 ```yaml
@@ -332,10 +332,10 @@ spec:
 ```
 
 After applying the kustomize build output, the controller verifies if the rollout completed successfully.
-If the deployment was successful, the kustomization ready condition is marked as `true`,
+If the deployment was successful, the Kustomization ready condition is marked as `true`,
 if the rollout failed, or if it takes more than the specified timeout to complete, then the
-kustomization ready condition is set to `false`. If the deployment becomes healthy on the next
-execution, then the kustomization is marked as ready.
+Kustomization ready condition is set to `false`. If the deployment becomes healthy on the next
+execution, then the Kustomization is marked as ready.
 
 When a Kustomization contains HelmRelease objects, instead of checking the underling Deployments, you can
 define a health check that waits for the HelmReleases to be reconciled with:
@@ -369,102 +369,72 @@ If all the HelmRelease objects are successfully installed or upgraded, then the 
 
 ## Kustomization dependencies
 
-When applying a kustomization, you may need to make sure other resources exist before the
-workloads defined in your kustomization are deployed.
+When applying a Kustomization, you may need to make sure other resources exist before the
+workloads defined in your Kustomization are deployed.
 For example, a namespace must exist before applying resources to it.
 
-With `spec.dependsOn` you can specify that the execution of a kustomization follows another.
-When you add `dependsOn` entries to a kustomization, that kustomization is applied
-only after all of its dependencies are ready. The readiness state of a kustomization is determined by
+With `spec.dependsOn` you can specify that the execution of a Kustomization follows another.
+When you add `dependsOn` entries to a Kustomization, that Kustomization is applied
+only after all of its dependencies are ready. The readiness state of a Kustomization is determined by
 its last apply status condition.
 
-Assuming two kustomizations:
-* `common` - contains a namespace and service accounts definitions
-* `backend` - contains the workloads to be deployed in that namespace
+Assuming two Kustomizations:
 
-You can instruct the controller to apply the `common` kustomization before `backend`:
+* `cert-manager` - reconciles the cert-manager CRDs and controller
+* `certs` - reconciles the cert-manager custom resources
+
+You can instruct the controller to apply the `cert-manager` Kustomization before `certs`:
 
 ```yaml
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
-  name: common
-  namespace: default
+  name: cert-manager
+  namespace: flux-system
 spec:
   interval: 5m
-  path: "./webapp/common/"
+  path: "./cert-manager/controller"
   prune: true
   sourceRef:
     kind: GitRepository
-    name: webapp
+    name: flux-system
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: cert-manager
+      namespace: cert-manager
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
-  name: backend
-  namespace: default
+  name: certs
+  namespace: flux-system
 spec:
   dependsOn:
-    - name: common
+    - name: cert-manager
   interval: 5m
-  path: "./webapp/backend/"
+  path: "./cert-manager/certs"
   prune: true
   sourceRef:
     kind: GitRepository
-    name: webapp
+    name: flux-system
 ```
 
-When combined with health assessment, a kustomization will run after all its dependencies health checks are passing.
+When combined with health assessment, a Kustomization will run after all its dependencies health checks are passing.
 For example, a service mesh proxy injector should be running before deploying applications inside the mesh.
 
-```yaml
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: istio
-  namespace: istio-system
-spec:
-  interval: 5m
-  path: "./profiles/default/"
-  sourceRef:
-    kind: GitRepository
-    name: istio
-  healthChecks:
-    - kind: Deployment
-      name: istiod
-      namespace: istio-system
-  timeout: 2m
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: backend
-  namespace: default
-spec:
-  dependsOn:
-    - name: common
-    - name: istio
-      namespace: istio-system
-  interval: 5m
-  path: "./webapp/backend/"
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: webapp
-```
-
-> **Note** that circular dependencies between kustomizations must be avoided, otherwise the
-> interdependent kustomizations will never be applied on the cluster.
+> **Note** that circular dependencies between Kustomizations must be avoided, otherwise the
+> interdependent Kustomizations will never be applied on the cluster.
 
 ## Role-based access control
 
-By default, a kustomization apply runs under the cluster admin account and can create, modify, delete
+By default, a Kustomization apply runs under the cluster admin account and can create, modify, delete
 cluster level objects (namespaces, CRDs, etc) and namespeced objects (deployments, ingresses, etc).
-For certain kustomizations a cluster admin may wish to control what types of Kubernetes objects can
+For certain Kustomizations a cluster admin may wish to control what types of Kubernetes objects can
 be reconciled and under which namespaces.
-To restrict a kustomization, one can assign a service account under which the reconciliation is performed.
+To restrict a Kustomization, one can assign a service account under which the reconciliation is performed.
 
-Assuming you want to restrict a group of kustomizations to a single namespace, you can create an account
+Assuming you want to restrict a group of Kustomizations to a single namespace, you can create an account
 with a role binding that grants access only to that namespace:
 
 ```yaml
@@ -505,10 +475,10 @@ subjects:
 ```
 
 > **Note** that the namespace, RBAC and service account manifests should be
-> placed in a Git source and applied with a kustomization. The kustomizations that
+> placed in a Git source and applied with a Kustomization. The Kustomizations that
 > are running under that service account should depend-on the one that contains the account.
 
-Create a kustomization that prevents altering the cluster state outside of the `webapp` namespace:
+Create a Kustomization that prevents altering the cluster state outside of the `webapp` namespace:
 
 ```yaml
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
@@ -528,8 +498,8 @@ spec:
     name: webapp
 ```
 
-When the controller reconciles the `frontend-webapp` kustomization, it will impersonate the `webapp-reconciler`
-account. If the kustomization contains cluster level objects like CRDs or objects belonging to a different
+When the controller reconciles the `frontend-webapp` Kustomization, it will impersonate the `webapp-reconciler`
+account. If the Kustomization contains cluster level objects like CRDs or objects belonging to a different
 namespace, the reconciliation will fail since the account it runs under has no permissions to alter objects
 outside of the `webapp` namespace.
 
@@ -660,7 +630,7 @@ spec:
 
 ## Status
 
-When the controller completes a kustomization apply, reports the result in the `status` sub-resource.
+When the controller completes a Kustomization apply, reports the result in the `status` sub-resource.
 
 A successful reconciliation sets the ready condition to `true` and updates the revision field:
 
