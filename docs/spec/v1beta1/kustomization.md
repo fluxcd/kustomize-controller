@@ -42,6 +42,10 @@ type KustomizationSpec struct {
 	// A list of resources to be included in the health assessment.
 	// +optional
 	HealthChecks []CrossNamespaceObjectReference `json:"healthChecks,omitempty"`
+	
+        // A list of images that is used for changing the image name/tag in the kustomization yaml.
+        // +optional
+        Images []Image `json:"images,omitempty"`
 
 	// The name of the Kubernetes service account to impersonate
 	// when reconciling this Kustomization.
@@ -105,6 +109,24 @@ type KubeConfig struct {
 	// the Kustomization.
 	// +required
 	SecretRef corev1.LocalObjectReference `json:"secretRef,omitempty"`
+}
+```
+
+The image type contains the name, new name and new tag that will replace the original image.
+
+```go
+type Image struct {
+	// Name of the image to be replaced.
+	// +required
+	Name string `json:"name"`
+
+	// NewName is the name of the image used to replace the original one. 
+	// +required
+	NewName string `json:"newName"`
+	
+	// NewTag is the tag used to replace the original tag. 
+	// +required
+	NewTag string `json:"newTag"`
 }
 ```
 
