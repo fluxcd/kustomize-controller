@@ -96,12 +96,35 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) (string, error) {
 		kus.Namespace = kg.kustomization.Spec.TargetNamespace
 	}
 
+	for _, image := range kg.kustomization.Spec.Images {
+		newImage := kustypes.Image{
+			Name:    image.Name,
+			NewName: image.NewName,
+			NewTag:  image.NewTag,
+		}
+		if exists, index := checkKustomizeImageExists(kus.Images, image.Name); exists {
+			kus.Images[index] = newImage
+		} else {
+			kus.Images = append(kus.Images, newImage)
+		}
+	}
+
 	kd, err := yaml.Marshal(kus)
 	if err != nil {
 		return "", err
 	}
 
 	return checksum, ioutil.WriteFile(kfile, kd, os.ModePerm)
+}
+
+func checkKustomizeImageExists(images []kustypes.Image, imageName string) (bool, int) {
+	for i, image := range images {
+		if imageName == image.Name {
+			return true, i
+		}
+	}
+
+	return false, -1
 }
 
 func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
