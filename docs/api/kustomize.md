@@ -164,6 +164,20 @@ bool
 </tr>
 <tr>
 <td>
+<code>images</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Image">
+[]Image
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>A list of images that is used for changing the image name/tag in the kustomization yaml.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>serviceAccountName</code><br>
 <em>
 string
@@ -443,6 +457,60 @@ Kubernetes core/v1.LocalObjectReference
 </table>
 </div>
 </div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.Image">Image
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
+</p>
+<p>Image contains the name, new name and new tag that will replace the original image.</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name of the image to be replaced.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>newName</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>NewName is the name of the image used to replace the original one.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>newTag</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>NewTag is the tag used to replace the original tag.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <h3 id="kustomize.toolkit.fluxcd.io/v1beta1.KubeConfig">KubeConfig
 </h3>
 <p>
@@ -593,6 +661,20 @@ bool
 <td>
 <em>(Optional)</em>
 <p>A list of resources to be included in the health assessment.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Image">
+[]Image
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>A list of images that is used for changing the image name/tag in the kustomization yaml.</p>
 </td>
 </tr>
 <tr>

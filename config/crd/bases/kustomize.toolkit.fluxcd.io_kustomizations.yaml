@@ -110,6 +110,30 @@ spec:
                   - name
                   type: object
                 type: array
+              images:
+                description: A list of images that is used for changing the image
+                  name/tag in the kustomization yaml.
+                items:
+                  description: Image contains the name, new name and new tag that
+                    will replace the original image.
+                  properties:
+                    name:
+                      description: Name of the image to be replaced.
+                      type: string
+                    newName:
+                      description: NewName is the name of the image used to replace
+                        the original one.
+                      type: string
+                    newTag:
+                      description: NewTag is the tag used to replace the original
+                        tag.
+                      type: string
+                  required:
+                  - name
+                  - newName
+                  - newTag
+                  type: object
+                type: array
               interval:
                 description: The interval at which to reconcile the kustomization.
                 type: string

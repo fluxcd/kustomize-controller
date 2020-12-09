@@ -67,6 +67,10 @@ type KustomizationSpec struct {
 	// +optional
 	HealthChecks []CrossNamespaceObjectReference `json:"healthChecks,omitempty"`
 
+	// A list of images that is used for changing the image name/tag in the kustomization yaml.
+	// +optional
+	Images []Image `json:"images,omitempty"`
+
 	// The name of the Kubernetes service account to impersonate
 	// when reconciling this Kustomization.
 	// +optional
@@ -111,6 +115,21 @@ type Decryption struct {
 	// The secret name containing the private OpenPGP keys used for decryption.
 	// +optional
 	SecretRef *corev1.LocalObjectReference `json:"secretRef,omitempty"`
+}
+
+// Image contains the name, new name and new tag that will replace the original image.
+type Image struct {
+	// Name of the image to be replaced.
+	// +required
+	Name string `json:"name"`
+
+	// NewName is the name of the image used to replace the original one.
+	// +required
+	NewName string `json:"newName"`
+
+	// NewTag is the tag used to replace the original tag.
+	// +required
+	NewTag string `json:"newTag"`
 }
 
 // KubeConfig references a Kubernetes secret that contains a kubeconfig file.
