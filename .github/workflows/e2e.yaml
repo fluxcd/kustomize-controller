@@ -80,6 +80,12 @@ jobs:
         run: |
           kubectl -n impersonation apply -f ./config/testdata/impersonation
           kubectl -n impersonation wait kustomizations/podinfo --for=condition=ready --timeout=4m
+      - name: Run image overide tests
+        run: |
+          kubectl -n override-test apply -f ./config/testdata/overrides
+          kubectl -n override-test wait kustomizations/podinfo --for=condition=ready --timeout=1m
+          ACTUAL_TAG=$(kubectl -n override-test get deployments podinfo -o jsonpath='{.spec.template.spec.containers[0].image}' | cut -f2 -d ":")
+          if [[ $ACTUAL_TAG != "5.0.0" ]]; then echo "Image tag did not override" && exit 1; fi
       - name: Logs
         run: |
           kubectl -n kustomize-system logs deploy/source-controller
