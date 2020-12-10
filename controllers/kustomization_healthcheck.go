@@ -59,7 +59,7 @@ func (hc *KustomizeHealthCheck) Assess(pollInterval time.Duration) error {
 	eventsChan := hc.statusPoller.Poll(ctx, objMetadata, opts)
 	coll := collector.NewResourceStatusCollector(objMetadata)
 	done := coll.ListenWithObserver(eventsChan, collector.ObserverFunc(
-		func(statusCollector *collector.ResourceStatusCollector) {
+		func(statusCollector *collector.ResourceStatusCollector, e event.Event) {
 			var rss []*event.ResourceStatus
 			for _, rs := range statusCollector.ResourceStatuses {
 				rss = append(rss, rs)
