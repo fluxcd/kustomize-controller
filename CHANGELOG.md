@@ -11,9 +11,9 @@ overriding container images with `spec.images`.
 
 Improvements:
 * Implement container image setters
-    [#194](https://github.com/fluxcd/notification-controller/pull/194)
+    [#194](https://github.com/fluxcd/kustomize-controller/pull/194)
 * Update kustomize/api to v0.7.0 
-    [#198](https://github.com/fluxcd/notification-controller/pull/198)
+    [#198](https://github.com/fluxcd/kustomize-controller/pull/198)
 
 ## 0.4.0
 
