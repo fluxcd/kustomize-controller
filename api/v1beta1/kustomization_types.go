@@ -67,7 +67,7 @@ type KustomizationSpec struct {
 	// +optional
 	HealthChecks []CrossNamespaceObjectReference `json:"healthChecks,omitempty"`
 
-	// A list of images that is used for changing the image name/tag in the kustomization yaml.
+	// A list of images used to override or set the name and tag for container images.
 	// +optional
 	Images []Image `json:"images,omitempty"`
 
@@ -117,7 +117,7 @@ type Decryption struct {
 	SecretRef *corev1.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
-// Image contains the name, new name and new tag that will replace the original image.
+// Image contains the name, new name and new tag that will replace the original container image.
 type Image struct {
 	// Name of the image to be replaced.
 	// +required
@@ -127,7 +127,7 @@ type Image struct {
 	// +required
 	NewName string `json:"newName"`
 
-	// NewTag is the tag used to replace the original tag.
+	// NewTag is the image tag used to replace the original tag.
 	// +required
 	NewTag string `json:"newTag"`
 }
