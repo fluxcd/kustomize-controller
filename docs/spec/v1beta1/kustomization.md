@@ -30,7 +30,7 @@ type KustomizationSpec struct {
 	// +optional
 	KubeConfig *KubeConfig `json:"kubeConfig,omitempty"`
 
-	// Path to the directory containing the kustomization file.
+	// Path to the directory containing the kustomization.yaml file.
 	// +kubebuilder:validation:Pattern="^\\./"
 	// +required
 	Path string `json:"path"`
@@ -43,9 +43,9 @@ type KustomizationSpec struct {
 	// +optional
 	HealthChecks []CrossNamespaceObjectReference `json:"healthChecks,omitempty"`
 	
-        // A list of images that is used for changing the image name/tag in the kustomization yaml.
-        // +optional
-        Images []Image `json:"images,omitempty"`
+    // A list of images used to override or set the name and tag for container images.
+    // +optional
+    Images []Image `json:"images,omitempty"`
 
 	// The name of the Kubernetes service account to impersonate
 	// when reconciling this Kustomization.
@@ -112,7 +112,7 @@ type KubeConfig struct {
 }
 ```
 
-The image type contains the name, new name and new tag that will replace the original image.
+Image contains the name, new name and new tag that will replace the original container image:
 
 ```go
 type Image struct {
@@ -120,11 +120,11 @@ type Image struct {
 	// +required
 	Name string `json:"name"`
 
-	// NewName is the name of the image used to replace the original one. 
+	// NewName is the name of the image used to replace the original one.
 	// +required
 	NewName string `json:"newName"`
 	
-	// NewTag is the tag used to replace the original tag. 
+	// NewTag is the image tag used to replace the original tag.
 	// +required
 	NewTag string `json:"newTag"`
 }
@@ -524,6 +524,31 @@ When the controller reconciles the `frontend-webapp` Kustomization, it will impe
 account. If the Kustomization contains cluster level objects like CRDs or objects belonging to a different
 namespace, the reconciliation will fail since the account it runs under has no permissions to alter objects
 outside of the `webapp` namespace.
+
+## Override kustomize config
+
+You can override the namespace of all the Kubernetes objects reconciled
+by a `Kustomization` with `spec.targetNamespace`, and you can
+override container images using `spec.images`:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: "./kustomize"
+  sourceRef:
+    kind: GitRepository
+    name: podinfo
+  tagetNamespace: test
+  images:
+    - name: ghcr.io/stefanprodan/podinfo
+      newName: ghcr.io/stefanprodan/podinfo
+      newTag: 5.0.0
+```
 
 ## Remote Clusters / Cluster-API
 

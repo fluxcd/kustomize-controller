@@ -173,7 +173,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>A list of images that is used for changing the image name/tag in the kustomization yaml.</p>
+<p>A list of images used to override or set the name and tag for container images.</p>
 </td>
 </tr>
 <tr>
@@ -463,7 +463,7 @@ Kubernetes core/v1.LocalObjectReference
 (<em>Appears on:</em>
 <a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
 </p>
-<p>Image contains the name, new name and new tag that will replace the original image.</p>
+<p>Image contains the name, new name and new tag that will replace the original container image.</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -504,7 +504,7 @@ string
 </em>
 </td>
 <td>
-<p>NewTag is the tag used to replace the original tag.</p>
+<p>NewTag is the image tag used to replace the original tag.</p>
 </td>
 </tr>
 </tbody>
@@ -674,7 +674,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>A list of images that is used for changing the image name/tag in the kustomization yaml.</p>
+<p>A list of images used to override or set the name and tag for container images.</p>
 </td>
 </tr>
 <tr>
