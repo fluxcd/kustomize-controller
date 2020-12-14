@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.5.1
+
+**Release date:** 2020-12-14
+
+This prerelease comes with improvements to error reporting.
+
+Improvements:
+* Refactor apply error reporting
+  [#205](https://github.com/fluxcd/kustomize-controller/pull/205)
+
 ## 0.5.0
 
 **Release date:** 2020-12-11
