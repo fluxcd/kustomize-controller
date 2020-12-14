@@ -30,7 +30,7 @@ import (
 const (
 	KustomizationKind         = "Kustomization"
 	KustomizationFinalizer    = "finalizers.fluxcd.io"
-	MaxConditionMessageLength = 4000
+	MaxConditionMessageLength = 20000
 )
 
 // KustomizationSpec defines the desired state of a kustomization.
@@ -181,14 +181,14 @@ func KustomizationProgressing(k Kustomization) Kustomization {
 // SetKustomizeReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision,
 // on the Kustomization.
 func SetKustomizationReadiness(k *Kustomization, status metav1.ConditionStatus, reason, message string, revision string) {
-	meta.SetResourceCondition(k, meta.ReadyCondition, status, reason, message)
+	meta.SetResourceCondition(k, meta.ReadyCondition, status, reason, trimString(message, MaxConditionMessageLength))
 	k.Status.ObservedGeneration = k.Generation
 	k.Status.LastAttemptedRevision = revision
 }
 
 // KustomizationNotReady registers a failed apply attempt of the given Kustomization.
 func KustomizationNotReady(k Kustomization, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, message, revision)
+	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
 	if revision != "" {
 		k.Status.LastAttemptedRevision = revision
 	}
@@ -198,7 +198,7 @@ func KustomizationNotReady(k Kustomization, revision, reason, message string) Ku
 // KustomizationNotReady registers a failed apply attempt of the given Kustomization,
 // including a Snapshot.
 func KustomizationNotReadySnapshot(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, message, revision)
+	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
 	k.Status.Snapshot = snapshot
 	k.Status.LastAttemptedRevision = revision
 	return k
@@ -206,7 +206,7 @@ func KustomizationNotReadySnapshot(k Kustomization, snapshot *Snapshot, revision
 
 // KustomizationReady registers a successful apply attempt of the given Kustomization.
 func KustomizationReady(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, metav1.ConditionTrue, reason, message, revision)
+	SetKustomizationReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision)
 	k.Status.Snapshot = snapshot
 	k.Status.LastAppliedRevision = revision
 	return k

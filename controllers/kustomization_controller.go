@@ -711,10 +711,15 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 		if errors.Is(err, context.DeadlineExceeded) {
 			return "", fmt.Errorf("apply timeout: %w", err)
 		}
-		return "", fmt.Errorf("apply failed: %s", string(output))
+
+		if string(output) == "" {
+			return "", fmt.Errorf("apply failed: %w, kubectl process was killed, probably due to OOM", err)
+		}
+
+		return "", fmt.Errorf("apply failed: %s", parseApplyError(output))
 	}
 
-	resources := r.parseApplyOutput(output)
+	resources := parseApplyOutput(output)
 	r.Log.WithValues(
 		strings.ToLower(kustomization.Kind),
 		fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
@@ -803,27 +808,6 @@ func (r *KustomizationReconciler) checkHealth(statusPoller *polling.StatusPoller
 		r.event(kustomization, revision, events.EventSeverityInfo, "Health check passed", nil)
 	}
 	return nil
-}
-
-func (r *KustomizationReconciler) parseApplyOutput(in []byte) map[string]string {
-	result := make(map[string]string)
-	input := strings.Split(string(in), "\n")
-	if len(input) == 0 {
-		return result
-	}
-	var parts []string
-	for _, str := range input {
-		if str != "" {
-			parts = append(parts, str)
-		}
-	}
-	for _, str := range parts {
-		kv := strings.Split(str, " ")
-		if len(kv) > 1 {
-			result[kv[0]] = kv[1]
-		}
-	}
-	return result
 }
 
 func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Kustomization) error {
@@ -1040,13 +1024,4 @@ func (r *KustomizationReconciler) updateStatus(ctx context.Context, req ctrl.Req
 	kustomization.Status = newStatus
 
 	return r.Status().Patch(ctx, &kustomization, patch)
-}
-
-func containsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
 }
