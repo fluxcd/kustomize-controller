@@ -30,16 +30,18 @@ import (
 )
 
 type KustomizeGarbageCollector struct {
-	snapshot kustomizev1.Snapshot
-	log      logr.Logger
+	snapshot    kustomizev1.Snapshot
+	newChecksum string
+	log         logr.Logger
 	client.Client
 }
 
-func NewGarbageCollector(kubeClient client.Client, snapshot kustomizev1.Snapshot, log logr.Logger) *KustomizeGarbageCollector {
+func NewGarbageCollector(kubeClient client.Client, snapshot kustomizev1.Snapshot, newChecksum string, log logr.Logger) *KustomizeGarbageCollector {
 	return &KustomizeGarbageCollector{
-		Client:   kubeClient,
-		snapshot: snapshot,
-		log:      log,
+		Client:      kubeClient,
+		snapshot:    snapshot,
+		newChecksum: newChecksum,
+		log:         log,
 	}
 }
 
@@ -65,10 +67,10 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 				Version: gvk.Version,
 			})
 
-			err := kgc.List(ctx, ulist, client.InNamespace(ns), kgc.matchingLabels(name, namespace, kgc.snapshot.Checksum))
+			err := kgc.List(ctx, ulist, client.InNamespace(ns), kgc.matchingLabels(name, namespace))
 			if err == nil {
 				for _, item := range ulist.Items {
-					if item.GetDeletionTimestamp().IsZero() {
+					if kgc.isStale(item) && item.GetDeletionTimestamp().IsZero() {
 						name := fmt.Sprintf("%s/%s/%s", item.GetKind(), item.GetNamespace(), item.GetName())
 						err = kgc.Delete(ctx, &item)
 						if err != nil {
@@ -94,10 +96,10 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 			Version: gvk.Version,
 		})
 
-		err := kgc.List(ctx, ulist, kgc.matchingLabels(name, namespace, kgc.snapshot.Checksum))
+		err := kgc.List(ctx, ulist, kgc.matchingLabels(name, namespace))
 		if err == nil {
 			for _, item := range ulist.Items {
-				if item.GetDeletionTimestamp().IsZero() {
+				if kgc.isStale(item) && item.GetDeletionTimestamp().IsZero() {
 					name := fmt.Sprintf("%s/%s", item.GetKind(), item.GetName())
 					err = kgc.Delete(ctx, &item)
 					if err != nil {
@@ -120,8 +122,13 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 	return changeSet, true
 }
 
-func (kgc *KustomizeGarbageCollector) matchingLabels(name, namespace, checksum string) client.MatchingLabels {
-	return gcLabels(name, namespace, checksum)
+func (kgc *KustomizeGarbageCollector) isStale(obj unstructured.Unstructured) bool {
+	itemChecksum := obj.GetAnnotations()[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]
+	return kgc.newChecksum == "" || itemChecksum != kgc.newChecksum
+}
+
+func (kgc *KustomizeGarbageCollector) matchingLabels(name, namespace string) client.MatchingLabels {
+	return selectorLabels(name, namespace)
 }
 
 func gcLabels(name, namespace, checksum string) map[string]string {
