@@ -135,7 +135,7 @@ spec:
                   type: object
                 type: array
               interval:
-                description: The interval at which to reconcile the kustomization.
+                description: The interval at which to reconcile the Kustomization.
                 type: string
               kubeConfig:
                 description: The KubeConfig for reconciling the Kustomization on a
@@ -159,8 +159,10 @@ spec:
                     type: object
                 type: object
               path:
-                description: Path to the directory containing the kustomization file.
-                pattern: ^\./
+                description: Path to the directory containing the kustomization.yaml
+                  file, or the set of plain YAMLs a kustomization.yaml should be generated
+                  for. Defaults to 'None', which translates to the root path of the
+                  SourceRef.
                 type: string
               prune:
                 description: Prune enables garbage collection.
@@ -219,7 +221,6 @@ spec:
                 type: string
             required:
             - interval
-            - path
             - prune
             - sourceRef
             type: object

@@ -108,7 +108,7 @@ Kubernetes meta/v1.Duration
 </em>
 </td>
 <td>
-<p>The interval at which to reconcile the kustomization.</p>
+<p>The interval at which to reconcile the Kustomization.</p>
 </td>
 </tr>
 <tr>
@@ -134,7 +134,10 @@ string
 </em>
 </td>
 <td>
-<p>Path to the directory containing the kustomization file.</p>
+<em>(Optional)</em>
+<p>Path to the directory containing the kustomization.yaml file, or the
+set of plain YAMLs a kustomization.yaml should be generated for.
+Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceRef.</p>
 </td>
 </tr>
 <tr>
@@ -609,7 +612,7 @@ Kubernetes meta/v1.Duration
 </em>
 </td>
 <td>
-<p>The interval at which to reconcile the kustomization.</p>
+<p>The interval at which to reconcile the Kustomization.</p>
 </td>
 </tr>
 <tr>
@@ -635,7 +638,10 @@ string
 </em>
 </td>
 <td>
-<p>Path to the directory containing the kustomization file.</p>
+<em>(Optional)</em>
+<p>Path to the directory containing the kustomization.yaml file, or the
+set of plain YAMLs a kustomization.yaml should be generated for.
+Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceRef.</p>
 </td>
 </tr>
 <tr>

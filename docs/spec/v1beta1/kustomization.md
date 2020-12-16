@@ -21,7 +21,7 @@ type KustomizationSpec struct {
 	// +optional
 	Decryption *Decryption `json:"decryption,omitempty"`
 
-	// The interval at which to apply the kustomization.
+	// The interval at which to reconcile the Kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`
 
@@ -30,10 +30,11 @@ type KustomizationSpec struct {
 	// +optional
 	KubeConfig *KubeConfig `json:"kubeConfig,omitempty"`
 
-	// Path to the directory containing the kustomization.yaml file.
-	// +kubebuilder:validation:Pattern="^\\./"
-	// +required
-	Path string `json:"path"`
+	// Path to the directory containing the kustomization.yaml file, or the
+	// set of plain YAMLs a kustomization.yaml should be generated for.
+	// Defaults to 'None', which translates to the root path of the SourceRef.
+	// +optional
+	Path string `json:"path,omitempty"`
 
 	// Enables garbage collection.
 	// +required
