@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.5.2
+
+**Release date:** 2020-12-16
+
+This prerelease comes with improvements to garbage collection
+and adds safe guards for relative paths. 
+
+The `Path` field was marked as optional, when not specified,
+it defaults to the root path of the `SourceRef`.
+
+Health checking and garbage collection for `HelmReleases`
+and other custom resources were fixed by downgrading 
+to `controller-runtime` v0.6.3.
+
+Improvements:
+* Refactor garbage collection
+  [#210](https://github.com/fluxcd/kustomize-controller/pull/210)
+* Make Path field optional and add safe guards for relative paths
+  [#211](https://github.com/fluxcd/kustomize-controller/pull/211)
+
 ## 0.5.1
 
 **Release date:** 2020-12-14
