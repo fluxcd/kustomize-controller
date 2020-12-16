@@ -123,7 +123,7 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 }
 
 func (kgc *KustomizeGarbageCollector) isStale(obj unstructured.Unstructured) bool {
-	itemChecksum := obj.GetAnnotations()[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]
+	itemChecksum := obj.GetLabels()[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]
 	return kgc.newChecksum == "" || itemChecksum != kgc.newChecksum
 }
 
