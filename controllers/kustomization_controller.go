@@ -614,15 +614,15 @@ func (r *KustomizationReconciler) writeKubeConfig(kustomization kustomizev1.Kust
 		return "", err
 	}
 
-	kubeConfigPath, err := securejoin.SecureJoin(dirPath, secretName.Name)
+	f, err := ioutil.TempFile(dirPath, "kubeconfig")
+	defer f.Close()
 	if err != nil {
-		return "", err
-	}
-	if err := ioutil.WriteFile(kubeConfigPath, kubeConfig, os.ModePerm); err != nil {
 		return "", fmt.Errorf("unable to write KubeConfig secret '%s' to storage: %w", secretName.String(), err)
 	}
-
-	return kubeConfigPath, nil
+	if _, err := f.Write(kubeConfig); err != nil {
+		return "", fmt.Errorf("unable to write KubeConfig secret '%s' to storage: %w", secretName.String(), err)
+	}
+	return f.Name(), nil
 }
 
 func (r *KustomizationReconciler) getKubeConfig(kustomization kustomizev1.Kustomization) ([]byte, error) {
