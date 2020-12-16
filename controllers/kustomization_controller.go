@@ -24,11 +24,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -306,8 +306,16 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
-	dirPath := path.Join(tmpDir, kustomization.Spec.Path)
 	// check build path exists
+	dirPath, err := securejoin.SecureJoin(tmpDir, kustomization.Spec.Path)
+	if err != nil {
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			source.GetArtifact().Revision,
+			kustomizev1.ArtifactFailedReason,
+			err.Error(),
+		), err
+	}
 	if _, err := os.Stat(dirPath); err != nil {
 		err = fmt.Errorf("kustomization path not found: %w", err)
 		return kustomizev1.KustomizationNotReady(
@@ -606,12 +614,15 @@ func (r *KustomizationReconciler) writeKubeConfig(kustomization kustomizev1.Kust
 		return "", err
 	}
 
-	kubeConfigPath := path.Join(dirPath, secretName.Name)
+	kubeConfigPath, err := securejoin.SecureJoin(dirPath, secretName.Name)
+	if err != nil {
+		return "", err
+	}
 	if err := ioutil.WriteFile(kubeConfigPath, kubeConfig, os.ModePerm); err != nil {
 		return "", fmt.Errorf("unable to write KubeConfig secret '%s' to storage: %w", secretName.String(), err)
 	}
 
-	return secretName.Name, nil
+	return kubeConfigPath, nil
 }
 
 func (r *KustomizationReconciler) getKubeConfig(kustomization kustomizev1.Kustomization) ([]byte, error) {
