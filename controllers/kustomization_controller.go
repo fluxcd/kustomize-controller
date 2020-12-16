@@ -382,7 +382,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// prune
-	err = r.prune(client, kustomization, snapshot)
+	err = r.prune(client, kustomization, checksum)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -552,7 +552,7 @@ func (r *KustomizationReconciler) reconcileDelete(ctx context.Context, log logr.
 			log.Error(err, "Unable to prune for finalizer")
 			return ctrl.Result{}, err
 		}
-		if err := r.prune(client, kustomization, kustomization.Status.Snapshot); err != nil {
+		if err := r.prune(client, kustomization, ""); err != nil {
 			r.event(kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
 			// Return the error so we retry the failed garbage collection
 			return ctrl.Result{}, err
@@ -777,15 +777,15 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 	return changeSet, nil
 }
 
-func (r *KustomizationReconciler) prune(client client.Client, kustomization kustomizev1.Kustomization, snapshot *kustomizev1.Snapshot) error {
-	if !kustomization.Spec.Prune || kustomization.Status.Snapshot == nil || snapshot == nil {
+func (r *KustomizationReconciler) prune(client client.Client, kustomization kustomizev1.Kustomization, newChecksum string) error {
+	if !kustomization.Spec.Prune || kustomization.Status.Snapshot == nil {
 		return nil
 	}
-	if kustomization.DeletionTimestamp.IsZero() && kustomization.Status.Snapshot.Checksum == snapshot.Checksum {
+	if kustomization.DeletionTimestamp.IsZero() && kustomization.Status.Snapshot.Checksum == newChecksum {
 		return nil
 	}
 
-	gc := NewGarbageCollector(client, *kustomization.Status.Snapshot, r.Log)
+	gc := NewGarbageCollector(client, *kustomization.Status.Snapshot, newChecksum, r.Log)
 
 	if output, ok := gc.Prune(kustomization.GetTimeout(),
 		kustomization.GetName(),
@@ -798,7 +798,7 @@ func (r *KustomizationReconciler) prune(client client.Client, kustomization kust
 				strings.ToLower(kustomization.Kind),
 				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
 			).Info(fmt.Sprintf("garbage collection completed: %s", output))
-			r.event(kustomization, snapshot.Checksum, events.EventSeverityInfo, output, nil)
+			r.event(kustomization, newChecksum, events.EventSeverityInfo, output, nil)
 		}
 	}
 	return nil
