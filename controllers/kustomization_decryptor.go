@@ -23,8 +23,8 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"go.mozilla.org/sops/v3/aes"
 	"go.mozilla.org/sops/v3/cmd/sops/common"
 	"go.mozilla.org/sops/v3/cmd/sops/formats"
@@ -133,7 +133,10 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 		defer os.RemoveAll(tmpDir)
 
 		for name, key := range secret.Data {
-			keyPath := path.Join(tmpDir, name)
+			keyPath, err := securejoin.SecureJoin(tmpDir, name)
+			if err != nil {
+				return err
+			}
 			if err := ioutil.WriteFile(keyPath, key, os.ModePerm); err != nil {
 				return fmt.Errorf("unable to write key to storage: %w", err)
 			}

@@ -30,7 +30,6 @@ type KustomizationSpec struct {
 	KubeConfig *KubeConfig `json:"kubeConfig,omitempty"`
 
 	// Path to the directory containing the kustomization file.
-	// +kubebuilder:validation:Pattern="^\\./"
 	// +required
 	Path string `json:"path"`
 
