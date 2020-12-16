@@ -29,3 +29,7 @@ require (
 	sigs.k8s.io/kustomize/api v0.7.0
 	sigs.k8s.io/yaml v1.2.0
 )
+
+// controller-runtime v0.6.4 bug:
+// v1.ListOptions is not suitable for converting to \"helm.toolkit.fluxcd.io/v2beta1\" in scheme \"pkg/runtime/scheme.go:101
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.3
