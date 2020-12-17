@@ -238,9 +238,9 @@ func (in *Kustomization) GetStatusConditions() *[]metav1.Condition {
 }
 
 const (
-	// SourceIndexKey is the key used for indexing kustomizations
+	// GitRepositoryIndexKey is the key used for indexing kustomizations
 	// based on their Git sources.
-	SourceIndexKey string = ".metadata.source"
+	GitRepositoryIndexKey string = ".metadata.git"
 	// BucketIndexKey is the key used for indexing kustomizations
 	// based on their S3 sources.
 	BucketIndexKey string = ".metadata.bucket"

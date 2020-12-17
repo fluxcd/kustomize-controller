@@ -17,10 +17,11 @@ limitations under the License.
 package main
 
 import (
-	"flag"
+	goflag "flag"
 	"os"
 	"time"
 
+	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -60,11 +61,9 @@ func main() {
 		enableLeaderElection bool
 		concurrent           int
 		requeueDependency    time.Duration
-		logLevel             string
-		logJSON              bool
+		logOptions           logger.Options
 		watchAllNamespaces   bool
 	)
-
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&eventsAddr, "events-addr", "", "The address of the events receiver.")
 	flag.StringVar(&healthAddr, "health-addr", ":9440", "The address the health endpoint binds to.")
@@ -73,13 +72,18 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.IntVar(&concurrent, "concurrent", 4, "The number of concurrent kustomize reconciles.")
 	flag.DurationVar(&requeueDependency, "requeue-dependency", 30*time.Second, "The interval at which failing dependencies are reevaluated.")
-	flag.StringVar(&logLevel, "log-level", "info", "Set logging level. Can be debug, info or error.")
-	flag.BoolVar(&logJSON, "log-json", false, "Set logging to JSON format.")
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
+	flag.Bool("log-json", false, "Set logging to JSON format.")
+	flag.CommandLine.MarkDeprecated("log-json", "Please use --log-encoding=json instead.")
+	{
+		var fs goflag.FlagSet
+		logOptions.BindFlags(&fs)
+		flag.CommandLine.AddGoFlagSet(&fs)
+	}
 	flag.Parse()
 
-	ctrl.SetLogger(logger.NewLogger(logLevel, logJSON))
+	ctrl.SetLogger(logger.NewLogger(logOptions))
 
 	var eventRecorder *events.Recorder
 	if eventsAddr != "" {
@@ -118,7 +122,6 @@ func main() {
 
 	if err = (&controllers.KustomizationReconciler{
 		Client:                mgr.GetClient(),
-		Log:                   ctrl.Log.WithName("controllers").WithName(kustomizev1.KustomizationKind),
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         mgr.GetEventRecorderFor("kustomize-controller"),
 		ExternalEventRecorder: eventRecorder,
