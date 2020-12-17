@@ -25,6 +25,7 @@ import (
 	"os/exec"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/aes"
 	"go.mozilla.org/sops/v3/cmd/sops/common"
 	"go.mozilla.org/sops/v3/cmd/sops/formats"
@@ -87,6 +88,9 @@ func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resourc
 			},
 		)
 		if err != nil {
+			if userErr, ok := err.(sops.UserError); ok {
+				err = fmt.Errorf(userErr.UserError())
+			}
 			return nil, fmt.Errorf("GetDataKey: %w", err)
 		}
 
