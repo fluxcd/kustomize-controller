@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -71,19 +72,24 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 			if err == nil {
 				for _, item := range ulist.Items {
 					if kgc.isStale(item) && item.GetDeletionTimestamp().IsZero() {
-						name := fmt.Sprintf("%s/%s/%s", item.GetKind(), item.GetNamespace(), item.GetName())
+						gvkn := fmt.Sprintf("%s/%s/%s", item.GetKind(), item.GetNamespace(), item.GetName())
 						err = kgc.Delete(ctx, &item)
 						if err != nil {
-							outErr += fmt.Sprintf("delete failed for %s: %v\n", name, err)
+							outErr += fmt.Sprintf("delete failed for %s: %v\n", gvkn, err)
 						} else {
 							if len(item.GetFinalizers()) > 0 {
-								changeSet += fmt.Sprintf("%s marked for deletion\n", name)
+								changeSet += fmt.Sprintf("%s marked for deletion\n", gvkn)
 							} else {
-								changeSet += fmt.Sprintf("%s deleted\n", name)
+								changeSet += fmt.Sprintf("%s deleted\n", gvkn)
 							}
 						}
 					}
 				}
+			} else {
+				kgc.log.V(1).WithValues(
+					strings.ToLower(kustomizev1.KustomizationKind),
+					fmt.Sprintf("%s/%s", namespace, name),
+				).Info(fmt.Sprintf("gc query failed for %s: %v", gvk.Kind, err))
 			}
 		}
 	}
@@ -100,10 +106,10 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 		if err == nil {
 			for _, item := range ulist.Items {
 				if kgc.isStale(item) && item.GetDeletionTimestamp().IsZero() {
-					name := fmt.Sprintf("%s/%s", item.GetKind(), item.GetName())
+					gvkn := fmt.Sprintf("%s/%s", item.GetKind(), item.GetName())
 					err = kgc.Delete(ctx, &item)
 					if err != nil {
-						outErr += fmt.Sprintf("delete failed for %s: %v\n", name, err)
+						outErr += fmt.Sprintf("delete failed for %s: %v\n", gvkn, err)
 					} else {
 						if len(item.GetFinalizers()) > 0 {
 							changeSet += fmt.Sprintf("%s/%s marked for deletion\n", item.GetKind(), item.GetName())
@@ -113,6 +119,11 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 					}
 				}
 			}
+		} else {
+			kgc.log.V(1).WithValues(
+				strings.ToLower(kustomizev1.KustomizationKind),
+				fmt.Sprintf("%s/%s", namespace, name),
+			).Info(fmt.Sprintf("gc query failed for %s: %v", gvk.Kind, err))
 		}
 	}
 
