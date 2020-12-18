@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.5.3
+
+**Release date:** 2020-12-18
+
+This prerelease comes with improvements to health reporting.
+
+Improvements:
+* Emit healthcheck event when Kustomization was not ready
+  [#219](https://github.com/fluxcd/kustomize-controller/pull/219)
+* Add debug logs to garbage collection
+  [#218](https://github.com/fluxcd/kustomize-controller/pull/218)
+* Add SOPS user error to logs
+  [#220](https://github.com/fluxcd/kustomize-controller/pull/220)
+
 ## 0.5.2
 
 **Release date:** 2020-12-16
