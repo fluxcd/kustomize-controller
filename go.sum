@@ -173,8 +173,8 @@ github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5Kwzbycv
 github.com/fatih/structs v1.1.0/go.mod h1:9NiDSp5zOcgEDl+j00MP/WkGVPOlPRLejGD8Ga6PJ7M=
 github.com/fluxcd/pkg/apis/meta v0.5.0 h1:FaU++mQY0g4sVVl+hG+vk0CXBLbb4EVfRuzs3IjLXvo=
 github.com/fluxcd/pkg/apis/meta v0.5.0/go.mod h1:aEUuZIawboAAFLlYz/juVJ7KNmlWbBtJFYkOWWmGUR4=
-github.com/fluxcd/pkg/runtime v0.5.1-0.20201217125143-9e1fe564d778 h1:2ysomj1tpkYZhs1bN3VBJ7qqDLs0kaO4PeCSATG15d0=
-github.com/fluxcd/pkg/runtime v0.5.1-0.20201217125143-9e1fe564d778/go.mod h1:RuqYOYCvBJwo4rg83d28WOt2vfSaemuZCVpUagAjWQc=
+github.com/fluxcd/pkg/runtime v0.6.0 h1:m76ohcnLEcpMMqf+YyADWVYG9pvuKeCUoi3CTx+gIXw=
+github.com/fluxcd/pkg/runtime v0.6.0/go.mod h1:RuqYOYCvBJwo4rg83d28WOt2vfSaemuZCVpUagAjWQc=
 github.com/fluxcd/pkg/testserver v0.0.2 h1:SoaMtO9cE5p/wl2zkGudzflnEHd9mk68CGjZOo7w0Uk=
 github.com/fluxcd/pkg/testserver v0.0.2/go.mod h1:pgUZTh9aQ44FSTQo+5NFlh7YMbUfdz1B80DalW7k96Y=
 github.com/fluxcd/pkg/untar v0.0.5 h1:UGI3Ch1UIEIaqQvMicmImL1s9npQa64DJ/ozqHKB7gk=
