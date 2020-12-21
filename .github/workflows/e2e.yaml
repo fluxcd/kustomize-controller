@@ -80,6 +80,8 @@ jobs:
         run: |
           kubectl -n impersonation apply -f ./config/testdata/impersonation
           kubectl -n impersonation wait kustomizations/podinfo --for=condition=ready --timeout=4m
+          kubectl -n impersonation delete kustomizations/podinfo
+          until kubectl -n impersonation get deploy/podinfo 2>&1 | grep NotFound ; do sleep 2; done
       - name: Run image overide tests
         run: |
           kubectl -n override-test apply -f ./config/testdata/overrides

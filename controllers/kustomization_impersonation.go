@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
@@ -92,12 +93,49 @@ func (ki *KustomizeImpersonation) GetServiceAccountToken(ctx context.Context) (s
 	return token, nil
 }
 
+// GetClient creates a controller-runtime client for talking to a Kubernetes API server.
+// If KubeConfig is set, will use the kubeconfig bytes from the Kubernetes secret.
+// If ServiceAccountName is set, will use the cluster provided kubeconfig impersonating the SA.
+// If --kubeconfig is set, will use the kubeconfig file at that location.
+// Otherwise will assume running in cluster and use the cluster provided kubeconfig.
 func (ki *KustomizeImpersonation) GetClient(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
 	if ki.kustomization.Spec.KubeConfig == nil {
-		// TODO: implement impersonation overrides for in-cluster
+		if ki.kustomization.Spec.ServiceAccountName != "" {
+			return ki.clientForServiceAccount(ctx)
+		}
+
 		return ki.Client, ki.statusPoller, nil
 	}
+	return ki.clientForKubeConfig(ctx)
+}
 
+func (ki *KustomizeImpersonation) clientForServiceAccount(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
+	token, err := ki.GetServiceAccountToken(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	restConfig, err := config.GetConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+	restConfig.BearerToken = token
+
+	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	client, err := client.New(restConfig, client.Options{Mapper: restMapper})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	statusPoller := polling.NewStatusPoller(client, restMapper)
+	return client, statusPoller, err
+
+}
+
+func (ki *KustomizeImpersonation) clientForKubeConfig(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
 	kubeConfigBytes, err := ki.getKubeConfig(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -108,15 +146,11 @@ func (ki *KustomizeImpersonation) GetClient(ctx context.Context) (client.Client,
 		return nil, nil, err
 	}
 
-	// TODO: implement impersonation overrides on the target cluster restConfig
-
 	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// this client does not have a cache like the normal controller-runtime default client
-	// this is intentional but one could be added
 	client, err := client.New(restConfig, client.Options{Mapper: restMapper})
 	if err != nil {
 		return nil, nil, err
