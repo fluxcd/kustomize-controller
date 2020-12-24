@@ -145,7 +145,7 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 				// If a sub-directory contains an existing kustomization file add the
 				// directory as a resource and do not decend into it.
 				for _, kfilename := range konfig.RecognizedKustomizationFileNames() {
-					if fs.Exists(filepath.Join(path, kfilename)) {
+					if kpath := filepath.Join(path, kfilename); fs.Exists(kpath) && !fs.IsDir(kpath) {
 						paths = append(paths, path)
 						return filepath.SkipDir
 					}
