@@ -28,7 +28,7 @@ type SourceRevisionChangePredicate struct {
 }
 
 func (SourceRevisionChangePredicate) Update(e event.UpdateEvent) bool {
-	if e.MetaOld == nil || e.MetaNew == nil {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
 		return false
 	}
 
@@ -51,13 +51,5 @@ func (SourceRevisionChangePredicate) Update(e event.UpdateEvent) bool {
 		return true
 	}
 
-	return false
-}
-
-func (SourceRevisionChangePredicate) Create(e event.CreateEvent) bool {
-	return false
-}
-
-func (SourceRevisionChangePredicate) Delete(e event.DeleteEvent) bool {
 	return false
 }

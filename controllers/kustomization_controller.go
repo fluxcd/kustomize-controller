@@ -30,31 +30,27 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/clientcmd"
 	kuberecorder "k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 
 	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/dependency"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/predicates"
@@ -69,13 +65,13 @@ import (
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations/finalizers,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets;gitrepositories,verbs=get;list;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets/status;gitrepositories/status,verbs=get
+// +kubebuilder:rbac:groups="",resources=secrets;serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // KustomizationReconciler reconciles a Kustomization object
 type KustomizationReconciler struct {
 	client.Client
 	requeueDependency     time.Duration
-	Log                   logr.Logger
 	Scheme                *runtime.Scheme
 	EventRecorder         kuberecorder.EventRecorder
 	ExternalEventRecorder *events.Recorder
@@ -90,65 +86,45 @@ type KustomizationReconcilerOptions struct {
 
 func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
 	// Index the Kustomizations by the GitRepository references they (may) point at.
-	if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &kustomizev1.Kustomization{}, kustomizev1.SourceIndexKey,
-		func(rawObj runtime.Object) []string {
-			k := rawObj.(*kustomizev1.Kustomization)
-			if k.Spec.SourceRef.Kind == sourcev1.GitRepositoryKind {
-				namespace := k.GetNamespace()
-				if k.Spec.SourceRef.Namespace != "" {
-					namespace = k.Spec.SourceRef.Namespace
-				}
-				return []string{fmt.Sprintf("%s/%s", namespace, k.Spec.SourceRef.Name)}
-			}
-			return nil
-		},
-	); err != nil {
-		return err
+	if err := mgr.GetCache().IndexField(context.TODO(), &kustomizev1.Kustomization{}, kustomizev1.GitRepositoryIndexKey,
+		r.indexByGitRepository); err != nil {
+		return fmt.Errorf("failed setting index fields: %w", err)
 	}
+
 	// Index the Kustomizations by the Bucket references they (may) point at.
-	if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &kustomizev1.Kustomization{}, kustomizev1.BucketIndexKey,
-		func(rawObj runtime.Object) []string {
-			k := rawObj.(*kustomizev1.Kustomization)
-			if k.Spec.SourceRef.Kind == sourcev1.BucketKind {
-				namespace := k.GetNamespace()
-				if k.Spec.SourceRef.Namespace != "" {
-					namespace = k.Spec.SourceRef.Namespace
-				}
-				return []string{fmt.Sprintf("%s/%s", namespace, k.Spec.SourceRef.Name)}
-			}
-			return nil
-		},
-	); err != nil {
-		return err
+	if err := mgr.GetCache().IndexField(context.TODO(), &kustomizev1.Kustomization{}, kustomizev1.BucketIndexKey,
+		r.indexByBucket); err != nil {
+		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
 	r.requeueDependency = opts.DependencyRequeueInterval
+
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&kustomizev1.Kustomization{}, builder.WithPredicates(predicates.ChangePredicate{})).
+		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
+			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcilateAtChangedPredicate{}),
+		)).
 		Watches(
 			&source.Kind{Type: &sourcev1.GitRepository{}},
-			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(r.requestsForGitRepositoryRevisionChange)},
+			handler.EnqueueRequestsFromMapFunc(r.requestsForGitRepositoryRevisionChange),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
 			&source.Kind{Type: &sourcev1.Bucket{}},
-			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(r.requestsForBucketRevisionChange)},
+			handler.EnqueueRequestsFromMapFunc(r.requestsForBucketRevisionChange),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
 		Complete(r)
 }
 
-func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log := logr.FromContext(ctx)
 	reconcileStart := time.Now()
 
 	var kustomization kustomizev1.Kustomization
 	if err := r.Get(ctx, req.NamespacedName, &kustomization); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
-	log := r.Log.WithValues("controller", strings.ToLower(kustomizev1.KustomizationKind), "request", req.NamespacedName)
 
 	// Add our finalizer if it does not exist
 	if !controllerutil.ContainsFinalizer(&kustomization, kustomizev1.KustomizationFinalizer) {
@@ -161,7 +137,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	// Examine if the object is under deletion
 	if !kustomization.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, log, kustomization)
+		return r.reconcileDelete(ctx, kustomization)
 	}
 
 	// Return early if the Kustomization is suspended.
@@ -176,11 +152,11 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		if apierrors.IsNotFound(err) {
 			msg := "Source not found"
 			kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
-			if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
+			if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
 				log.Error(err, "unable to update status for source not found")
 				return ctrl.Result{Requeue: true}, err
 			}
-			r.recordReadiness(kustomization)
+			r.recordReadiness(ctx, kustomization)
 			log.Info(msg)
 			// do not requeue immediately, when the source is created the watcher should trigger a reconciliation
 			return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
@@ -193,11 +169,11 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	if source.GetArtifact() == nil {
 		msg := "Source is not ready, artifact not found"
 		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
-		if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
+		if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
 			log.Error(err, "unable to update status for artifact not found")
 			return ctrl.Result{Requeue: true}, err
 		}
-		r.recordReadiness(kustomization)
+		r.recordReadiness(ctx, kustomization)
 		log.Info(msg)
 		// do not requeue immediately, when the artifact is created the watcher should trigger a reconciliation
 		return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
@@ -208,7 +184,7 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		if err := r.checkDependencies(kustomization); err != nil {
 			kustomization = kustomizev1.KustomizationNotReady(
 				kustomization, source.GetArtifact().Revision, meta.DependencyNotReadyReason, err.Error())
-			if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
+			if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
 				log.Error(err, "unable to update status for dependency not ready")
 				return ctrl.Result{Requeue: true}, err
 			}
@@ -216,8 +192,8 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			// instead we requeue on a fix interval.
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Error(err, msg)
-			r.event(kustomization, source.GetArtifact().Revision, events.EventSeverityInfo, msg, nil)
-			r.recordReadiness(kustomization)
+			r.event(ctx, kustomization, source.GetArtifact().Revision, events.EventSeverityInfo, msg, nil)
+			r.recordReadiness(ctx, kustomization)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
 		log.Info("All dependencies area ready, proceeding with reconciliation")
@@ -234,26 +210,26 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	// set the reconciliation status to progressing
 	kustomization = kustomizev1.KustomizationProgressing(kustomization)
-	if err := r.updateStatus(ctx, req, kustomization.Status); err != nil {
-		log.Error(err, "unable to update status to progressing")
+	if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
+		(logr.FromContext(ctx)).Error(err, "unable to update status to progressing")
 		return ctrl.Result{Requeue: true}, err
 	}
-	r.recordReadiness(kustomization)
+	r.recordReadiness(ctx, kustomization)
 
 	// reconcile kustomization by applying the latest revision
-	reconciledKustomization, reconcileErr := r.reconcile(*kustomization.DeepCopy(), source)
+	reconciledKustomization, reconcileErr := r.reconcile(ctx, *kustomization.DeepCopy(), source)
 	if reconcileErr != nil {
 		// broadcast the error
-		r.event(reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityError, reconcileErr.Error(), nil)
+		r.event(ctx, reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityError, reconcileErr.Error(), nil)
 	}
 
 	// update status
-	if err := r.updateStatus(ctx, req, reconciledKustomization.Status); err != nil {
+	if err := r.patchStatus(ctx, req, reconciledKustomization.Status); err != nil {
 		log.Error(err, "unable to update status after reconciliation")
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	log.Info(fmt.Sprintf("Reconciliation finished in %s, next run in %s",
+	(logr.FromContext(ctx)).Info(fmt.Sprintf("Reconciliation finished in %s, next run in %s",
 		time.Now().Sub(reconcileStart).String(),
 		kustomization.Spec.Interval.Duration.String()),
 		"revision",
@@ -263,18 +239,19 @@ func (r *KustomizationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	// requeue
 	if reconcileErr != nil {
 		// record the reconciliation error
-		r.recordReadiness(reconciledKustomization)
+		r.recordReadiness(ctx, reconciledKustomization)
 		return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, reconcileErr
 	}
 
 	// record the reconciliation result
-	r.event(reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityInfo,
+	r.event(ctx, reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityInfo,
 		"Update completed", map[string]string{"commit_status": "update"})
-	r.recordReadiness(reconciledKustomization)
+	r.recordReadiness(ctx, reconciledKustomization)
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 }
 
 func (r *KustomizationReconciler) reconcile(
+	ctx context.Context,
 	kustomization kustomizev1.Kustomization,
 	source sourcev1.Source) (kustomizev1.Kustomization, error) {
 	// record the value of the reconciliation request, if any
@@ -348,8 +325,20 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
+	// create any necessary kube-clients for impersonation
+	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, dirPath)
+	client, statusPoller, err := impersonation.GetClient(ctx)
+	if err != nil {
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			source.GetArtifact().Revision,
+			meta.ReconciliationFailedReason,
+			err.Error(),
+		), fmt.Errorf("failed to build kube client: %w", err)
+	}
+
 	// dry-run apply
-	err = r.validate(kustomization, dirPath)
+	err = r.validate(ctx, kustomization, impersonation, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -360,7 +349,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// apply
-	changeSet, err := r.applyWithRetry(kustomization, source.GetArtifact().Revision, dirPath, 5*time.Second)
+	changeSet, err := r.applyWithRetry(ctx, kustomization, impersonation, source.GetArtifact().Revision, dirPath, 5*time.Second)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -370,19 +359,8 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
-	// create any necessary kube-clients
-	client, statusPoller, err := r.newKustomizationClient(kustomization)
-	if err != nil {
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			source.GetArtifact().Revision,
-			meta.ReconciliationFailedReason,
-			err.Error(),
-		), fmt.Errorf("Failed to build kube client for Kustomization: %w", err)
-	}
-
 	// prune
-	err = r.prune(client, kustomization, checksum)
+	err = r.prune(ctx, client, kustomization, checksum)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -393,7 +371,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// health assessment
-	err = r.checkHealth(statusPoller, kustomization, source.GetArtifact().Revision, changeSet != "")
+	err = r.checkHealth(ctx, statusPoller, kustomization, source.GetArtifact().Revision, changeSet != "")
 	if err != nil {
 		return kustomizev1.KustomizationNotReadySnapshot(
 			kustomization,
@@ -411,6 +389,30 @@ func (r *KustomizationReconciler) reconcile(
 		meta.ReconciliationSucceededReason,
 		"Applied revision: "+source.GetArtifact().Revision,
 	), nil
+}
+
+func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Kustomization) error {
+	for _, d := range kustomization.Spec.DependsOn {
+		if d.Namespace == "" {
+			d.Namespace = kustomization.GetNamespace()
+		}
+		dName := types.NamespacedName(d)
+		var k kustomizev1.Kustomization
+		err := r.Get(context.Background(), dName, &k)
+		if err != nil {
+			return fmt.Errorf("unable to get '%s' dependency: %w", dName, err)
+		}
+
+		if len(k.Status.Conditions) == 0 || k.Generation != k.Status.ObservedGeneration {
+			return fmt.Errorf("dependency '%s' is not ready", dName)
+		}
+
+		if !apimeta.IsStatusConditionTrue(k.Status.Conditions, meta.ReadyCondition) {
+			return fmt.Errorf("dependency '%s' is not ready", dName)
+		}
+	}
+
+	return nil
 }
 
 func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomization, url string, tmpDir string) error {
@@ -543,56 +545,27 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 	return kustomizev1.NewSnapshot(resources, checksum)
 }
 
-func (r *KustomizationReconciler) reconcileDelete(ctx context.Context, log logr.Logger, kustomization kustomizev1.Kustomization) (ctrl.Result, error) {
-	if kustomization.Spec.Prune && !kustomization.Spec.Suspend {
-		// create any necessary kube-clients
-		client, _, err := r.newKustomizationClient(kustomization)
-		if err != nil {
-			err = fmt.Errorf("failed to build kube client for Kustomization: %w", err)
-			log.Error(err, "Unable to prune for finalizer")
-			return ctrl.Result{}, err
-		}
-		if err := r.prune(client, kustomization, ""); err != nil {
-			r.event(kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
-			// Return the error so we retry the failed garbage collection
-			return ctrl.Result{}, err
-		}
-	}
-
-	// Record deleted status
-	r.recordReadiness(kustomization)
-
-	// Remove our finalizer from the list and update it
-	controllerutil.RemoveFinalizer(&kustomization, kustomizev1.KustomizationFinalizer)
-	if err := r.Update(ctx, &kustomization); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// Stop reconciliation as the object is being deleted
-	return ctrl.Result{}, nil
-}
-
-func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomization, dirPath string) error {
+func (r *KustomizationReconciler) validate(ctx context.Context, kustomization kustomizev1.Kustomization, imp *KustomizeImpersonation, dirPath string) error {
 	if kustomization.Spec.Validation == "" || kustomization.Spec.Validation == "none" {
 		return nil
 	}
 
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	applyCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s --cache-dir=/tmp",
 		dirPath, kustomization.GetUID(), kustomization.GetTimeout().String(), kustomization.Spec.Validation)
 
 	if kustomization.Spec.KubeConfig != nil {
-		kubeConfig, err := r.writeKubeConfig(kustomization, dirPath)
+		kubeConfig, err := imp.WriteKubeConfig(ctx)
 		if err != nil {
 			return err
 		}
 		cmd = fmt.Sprintf("%s --kubeconfig=%s", cmd, kubeConfig)
 	}
 
-	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	command := exec.CommandContext(applyCtx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -603,95 +576,10 @@ func (r *KustomizationReconciler) validate(kustomization kustomizev1.Kustomizati
 	return nil
 }
 
-func (r *KustomizationReconciler) writeKubeConfig(kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
-	secretName := types.NamespacedName{
-		Namespace: kustomization.GetNamespace(),
-		Name:      kustomization.Spec.KubeConfig.SecretRef.Name,
-	}
-
-	kubeConfig, err := r.getKubeConfig(kustomization)
-	if err != nil {
-		return "", err
-	}
-
-	f, err := ioutil.TempFile(dirPath, "kubeconfig")
-	defer f.Close()
-	if err != nil {
-		return "", fmt.Errorf("unable to write KubeConfig secret '%s' to storage: %w", secretName.String(), err)
-	}
-	if _, err := f.Write(kubeConfig); err != nil {
-		return "", fmt.Errorf("unable to write KubeConfig secret '%s' to storage: %w", secretName.String(), err)
-	}
-	return f.Name(), nil
-}
-
-func (r *KustomizationReconciler) getKubeConfig(kustomization kustomizev1.Kustomization) ([]byte, error) {
-	timeout := kustomization.GetTimeout()
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	secretName := types.NamespacedName{
-		Namespace: kustomization.GetNamespace(),
-		Name:      kustomization.Spec.KubeConfig.SecretRef.Name,
-	}
-
-	var secret corev1.Secret
-	if err := r.Get(ctx, secretName, &secret); err != nil {
-		return nil, fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
-	}
-
-	kubeConfig, ok := secret.Data["value"]
-	if !ok {
-		return nil, fmt.Errorf("KubeConfig secret '%s' doesn't contain a 'value' key ", secretName.String())
-	}
-
-	return kubeConfig, nil
-}
-
-func (r *KustomizationReconciler) getServiceAccountToken(kustomization kustomizev1.Kustomization) (string, error) {
-	namespacedName := types.NamespacedName{
-		Namespace: kustomization.Namespace,
-		Name:      kustomization.Spec.ServiceAccountName,
-	}
-
-	var serviceAccount corev1.ServiceAccount
-	err := r.Client.Get(context.TODO(), namespacedName, &serviceAccount)
-	if err != nil {
-		return "", err
-	}
-
-	secretName := types.NamespacedName{
-		Namespace: kustomization.Namespace,
-		Name:      kustomization.Spec.ServiceAccountName,
-	}
-
-	for _, secret := range serviceAccount.Secrets {
-		if strings.HasPrefix(secret.Name, fmt.Sprintf("%s-token", serviceAccount.Name)) {
-			secretName.Name = secret.Name
-			break
-		}
-	}
-
-	var secret corev1.Secret
-	err = r.Client.Get(context.TODO(), secretName, &secret)
-	if err != nil {
-		return "", err
-	}
-
-	var token string
-	if data, ok := secret.Data["token"]; ok {
-		token = string(data)
-	} else {
-		return "", fmt.Errorf("the service account secret '%s' does not containt a token", secretName.String())
-	}
-
-	return token, nil
-}
-
-func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
+func (r *KustomizationReconciler) apply(ctx context.Context, kustomization kustomizev1.Kustomization, imp *KustomizeImpersonation, dirPath string) (string, error) {
 	start := time.Now()
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	applyCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	fieldManager := "kustomize-controller"
 
@@ -699,7 +587,7 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 		dirPath, fieldManager, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String())
 
 	if kustomization.Spec.KubeConfig != nil {
-		kubeConfig, err := r.writeKubeConfig(kustomization, dirPath)
+		kubeConfig, err := imp.WriteKubeConfig(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -707,7 +595,7 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	} else {
 		// impersonate SA
 		if kustomization.Spec.ServiceAccountName != "" {
-			saToken, err := r.getServiceAccountToken(kustomization)
+			saToken, err := imp.GetServiceAccountToken(ctx)
 			if err != nil {
 				return "", fmt.Errorf("service account impersonation failed: %w", err)
 			}
@@ -716,7 +604,7 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 		}
 	}
 
-	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	command := exec.CommandContext(applyCtx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -731,10 +619,7 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	}
 
 	resources := parseApplyOutput(output)
-	r.Log.WithValues(
-		strings.ToLower(kustomization.Kind),
-		fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-	).Info(
+	(logr.FromContext(ctx)).Info(
 		fmt.Sprintf("Kustomization applied in %s",
 			time.Now().Sub(start).String()),
 		"output", resources,
@@ -749,21 +634,19 @@ func (r *KustomizationReconciler) apply(kustomization kustomizev1.Kustomization,
 	return changeSet, nil
 }
 
-func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kustomization, revision, dirPath string, delay time.Duration) (string, error) {
-	changeSet, err := r.apply(kustomization, dirPath)
+func (r *KustomizationReconciler) applyWithRetry(ctx context.Context, kustomization kustomizev1.Kustomization, imp *KustomizeImpersonation, revision, dirPath string, delay time.Duration) (string, error) {
+	changeSet, err := r.apply(ctx, kustomization, imp, dirPath)
 	if err != nil {
 		// retry apply due to CRD/CR race
 		if strings.Contains(err.Error(), "could not find the requested resource") ||
 			strings.Contains(err.Error(), "no matches for kind") {
-			r.Log.Info("retrying apply",
-				"error", err.Error(),
-				"kustomization", fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()))
+			(logr.FromContext(ctx)).Info("retrying apply", "error", err.Error())
 			time.Sleep(delay)
-			if changeSet, err := r.apply(kustomization, dirPath); err != nil {
+			if changeSet, err := r.apply(ctx, kustomization, imp, dirPath); err != nil {
 				return "", err
 			} else {
 				if changeSet != "" {
-					r.event(kustomization, revision, events.EventSeverityInfo, changeSet, nil)
+					r.event(ctx, kustomization, revision, events.EventSeverityInfo, changeSet, nil)
 				}
 			}
 		} else {
@@ -771,13 +654,13 @@ func (r *KustomizationReconciler) applyWithRetry(kustomization kustomizev1.Kusto
 		}
 	} else {
 		if changeSet != "" && kustomization.Status.LastAppliedRevision != revision {
-			r.event(kustomization, revision, events.EventSeverityInfo, changeSet, nil)
+			r.event(ctx, kustomization, revision, events.EventSeverityInfo, changeSet, nil)
 		}
 	}
 	return changeSet, nil
 }
 
-func (r *KustomizationReconciler) prune(client client.Client, kustomization kustomizev1.Kustomization, newChecksum string) error {
+func (r *KustomizationReconciler) prune(ctx context.Context, client client.Client, kustomization kustomizev1.Kustomization, newChecksum string) error {
 	if !kustomization.Spec.Prune || kustomization.Status.Snapshot == nil {
 		return nil
 	}
@@ -785,7 +668,7 @@ func (r *KustomizationReconciler) prune(client client.Client, kustomization kust
 		return nil
 	}
 
-	gc := NewGarbageCollector(client, *kustomization.Status.Snapshot, newChecksum, r.Log)
+	gc := NewGarbageCollector(client, *kustomization.Status.Snapshot, newChecksum, logr.FromContext(ctx))
 
 	if output, ok := gc.Prune(kustomization.GetTimeout(),
 		kustomization.GetName(),
@@ -794,17 +677,14 @@ func (r *KustomizationReconciler) prune(client client.Client, kustomization kust
 		return fmt.Errorf("garbage collection failed: %s", output)
 	} else {
 		if output != "" {
-			r.Log.WithValues(
-				strings.ToLower(kustomization.Kind),
-				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-			).Info(fmt.Sprintf("garbage collection completed: %s", output))
-			r.event(kustomization, newChecksum, events.EventSeverityInfo, output, nil)
+			(logr.FromContext(ctx)).Info(fmt.Sprintf("garbage collection completed: %s", output))
+			r.event(ctx, kustomization, newChecksum, events.EventSeverityInfo, output, nil)
 		}
 	}
 	return nil
 }
 
-func (r *KustomizationReconciler) checkHealth(statusPoller *polling.StatusPoller, kustomization kustomizev1.Kustomization, revision string, changed bool) error {
+func (r *KustomizationReconciler) checkHealth(ctx context.Context, statusPoller *polling.StatusPoller, kustomization kustomizev1.Kustomization, revision string, changed bool) error {
 	if len(kustomization.Spec.HealthChecks) == 0 {
 		return nil
 	}
@@ -819,128 +699,46 @@ func (r *KustomizationReconciler) checkHealth(statusPoller *polling.StatusPoller
 	ready := readiness != nil && readiness.Status == metav1.ConditionTrue
 
 	if !ready || (kustomization.Status.LastAppliedRevision != revision && changed) {
-		r.event(kustomization, revision, events.EventSeverityInfo, "Health check passed", nil)
+		r.event(ctx, kustomization, revision, events.EventSeverityInfo, "Health check passed", nil)
 	}
 	return nil
 }
 
-func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Kustomization) error {
-	for _, d := range kustomization.Spec.DependsOn {
-		if d.Namespace == "" {
-			d.Namespace = kustomization.GetNamespace()
-		}
-		dName := types.NamespacedName(d)
-		var k kustomizev1.Kustomization
-		err := r.Get(context.Background(), dName, &k)
+func (r *KustomizationReconciler) reconcileDelete(ctx context.Context, kustomization kustomizev1.Kustomization) (ctrl.Result, error) {
+	if kustomization.Spec.Prune && !kustomization.Spec.Suspend {
+		// create any necessary kube-clients
+		imp := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, "")
+		client, _, err := imp.GetClient(ctx)
 		if err != nil {
-			return fmt.Errorf("unable to get '%s' dependency: %w", dName, err)
+			err = fmt.Errorf("failed to build kube client for Kustomization: %w", err)
+			(logr.FromContext(ctx)).Error(err, "Unable to prune for finalizer")
+			return ctrl.Result{}, err
 		}
-
-		if len(k.Status.Conditions) == 0 || k.Generation != k.Status.ObservedGeneration {
-			return fmt.Errorf("dependency '%s' is not ready", dName)
-		}
-
-		if !apimeta.IsStatusConditionTrue(k.Status.Conditions, meta.ReadyCondition) {
-			return fmt.Errorf("dependency '%s' is not ready", dName)
+		if err := r.prune(ctx, client, kustomization, ""); err != nil {
+			r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
+			// Return the error so we retry the failed garbage collection
+			return ctrl.Result{}, err
 		}
 	}
 
-	return nil
+	// Record deleted status
+	r.recordReadiness(ctx, kustomization)
+
+	// Remove our finalizer from the list and update it
+	controllerutil.RemoveFinalizer(&kustomization, kustomizev1.KustomizationFinalizer)
+	if err := r.Update(ctx, &kustomization); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Stop reconciliation as the object is being deleted
+	return ctrl.Result{}, nil
 }
 
-func (r *KustomizationReconciler) requestsForGitRepositoryRevisionChange(obj handler.MapObject) []reconcile.Request {
-	repo, ok := obj.Object.(*sourcev1.GitRepository)
-	if !ok {
-		panic(fmt.Sprintf("Expected a GitRepository but got a %T", obj))
-	}
-	// If we do not have an artifact, we have no requests to make
-	if repo.GetArtifact() == nil {
-		return nil
-	}
-
-	ctx := context.Background()
-	var list kustomizev1.KustomizationList
-	if err := r.List(ctx, &list, client.MatchingFields{
-		kustomizev1.SourceIndexKey: fmt.Sprintf("%s/%s", obj.Meta.GetNamespace(), obj.Meta.GetName()),
-	}); err != nil {
-		r.Log.Error(err, "failed to list Kustomizations for GitRepository")
-		return nil
-	}
-	var dd []dependency.Dependent
-	for _, d := range list.Items {
-		// If the revision of the artifact equals to the last attempted revision,
-		// we should not make a request for this Kustomization
-		if repo.GetArtifact().Revision == d.Status.LastAttemptedRevision {
-			continue
-		}
-		dd = append(dd, d)
-	}
-	sorted, err := dependency.Sort(dd)
-	if err != nil {
-		r.Log.Error(err, "unable to dependency sort Kustomization list")
-		return nil
-	}
-	reqs := make([]reconcile.Request, len(sorted), len(sorted))
-	for i := range sorted {
-		reqs[i].NamespacedName.Name = sorted[i].Name
-		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
-
-		r.Log.Info("requesting reconciliation due to GitRepository revision change",
-			strings.ToLower(kustomizev1.KustomizationKind), &reqs[i].NamespacedName,
-			"revision", repo.GetArtifact().Revision)
-	}
-	return reqs
-}
-
-func (r *KustomizationReconciler) requestsForBucketRevisionChange(obj handler.MapObject) []reconcile.Request {
-	bucket, ok := obj.Object.(*sourcev1.Bucket)
-	if !ok {
-		panic(fmt.Sprintf("Expected a Bucket but got a %T", obj))
-	}
-	// If we do not have an artifact, we have no requests to make
-	if bucket.GetArtifact() == nil {
-		return nil
-	}
-
-	ctx := context.Background()
-	var list kustomizev1.KustomizationList
-	if err := r.List(ctx, &list, client.MatchingFields{
-		kustomizev1.BucketIndexKey: fmt.Sprintf("%s/%s", obj.Meta.GetNamespace(), obj.Meta.GetName()),
-	}); err != nil {
-		r.Log.Error(err, "failed to list Kustomizations for Bucket")
-		return nil
-	}
-	var dd []dependency.Dependent
-	for _, d := range list.Items {
-		// If the revision of the artifact equals to the last attempted revision,
-		// we should not make a request for this Kustomization
-		if bucket.GetArtifact().Revision == d.Status.LastAttemptedRevision {
-			continue
-		}
-		dd = append(dd, d)
-	}
-	sorted, err := dependency.Sort(dd)
-	if err != nil {
-		r.Log.Error(err, "unable to dependency sort Kustomization list")
-		return nil
-	}
-	reqs := make([]reconcile.Request, len(sorted), len(sorted))
-	for i := range sorted {
-		reqs[i].NamespacedName.Name = sorted[i].Name
-		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
-
-		r.Log.Info("requesting reconciliation due to Bucket revision change",
-			strings.ToLower(kustomizev1.KustomizationKind), &reqs[i].NamespacedName,
-			"revision", bucket.GetArtifact().Revision)
-	}
-	return reqs
-}
-
-func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization, revision, severity, msg string, metadata map[string]string) {
+func (r *KustomizationReconciler) event(ctx context.Context, kustomization kustomizev1.Kustomization, revision, severity, msg string, metadata map[string]string) {
 	r.EventRecorder.Event(&kustomization, "Normal", severity, msg)
 	objRef, err := reference.GetReference(r.Scheme, &kustomization)
 	if err != nil {
-		r.Log.WithValues(
+		(logr.FromContext(ctx)).WithValues(
 			strings.ToLower(kustomization.Kind),
 			fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
 		).Error(err, "unable to send event")
@@ -961,26 +759,20 @@ func (r *KustomizationReconciler) event(kustomization kustomizev1.Kustomization,
 		}
 
 		if err := r.ExternalEventRecorder.Eventf(*objRef, metadata, severity, reason, msg); err != nil {
-			r.Log.WithValues(
-				strings.ToLower(kustomization.Kind),
-				fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-			).Error(err, "unable to send event")
+			(logr.FromContext(ctx)).Error(err, "unable to send event")
 			return
 		}
 	}
 }
 
-func (r *KustomizationReconciler) recordReadiness(kustomization kustomizev1.Kustomization) {
+func (r *KustomizationReconciler) recordReadiness(ctx context.Context, kustomization kustomizev1.Kustomization) {
 	if r.MetricsRecorder == nil {
 		return
 	}
 
 	objRef, err := reference.GetReference(r.Scheme, &kustomization)
 	if err != nil {
-		r.Log.WithValues(
-			strings.ToLower(kustomization.Kind),
-			fmt.Sprintf("%s/%s", kustomization.GetNamespace(), kustomization.GetName()),
-		).Error(err, "unable to record readiness metric")
+		(logr.FromContext(ctx)).Error(err, "unable to record readiness metric")
 		return
 	}
 	if rc := apimeta.FindStatusCondition(kustomization.Status.Conditions, meta.ReadyCondition); rc != nil {
@@ -993,42 +785,7 @@ func (r *KustomizationReconciler) recordReadiness(kustomization kustomizev1.Kust
 	}
 }
 
-func (r *KustomizationReconciler) newKustomizationClient(kustomization kustomizev1.Kustomization) (client.Client, *polling.StatusPoller, error) {
-	if kustomization.Spec.KubeConfig == nil {
-		// TODO: implement impersonation overrides for in-cluster
-		return r.Client, r.StatusPoller, nil
-	}
-
-	kubeConfigBytes, err := r.getKubeConfig(kustomization)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	restConfig, err := clientcmd.RESTConfigFromKubeConfig(kubeConfigBytes)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// TODO: implement impersonation overrides on the target cluster restConfig
-
-	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// this client does not have a cache like the normal controller-runtime default client
-	// this is intentional but one could be added
-	client, err := client.New(restConfig, client.Options{Mapper: restMapper})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	statusPoller := polling.NewStatusPoller(client, restMapper)
-
-	return client, statusPoller, err
-}
-
-func (r *KustomizationReconciler) updateStatus(ctx context.Context, req ctrl.Request, newStatus kustomizev1.KustomizationStatus) error {
+func (r *KustomizationReconciler) patchStatus(ctx context.Context, req ctrl.Request, newStatus kustomizev1.KustomizationStatus) error {
 	var kustomization kustomizev1.Kustomization
 	if err := r.Get(ctx, req.NamespacedName, &kustomization); err != nil {
 		return err
