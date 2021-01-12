@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.6.0
+
+**Release date:** 2021-01-12
+
+This is the sixth MINOR prerelease, upgrading the `controller-runtime`
+dependencies to `v0.7.0`.
+
+The container image for ARMv7 and ARM64 that used to be published
+separately as `kustomize-controller:*-arm64` has been merged with the
+AMD64 image.
+
+Improvements:
+* Update kubectl to v1.20.1
+  [#231](https://github.com/fluxcd/kustomize-controller/pull/231)
+* Update kustomize/api to v0.7.1
+  [#229](https://github.com/fluxcd/kustomize-controller/pull/229)
+* Run GC and health checks using service account impersonation
+  [#221](https://github.com/fluxcd/kustomize-controller/pull/221)
+
+Fixes:
+* No longer treat dirs as kustomization files
+  [#224](https://github.com/fluxcd/kustomize-controller/pull/224)
+  
 ## 0.5.3
 
 **Release date:** 2020-12-18
