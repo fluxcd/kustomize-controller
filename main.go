@@ -63,6 +63,8 @@ func main() {
 		requeueDependency    time.Duration
 		logOptions           logger.Options
 		watchAllNamespaces   bool
+		kubeapiQPS           float64
+		kubeapiBurst         int
 	)
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&eventsAddr, "events-addr", "", "The address of the events receiver.")
@@ -75,6 +77,8 @@ func main() {
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
 	flag.Bool("log-json", false, "Set logging to JSON format.")
+	flag.Float64Var(&kubeapiQPS, "kube-api-qps", 20.0, "QPS to use while talking with kubernetes API.")
+	flag.IntVar(&kubeapiBurst, "kube-api-burst", 50, "Burst to use while talking with kubernetes API server.")
 	flag.CommandLine.MarkDeprecated("log-json", "Please use --log-encoding=json instead.")
 	{
 		var fs goflag.FlagSet
@@ -103,7 +107,11 @@ func main() {
 		watchNamespace = os.Getenv("RUNTIME_NAMESPACE")
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	restConfig := ctrl.GetConfigOrDie()
+	restConfig.QPS = float32(kubeapiQPS)
+	restConfig.Burst = kubeapiBurst
+
+	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
 		HealthProbeBindAddress: healthAddr,
