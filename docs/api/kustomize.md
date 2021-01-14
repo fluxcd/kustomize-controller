@@ -142,6 +142,18 @@ Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceR
 </tr>
 <tr>
 <td>
+<code>pluginHome</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Path to the directory containing the plugins.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>prune</code><br>
 <em>
 bool
@@ -642,6 +654,18 @@ string
 <p>Path to the directory containing the kustomization.yaml file, or the
 set of plain YAMLs a kustomization.yaml should be generated for.
 Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceRef.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>pluginHome</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Path to the directory containing the plugins.</p>
 </td>
 </tr>
 <tr>

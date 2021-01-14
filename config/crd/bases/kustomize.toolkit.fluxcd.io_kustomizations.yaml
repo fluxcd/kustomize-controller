@@ -164,6 +164,10 @@ spec:
                   for. Defaults to 'None', which translates to the root path of the
                   SourceRef.
                 type: string
+              pluginHome:
+                description: Path to the directory containing the plugins.
+                pattern: ^\./
+                type: string
               prune:
                 description: Prune enables garbage collection.
                 type: boolean

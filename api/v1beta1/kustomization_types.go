@@ -60,6 +60,11 @@ type KustomizationSpec struct {
 	// +optional
 	Path string `json:"path,omitempty"`
 
+	// Path to the directory containing the plugins.
+	// +kubebuilder:validation:Pattern="^\\./"
+	// +optional
+	PluginHome string `json:"pluginHome,omitempty"`
+
 	// Prune enables garbage collection.
 	// +required
 	Prune bool `json:"prune"`
