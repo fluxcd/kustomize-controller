@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.6.1
+
+**Release date:** 2021-01-14
+
+This prerelease fixes a regression bug introduced in `v0.6.0` that caused
+reconciliation request annotations to be ignored in certain scenarios.
+
+Two new argument flags are introduced to support configuring the QPS 
+(`--kube-api-qps`) and burst (`--kube-api-burst`) while communicating
+with the Kubernetes API server.
+
+Improvements:
+* Add support for QPS and burst configurations
+  [#233](https://github.com/fluxcd/kustomize-controller/pull/233)
+* Update source-controller to v0.6.1
+  [#234](https://github.com/fluxcd/kustomize-controller/pull/234)
+
+Fixes:
+* Upgrade runtime package to v0.6.2 for regression bug fix
+  [#234](https://github.com/fluxcd/kustomize-controller/pull/234)
+
 ## 0.6.0
 
 **Release date:** 2021-01-12
