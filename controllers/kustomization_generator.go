@@ -35,8 +35,7 @@ import (
 )
 
 const (
-	kustomizationFileName = "kustomization.yaml"
-	transformerFileName   = "kustomization-gc-labels.yaml"
+	transformerFileName = "kustomization-gc-labels.yaml"
 )
 
 type KustomizeGenerator struct {
@@ -50,7 +49,7 @@ func NewGenerator(kustomization kustomizev1.Kustomization) *KustomizeGenerator {
 }
 
 func (kg *KustomizeGenerator) WriteFile(dirPath string) (string, error) {
-	kfile := filepath.Join(dirPath, kustomizationFileName)
+	kfile := filepath.Join(dirPath, konfig.DefaultKustomizationFileName())
 
 	checksum, err := kg.checksum(dirPath)
 	if err != nil {
@@ -129,7 +128,14 @@ func checkKustomizeImageExists(images []kustypes.Image, imageName string) (bool,
 
 func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 	fs := filesys.MakeFsOnDisk()
-	kfile := filepath.Join(dirPath, kustomizationFileName)
+
+	// Determine if there already is a Kustomization file at the root,
+	// as this means we do not have to generate one.
+	for _, kfilename := range konfig.RecognizedKustomizationFileNames() {
+		if kpath := filepath.Join(dirPath, kfilename); fs.Exists(kpath) && !fs.IsDir(kpath) {
+			return nil
+		}
+	}
 
 	scan := func(base string) ([]string, error) {
 		var paths []string
@@ -172,45 +178,42 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 		return paths, err
 	}
 
-	if _, err := os.Stat(kfile); err != nil {
-		abs, err := filepath.Abs(dirPath)
-		if err != nil {
-			return err
-		}
-
-		files, err := scan(abs)
-		if err != nil {
-			return err
-		}
-
-		f, err := fs.Create(kfile)
-		if err != nil {
-			return err
-		}
-		f.Close()
-
-		kus := kustypes.Kustomization{
-			TypeMeta: kustypes.TypeMeta{
-				APIVersion: kustypes.KustomizationVersion,
-				Kind:       kustypes.KustomizationKind,
-			},
-		}
-
-		var resources []string
-		for _, file := range files {
-			resources = append(resources, strings.Replace(file, abs, ".", 1))
-		}
-
-		kus.Resources = resources
-		kd, err := yaml.Marshal(kus)
-		if err != nil {
-			return err
-		}
-
-		return ioutil.WriteFile(kfile, kd, os.ModePerm)
+	abs, err := filepath.Abs(dirPath)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	files, err := scan(abs)
+	if err != nil {
+		return err
+	}
+
+	kfile := filepath.Join(dirPath, konfig.DefaultKustomizationFileName())
+	f, err := fs.Create(kfile)
+	if err != nil {
+		return err
+	}
+	f.Close()
+
+	kus := kustypes.Kustomization{
+		TypeMeta: kustypes.TypeMeta{
+			APIVersion: kustypes.KustomizationVersion,
+			Kind:       kustypes.KustomizationKind,
+		},
+	}
+
+	var resources []string
+	for _, file := range files {
+		resources = append(resources, strings.Replace(file, abs, ".", 1))
+	}
+
+	kus.Resources = resources
+	kd, err := yaml.Marshal(kus)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(kfile, kd, os.ModePerm)
 }
 
 func (kg *KustomizeGenerator) checksum(dirPath string) (string, error) {
