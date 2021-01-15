@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.6.2
+
+**Release date:** 2021-01-15
+
+This prerelease adds support for `kustomization.yml` and `Kustomization`
+files at the root of the configured path.
+
+Improvements:
+* Look for all accepted Kustomization filenames
+  [#238](https://github.com/fluxcd/kustomize-controller/pull/238)
+
 ## 0.6.1
 
 **Release date:** 2021-01-14
