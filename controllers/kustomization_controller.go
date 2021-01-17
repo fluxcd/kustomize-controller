@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kustomize/api/filesys"
+	"sigs.k8s.io/kustomize/api/konfig"
 	"sigs.k8s.io/kustomize/api/krusty"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 
@@ -507,10 +508,17 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 	fs := filesys.MakeFsOnDisk()
 	manifestsFile := filepath.Join(dirPath, fmt.Sprintf("%s.yaml", kustomization.GetUID()))
 
-	opt := krusty.MakeDefaultOptions()
-	opt.LoadRestrictions = kustypes.LoadRestrictionsNone
-	opt.DoLegacyResourceSort = true
-	k := krusty.MakeKustomizer(fs, opt)
+	buildOptions := &krusty.Options{
+		DoLegacyResourceSort:   true,
+		AddManagedbyLabel:      false,
+		LoadRestrictions:       kustypes.LoadRestrictionsNone,
+		DoPrune:                false,
+		PluginConfig:           konfig.DisabledPluginConfig(),
+		UseKyaml:               false,
+		AllowResourceIdChanges: false,
+	}
+
+	k := krusty.MakeKustomizer(fs, buildOptions)
 	m, err := k.Run(dirPath)
 	if err != nil {
 		return nil, err
