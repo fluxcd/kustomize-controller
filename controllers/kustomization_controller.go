@@ -29,6 +29,12 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/events"
+	"github.com/fluxcd/pkg/runtime/metrics"
+	"github.com/fluxcd/pkg/runtime/predicates"
+	"github.com/fluxcd/pkg/untar"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -47,16 +53,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kustomize/api/filesys"
-	"sigs.k8s.io/kustomize/api/konfig"
-	"sigs.k8s.io/kustomize/api/krusty"
-	kustypes "sigs.k8s.io/kustomize/api/types"
-
-	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/events"
-	"github.com/fluxcd/pkg/runtime/metrics"
-	"github.com/fluxcd/pkg/runtime/predicates"
-	"github.com/fluxcd/pkg/untar"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
@@ -506,22 +502,9 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 	}
 
 	fs := filesys.MakeFsOnDisk()
-	manifestsFile := filepath.Join(dirPath, fmt.Sprintf("%s.yaml", kustomization.GetUID()))
-
-	buildOptions := &krusty.Options{
-		DoLegacyResourceSort:   true,
-		AddManagedbyLabel:      false,
-		LoadRestrictions:       kustypes.LoadRestrictionsNone,
-		DoPrune:                false,
-		PluginConfig:           konfig.DisabledPluginConfig(),
-		UseKyaml:               false,
-		AllowResourceIdChanges: false,
-	}
-
-	k := krusty.MakeKustomizer(fs, buildOptions)
-	m, err := k.Run(dirPath)
+	m, err := buildKustomization(fs, dirPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
 
 	// check if resources are encrypted and decrypt them before generating the final YAML
@@ -543,9 +526,10 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 
 	resources, err := m.AsYaml()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
 
+	manifestsFile := filepath.Join(dirPath, fmt.Sprintf("%s.yaml", kustomization.GetUID()))
 	if err := fs.WriteFile(manifestsFile, resources); err != nil {
 		return nil, err
 	}
