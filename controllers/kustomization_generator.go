@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/kustomize/api/k8sdeps/kunstruct"
 	"sigs.k8s.io/kustomize/api/konfig"
 	"sigs.k8s.io/kustomize/api/krusty"
+	"sigs.k8s.io/kustomize/api/resmap"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
 
@@ -222,11 +223,7 @@ func (kg *KustomizeGenerator) checksum(dirPath string) (string, error) {
 	}
 
 	fs := filesys.MakeFsOnDisk()
-	opt := krusty.MakeDefaultOptions()
-	opt.LoadRestrictions = kustypes.LoadRestrictionsNone
-	opt.DoLegacyResourceSort = true
-	k := krusty.MakeKustomizer(fs, opt)
-	m, err := k.Run(dirPath)
+	m, err := buildKustomization(fs, dirPath)
 	if err != nil {
 		return "", fmt.Errorf("kustomize build failed: %w", err)
 	}
@@ -280,4 +277,27 @@ func (kg *KustomizeGenerator) generateLabelTransformer(checksum, dirPath string)
 	}
 
 	return nil
+}
+
+// buildKustomization wraps krusty.MakeKustomizer with the following settings:
+// - disable kyaml due to critical bugs like:
+//	 - https://github.com/kubernetes-sigs/kustomize/issues/3446
+//	 - https://github.com/kubernetes-sigs/kustomize/issues/3480
+// - reorder the resources just before output (Namespaces and Cluster roles/role bindings first, CRDs before CRs, Webhooks last)
+// - load files from outside the kustomization.yaml root
+// - disable plugins except for the builtin ones
+// - prohibit changes to resourceIds, patch name/kind don't overwrite target name/kind
+func buildKustomization(fs filesys.FileSystem, dirPath string) (resmap.ResMap, error) {
+	buildOptions := &krusty.Options{
+		UseKyaml:               false,
+		DoLegacyResourceSort:   true,
+		LoadRestrictions:       kustypes.LoadRestrictionsNone,
+		AddManagedbyLabel:      false,
+		DoPrune:                false,
+		PluginConfig:           konfig.DisabledPluginConfig(),
+		AllowResourceIdChanges: false,
+	}
+
+	k := krusty.MakeKustomizer(fs, buildOptions)
+	return k.Run(dirPath)
 }
