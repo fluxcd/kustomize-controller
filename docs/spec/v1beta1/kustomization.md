@@ -188,10 +188,6 @@ const (
 	// reconciliation of the Kustomization is underway.
 	ProgressingReason string = "Progressing"
 
-	// SuspendedReason represents the fact that the
-	// reconciliation of the Kustomization has been suspended.
-	SuspendedReason string = "Suspended"
-
 	// DependencyNotReady represents the fact that
 	// one of the dependencies of the Kustomization is not ready.
 	DependencyNotReadyReason string = "DependencyNotReady"
@@ -260,8 +256,19 @@ spec:
     .gitlab-ci.yml
 ```
 
-If the `spec.prune` is enable, the controller generates a label transformer to enable
-[garbage collection](#garbage-collection).
+It is recommended to generate the `kustomization.yaml` on your own and store it in Git, this way you can
+validate your manifests in CI (example script [here](https://github.com/fluxcd/flux2-multi-tenancy/blob/main/scripts/validate.sh)).
+Assuming your manifests are inside `./clusters/my-cluster`, you can generate a `kustomization.yaml` with:
+
+```sh
+cd clusters/my-cluster
+
+# create kustomization
+kustomize create --autodetect --recursive
+
+# validate kustomization
+kustomize build | kubeval --ignore-missing-schemas
+```
 
 ## Reconciliation
 

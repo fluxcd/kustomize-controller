@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.6.3
+
+**Release date:** 2021-01-19
+
+This prerelease comes with fixes to the kustomize build procedure by disabling kyaml.
+The Kubernetes packages were updated to v1.20.2 and kustomize/api to v0.7.2.
+
+Improvements:
+* Update kustomize/api to v0.7.2 and disable kyaml
+  [#241](https://github.com/fluxcd/kustomize-controller/pull/241)
+* Update Kubernetes packages to v1.20.2
+  [#240](https://github.com/fluxcd/kustomize-controller/pull/240)
+
 ## 0.6.2
 
 **Release date:** 2021-01-15
