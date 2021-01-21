@@ -19,7 +19,6 @@ package v1beta1
 import (
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -66,7 +65,7 @@ type KustomizationSpec struct {
 
 	// A list of resources to be included in the health assessment.
 	// +optional
-	HealthChecks []CrossNamespaceObjectReference `json:"healthChecks,omitempty"`
+	HealthChecks []meta.NamespacedObjectKindReference `json:"healthChecks,omitempty"`
 
 	// A list of images used to override or set the name and tag for container images.
 	// +optional
@@ -115,7 +114,7 @@ type Decryption struct {
 
 	// The secret name containing the private OpenPGP keys used for decryption.
 	// +optional
-	SecretRef *corev1.LocalObjectReference `json:"secretRef,omitempty"`
+	SecretRef *meta.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
 // Image contains the name, new name and new tag that will replace the original container image.
@@ -144,7 +143,7 @@ type KubeConfig struct {
 	// binaries and credentials to the Pod that is responsible for reconciling
 	// the Kustomization.
 	// +required
-	SecretRef corev1.LocalObjectReference `json:"secretRef,omitempty"`
+	SecretRef meta.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
 // KustomizationStatus defines the observed state of a kustomization.

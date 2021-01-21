@@ -42,7 +42,7 @@ type KustomizationSpec struct {
 
 	// A list of resources to be included in the health assessment.
 	// +optional
-	HealthChecks []CrossNamespaceObjectReference `json:"healthChecks,omitempty"`
+	HealthChecks []meta.NamespacedObjectKindReference `json:"healthChecks,omitempty"`
 	
     // A list of images used to override or set the name and tag for container images.
     // +optional
@@ -91,7 +91,7 @@ type Decryption struct {
 
 	// The secret name containing the private OpenPGP keys used for decryption.
 	// +optional
-	SecretRef *corev1.LocalObjectReference `json:"secretRef,omitempty"`
+	SecretRef *meta.LocalObjectReference `json:"secretRef,omitempty"`
 }
 ```
 
@@ -109,7 +109,7 @@ type KubeConfig struct {
 	// binaries and credentials to the Pod that is responsible for reconciling
 	// the Kustomization.
 	// +required
-	SecretRef corev1.LocalObjectReference `json:"secretRef,omitempty"`
+	SecretRef meta.LocalObjectReference `json:"secretRef,omitempty"`
 }
 ```
 

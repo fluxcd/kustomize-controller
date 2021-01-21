@@ -7,8 +7,8 @@ replace github.com/fluxcd/kustomize-controller/api => ./api
 require (
 	github.com/cyphar/filepath-securejoin v0.2.2
 	github.com/fluxcd/kustomize-controller/api v0.6.3
-	github.com/fluxcd/pkg/apis/meta v0.6.0
-	github.com/fluxcd/pkg/runtime v0.7.0
+	github.com/fluxcd/pkg/apis/meta v0.7.0
+	github.com/fluxcd/pkg/runtime v0.8.0
 	github.com/fluxcd/pkg/testserver v0.0.2
 	github.com/fluxcd/pkg/untar v0.0.5
 	github.com/fluxcd/source-controller/api v0.6.3

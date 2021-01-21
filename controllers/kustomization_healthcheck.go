@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fluxcd/pkg/apis/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/aggregator"
@@ -93,7 +94,7 @@ func (hc *KustomizeHealthCheck) Assess(pollInterval time.Duration) error {
 	return nil
 }
 
-func (hc *KustomizeHealthCheck) toObjMetadata(cr []kustomizev1.CrossNamespaceObjectReference) ([]object.ObjMetadata, error) {
+func (hc *KustomizeHealthCheck) toObjMetadata(cr []meta.NamespacedObjectKindReference) ([]object.ObjMetadata, error) {
 	oo := []object.ObjMetadata{}
 	for _, c := range cr {
 		// For backwards compatibility

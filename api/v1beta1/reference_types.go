@@ -16,26 +16,6 @@ limitations under the License.
 
 package v1beta1
 
-// CrossNamespaceObjectReference contains enough information to let you locate the
-// typed referenced object at cluster level
-type CrossNamespaceObjectReference struct {
-	// API version of the referent, defaults to 'apps/v1'
-	// +optional
-	APIVersion string `json:"apiVersion,omitempty"`
-
-	// Kind of the referent
-	// +required
-	Kind string `json:"kind"`
-
-	// Name of the referent
-	// +required
-	Name string `json:"name"`
-
-	// Namespace of the referent
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
-}
-
 // CrossNamespaceSourceReference contains enough information to let you locate the
 // typed referenced object at cluster level
 type CrossNamespaceSourceReference struct {
