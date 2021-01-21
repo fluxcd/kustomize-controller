@@ -62,9 +62,10 @@ spec:
                       used for decryption.
                     properties:
                       name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        description: Name of the referent
                         type: string
+                    required:
+                    - name
                     type: object
                 required:
                 - provider
@@ -90,11 +91,12 @@ spec:
               healthChecks:
                 description: A list of resources to be included in the health assessment.
                 items:
-                  description: CrossNamespaceObjectReference contains enough information
-                    to let you locate the typed referenced object at cluster level
+                  description: NamespacedObjectKindReference contains enough information
+                    to let you locate the typed referenced object in any namespace
                   properties:
                     apiVersion:
-                      description: API version of the referent, defaults to 'apps/v1'
+                      description: API version of the referent, if not specified the
+                        Kubernetes preferred version will be used
                       type: string
                     kind:
                       description: Kind of the referent
@@ -103,7 +105,8 @@ spec:
                       description: Name of the referent
                       type: string
                     namespace:
-                      description: Namespace of the referent
+                      description: Namespace of the referent, when not specified it
+                        acts as LocalObjectReference
                       type: string
                   required:
                   - kind
@@ -153,9 +156,10 @@ spec:
                       for reconciling the Kustomization.
                     properties:
                       name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        description: Name of the referent
                         type: string
+                    required:
+                    - name
                     type: object
                 type: object
               path:
