@@ -189,7 +189,6 @@ github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwo
 github.com/fatih/color v1.7.0 h1:DkWD4oS2D8LGGgTQ6IvwJJXSL5Vp2ffcQg58nFV38Ys=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/structs v1.1.0/go.mod h1:9NiDSp5zOcgEDl+j00MP/WkGVPOlPRLejGD8Ga6PJ7M=
-github.com/fluxcd/pkg/apis/meta v0.6.0/go.mod h1:yHuY8kyGHYz22I0jQzqMMGCcHViuzC/WPdo9Gisk8Po=
 github.com/fluxcd/pkg/apis/meta v0.7.0 h1:5e8gm4OLqjuKWdrOIY5DEEsjcwzyJFK8rCDesJ+V8IY=
 github.com/fluxcd/pkg/apis/meta v0.7.0/go.mod h1:yHuY8kyGHYz22I0jQzqMMGCcHViuzC/WPdo9Gisk8Po=
 github.com/fluxcd/pkg/runtime v0.8.0 h1:cnSBZJLcXlKgjXpFFFExu+4ZncIxmPgNIx+ErLcCLnA=
@@ -198,8 +197,8 @@ github.com/fluxcd/pkg/testserver v0.0.2 h1:SoaMtO9cE5p/wl2zkGudzflnEHd9mk68CGjZO
 github.com/fluxcd/pkg/testserver v0.0.2/go.mod h1:pgUZTh9aQ44FSTQo+5NFlh7YMbUfdz1B80DalW7k96Y=
 github.com/fluxcd/pkg/untar v0.0.5 h1:UGI3Ch1UIEIaqQvMicmImL1s9npQa64DJ/ozqHKB7gk=
 github.com/fluxcd/pkg/untar v0.0.5/go.mod h1:O6V9+rtl8c1mHBafgqFlJN6zkF1HS5SSYn7RpQJ/nfw=
-github.com/fluxcd/source-controller/api v0.6.3 h1:i/NF0zXHp03gB9895LW0opNvW1QnNr3bFcANqHZJL64=
-github.com/fluxcd/source-controller/api v0.6.3/go.mod h1:LzLXD6RfQ+4Es+gUuIZE4NCSW2WkWIK91EnVBCMvbQw=
+github.com/fluxcd/source-controller/api v0.7.0 h1:QDpr6ZjHtTxw+mc+mZ1p9qRujHb+PzPdoQP3YgWlqOA=
+github.com/fluxcd/source-controller/api v0.7.0/go.mod h1:u2sdc/QDm0tzXHL7mZVj928hc3MMU+4mKCuAQg+94Bk=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible h1:TcekIExNqud5crz4xD2pavyTgWiPvpYe4Xau31I0PRk=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
