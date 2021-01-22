@@ -190,6 +190,11 @@ var _ = Describe("KustomizationReconciler", func() {
 
 			Expect(cond.Status).To(Equal(t.expectStatus))
 			Expect(got.Status.LastAppliedRevision).To(Equal(t.expectRevision))
+
+			ns := &corev1.Namespace{}
+			Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: "test"}, ns)).Should(Succeed())
+			Expect(ns.Labels[fmt.Sprintf("%s/name", kustomizev1.GroupVersion.Group)]).To(Equal(kName.Name))
+			Expect(ns.Labels[fmt.Sprintf("%s/namespace", kustomizev1.GroupVersion.Group)]).To(Equal(kName.Namespace))
 		},
 			Entry("namespace-sa", refTestCase{
 				artifacts: []testserver.File{

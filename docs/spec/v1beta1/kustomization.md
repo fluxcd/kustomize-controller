@@ -25,6 +25,12 @@ type KustomizationSpec struct {
 	// +required
 	Interval metav1.Duration `json:"interval"`
 
+	// The interval at which to retry a previously failed reconciliation.
+	// When not specified, the controller uses the KustomizationSpec.Interval
+	// value to retry failures.
+	// +optional
+	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
+	
 	// The KubeConfig for reconciling the Kustomization on a remote cluster.
 	// When specified, KubeConfig takes precedence over ServiceAccountName.
 	// +optional

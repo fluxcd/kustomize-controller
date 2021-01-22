@@ -113,6 +113,22 @@ Kubernetes meta/v1.Duration
 </tr>
 <tr>
 <td>
+<code>retryInterval</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The interval at which to retry a previously failed reconciliation.
+When not specified, the controller uses the KustomizationSpec.Interval
+value to retry failures.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>kubeConfig</code><br>
 <em>
 <a href="#kustomize.toolkit.fluxcd.io/v1beta1.KubeConfig">
@@ -545,6 +561,22 @@ Kubernetes meta/v1.Duration
 </td>
 <td>
 <p>The interval at which to reconcile the Kustomization.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>retryInterval</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The interval at which to retry a previously failed reconciliation.
+When not specified, the controller uses the KustomizationSpec.Interval
+value to retry failures.</p>
 </td>
 </tr>
 <tr>
