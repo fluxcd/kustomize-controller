@@ -171,6 +171,10 @@ spec:
               prune:
                 description: Prune enables garbage collection.
                 type: boolean
+              retryInterval:
+                description: The interval at which to retry a previously failed reconciliation.
+                  When not specified, it defaults to the Interval value.
+                type: string
               serviceAccountName:
                 description: The name of the Kubernetes service account to impersonate
                   when reconciling this Kustomization.

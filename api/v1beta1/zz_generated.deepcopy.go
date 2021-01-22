@@ -166,6 +166,11 @@ func (in *KustomizationSpec) DeepCopyInto(out *KustomizationSpec) {
 		(*in).DeepCopyInto(*out)
 	}
 	out.Interval = in.Interval
+	if in.RetryInterval != nil {
+		in, out := &in.RetryInterval, &out.RetryInterval
+		*out = new(v1.Duration)
+		**out = **in
+	}
 	if in.KubeConfig != nil {
 		in, out := &in.KubeConfig, &out.KubeConfig
 		*out = new(KubeConfig)
