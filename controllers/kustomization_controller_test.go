@@ -27,6 +27,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
@@ -44,6 +46,7 @@ var _ = Describe("KustomizationReconciler", func() {
 	Context("Kustomization", func() {
 		var (
 			namespace  *corev1.Namespace
+			kubeconfig *kustomizev1.KubeConfig
 			httpServer *testserver.ArtifactServer
 			err        error
 		)
@@ -54,6 +57,37 @@ var _ = Describe("KustomizationReconciler", func() {
 			}
 			err = k8sClient.Create(context.Background(), namespace)
 			Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+			c := clientcmdapi.NewConfig()
+			c.CurrentContext = "default"
+			c.Clusters["default"] = &clientcmdapi.Cluster{
+				Server: cfg.Host,
+			}
+			c.Contexts["default"] = &clientcmdapi.Context{
+				Cluster:   "default",
+				Namespace: "default",
+				AuthInfo:  "default",
+			}
+			c.AuthInfos["default"] = &clientcmdapi.AuthInfo{
+				Token: cfg.BearerToken,
+			}
+			cb, err := clientcmd.Write(*c)
+			Expect(err).NotTo(HaveOccurred())
+			kubeconfigSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubeconfig",
+					Namespace: namespace.Name,
+				},
+				Data: map[string][]byte{
+					"value": cb,
+				},
+			}
+			k8sClient.Create(context.Background(), kubeconfigSecret)
+			kubeconfig = &kustomizev1.KubeConfig{
+				SecretRef: meta.LocalObjectReference{
+					Name: kubeconfigSecret.Name,
+				},
+			}
 
 			httpServer, err = testserver.NewTempArtifactServer()
 			Expect(err).NotTo(HaveOccurred())
@@ -125,9 +159,10 @@ var _ = Describe("KustomizationReconciler", func() {
 					Namespace: kName.Namespace,
 				},
 				Spec: kustomizev1.KustomizationSpec{
-					Interval: metav1.Duration{Duration: reconciliationInterval},
-					Path:     "./",
-					Prune:    true,
+					KubeConfig: kubeconfig,
+					Interval:   metav1.Duration{Duration: reconciliationInterval},
+					Path:       "./",
+					Prune:      true,
 					SourceRef: kustomizev1.CrossNamespaceSourceReference{
 						Kind: sourcev1.GitRepositoryKind,
 						Name: repository.Name,
@@ -184,5 +219,4 @@ metadata:
 			}),
 		)
 	})
-
 })
