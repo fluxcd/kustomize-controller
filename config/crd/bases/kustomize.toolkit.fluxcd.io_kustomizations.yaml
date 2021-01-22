@@ -173,7 +173,8 @@ spec:
                 type: boolean
               retryInterval:
                 description: The interval at which to retry a previously failed reconciliation.
-                  When not specified, it defaults to the Interval value.
+                  When not specified, the controller uses the KustomizationSpec.Interval
+                  value to retry failures.
                 type: string
               serviceAccountName:
                 description: The name of the Kubernetes service account to impersonate

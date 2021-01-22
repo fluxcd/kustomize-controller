@@ -26,7 +26,8 @@ type KustomizationSpec struct {
 	Interval metav1.Duration `json:"interval"`
 
 	// The interval at which to retry a previously failed reconciliation.
-	// When not specified, it defaults to the Interval value.
+	// When not specified, the controller uses the KustomizationSpec.Interval
+	// value to retry failures.
 	// +optional
 	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
 	

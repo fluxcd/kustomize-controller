@@ -123,7 +123,8 @@ Kubernetes meta/v1.Duration
 <td>
 <em>(Optional)</em>
 <p>The interval at which to retry a previously failed reconciliation.
-When not specified, it defaults to the Interval value.</p>
+When not specified, the controller uses the KustomizationSpec.Interval
+value to retry failures.</p>
 </td>
 </tr>
 <tr>
@@ -574,7 +575,8 @@ Kubernetes meta/v1.Duration
 <td>
 <em>(Optional)</em>
 <p>The interval at which to retry a previously failed reconciliation.
-When not specified, it defaults to the Interval value.</p>
+When not specified, the controller uses the KustomizationSpec.Interval
+value to retry failures.</p>
 </td>
 </tr>
 <tr>
