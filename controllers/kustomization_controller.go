@@ -226,19 +226,19 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	(logr.FromContext(ctx)).Info(fmt.Sprintf("Reconciliation finished in %s, next run in %s",
+	// requeue
+	if reconcileErr != nil {
+		// record the reconciliation error
+		r.recordReadiness(ctx, reconciledKustomization)
+		return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, reconcileErr
+	}
+
+	log.Info(fmt.Sprintf("Reconciliation finished in %s, next run in %s",
 		time.Now().Sub(reconcileStart).String(),
 		kustomization.Spec.Interval.Duration.String()),
 		"revision",
 		source.GetArtifact().Revision,
 	)
-
-	// requeue
-	if reconcileErr != nil {
-		// record the reconciliation error
-		r.recordReadiness(ctx, reconciledKustomization)
-		return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, reconcileErr
-	}
 
 	// record the reconciliation result
 	r.event(ctx, reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityInfo,
