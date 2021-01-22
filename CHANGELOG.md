@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.7.0
+
+**Release date:** 2021-01-22
+
+This is the seventh MINOR prerelease.
+
+An optional field was added `spec.retryInterval` that allows users to
+requeue a failed reconciliation at a different interval than `spec.Interval`.
+
+The `LocalObjectReference` from the Kubernetes core has been replaced
+with our own, making `Name` a required field. The impact of this should
+be limited to direct API consumers only, as the field was already
+required by controller logic.
+
+Improvements:
+* Allow failed reconciliations to be scheduled at a different interval
+  [#250](https://github.com/fluxcd/kustomize-controller/pull/250)
+* Update fluxcd/pkg/runtime to v0.8.0
+  [#247](https://github.com/fluxcd/kustomize-controller/pull/247)
+
+
 ## 0.6.3
 
 **Release date:** 2021-01-19
