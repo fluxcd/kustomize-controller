@@ -87,12 +87,12 @@ generate: controller-gen
 	cd api; $(CONTROLLER_GEN) object:headerFile="../hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-docker-build:
-	docker build . -t ${IMG}
+docker-buildx-build:
+	docker buildx build . -t ${IMG} --platform=linux/amd64,linux/arm/v7,linux/arm64 --load
 
 # Push the docker image
-docker-push:
-	docker push ${IMG}
+docker-buildx-push:
+	docker buildx build . -t ${IMG} --platform=linux/amd64,linux/arm/v7,linux/arm64 --push
 
 # Set the docker image in-cluster
 docker-deploy:

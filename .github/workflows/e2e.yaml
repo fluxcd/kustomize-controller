@@ -19,10 +19,22 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - name: Restore Docker cache
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.15.x
+      - name: Setup Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          buildkitd-flags: "--debug"
       - name: Setup Kubernetes
         uses: engineerd/setup-kind@v0.5.0
       - name: Setup Kustomize
@@ -43,9 +55,22 @@ jobs:
             exit 1
           fi
       - name: Build container image
-        run: make docker-build IMG=test/kustomize-controller:latest
-        env:
-          KUBEBUILDER_ASSETS: ${{ github.workspace }}/kubebuilder/bin
+        uses: docker/build-push-action@v2
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          file: ./Dockerfile
+          load: true
+          platforms: linux/amd64
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          tags: |
+            test/kustomize-controller:latest
+          labels: |
+            org.opencontainers.image.title=${{ github.event.repository.name }}
+            org.opencontainers.image.description=${{ github.event.repository.description }}
+            org.opencontainers.image.url=${{ github.event.repository.html_url }}
+            org.opencontainers.image.revision=${{ github.sha }}
       - name: Load test image
         run: kind load docker-image test/kustomize-controller:latest
       - name: Deploy controllers
