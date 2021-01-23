@@ -29,7 +29,7 @@ RUN CGO_ENABLED=0 \
 GOOS=$(echo "$TARGETPLATFORM" | cut -d '/' -f1 ) \
 GOARCH=$(echo "$TARGETPLATFORM" | cut -d '/' -f2 ) \
 GOARM=$(echo "$TARGETPLATFORM" | cut -d '/' -f3 | sed "s/^v//") \
-go build -a -ldflags "-w -s" -o kustomize-controller main.go
+go build -a -trimpath -o kustomize-controller main.go
 
 # ------------------------------------------------------------------------------
 
