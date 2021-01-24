@@ -101,6 +101,7 @@ type KustomizationSpec struct {
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 
 	// Timeout for validation, apply and health checking operations.
+	// Will default to 1 min if set to less than 1 min.
 	// Defaults to 'Interval' duration.
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`

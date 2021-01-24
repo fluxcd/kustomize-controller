@@ -259,6 +259,7 @@ Kubernetes meta/v1.Duration
 <td>
 <em>(Optional)</em>
 <p>Timeout for validation, apply and health checking operations.
+Will default to 1 min if set to less than 1 min.
 Defaults to &lsquo;Interval&rsquo; duration.</p>
 </td>
 </tr>
@@ -711,6 +712,7 @@ Kubernetes meta/v1.Duration
 <td>
 <em>(Optional)</em>
 <p>Timeout for validation, apply and health checking operations.
+Will default to 1 min if set to less than 1 min.
 Defaults to &lsquo;Interval&rsquo; duration.</p>
 </td>
 </tr>

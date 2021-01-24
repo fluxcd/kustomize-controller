@@ -25,11 +25,15 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	eventv1beta1 "k8s.io/api/events/v1beta1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
@@ -233,5 +237,246 @@ metadata:
 				expectRevision: "branch/commit1",
 			}),
 		)
+
+		Describe("Kustomization event tests", func() {
+			It("generates a single health event", func() {
+				artifacts := []testserver.File{
+					{
+						Name: "namespace.yaml",
+						Body: `---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test2
+`,
+					},
+					{
+						Name: "pod.yaml",
+						Body: `---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: test2
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.14.2
+    ports:
+    - containerPort: 80
+`,
+					},
+				}
+
+				artifact, err := httpServer.ArtifactFromFiles(artifacts)
+				Expect(err).NotTo(HaveOccurred())
+
+				url := fmt.Sprintf("%s/%s", httpServer.URL(), artifact)
+
+				repositoryName := types.NamespacedName{
+					Name:      fmt.Sprintf("%s", randStringRunes(5)),
+					Namespace: namespace.Name,
+				}
+				repository := &sourcev1.GitRepository{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      repositoryName.Name,
+						Namespace: repositoryName.Namespace,
+					},
+					Spec: sourcev1.GitRepositorySpec{
+						URL:      "https://github.com/test/repository",
+						Interval: metav1.Duration{Duration: reconciliationInterval},
+					},
+					Status: sourcev1.GitRepositoryStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:               meta.ReadyCondition,
+								Status:             metav1.ConditionTrue,
+								LastTransitionTime: metav1.Now(),
+								Reason:             sourcev1.GitOperationSucceedReason,
+							},
+						},
+						URL: url,
+						Artifact: &sourcev1.Artifact{
+							Path:           url,
+							URL:            url,
+							Revision:       "foobar",
+							LastUpdateTime: metav1.Now(),
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), repository)).Should(Succeed())
+				Expect(k8sClient.Status().Update(context.Background(), repository)).Should(Succeed())
+				defer k8sClient.Delete(context.Background(), repository)
+
+				kName := types.NamespacedName{
+					Name:      fmt.Sprintf("%s", randStringRunes(5)),
+					Namespace: namespace.Name,
+				}
+				k := &kustomizev1.Kustomization{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      kName.Name,
+						Namespace: kName.Namespace,
+						Labels: map[string]string{
+							"name": kName.Name,
+						},
+					},
+					Spec: kustomizev1.KustomizationSpec{
+						KubeConfig:    kubeconfig,
+						Interval:      metav1.Duration{Duration: 1 * time.Minute},
+						RetryInterval: &metav1.Duration{Duration: 10 * time.Second},
+						Path:          "./",
+						Prune:         true,
+						SourceRef: kustomizev1.CrossNamespaceSourceReference{
+							Kind: sourcev1.GitRepositoryKind,
+							Name: repository.Name,
+						},
+						Suspend: false,
+						Timeout: &metav1.Duration{
+							Duration: 1 * time.Minute,
+						},
+						Validation: "client",
+						HealthChecks: []meta.NamespacedObjectKindReference{
+							{
+								APIVersion: "v1",
+								Kind:       "Pod",
+								Name:       "nginx",
+								Namespace:  "test2",
+							},
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), k)).Should(Succeed())
+				defer k8sClient.Delete(context.Background(), k)
+
+				// Get the pod deployed by KC
+				pod := &corev1.Pod{}
+				Eventually(func() bool {
+					podName := types.NamespacedName{
+						Name:      "nginx",
+						Namespace: "test2",
+					}
+					err := k8sClient.Get(context.Background(), podName, pod)
+					if err != nil {
+						return false
+					}
+					return true
+				}, timeout, interval).Should(BeTrue())
+
+				// Set the pod to failing and wait for health check fail
+				// Force a reconciliation to check the amount of health failed events
+				pod.Status = unHealthyPodStatus()
+				Expect(k8sClient.Status().Update(context.Background(), pod)).Should(Succeed())
+				Eventually(func() metav1.ConditionStatus {
+					k := &kustomizev1.Kustomization{}
+					err := k8sClient.Get(context.Background(), kName, k)
+					Expect(err).NotTo(HaveOccurred())
+					return k.Status.Conditions[0].Status
+				}, k.Spec.Timeout.Duration+5*time.Second, interval).Should(Equal(metav1.ConditionFalse))
+				Consistently(func() int {
+					eventList := &eventv1beta1.EventList{}
+					labelSelector := labels.NewSelector()
+					requirement, err := labels.NewRequirement("name", selection.Equals, []string{k.Name})
+					Expect(err).NotTo(HaveOccurred())
+					labelSelector.Add(*requirement)
+					err = k8sClient.List(context.Background(), eventList, &client.ListOptions{LabelSelector: labelSelector})
+					Expect(err).NotTo(HaveOccurred(), "could not list Kustomization events")
+
+					healthCheckEvents := 0
+					for _, event := range eventList.Items {
+						if event.Note == "Health check timed out for [Pod 'test2/nginx']" {
+							healthCheckEvents = healthCheckEvents + 1
+						}
+					}
+					return healthCheckEvents
+				}, timeout, interval).Should(Equal(1))
+
+				// Set the pod to a healthy and wait to passing health check
+				// Force a reconciliation to check the amount of health passed events
+				pod.Status = healthyPodStatus()
+				Expect(k8sClient.Status().Update(context.Background(), pod)).Should(Succeed())
+				Eventually(func() metav1.ConditionStatus {
+					k := &kustomizev1.Kustomization{}
+					err := k8sClient.Get(context.Background(), kName, k)
+					Expect(err).NotTo(HaveOccurred())
+					return k.Status.Conditions[0].Status
+				}, timeout, interval).Should(Equal(metav1.ConditionTrue))
+				for i := 0; i < 3; i++ {
+					triggerAndWaitForReconcile(k8sClient, kName)
+				}
+				Consistently(func() int {
+					eventList := &eventv1beta1.EventList{}
+					labelSelector := labels.NewSelector()
+					requirement, err := labels.NewRequirement("name", selection.Equals, []string{k.Name})
+					Expect(err).NotTo(HaveOccurred())
+					labelSelector.Add(*requirement)
+					err = k8sClient.List(context.Background(), eventList, &client.ListOptions{LabelSelector: labelSelector})
+					Expect(err).NotTo(HaveOccurred(), "could not list Kustomization events")
+
+					healthCheckEvents := 0
+					for _, event := range eventList.Items {
+						if event.Note == "Health check passed" {
+							healthCheckEvents = healthCheckEvents + 1
+						}
+					}
+					return healthCheckEvents
+				}, timeout, interval).Should(Equal(1))
+			})
+		})
 	})
 })
+
+func healthyPodStatus() corev1.PodStatus {
+	return corev1.PodStatus{
+		Conditions: []corev1.PodCondition{
+			{
+				LastTransitionTime: metav1.Now(),
+				Status:             corev1.ConditionTrue,
+				Type:               corev1.PodReady,
+			},
+		},
+		Phase: corev1.PodRunning,
+	}
+}
+
+func unHealthyPodStatus() corev1.PodStatus {
+	return corev1.PodStatus{
+		Phase: corev1.PodRunning,
+		Conditions: []corev1.PodCondition{
+			{
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Type:               corev1.PodInitialized,
+				Status:             corev1.ConditionFalse,
+			},
+		},
+		ContainerStatuses: []corev1.ContainerStatus{
+			{
+				Name: "nginx",
+				State: corev1.ContainerState{
+					Waiting: &corev1.ContainerStateWaiting{
+						Reason: "CrashLoopBackOff",
+					},
+				},
+				Ready: false,
+			},
+		},
+	}
+}
+
+func triggerAndWaitForReconcile(k8sClient client.Client, name types.NamespacedName) {
+	k := &kustomizev1.Kustomization{}
+	err := k8sClient.Get(context.Background(), name, k)
+	Expect(err).NotTo(HaveOccurred())
+	if k.Annotations == nil {
+		k.Annotations = map[string]string{}
+	}
+	reconcileRequest := metav1.Now().String()
+	k.Annotations[meta.ReconcileRequestAnnotation] = reconcileRequest
+	err = k8sClient.Update(context.Background(), k)
+	Expect(err).NotTo(HaveOccurred())
+	Eventually(func() string {
+		k := &kustomizev1.Kustomization{}
+		err := k8sClient.Get(context.Background(), name, k)
+		Expect(err).NotTo(HaveOccurred())
+		return k.Status.LastHandledReconcileAt
+	}, 30*time.Second, 1*time.Second).Should(Equal(reconcileRequest))
+}

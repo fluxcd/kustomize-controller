@@ -217,7 +217,8 @@ spec:
                 type: string
               timeout:
                 description: Timeout for validation, apply and health checking operations.
-                  Defaults to 'Interval' duration.
+                  Will default to 1 min if set to less than 1 min. Defaults to 'Interval'
+                  duration.
                 type: string
               validation:
                 description: Validate the Kubernetes objects before applying them
