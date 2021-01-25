@@ -1,5 +1,6 @@
 # Image URL to use all building/pushing image targets
 IMG ?= fluxcd/kustomize-controller:latest
+IMG_ARCHS ?= linux/amd64,linux/arm/v7,linux/arm64
 # Produce CRDs that work back to Kubernetes 1.16
 CRD_OPTIONS ?= crd:crdVersions=v1
 SOURCE_VER ?= v0.7.0
@@ -86,14 +87,20 @@ vet:
 generate: controller-gen
 	cd api; $(CONTROLLER_GEN) object:headerFile="../hack/boilerplate.go.txt" paths="./..."
 
+comma := ,
+
 # Build the docker image
-docker-buildx-build:
-	# docker buildx build --load currently works with one one platform
-	docker buildx build . -t ${IMG} --platform=linux/amd64 --load
+docker-build:
+ifneq (,$(findstring $(comma),$(IMG_ARCHS)))
+	@echo "docker buildx build --load currently works with only one platform"
+	@echo "try: IMG_ARCHS=linux/amd64 make docker-build"
+	@exit 2
+endif
+	docker buildx build . -t ${IMG} --platform=${IMG_ARCHS} --load
 
 # Push the docker image
-docker-buildx-push:
-	docker buildx build . -t ${IMG} --platform=linux/amd64,linux/arm/v7,linux/arm64 --push
+docker-push:
+	docker buildx build . -t ${IMG} --platform=${IMG_ARCHS} --push
 
 # Set the docker image in-cluster
 docker-deploy:
