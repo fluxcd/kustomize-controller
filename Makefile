@@ -1,6 +1,9 @@
 # Image URL to use all building/pushing image targets
-IMG ?= fluxcd/kustomize-controller:latest
-IMG_ARCHS ?= linux/amd64,linux/arm/v7,linux/arm64
+IMG               ?= fluxcd/kustomize-controller:latest
+IMG_ARCHS_DEFAULT  = linux/amd64,linux/arm/v7,linux/arm64
+IMG_ARCHS_ASKED   := $(IMG_ARCHS)
+IMG_ARCHS         ?= $(IMG_ARCHS_DEFAULT)
+
 # Produce CRDs that work back to Kubernetes 1.16
 CRD_OPTIONS ?= crd:crdVersions=v1
 SOURCE_VER ?= v0.7.0
@@ -91,12 +94,17 @@ comma := ,
 
 # Build the docker image
 docker-build:
-ifneq (,$(findstring $(comma),$(IMG_ARCHS)))
-	@echo "docker buildx build --load currently works with only one platform"
-	@echo "try: IMG_ARCHS=linux/amd64 make docker-build"
+ifneq ($(IMG_ARCHS_ASKED),)
+ifneq (,$(findstring $(comma),$(IMG_ARCHS_ASKED)))
+	@echo "docker buildx build --load currently works with only one platform, $(IMG_ARCHS_ASKED)"
+	@echo "try: make docker-build IMG_ARCHS=linux/amd64"
 	@exit 2
+else
+	docker buildx build . -t ${IMG} --platform=${IMG_ARCHS_ASKED} --load
 endif
-	docker buildx build . -t ${IMG} --platform=${IMG_ARCHS} --load
+else
+	docker buildx build . -t ${IMG} --platform=linux/amd64 --load
+endif
 
 # Push the docker image
 docker-push:
