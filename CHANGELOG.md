@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.7.1
+
+**Release date:** 2021-01-25
+
+This prerelease fixes a regression bug introduced in `v0.7.0` that caused
+failed reconciliations to be immediately retried instead of being scheduled
+at the specified interval.
+
+Fixes:
+* Fix reconciliation retry scheduler
+  [#256](https://github.com/fluxcd/kustomize-controller/pull/256)
+
 ## 0.7.0
 
 **Release date:** 2021-01-22
