@@ -119,6 +119,7 @@ func (ki *KustomizeImpersonation) clientForServiceAccount(ctx context.Context) (
 		return nil, nil, err
 	}
 	restConfig.BearerToken = token
+	restConfig.BearerTokenFile = "" // Clear, as it overrides BearerToken
 
 	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
 	if err != nil {
