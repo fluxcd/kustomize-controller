@@ -156,7 +156,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			r.recordReadiness(ctx, kustomization)
 			log.Info(msg)
 			// do not requeue immediately, when the source is created the watcher should trigger a reconciliation
-			return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
+			return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, nil
 		} else {
 			// retry on transient errors
 			return ctrl.Result{Requeue: true}, err
@@ -173,7 +173,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		r.recordReadiness(ctx, kustomization)
 		log.Info(msg)
 		// do not requeue immediately, when the artifact is created the watcher should trigger a reconciliation
-		return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
+		return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, nil
 	}
 
 	// check dependencies
@@ -215,35 +215,33 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// reconcile kustomization by applying the latest revision
 	reconciledKustomization, reconcileErr := r.reconcile(ctx, *kustomization.DeepCopy(), source)
-	if reconcileErr != nil {
-		// broadcast the error
-		r.event(ctx, reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityError, reconcileErr.Error(), nil)
-	}
-
-	// update status
 	if err := r.patchStatus(ctx, req, reconciledKustomization.Status); err != nil {
 		log.Error(err, "unable to update status after reconciliation")
 		return ctrl.Result{Requeue: true}, err
 	}
+	r.recordReadiness(ctx, reconciledKustomization)
 
-	// requeue
+	// broadcast the reconciliation failure and requeue at the specified retry interval
 	if reconcileErr != nil {
-		// record the reconciliation error
-		r.recordReadiness(ctx, reconciledKustomization)
-		return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, reconcileErr
+		log.Error(reconcileErr, fmt.Sprintf("Reconciliation failed after %s, next try in %s",
+			time.Now().Sub(reconcileStart).String(),
+			kustomization.GetRetryInterval().String()),
+			"revision",
+			source.GetArtifact().Revision)
+		r.event(ctx, reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityError,
+			reconcileErr.Error(), nil)
+		return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, nil
 	}
 
+	// broadcast the reconciliation result and requeue at the specified interval
 	log.Info(fmt.Sprintf("Reconciliation finished in %s, next run in %s",
 		time.Now().Sub(reconcileStart).String(),
 		kustomization.Spec.Interval.Duration.String()),
 		"revision",
 		source.GetArtifact().Revision,
 	)
-
-	// record the reconciliation result
 	r.event(ctx, reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityInfo,
 		"Update completed", map[string]string{"commit_status": "update"})
-	r.recordReadiness(ctx, reconciledKustomization)
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 }
 
