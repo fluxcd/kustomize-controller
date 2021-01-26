@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.7.2
+
+**Release date:** 2021-01-26
+
+This prerelease comes with a fix to the service account impersonation
+when running health checks and garbage collection.
+
+Fixes:
+* Clear `config.BearerTokenFile` when setting `BearerToken`
+  [#258](https://github.com/fluxcd/kustomize-controller/pull/258)
+
 ## 0.7.1
 
 **Release date:** 2021-01-25
