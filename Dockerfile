@@ -32,7 +32,7 @@ COPY internal/ internal/
 # build
 RUN CGO_ENABLED=0 go build -a -o kustomize-controller main.go
 
-FROM alpine:3.12
+FROM alpine:3.13
 
 LABEL org.opencontainers.image.source="https://github.com/fluxcd/kustomize-controller"
 
@@ -45,7 +45,7 @@ COPY --from=builder /workspace/kustomize-controller /usr/local/bin/
 # https://github.com/gliderlabs/docker-alpine/issues/367#issuecomment-354316460
 RUN [ ! -e /etc/nsswitch.conf ] && echo 'hosts: files dns' > /etc/nsswitch.conf
 
-RUN addgroup -S controller && adduser -S -g controller controller
+RUN addgroup -S controller && adduser -S controller -G controller
 
 USER controller
 
