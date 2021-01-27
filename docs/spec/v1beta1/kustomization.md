@@ -20,7 +20,7 @@ type KustomizationSpec struct {
 	// Decrypt Kubernetes secrets before applying them on the cluster.
 	// +optional
 	Decryption *Decryption `json:"decryption,omitempty"`
-	
+
 	// The interval at which to reconcile the Kustomization.
 	// +required
 	Interval metav1.Duration `json:"interval"`
@@ -30,7 +30,7 @@ type KustomizationSpec struct {
 	// value to retry failures.
 	// +optional
 	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
-	
+
 	// The KubeConfig for reconciling the Kustomization on a remote cluster.
 	// When specified, KubeConfig takes precedence over ServiceAccountName.
 	// +optional
@@ -730,8 +730,10 @@ You can replicate the controller post-build substitutions locally using
 and Drone's [envsubst](https://github.com/drone/envsubst):
 
 ```console
+$ go install github.com/drone/envsubst/cmd/envsubst
+
 $ export region=eu-central-1
-$ kustomize build ./apps/ | envsubst 
+$ kustomize build ./apps/ | $GOPATH/bin/envsubst 
 ---
 apiVersion: v1
 kind: Namespace
