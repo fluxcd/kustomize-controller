@@ -553,6 +553,16 @@ func (r *KustomizationReconciler) validate(ctx context.Context, kustomization ku
 			return err
 		}
 		cmd = fmt.Sprintf("%s --kubeconfig=%s", cmd, kubeConfig)
+	} else {
+		// impersonate SA
+		if kustomization.Spec.ServiceAccountName != "" {
+			saToken, err := imp.GetServiceAccountToken(ctx)
+			if err != nil {
+				return fmt.Errorf("service account impersonation failed: %w", err)
+			}
+
+			cmd = fmt.Sprintf("%s --token %s", cmd, saToken)
+		}
 	}
 
 	command := exec.CommandContext(applyCtx, "/bin/sh", "-c", cmd)
