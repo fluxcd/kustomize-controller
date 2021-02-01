@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.7.3
+
+**Release date:** 2021-02-01
+
+This prerelease comes with support for running the
+Kustomization validation using service account impersonation.
+
+Improvements:
+* Support impersonation for validation
+  [#260](https://github.com/fluxcd/kustomize-controller/pull/260)
+
 ## 0.7.2
 
 **Release date:** 2021-01-26
