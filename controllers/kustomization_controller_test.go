@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
@@ -170,26 +171,35 @@ var _ = Describe("KustomizationReconciler", func() {
 					Suspend:    false,
 					Timeout:    nil,
 					Validation: "client",
+					HealthChecks: []meta.NamespacedObjectKindReference{
+						{
+							APIVersion: "v1",
+							Kind:       "ServiceAccount",
+							Name:       "test",
+							Namespace:  "test",
+						},
+					},
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), k)).Should(Succeed())
 			defer k8sClient.Delete(context.Background(), k)
 
 			got := &kustomizev1.Kustomization{}
-			var cond metav1.Condition
+			var readyCondition metav1.Condition
 			Eventually(func() bool {
 				_ = k8sClient.Get(context.Background(), kName, got)
 				for _, c := range got.Status.Conditions {
 					if c.Reason == t.waitForReason {
-						cond = c
+						readyCondition = c
 						return true
 					}
 				}
 				return false
 			}, timeout, interval).Should(BeTrue())
 
-			Expect(cond.Status).To(Equal(t.expectStatus))
+			Expect(readyCondition.Status).To(Equal(t.expectStatus))
 			Expect(got.Status.LastAppliedRevision).To(Equal(t.expectRevision))
+			Expect(apimeta.IsStatusConditionTrue(got.Status.Conditions, kustomizev1.HealthyCondition)).To(BeTrue())
 
 			ns := &corev1.Namespace{}
 			Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: "test"}, ns)).Should(Succeed())

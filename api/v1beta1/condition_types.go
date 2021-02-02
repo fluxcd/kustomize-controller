@@ -17,6 +17,10 @@ limitations under the License.
 package v1beta1
 
 const (
+	// HealthyCondition is the condition type used
+	// to record the last health assessment result.
+	HealthyCondition string = "Healthy"
+
 	// PruneFailedReason represents the fact that the
 	// pruning of the Kustomization failed.
 	PruneFailedReason string = "PruneFailed"
