@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -184,6 +185,16 @@ func KustomizationProgressing(k Kustomization) Kustomization {
 	return k
 }
 
+// SetKustomizationHealthiness sets the HealthyCondition status for a Kustomization.
+func SetKustomizationHealthiness(k *Kustomization, status metav1.ConditionStatus, reason, message string) {
+	switch len(k.Spec.HealthChecks) {
+	case 0:
+		apimeta.RemoveStatusCondition(k.GetStatusConditions(), HealthyCondition)
+	default:
+		meta.SetResourceCondition(k, HealthyCondition, status, reason, trimString(message, MaxConditionMessageLength))
+	}
+}
+
 // SetKustomizeReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision,
 // on the Kustomization.
 func SetKustomizationReadiness(k *Kustomization, status metav1.ConditionStatus, reason, message string, revision string) {
@@ -205,6 +216,7 @@ func KustomizationNotReady(k Kustomization, revision, reason, message string) Ku
 // including a Snapshot.
 func KustomizationNotReadySnapshot(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
 	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
+	SetKustomizationHealthiness(&k, metav1.ConditionFalse, reason, reason)
 	k.Status.Snapshot = snapshot
 	k.Status.LastAttemptedRevision = revision
 	return k
@@ -213,6 +225,7 @@ func KustomizationNotReadySnapshot(k Kustomization, snapshot *Snapshot, revision
 // KustomizationReady registers a successful apply attempt of the given Kustomization.
 func KustomizationReady(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
 	SetKustomizationReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision)
+	SetKustomizationHealthiness(&k, metav1.ConditionTrue, reason, reason)
 	k.Status.Snapshot = snapshot
 	k.Status.LastAppliedRevision = revision
 	return k

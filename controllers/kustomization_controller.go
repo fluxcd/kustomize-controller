@@ -695,10 +695,10 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context, statusPoller 
 		return err
 	}
 
-	readiness := apimeta.FindStatusCondition(kustomization.Status.Conditions, meta.ReadyCondition)
-	ready := readiness != nil && readiness.Status == metav1.ConditionTrue
+	healthiness := apimeta.FindStatusCondition(kustomization.Status.Conditions, kustomizev1.HealthyCondition)
+	healthy := healthiness != nil && healthiness.Status == metav1.ConditionTrue
 
-	if !ready || (kustomization.Status.LastAppliedRevision != revision && changed) {
+	if !healthy || (kustomization.Status.LastAppliedRevision != revision && changed) {
 		r.event(ctx, kustomization, revision, events.EventSeverityInfo, "Health check passed", nil)
 	}
 	return nil
