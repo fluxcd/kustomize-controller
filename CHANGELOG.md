@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.7.4
+
+**Release date:** 2021-02-02
+
+This prerelease comes with a change to the Kustomization
+status so that the controller can keep track of the last health
+assessment result and avoid issuing redundant health check events.
+
+Improvements:
+* Add Healthy status condition
+  [#262](https://github.com/fluxcd/kustomize-controller/pull/262)
+  
 ## 0.7.3
 
 **Release date:** 2021-02-01
