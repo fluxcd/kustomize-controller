@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"time"
 
@@ -74,6 +75,14 @@ type KustomizationSpec struct {
 	// A list of resources to be included in the health assessment.
 	// +optional
 	HealthChecks []meta.NamespacedObjectKindReference `json:"healthChecks,omitempty"`
+
+	// Strategic merge patches, defined as inline YAML objects.
+	// +optional
+	PatchesStrategicMerge []apiextensionsv1.JSON `json:"patchesStrategicMerge,omitempty"`
+
+	// JSON 6902 patches, defined as inline YAML objects.
+	// +optional
+	PatchesJSON6902 []kustomize.JSON6902Patch `json:"patchesJson6902,omitempty"`
 
 	// Images is a list of (image name, new name, new tag or digest)
 	// for changing image names, tags or digests. This can also be achieved with a

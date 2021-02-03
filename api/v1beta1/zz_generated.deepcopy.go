@@ -24,6 +24,7 @@ import (
 	"github.com/fluxcd/pkg/apis/kustomize"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/dependency"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -166,6 +167,20 @@ func (in *KustomizationSpec) DeepCopyInto(out *KustomizationSpec) {
 		in, out := &in.HealthChecks, &out.HealthChecks
 		*out = make([]meta.NamespacedObjectKindReference, len(*in))
 		copy(*out, *in)
+	}
+	if in.PatchesStrategicMerge != nil {
+		in, out := &in.PatchesStrategicMerge, &out.PatchesStrategicMerge
+		*out = make([]apiextensionsv1.JSON, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.PatchesJSON6902 != nil {
+		in, out := &in.PatchesJSON6902, &out.PatchesJSON6902
+		*out = make([]kustomize.JSON6902Patch, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.Images != nil {
 		in, out := &in.Images, &out.Images

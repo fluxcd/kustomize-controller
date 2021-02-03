@@ -183,6 +183,32 @@ bool
 </tr>
 <tr>
 <td>
+<code>patchesStrategicMerge</code><br>
+<em>
+[]k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Strategic merge patches, defined as inline YAML objects.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>patchesJson6902</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#JSON6902Patch">
+[]github.com/fluxcd/pkg/apis/kustomize.JSON6902Patch
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>JSON 6902 patches, defined as inline YAML objects.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>images</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#Image">
@@ -579,6 +605,32 @@ bool
 <td>
 <em>(Optional)</em>
 <p>A list of resources to be included in the health assessment.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>patchesStrategicMerge</code><br>
+<em>
+[]k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Strategic merge patches, defined as inline YAML objects.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>patchesJson6902</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#JSON6902Patch">
+[]github.com/fluxcd/pkg/apis/kustomize.JSON6902Patch
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>JSON 6902 patches, defined as inline YAML objects.</p>
 </td>
 </tr>
 <tr>

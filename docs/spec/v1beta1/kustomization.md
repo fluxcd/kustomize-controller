@@ -49,10 +49,20 @@ type KustomizationSpec struct {
 	// A list of resources to be included in the health assessment.
 	// +optional
 	HealthChecks []meta.NamespacedObjectKindReference `json:"healthChecks,omitempty"`
-	
-    // A list of images used to override or set the name and tag for container images.
-    // +optional
-    Images []Image `json:"images,omitempty"`
+
+	// Strategic merge patches, defined as inline YAML objects.
+	// +optional
+	PatchesStrategicMerge []apiextensionsv1.JSON `json:"patchesStrategicMerge,omitempty"`
+
+	// JSON 6902 patches, defined as inline YAML objects.
+	// +optional
+	PatchesJSON6902 []kustomize.JSON6902Patch `json:"patchesJson6902,omitempty"`
+
+	// Images is a list of (image name, new name, new tag or digest)
+	// for changing image names, tags or digests. This can also be achieved with a
+	// patch, but this operator is simpler to specify.
+	// +optional
+    Images []kustomize.Image `json:"images,omitempty"`
 
 	// The name of the Kubernetes service account to impersonate
 	// when reconciling this Kustomization.
