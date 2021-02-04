@@ -276,7 +276,7 @@ to Slack, Microsoft Teams, Discord or Rocket chart.
 Create a notification provider for Slack:
 
 ```yaml
-apiVersion: notification.fluxcd.io/v1beta1
+apiVersion: notification.toolkit.fluxcd.io/v1beta1
 kind: Provider
 metadata:
   name: slack
@@ -299,7 +299,7 @@ data:
 Create an alert for a list of GitRepositories and Kustomizations:
 
 ```yaml
-apiVersion: notification.fluxcd.io/v1beta1
+apiVersion: notification.toolkit.fluxcd.io/v1beta1
 kind: Alert
 metadata:
   name: on-call
