@@ -551,9 +551,20 @@ outside of the `webapp` namespace.
 
 ## Override kustomize config
 
-You can override the namespace of all the Kubernetes objects reconciled
-by a `Kustomization` with `spec.targetNamespace`, and you can
-override container images using `spec.images`:
+The Kustomization has a set of fields to extend and/or override the Kustomize
+patches and namespace on all the Kubernetes objects reconciled by the resource,
+offering support for the following Kustomize directives:
+
+- [namespace](https://kubectl.docs.kubernetes.io/references/kustomize/namespace/)
+- [patchesStrategicMerge](https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/)
+- [patchesJson6902](https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/)
+- [images](https://kubectl.docs.kubernetes.io/references/kustomize/images/)
+
+### Target namespace
+
+To configure the [Kustomize `namespace`](https://kubectl.docs.kubernetes.io/references/kustomize/namespace/)
+and overwrite the namespace of all the Kubernetes objects reconciled by the `Kustomization`,
+`spec.targetNamespace` can be defined:
 
 ```yaml
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
@@ -562,16 +573,87 @@ metadata:
   name: podinfo
   namespace: flux-system
 spec:
-  interval: 5m
-  path: "./kustomize"
-  sourceRef:
-    kind: GitRepository
-    name: podinfo
-  tagetNamespace: test
+  # ...omitted for brevity
+  targetNamespace: test
+```
+
+The `targetNamespace` is expected to exist.
+
+### Strategic Merge patches
+
+To add [Kustomize `patchesStrategicMerge` entries](https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/)
+to the configuration, `spec.patchesStrategicMerge` can be defined with a list
+of strategic merge patches in YAML format:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: flux-system
+spec:
+  # ...omitted for brevity
+  patchesStrategicMerge:
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: podinfo
+    spec:
+      template:
+        spec:
+          serviceAccount: custom-service-account
+```
+
+### JSON 6902 patches
+
+To add [Kustomize `patchesJson6902` entries](https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/)
+to the configuration, and patch resources using the [JSON 6902 standard](https://tools.ietf.org/html/rfc6902),
+`spec.patchesJson6902`, the items must contain a `target` selector and JSON 6902
+`patch` document:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: flux-system
+spec:
+  # ...omitted for brevity
+  patchesJson6902:
+  - target:
+      version: v1
+      kind: Deployment
+      name: podinfo
+    patch:
+    - op: add
+      path: /metadata/annotations/key
+      value: value
+```
+
+### Images
+
+To add [Kustomize `images` entries](https://kubectl.docs.kubernetes.io/references/kustomize/images/)
+to the configuration, and overwrite the name, tag or digest of container images
+without creating patches, `spec.images` can be defined:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: flux-system
+spec:
+  # ...omitted for brevity
   images:
-    - name: ghcr.io/stefanprodan/podinfo
-      newName: ghcr.io/stefanprodan/podinfo
-      newTag: 5.0.0
+  - name: podinfo
+    newName: my-registry/podinfo
+    newTag: v1
+  - name: podinfo
+    newTag: 1.8.0
+  - name: podinfo
+    newName: my-podinfo
+  - name: podinfo
+    digest: sha256:24a0c4b4a4c0eb97a1aabb8e29f18e917d05abfe1b7a7c07857230879ce7d3d3
 ```
 
 ## Remote Clusters / Cluster-API
