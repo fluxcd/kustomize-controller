@@ -185,7 +185,9 @@ bool
 <td>
 <code>patchesStrategicMerge</code><br>
 <em>
-[]k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
+<a href="https://pkg.go.dev/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1?tab=doc#JSON">
+[]Kubernetes pkg/apis/apiextensions/v1.JSON
+</a>
 </em>
 </td>
 <td>
@@ -611,7 +613,9 @@ bool
 <td>
 <code>patchesStrategicMerge</code><br>
 <em>
-[]k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
+<a href="https://pkg.go.dev/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1?tab=doc#JSON">
+[]Kubernetes pkg/apis/apiextensions/v1.JSON
+</a>
 </em>
 </td>
 <td>
