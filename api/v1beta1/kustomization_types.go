@@ -17,12 +17,14 @@ limitations under the License.
 package v1beta1
 
 import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/fluxcd/pkg/apis/kustomize"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/dependency"
 )
@@ -74,9 +76,19 @@ type KustomizationSpec struct {
 	// +optional
 	HealthChecks []meta.NamespacedObjectKindReference `json:"healthChecks,omitempty"`
 
-	// A list of images used to override or set the name and tag for container images.
+	// Strategic merge patches, defined as inline YAML objects.
 	// +optional
-	Images []Image `json:"images,omitempty"`
+	PatchesStrategicMerge []apiextensionsv1.JSON `json:"patchesStrategicMerge,omitempty"`
+
+	// JSON 6902 patches, defined as inline YAML objects.
+	// +optional
+	PatchesJSON6902 []kustomize.JSON6902Patch `json:"patchesJson6902,omitempty"`
+
+	// Images is a list of (image name, new name, new tag or digest)
+	// for changing image names, tags or digests. This can also be achieved with a
+	// patch, but this operator is simpler to specify.
+	// +optional
+	Images []kustomize.Image `json:"images,omitempty"`
 
 	// The name of the Kubernetes service account to impersonate
 	// when reconciling this Kustomization.
@@ -122,21 +134,6 @@ type Decryption struct {
 	// The secret name containing the private OpenPGP keys used for decryption.
 	// +optional
 	SecretRef *meta.LocalObjectReference `json:"secretRef,omitempty"`
-}
-
-// Image contains the name, new name and new tag that will replace the original container image.
-type Image struct {
-	// Name of the image to be replaced.
-	// +required
-	Name string `json:"name"`
-
-	// NewName is the name of the image used to replace the original one.
-	// +required
-	NewName string `json:"newName"`
-
-	// NewTag is the image tag used to replace the original tag.
-	// +required
-	NewTag string `json:"newTag"`
 }
 
 // KubeConfig references a Kubernetes secret that contains a kubeconfig file.

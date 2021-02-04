@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: patches-test
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: podinfo
+  namespace: patches-test
+spec:
+  interval: 5m
+  url: https://github.com/stefanprodan/podinfo
+  ref:
+    branch: master
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: patches-test
+spec:
+  targetNamespace: patches-test
+  interval: 5m
+  path: "./kustomize"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: podinfo
+  validation: client
+  patchesStrategicMerge:
+    - kind: Deployment
+      apiVersion: apps/v1
+      metadata:
+        name: podinfo
+        labels:
+          xxxx: yyyy
+  patchesJson6902:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        name: podinfo
+      patch:
+        - op: add
+          path: /metadata/labels/yyyy
+          value: xxxx

@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -31,6 +32,8 @@ import (
 	"sigs.k8s.io/kustomize/api/resmap"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
+
+	"github.com/fluxcd/pkg/apis/kustomize"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
@@ -94,6 +97,21 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) (string, error) {
 
 	if kg.kustomization.Spec.TargetNamespace != "" {
 		kus.Namespace = kg.kustomization.Spec.TargetNamespace
+	}
+
+	for _, m := range kg.kustomization.Spec.PatchesStrategicMerge {
+		kus.PatchesStrategicMerge = append(kus.PatchesStrategicMerge, kustypes.PatchStrategicMerge(m.Raw))
+	}
+
+	for _, m := range kg.kustomization.Spec.PatchesJSON6902 {
+		patch, err := json.Marshal(m.Patch)
+		if err != nil {
+			return "", err
+		}
+		kus.PatchesJson6902 = append(kus.PatchesJson6902, kustypes.Patch{
+			Patch:  string(patch),
+			Target: adaptSelector(&m.Target),
+		})
 	}
 
 	for _, image := range kg.kustomization.Spec.Images {
@@ -277,6 +295,20 @@ func (kg *KustomizeGenerator) generateLabelTransformer(checksum, dirPath string)
 	}
 
 	return nil
+}
+
+func adaptSelector(selector *kustomize.Selector) (output *kustypes.Selector) {
+	if selector != nil {
+		output = &kustypes.Selector{}
+		output.Gvk.Group = selector.Group
+		output.Gvk.Kind = selector.Kind
+		output.Gvk.Version = selector.Version
+		output.Name = selector.Name
+		output.Namespace = selector.Namespace
+		output.LabelSelector = selector.LabelSelector
+		output.AnnotationSelector = selector.AnnotationSelector
+	}
+	return
 }
 
 // buildKustomization wraps krusty.MakeKustomizer with the following settings:

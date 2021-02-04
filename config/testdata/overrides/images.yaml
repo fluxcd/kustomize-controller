@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: override-test
+  name: images-test
 ---
 apiVersion: source.toolkit.fluxcd.io/v1beta1
 kind: GitRepository
 metadata:
   name: podinfo
-  namespace: override-test
+  namespace: images-test
 spec:
   interval: 5m
   url: https://github.com/stefanprodan/podinfo
@@ -18,9 +18,9 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: podinfo
-  namespace: override-test
+  namespace: images-test
 spec:
-  targetNamespace: override-test
+  targetNamespace: images-test
   interval: 5m
   path: "./kustomize"
   prune: true

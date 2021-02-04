@@ -183,16 +183,46 @@ bool
 </tr>
 <tr>
 <td>
-<code>images</code><br>
+<code>patchesStrategicMerge</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Image">
-[]Image
+<a href="https://pkg.go.dev/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1?tab=doc#JSON">
+[]Kubernetes pkg/apis/apiextensions/v1.JSON
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>A list of images used to override or set the name and tag for container images.</p>
+<p>Strategic merge patches, defined as inline YAML objects.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>patchesJson6902</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#JSON6902Patch">
+[]github.com/fluxcd/pkg/apis/kustomize.JSON6902Patch
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>JSON 6902 patches, defined as inline YAML objects.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#Image">
+[]github.com/fluxcd/pkg/apis/kustomize.Image
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Images is a list of (image name, new name, new tag or digest)
+for changing image names, tags or digests. This can also be achieved with a
+patch, but this operator is simpler to specify.</p>
 </td>
 </tr>
 <tr>
@@ -408,60 +438,6 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.Image">Image
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
-</p>
-<p>Image contains the name, new name and new tag that will replace the original container image.</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Name of the image to be replaced.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>newName</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>NewName is the name of the image used to replace the original one.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>newTag</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>NewTag is the image tag used to replace the original tag.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
 <h3 id="kustomize.toolkit.fluxcd.io/v1beta1.KubeConfig">KubeConfig
 </h3>
 <p>
@@ -635,16 +611,46 @@ bool
 </tr>
 <tr>
 <td>
-<code>images</code><br>
+<code>patchesStrategicMerge</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Image">
-[]Image
+<a href="https://pkg.go.dev/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1?tab=doc#JSON">
+[]Kubernetes pkg/apis/apiextensions/v1.JSON
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>A list of images used to override or set the name and tag for container images.</p>
+<p>Strategic merge patches, defined as inline YAML objects.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>patchesJson6902</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#JSON6902Patch">
+[]github.com/fluxcd/pkg/apis/kustomize.JSON6902Patch
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>JSON 6902 patches, defined as inline YAML objects.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#Image">
+[]github.com/fluxcd/pkg/apis/kustomize.Image
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Images is a list of (image name, new name, new tag or digest)
+for changing image names, tags or digests. This can also be achieved with a
+patch, but this operator is simpler to specify.</p>
 </td>
 </tr>
 <tr>
