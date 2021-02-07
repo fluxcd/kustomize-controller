@@ -341,6 +341,13 @@ labels:
 The checksum label value is updated if the content of `spec.path` changes.
 When pruning is disabled, the checksum label is omitted. 
 
+You can disable pruning for certain resources by either
+labeling or annotating them with:
+
+```yaml
+kustomize.toolkit.fluxcd.io/prune: disabled
+```
+
 ## Health assessment
 
 A Kustomization can contain a series of health checks used to determine the
