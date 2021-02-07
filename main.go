@@ -32,6 +32,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/logger"
 	"github.com/fluxcd/pkg/runtime/metrics"
+	"github.com/fluxcd/pkg/runtime/pprof"
 	"github.com/fluxcd/pkg/runtime/probes"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 
@@ -119,6 +120,7 @@ func main() {
 	}
 
 	probes.SetupChecks(mgr, setupLog)
+	pprof.SetupHandlers(mgr, setupLog)
 
 	if err = (&controllers.KustomizationReconciler{
 		Client:                mgr.GetClient(),
