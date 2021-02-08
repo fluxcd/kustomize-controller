@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -71,25 +70,27 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 			err := kgc.List(ctx, ulist, client.InNamespace(ns), kgc.matchingLabels(name, namespace))
 			if err == nil {
 				for _, item := range ulist.Items {
+					id := fmt.Sprintf("%s/%s/%s", item.GetKind(), item.GetNamespace(), item.GetName())
+					if kgc.shouldSkip(item) {
+						kgc.log.V(1).Info(fmt.Sprintf("gc is disabled for '%s'", id))
+						continue
+					}
+
 					if kgc.isStale(item) && item.GetDeletionTimestamp().IsZero() {
-						gvkn := fmt.Sprintf("%s/%s/%s", item.GetKind(), item.GetNamespace(), item.GetName())
 						err = kgc.Delete(ctx, &item)
 						if err != nil {
-							outErr += fmt.Sprintf("delete failed for %s: %v\n", gvkn, err)
+							outErr += fmt.Sprintf("delete failed for %s: %v\n", id, err)
 						} else {
 							if len(item.GetFinalizers()) > 0 {
-								changeSet += fmt.Sprintf("%s marked for deletion\n", gvkn)
+								changeSet += fmt.Sprintf("%s marked for deletion\n", id)
 							} else {
-								changeSet += fmt.Sprintf("%s deleted\n", gvkn)
+								changeSet += fmt.Sprintf("%s deleted\n", id)
 							}
 						}
 					}
 				}
 			} else {
-				kgc.log.V(1).WithValues(
-					strings.ToLower(kustomizev1.KustomizationKind),
-					fmt.Sprintf("%s/%s", namespace, name),
-				).Info(fmt.Sprintf("gc query failed for %s: %v", gvk.Kind, err))
+				kgc.log.V(1).Info(fmt.Sprintf("gc query failed for %s: %v", gvk.Kind, err))
 			}
 		}
 	}
@@ -105,11 +106,17 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 		err := kgc.List(ctx, ulist, kgc.matchingLabels(name, namespace))
 		if err == nil {
 			for _, item := range ulist.Items {
+				id := fmt.Sprintf("%s/%s", item.GetKind(), item.GetName())
+
+				if kgc.shouldSkip(item) {
+					kgc.log.V(1).Info(fmt.Sprintf("gc is disabled for '%s'", id))
+					continue
+				}
+
 				if kgc.isStale(item) && item.GetDeletionTimestamp().IsZero() {
-					gvkn := fmt.Sprintf("%s/%s", item.GetKind(), item.GetName())
 					err = kgc.Delete(ctx, &item)
 					if err != nil {
-						outErr += fmt.Sprintf("delete failed for %s: %v\n", gvkn, err)
+						outErr += fmt.Sprintf("delete failed for %s: %v\n", id, err)
 					} else {
 						if len(item.GetFinalizers()) > 0 {
 							changeSet += fmt.Sprintf("%s/%s marked for deletion\n", item.GetKind(), item.GetName())
@@ -120,10 +127,7 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 				}
 			}
 		} else {
-			kgc.log.V(1).WithValues(
-				strings.ToLower(kustomizev1.KustomizationKind),
-				fmt.Sprintf("%s/%s", namespace, name),
-			).Info(fmt.Sprintf("gc query failed for %s: %v", gvk.Kind, err))
+			kgc.log.V(1).Info(fmt.Sprintf("gc query failed for %s: %v", gvk.Kind, err))
 		}
 	}
 
@@ -136,6 +140,13 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 func (kgc *KustomizeGarbageCollector) isStale(obj unstructured.Unstructured) bool {
 	itemChecksum := obj.GetLabels()[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]
 	return kgc.newChecksum == "" || itemChecksum != kgc.newChecksum
+}
+
+func (kgc *KustomizeGarbageCollector) shouldSkip(obj unstructured.Unstructured) bool {
+	key := fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group)
+	val := "disabled"
+
+	return obj.GetLabels()[key] == val || obj.GetAnnotations()[key] == val
 }
 
 func (kgc *KustomizeGarbageCollector) matchingLabels(name, namespace string) client.MatchingLabels {
