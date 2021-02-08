@@ -16,6 +16,8 @@ limitations under the License.
 
 package v1beta1
 
+import "fmt"
+
 // CrossNamespaceSourceReference contains enough information to let you locate the
 // typed referenced object at cluster level
 type CrossNamespaceSourceReference struct {
@@ -35,4 +37,11 @@ type CrossNamespaceSourceReference struct {
 	// Namespace of the referent, defaults to the Kustomization namespace
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
+}
+
+func (s *CrossNamespaceSourceReference) String() string {
+	if s.Namespace != "" {
+		return fmt.Sprintf("%s/%s/%s", s.Kind, s.Namespace, s.Name)
+	}
+	return fmt.Sprintf("%s/%s", s.Kind, s.Name)
 }

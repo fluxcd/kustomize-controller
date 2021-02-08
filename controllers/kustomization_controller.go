@@ -147,7 +147,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	source, err := r.getSource(ctx, kustomization)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			msg := "Source not found"
+			msg := fmt.Sprintf("Source '%s' not found", kustomization.Spec.SourceRef.String())
 			kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
 			if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
 				log.Error(err, "unable to update status for source not found")
