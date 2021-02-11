@@ -704,8 +704,8 @@ kind: Namespace
 metadata:
   name: apps
   labels:
-    environment: ${env:=dev}
-    region: "${region}"
+    environment: ${cluster_env:=dev}
+    region: "${cluster_region}"
 ```
 
 You can specify the variables and their values in the Kustomization definition under
@@ -721,9 +721,12 @@ spec:
   path: "./apps/"
   postBuild:
     substitute:
-      env: "prod"
-      region: "eu-central-1"
+      cluster_env: "prod"
+      cluster_region: "eu-central-1"
 ````
+
+Note that you should prefix the variables that get replaced by kustomize-controller
+to avoid conflicts with any existing scripts embedded in ConfigMaps or container commands.
 
 You can replicate the controller post-build substitutions locally using
 [kustomize](https://github.com/kubernetes-sigs/kustomize)
@@ -732,7 +735,7 @@ and Drone's [envsubst](https://github.com/drone/envsubst):
 ```console
 $ go install github.com/drone/envsubst/cmd/envsubst
 
-$ export region=eu-central-1
+$ export cluster_region=eu-central-1
 $ kustomize build ./apps/ | $GOPATH/bin/envsubst 
 ---
 apiVersion: v1
