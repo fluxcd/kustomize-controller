@@ -2,6 +2,41 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.8.0
+
+**Release date:** 2021-02-12
+
+This is the eight MINOR prerelease.
+
+This prerelease comes with support for bash-style
+[variable substitutions](https://github.com/fluxcd/kustomize-controller/blob/v0.8.0/docs/spec/v1beta1/kustomization.md#variable-substitution).
+
+The Kustomization API was extended with in-line support for Kustomize
+[Strategic Merge and JSON 6902 patches](https://github.com/fluxcd/kustomize-controller/blob/v0.8.0/docs/spec/v1beta1/kustomization.md#override-kustomize-config).
+
+Pruning can be disabled for certain resources by either
+labeling or annotating them with:
+```yaml
+kustomize.toolkit.fluxcd.io/prune: disabled
+```
+
+Golang `pprof` endpoints have been enabled on the metrics server,
+making it easier to collect runtime information to debug performance issues.
+
+Features:
+* Add support for variable substitutions
+  [#253](https://github.com/fluxcd/kustomize-controller/pull/253)
+* Support Strategic Merge and JSON 6902 patches
+  [#264](https://github.com/fluxcd/kustomize-controller/pull/264)
+* Allow disabling of prune on certain resources
+  [#267](https://github.com/fluxcd/kustomize-controller/pull/267)
+
+Improvements:
+* Enable pprof endpoints on metrics server
+  [#266](https://github.com/fluxcd/kustomize-controller/pull/266)
+* Update `kustomize/api` to v0.7.4
+  [#269](https://github.com/fluxcd/kustomize-controller/pull/269)
+
 ## 0.7.4
 
 **Release date:** 2021-02-02
