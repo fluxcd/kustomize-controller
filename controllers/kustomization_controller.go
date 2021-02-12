@@ -527,6 +527,12 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
 
+	// run post-build actions
+	resources, err = runPostBuildActions(kustomization, resources)
+	if err != nil {
+		return nil, fmt.Errorf("post-build actions failed: %w", err)
+	}
+
 	manifestsFile := filepath.Join(dirPath, fmt.Sprintf("%s.yaml", kustomization.GetUID()))
 	if err := fs.WriteFile(manifestsFile, resources); err != nil {
 		return nil, err

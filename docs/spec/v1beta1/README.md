@@ -14,6 +14,7 @@ of Kubernetes objects generated with Kustomize.
     + [Kustomization dependencies](kustomization.md#kustomization-dependencies)
     + [Role-based access control](kustomization.md#role-based-access-control)
     + [Override kustomize config](kustomization.md#override-kustomize-config)
+    + [Variable substitution](kustomization.md#variable-substitution)
     + [Targeting remote clusters](kustomization.md#remote-clusters--cluster-api)
     + [Secrets decryption](kustomization.md#secrets-decryption)
     + [Status](kustomization.md#status)
