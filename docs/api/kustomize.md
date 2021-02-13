@@ -317,7 +317,23 @@ string
 <td>
 <em>(Optional)</em>
 <p>Validate the Kubernetes objects before applying them on the cluster.
-The validation strategy can be &lsquo;client&rsquo; (local dry-run), &lsquo;server&rsquo; (APIServer dry-run) or &lsquo;none&rsquo;.</p>
+The validation strategy can be &lsquo;client&rsquo; (local dry-run), &lsquo;server&rsquo;
+(APIServer dry-run) or &lsquo;none&rsquo;.
+When &lsquo;Force&rsquo; is &lsquo;true&rsquo;, validation will fallback to &lsquo;client&rsquo; if set to
+&lsquo;server&rsquo; because server-side validation is not supported in this scenario.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>force</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Force instructs the controller to recreate resources in the situation
+when dealing with immutable field changes.</p>
 </td>
 </tr>
 </table>
@@ -760,7 +776,23 @@ string
 <td>
 <em>(Optional)</em>
 <p>Validate the Kubernetes objects before applying them on the cluster.
-The validation strategy can be &lsquo;client&rsquo; (local dry-run), &lsquo;server&rsquo; (APIServer dry-run) or &lsquo;none&rsquo;.</p>
+The validation strategy can be &lsquo;client&rsquo; (local dry-run), &lsquo;server&rsquo;
+(APIServer dry-run) or &lsquo;none&rsquo;.
+When &lsquo;Force&rsquo; is &lsquo;true&rsquo;, validation will fallback to &lsquo;client&rsquo; if set to
+&lsquo;server&rsquo; because server-side validation is not supported in this scenario.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>force</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Force instructs the controller to recreate resources in the situation
+when dealing with immutable field changes.</p>
 </td>
 </tr>
 </tbody>

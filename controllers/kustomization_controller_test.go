@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -197,6 +198,7 @@ var _ = Describe("KustomizationReconciler", func() {
 					Suspend:    false,
 					Timeout:    nil,
 					Validation: "client",
+					Force:      false,
 					PostBuild: &kustomizev1.PostBuild{
 						Substitute: map[string]string{"region": "eu-central-1"},
 						SubstituteFrom: []kustomizev1.SubstituteReference{
@@ -282,5 +284,148 @@ metadata:
 				expectRevision: "branch/commit1",
 			}),
 		)
+
+		Describe("Kustomization resource replacement", func() {
+			deploymentManifest := func(namespace, selector string) string {
+				return fmt.Sprintf(`---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+  namespace: %s
+spec:
+  selector:
+    matchLabels:
+      app: %[2]s
+  template:
+    metadata:
+      labels:
+        app: %[2]s
+    spec:
+      containers:
+      - name: test
+        image: podinfo
+`,
+					namespace, selector)
+			}
+
+			It("should replace immutable field resource using force", func() {
+				manifests := []testserver.File{
+					{
+						Name: "deployment.yaml",
+						Body: deploymentManifest(namespace.Name, "v1"),
+					},
+				}
+				artifact, err := httpServer.ArtifactFromFiles(manifests)
+				Expect(err).NotTo(HaveOccurred())
+
+				url := fmt.Sprintf("%s/%s", httpServer.URL(), artifact)
+
+				repositoryName := types.NamespacedName{
+					Name:      fmt.Sprintf("%s", randStringRunes(5)),
+					Namespace: namespace.Name,
+				}
+				repository := &sourcev1.GitRepository{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      repositoryName.Name,
+						Namespace: repositoryName.Namespace,
+					},
+					Spec: sourcev1.GitRepositorySpec{
+						URL:      "https://github.com/test/repository",
+						Interval: metav1.Duration{Duration: reconciliationInterval},
+					},
+					Status: sourcev1.GitRepositoryStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:               meta.ReadyCondition,
+								Status:             metav1.ConditionTrue,
+								LastTransitionTime: metav1.Now(),
+								Reason:             sourcev1.GitOperationSucceedReason,
+							},
+						},
+						URL: url,
+						Artifact: &sourcev1.Artifact{
+							Path:           url,
+							URL:            url,
+							Revision:       "v1",
+							LastUpdateTime: metav1.Now(),
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), repository)).To(Succeed())
+				Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
+				defer k8sClient.Delete(context.Background(), repository)
+
+				kName := types.NamespacedName{
+					Name:      fmt.Sprintf("%s", randStringRunes(5)),
+					Namespace: namespace.Name,
+				}
+				k := &kustomizev1.Kustomization{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      kName.Name,
+						Namespace: kName.Namespace,
+					},
+					Spec: kustomizev1.KustomizationSpec{
+						KubeConfig: kubeconfig,
+						Interval:   metav1.Duration{Duration: reconciliationInterval},
+						Path:       "./",
+						Prune:      true,
+						SourceRef: kustomizev1.CrossNamespaceSourceReference{
+							Kind: sourcev1.GitRepositoryKind,
+							Name: repository.Name,
+						},
+						Suspend:    false,
+						Timeout:    &metav1.Duration{Duration: 60 * time.Second},
+						Validation: "client",
+						Force:      true,
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), k)).To(Succeed())
+				defer k8sClient.Delete(context.Background(), k)
+
+				got := &kustomizev1.Kustomization{}
+				Eventually(func() bool {
+					_ = k8sClient.Get(context.Background(), kName, got)
+					c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
+					return c != nil && c.Reason == meta.ReconciliationSucceededReason
+				}, timeout, interval).Should(BeTrue())
+				Expect(got.Status.LastAppliedRevision).To(Equal("v1"))
+
+				deployment := &appsv1.Deployment{}
+				Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: "test", Namespace: namespace.Name}, deployment)).To(Succeed())
+				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("v1"))
+
+				manifests = []testserver.File{
+					{
+						Name: "deployment.yaml",
+						Body: deploymentManifest(namespace.Name, "v2"),
+					},
+				}
+
+				artifact, err = httpServer.ArtifactFromFiles(manifests)
+				Expect(err).NotTo(HaveOccurred())
+
+				url = fmt.Sprintf("%s/%s", httpServer.URL(), artifact)
+
+				repository.Status.URL = url
+				repository.Status.Artifact = &sourcev1.Artifact{
+					Path:           url,
+					URL:            url,
+					Revision:       "v2",
+					LastUpdateTime: metav1.Now(),
+				}
+				Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
+
+				lastAppliedRev := got.Status.LastAppliedRevision
+				Eventually(func() bool {
+					_ = k8sClient.Get(context.Background(), kName, got)
+					return apimeta.IsStatusConditionTrue(got.Status.Conditions, meta.ReadyCondition) && got.Status.LastAppliedRevision != lastAppliedRev
+				}, timeout, interval).Should(BeTrue())
+				Expect(got.Status.LastAppliedRevision).To(Equal("v2"))
+
+				Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: "test", Namespace: namespace.Name}, deployment)).To(Succeed())
+				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("v2"))
+			})
+		})
 	})
 })
