@@ -415,6 +415,18 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	if hostname := os.Getenv("SOURCE_CONTROLLER_LOCALHOST"); hostname != "" {
+		namespace := kustomization.GetNamespace()
+		if kustomization.Spec.SourceRef.Namespace != "" {
+			namespace = kustomization.Spec.SourceRef.Namespace
+		}
+		url = fmt.Sprintf("http://%s/%s/%s/%s/latest.tar.gz",
+			hostname,
+			strings.ToLower(kustomization.Spec.SourceRef.Kind),
+			namespace,
+			kustomization.Spec.SourceRef.Name)
+	}
+
 	// download the tarball
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

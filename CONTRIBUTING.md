@@ -50,6 +50,38 @@ You can run the unit tests by simply doing
 make test
 ```
 
+### How to run the controller locally
+
+Install flux on your test cluster:
+
+```sh
+flux install
+```
+
+Scale the in-cluster controller to zero:
+
+```sh
+kubectl -n flux-system scale deployment/kustomize-controller --replicas=0
+```
+
+Port forward to source-controller artifacts server:
+
+```sh
+kubectl -n flux-system port-forward svc/source-controller 8080:80
+```
+
+Export the local address as `SOURCE_CONTROLLER_LOCALHOST`:
+
+```sh
+export SOURCE_CONTROLLER_LOCALHOST=localhost:8080
+```
+
+Run the controller locally:
+
+```sh
+make run
+```
+
 ## Acceptance policy
 
 These things will make a PR more likely to be accepted:
