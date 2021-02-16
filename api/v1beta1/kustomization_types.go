@@ -33,6 +33,7 @@ const (
 	KustomizationKind         = "Kustomization"
 	KustomizationFinalizer    = "finalizers.fluxcd.io"
 	MaxConditionMessageLength = 20000
+	DisabledValue             = "disabled"
 )
 
 // KustomizationSpec defines the desired state of a kustomization.

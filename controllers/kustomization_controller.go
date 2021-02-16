@@ -517,12 +517,27 @@ func (r *KustomizationReconciler) build(ctx context.Context, kustomization kusto
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
 
-	// check if resources are encrypted and decrypt them before generating the final YAML
-	if kustomization.Spec.Decryption != nil {
-		for _, res := range m.Resources() {
+	for _, res := range m.Resources() {
+		// check if resources are encrypted and decrypt them before generating the final YAML
+		if kustomization.Spec.Decryption != nil {
 			outRes, err := dec.Decrypt(res)
 			if err != nil {
 				return nil, fmt.Errorf("decryption failed for '%s': %w", res.GetName(), err)
+			}
+
+			if outRes != nil {
+				_, err = m.Replace(res)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		// run variable substitutions
+		if kustomization.Spec.PostBuild != nil {
+			outRes, err := substituteVariables(ctx, r.Client, kustomization, res)
+			if err != nil {
+				return nil, fmt.Errorf("var substitution failed for '%s': %w", res.GetName(), err)
 			}
 
 			if outRes != nil {
@@ -537,12 +552,6 @@ func (r *KustomizationReconciler) build(ctx context.Context, kustomization kusto
 	resources, err := m.AsYaml()
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
-	}
-
-	// run post-build actions
-	resources, err = runPostBuildActions(ctx, r.Client, kustomization, resources)
-	if err != nil {
-		return nil, fmt.Errorf("post-build actions failed: %w", err)
 	}
 
 	manifestsFile := filepath.Join(dirPath, fmt.Sprintf("%s.yaml", kustomization.GetUID()))
