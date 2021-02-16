@@ -150,6 +150,32 @@ var _ = Describe("KustomizationReconciler", func() {
 			Expect(k8sClient.Status().Update(context.Background(), repository)).Should(Succeed())
 			defer k8sClient.Delete(context.Background(), repository)
 
+			configName := types.NamespacedName{
+				Name:      fmt.Sprintf("%s", randStringRunes(5)),
+				Namespace: namespace.Name,
+			}
+			config := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      configName.Name,
+					Namespace: configName.Namespace,
+				},
+				Data: map[string]string{"zone": "\naz-1a\n"},
+			}
+			Expect(k8sClient.Create(context.Background(), config)).Should(Succeed())
+
+			secretName := types.NamespacedName{
+				Name:      fmt.Sprintf("%s", randStringRunes(5)),
+				Namespace: namespace.Name,
+			}
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName.Name,
+					Namespace: secretName.Namespace,
+				},
+				StringData: map[string]string{"zone": "\naz-1b\n"},
+			}
+			Expect(k8sClient.Create(context.Background(), secret)).Should(Succeed())
+
 			kName := types.NamespacedName{
 				Name:      fmt.Sprintf("%s", randStringRunes(5)),
 				Namespace: namespace.Name,
@@ -173,6 +199,16 @@ var _ = Describe("KustomizationReconciler", func() {
 					Validation: "client",
 					PostBuild: &kustomizev1.PostBuild{
 						Substitute: map[string]string{"region": "eu-central-1"},
+						SubstituteFrom: []kustomizev1.SubstituteReference{
+							{
+								Kind: "ConfigMap",
+								Name: configName.Name,
+							},
+							{
+								Kind: "Secret",
+								Name: secretName.Name,
+							},
+						},
 					},
 					HealthChecks: []meta.NamespacedObjectKindReference{
 						{
@@ -213,6 +249,7 @@ var _ = Describe("KustomizationReconciler", func() {
 			Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: "test", Namespace: "test"}, sa)).Should(Succeed())
 			Expect(sa.Labels["environment"]).To(Equal("dev"))
 			Expect(sa.Labels["region"]).To(Equal("eu-central-1"))
+			Expect(sa.Labels["zone"]).To(Equal("az-1b"))
 		},
 			Entry("namespace-sa", refTestCase{
 				artifacts: []testserver.File{
@@ -236,6 +273,7 @@ metadata:
   labels:
     environment: ${env:=dev}
     region: "${region}" 
+    zone: "${zone}"
 `,
 					},
 				},

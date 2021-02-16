@@ -166,6 +166,29 @@ type PostBuild struct {
 	// e.g. ${var:=default}, ${var:position} and ${var/substring/replacement}.
 	// +optional
 	Substitute map[string]string `json:"substitute,omitempty"`
+
+	// SubstituteFrom holds references to ConfigMaps and Secrets containing
+	// the variables and their values to be substituted in the YAML manifests.
+	// The ConfigMap and the Secret data keys represent the var names and they
+	// must match the vars declared in the manifests for the substitution to happen.
+	// +optional
+	SubstituteFrom []SubstituteReference `json:"substituteFrom,omitempty"`
+}
+
+// SubstituteReference contains a reference to a resource containing
+// the variables name and value.
+type SubstituteReference struct {
+	// Kind of the values referent, valid values are ('Secret', 'ConfigMap').
+	// +kubebuilder:validation:Enum=Secret;ConfigMap
+	// +required
+	Kind string `json:"kind"`
+
+	// Name of the values referent. Should reside in the same namespace as the
+	// referring resource.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +required
+	Name string `json:"name"`
 }
 
 // KustomizationStatus defines the observed state of a kustomization.
