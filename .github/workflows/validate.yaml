@@ -1,0 +1,31 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  kubeval:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Kustomize
+        uses: fluxcd/pkg//actions/kustomize@main
+        with:
+          version: 4.0.0
+      - name: Setup Kubeval
+        uses: lra/setup-kubeval@v1
+        with:
+          version: 0.15.0
+      - name: Generate OpenAPI JSON schema
+        uses: fluxcd/pkg//actions/crdjsonschema@openapi2jsonschema
+        with:
+          crd: config/crd/bases/kustomize.toolkit.fluxcd.io_kustomizations.yaml
+          output: bin/master-standalone-strict
+      - name: Validate samples
+        run: kubeval config/samples/kustomize_v1beta1_kustomization.yaml --strict --schema-location=file://./bin
+      - name: Validate manager
+        run: kustomize build config/manager | kubeval --strict
