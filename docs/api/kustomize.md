@@ -902,6 +902,23 @@ Includes support for bash string replacement functions
 e.g. ${var:=default}, ${var:position} and ${var/substring/replacement}.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>substituteFrom</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.SubstituteReference">
+[]SubstituteReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SubstituteFrom holds references to ConfigMaps and Secrets containing
+the variables and their values to be substituted in the YAML manifests.
+The ConfigMap and the Secret data keys represent the var names and they
+must match the vars declared in the manifests for the substitution to happen.</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -991,6 +1008,51 @@ map[string]string
 </td>
 <td>
 <p>The list of Kubernetes kinds.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.SubstituteReference">SubstituteReference
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.PostBuild">PostBuild</a>)
+</p>
+<p>SubstituteReference contains a reference to a resource containing
+the variables name and value.</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>kind</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Kind of the values referent, valid values are (&lsquo;Secret&rsquo;, &lsquo;ConfigMap&rsquo;).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>name</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name of the values referent. Should reside in the same namespace as the
+referring resource.</p>
 </td>
 </tr>
 </tbody>

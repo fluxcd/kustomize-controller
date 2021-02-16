@@ -263,6 +263,34 @@ spec:
                       support for bash string replacement functions e.g. ${var:=default},
                       ${var:position} and ${var/substring/replacement}.
                     type: object
+                  substituteFrom:
+                    description: SubstituteFrom holds references to ConfigMaps and
+                      Secrets containing the variables and their values to be substituted
+                      in the YAML manifests. The ConfigMap and the Secret data keys
+                      represent the var names and they must match the vars declared
+                      in the manifests for the substitution to happen.
+                    items:
+                      description: SubstituteReference contains a reference to a resource
+                        containing the variables name and value.
+                      properties:
+                        kind:
+                          description: Kind of the values referent, valid values are
+                            ('Secret', 'ConfigMap').
+                          enum:
+                          - Secret
+                          - ConfigMap
+                          type: string
+                        name:
+                          description: Name of the values referent. Should reside
+                            in the same namespace as the referring resource.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
+                    type: array
                 type: object
               prune:
                 description: Prune enables garbage collection.

@@ -164,6 +164,13 @@ type PostBuild struct {
 	// e.g. ${var:=default}, ${var:position} and ${var/substring/replacement}.
 	// +optional
 	Substitute map[string]string `json:"substitute,omitempty"`
+
+	// SubstituteFrom holds references to ConfigMaps and Secrets containing
+	// the variables and their values to be substituted in the YAML manifests.
+	// The ConfigMap and the Secret data keys represent the var names and they
+	// must match the vars declared in the manifests for the substitution to happen.
+	// +optional
+	SubstituteFrom []SubstituteReference `json:"substituteFrom,omitempty"`
 }
 ```
 
@@ -688,6 +695,10 @@ spec:
 With `spec.postBuild.substitute` you can provide a map of key/value pairs holding the
 variables to be substituted in the final YAML manifest, after kustomize build.
 
+With `spec.postBuild.substituteFrom` you can provide a list of ConfigMaps and Secrets
+from which the variables are loaded.
+The ConfigMap and Secret data keys are used as the var names.
+
 This offers basic templating for your manifests including support
 for [bash string replacement functions](https://github.com/drone/envsubst) e.g.:
 
@@ -709,9 +720,9 @@ metadata:
 ```
 
 You can specify the variables and their values in the Kustomization definition under
-the `substitute` post build section:
+`substitute` and/or `substituteFrom` post build section:
 
-````yaml
+```yaml
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -723,10 +734,26 @@ spec:
     substitute:
       cluster_env: "prod"
       cluster_region: "eu-central-1"
-````
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-vars
+      - kind: Secret
+        name: cluster-secret-vars
+```
 
-Note that you should prefix the variables that get replaced by kustomize-controller
-to avoid conflicts with any existing scripts embedded in ConfigMaps or container commands.
+The var values which are specified in-line with `substitute`
+take precedence over the ones in `substituteFrom`.
+
+Note that if you want to avoid var substitutions in scripts embedded in ConfigMaps or container commands,
+you must use the format `$var` instead of `${var}`. All the undefined variables in the format `${var}`
+will be substituted with string empty, unless a default is provided e.g. `${var:=default}`.
+
+You can disable the variable substitution for certain resources by either
+labeling or annotating them with:
+
+```yaml
+kustomize.toolkit.fluxcd.io/substitute: disabled
+``` 
 
 You can replicate the controller post-build substitutions locally using
 [kustomize](https://github.com/kubernetes-sigs/kustomize)

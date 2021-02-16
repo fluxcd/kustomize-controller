@@ -298,8 +298,20 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
+	// create any necessary kube-clients for impersonation
+	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, dirPath)
+	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
+	if err != nil {
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			source.GetArtifact().Revision,
+			meta.ReconciliationFailedReason,
+			err.Error(),
+		), fmt.Errorf("failed to build kube client: %w", err)
+	}
+
 	// generate kustomization.yaml and calculate the manifests checksum
-	checksum, err := r.generate(kustomization, dirPath)
+	checksum, err := r.generate(ctx, kubeClient, kustomization, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -310,7 +322,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// build the kustomization and generate the GC snapshot
-	snapshot, err := r.build(kustomization, checksum, dirPath)
+	snapshot, err := r.build(ctx, kustomization, checksum, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -318,18 +330,6 @@ func (r *KustomizationReconciler) reconcile(
 			kustomizev1.BuildFailedReason,
 			err.Error(),
 		), err
-	}
-
-	// create any necessary kube-clients for impersonation
-	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, dirPath)
-	client, statusPoller, err := impersonation.GetClient(ctx)
-	if err != nil {
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			source.GetArtifact().Revision,
-			meta.ReconciliationFailedReason,
-			err.Error(),
-		), fmt.Errorf("failed to build kube client: %w", err)
 	}
 
 	// dry-run apply
@@ -355,7 +355,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// prune
-	err = r.prune(ctx, client, kustomization, checksum)
+	err = r.prune(ctx, kubeClient, kustomization, checksum)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -490,12 +490,12 @@ func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization k
 	return source, nil
 }
 
-func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
-	gen := NewGenerator(kustomization)
-	return gen.WriteFile(dirPath)
+func (r *KustomizationReconciler) generate(ctx context.Context, kubeClient client.Client, kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
+	gen := NewGenerator(kustomization, kubeClient)
+	return gen.WriteFile(ctx, dirPath)
 }
 
-func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization, checksum, dirPath string) (*kustomizev1.Snapshot, error) {
+func (r *KustomizationReconciler) build(ctx context.Context, kustomization kustomizev1.Kustomization, checksum, dirPath string) (*kustomizev1.Snapshot, error) {
 	timeout := kustomization.GetTimeout()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -517,12 +517,27 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
 
-	// check if resources are encrypted and decrypt them before generating the final YAML
-	if kustomization.Spec.Decryption != nil {
-		for _, res := range m.Resources() {
+	for _, res := range m.Resources() {
+		// check if resources are encrypted and decrypt them before generating the final YAML
+		if kustomization.Spec.Decryption != nil {
 			outRes, err := dec.Decrypt(res)
 			if err != nil {
 				return nil, fmt.Errorf("decryption failed for '%s': %w", res.GetName(), err)
+			}
+
+			if outRes != nil {
+				_, err = m.Replace(res)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		// run variable substitutions
+		if kustomization.Spec.PostBuild != nil {
+			outRes, err := substituteVariables(ctx, r.Client, kustomization, res)
+			if err != nil {
+				return nil, fmt.Errorf("var substitution failed for '%s': %w", res.GetName(), err)
 			}
 
 			if outRes != nil {
@@ -537,12 +552,6 @@ func (r *KustomizationReconciler) build(kustomization kustomizev1.Kustomization,
 	resources, err := m.AsYaml()
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
-	}
-
-	// run post-build actions
-	resources, err = runPostBuildActions(kustomization, resources)
-	if err != nil {
-		return nil, fmt.Errorf("post-build actions failed: %w", err)
 	}
 
 	manifestsFile := filepath.Join(dirPath, fmt.Sprintf("%s.yaml", kustomization.GetUID()))
@@ -678,7 +687,7 @@ func (r *KustomizationReconciler) applyWithRetry(ctx context.Context, kustomizat
 	return changeSet, nil
 }
 
-func (r *KustomizationReconciler) prune(ctx context.Context, client client.Client, kustomization kustomizev1.Kustomization, newChecksum string) error {
+func (r *KustomizationReconciler) prune(ctx context.Context, kubeClient client.Client, kustomization kustomizev1.Kustomization, newChecksum string) error {
 	if !kustomization.Spec.Prune || kustomization.Status.Snapshot == nil {
 		return nil
 	}
@@ -686,7 +695,7 @@ func (r *KustomizationReconciler) prune(ctx context.Context, client client.Clien
 		return nil
 	}
 
-	gc := NewGarbageCollector(client, *kustomization.Status.Snapshot, newChecksum, logr.FromContext(ctx))
+	gc := NewGarbageCollector(kubeClient, *kustomization.Status.Snapshot, newChecksum, logr.FromContext(ctx))
 
 	if output, ok := gc.Prune(kustomization.GetTimeout(),
 		kustomization.GetName(),

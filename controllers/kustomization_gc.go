@@ -144,9 +144,8 @@ func (kgc *KustomizeGarbageCollector) isStale(obj unstructured.Unstructured) boo
 
 func (kgc *KustomizeGarbageCollector) shouldSkip(obj unstructured.Unstructured) bool {
 	key := fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group)
-	val := "disabled"
 
-	return obj.GetLabels()[key] == val || obj.GetAnnotations()[key] == val
+	return obj.GetLabels()[key] == kustomizev1.DisabledValue || obj.GetAnnotations()[key] == kustomizev1.DisabledValue
 }
 
 func (kgc *KustomizeGarbageCollector) matchingLabels(name, namespace string) client.MatchingLabels {
