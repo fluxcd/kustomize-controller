@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.8.1
+
+**Release date:** 2021-02-18
+
+This prerelease adds an array field called `substituteFrom` to the post build
+API. `SubstituteFrom` holds references to `ConfigMaps` and `Secrets` containing
+the variables (data keys) and their values (data values) to be substituted in
+the YAML manifests.
+
+You can disable the variable substitution for certain resources by either
+labeling or annotating them with:
+
+```yaml
+kustomize.toolkit.fluxcd.io/substitute: disabled
+``` 
+
+Features:
+* Implement var substitution from ConfigMaps and Secrets
+  [#275](https://github.com/fluxcd/kustomize-controller/pull/275)
+
 ## 0.8.0
 
 **Release date:** 2021-02-12
