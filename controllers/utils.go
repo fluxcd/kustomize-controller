@@ -56,8 +56,11 @@ func parseApplyError(in []byte) string {
 	for _, line := range lines {
 		if line != "" &&
 			!strings.HasSuffix(line, "created") &&
+			!strings.HasSuffix(line, "created (dry run)") &&
 			!strings.HasSuffix(line, "configured") &&
-			!strings.HasSuffix(line, "unchanged") {
+			!strings.HasSuffix(line, "configured (dry run)") &&
+			!strings.HasSuffix(line, "unchanged") &&
+			!strings.HasSuffix(line, "unchanged (dry run)") {
 			errors += line + "\n"
 		}
 	}

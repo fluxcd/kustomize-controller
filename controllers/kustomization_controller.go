@@ -598,7 +598,7 @@ func (r *KustomizationReconciler) validate(ctx context.Context, kustomization ku
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("validation timeout: %w", err)
 		}
-		return fmt.Errorf("validation failed: %s", string(output))
+		return fmt.Errorf("validation failed: %s", parseApplyError(output))
 	}
 	return nil
 }
