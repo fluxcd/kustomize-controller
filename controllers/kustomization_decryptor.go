@@ -154,7 +154,7 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 }
 
 func (kd *KustomizeDecryptor) gpgImport(path string) error {
-	args := []string{"--import", path}
+	args := []string{"--batch", "--import", path}
 	if kd.homeDir != "" {
 		args = append([]string{"--homedir", kd.homeDir}, args...)
 	}
