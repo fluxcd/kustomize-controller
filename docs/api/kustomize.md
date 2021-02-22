@@ -332,8 +332,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Force instructs the controller to recreate resources in the situation
-when dealing with immutable field changes.</p>
+<p>Force instructs the controller to recreate resources
+when patching fails due to an immutable field change.</p>
 </td>
 </tr>
 </table>
@@ -791,8 +791,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Force instructs the controller to recreate resources in the situation
-when dealing with immutable field changes.</p>
+<p>Force instructs the controller to recreate resources
+when patching fails due to an immutable field change.</p>
 </td>
 </tr>
 </tbody>

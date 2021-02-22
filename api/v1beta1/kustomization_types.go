@@ -133,8 +133,8 @@ type KustomizationSpec struct {
 	// +optional
 	Validation string `json:"validation,omitempty"`
 
-	// Force instructs the controller to recreate resources in the situation
-	// when dealing with immutable field changes.
+	// Force instructs the controller to recreate resources
+	// when patching fails due to an immutable field change.
 	// +kubebuilder:default:=false
 	// +optional
 	Force bool `json:"force,omitempty"`
