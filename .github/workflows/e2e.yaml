@@ -31,6 +31,8 @@ jobs:
         uses: fluxcd/pkg//actions/kubebuilder@main
       - name: Setup Kubectl
         uses: fluxcd/pkg/actions/kubectl@main
+        with:
+          version: 1.20.2
       - name: Run tests
         run: make test
         env:

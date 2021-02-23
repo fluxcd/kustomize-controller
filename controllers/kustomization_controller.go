@@ -571,8 +571,15 @@ func (r *KustomizationReconciler) validate(ctx context.Context, kustomization ku
 	applyCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s --cache-dir=/tmp",
-		dirPath, kustomization.GetUID(), kustomization.GetTimeout().String(), kustomization.Spec.Validation)
+	validation := kustomization.Spec.Validation
+	if validation == "server" && kustomization.Spec.Force {
+		// Use client-side validation with force
+		validation = "client"
+		(logr.FromContext(ctx)).Info(fmt.Sprintf("Server-side validation is configured, falling-back to client-side validation since 'force' is enabled"))
+	}
+
+	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s --cache-dir=/tmp --force=%t",
+		dirPath, kustomization.GetUID(), kustomization.GetTimeout().String(), validation, kustomization.Spec.Force)
 
 	if kustomization.Spec.KubeConfig != nil {
 		kubeConfig, err := imp.WriteKubeConfig(ctx)
@@ -610,8 +617,8 @@ func (r *KustomizationReconciler) apply(ctx context.Context, kustomization kusto
 	defer cancel()
 	fieldManager := "kustomize-controller"
 
-	cmd := fmt.Sprintf("cd %s && kubectl apply --field-manager=%s -f %s.yaml --timeout=%s --cache-dir=/tmp",
-		dirPath, fieldManager, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String())
+	cmd := fmt.Sprintf("cd %s && kubectl apply --field-manager=%s -f %s.yaml --timeout=%s --cache-dir=/tmp --force=%t",
+		dirPath, fieldManager, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String(), kustomization.Spec.Force)
 
 	if kustomization.Spec.KubeConfig != nil {
 		kubeConfig, err := imp.WriteKubeConfig(ctx)

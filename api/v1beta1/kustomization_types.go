@@ -17,9 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"time"
+
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -124,10 +125,19 @@ type KustomizationSpec struct {
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
 	// Validate the Kubernetes objects before applying them on the cluster.
-	// The validation strategy can be 'client' (local dry-run), 'server' (APIServer dry-run) or 'none'.
+	// The validation strategy can be 'client' (local dry-run), 'server'
+	// (APIServer dry-run) or 'none'.
+	// When 'Force' is 'true', validation will fallback to 'client' if set to
+	// 'server' because server-side validation is not supported in this scenario.
 	// +kubebuilder:validation:Enum=none;client;server
 	// +optional
 	Validation string `json:"validation,omitempty"`
+
+	// Force instructs the controller to recreate resources
+	// when patching fails due to an immutable field change.
+	// +kubebuilder:default:=false
+	// +optional
+	Force bool `json:"force,omitempty"`
 }
 
 // Decryption defines how decryption is handled for Kubernetes manifests.

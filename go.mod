@@ -10,7 +10,7 @@ require (
 	github.com/fluxcd/kustomize-controller/api v0.8.1
 	github.com/fluxcd/pkg/apis/kustomize v0.0.1
 	github.com/fluxcd/pkg/apis/meta v0.7.0
-	github.com/fluxcd/pkg/runtime v0.8.1
+	github.com/fluxcd/pkg/runtime v0.8.3
 	github.com/fluxcd/pkg/testserver v0.0.2
 	github.com/fluxcd/pkg/untar v0.0.5
 	github.com/fluxcd/source-controller/api v0.8.0
@@ -29,7 +29,7 @@ require (
 	k8s.io/cli-runtime v0.20.2 // indirect
 	k8s.io/client-go v0.20.2
 	sigs.k8s.io/cli-utils v0.20.2
-	sigs.k8s.io/controller-runtime v0.8.0
+	sigs.k8s.io/controller-runtime v0.8.2
 	sigs.k8s.io/kustomize/api v0.7.4
 	sigs.k8s.io/yaml v1.2.0
 )

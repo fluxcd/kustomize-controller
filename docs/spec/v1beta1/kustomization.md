@@ -98,6 +98,12 @@ type KustomizationSpec struct {
 	// +kubebuilder:validation:Enum=none;client;server
 	// +optional
 	Validation string `json:"validation,omitempty"`
+
+	// Force instructs the controller to recreate resources
+	// when patching fails due to an immutable field change.
+	// +kubebuilder:default:=false
+	// +optional
+	Force bool `json:"force,omitempty"`
 }
 ```
 
@@ -320,6 +326,9 @@ Kubernetes manifest for the source, build the Kustomization and apply it on the 
 The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
 
 The Kustomization execution can be suspended by setting `spec.suspend` to `true`.
+
+With `spec.force` you can tell the controller to replace the resources in-cluster if the
+patching fails due to immutable fields changes.
 
 The controller can be told to reconcile the Kustomization outside of the specified interval
 by annotating the Kustomization object with:
