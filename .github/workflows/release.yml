@@ -64,35 +64,17 @@ jobs:
           docker buildx imagetools inspect ghcr.io/fluxcd/kustomize-controller:${{ steps.prep.outputs.VERSION }}
           docker pull docker.io/fluxcd/kustomize-controller:${{ steps.prep.outputs.VERSION }}
           docker pull ghcr.io/fluxcd/kustomize-controller:${{ steps.prep.outputs.VERSION }}
-      - name: Generate release asset
-        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+      - name: Generate release manifests
         run: |
           mkdir -p config/release
-          cp config/default/* config/release
-          cd config/release
-          kustomize edit set image fluxcd/kustomize-controller=fluxcd/kustomize-controller:${{ steps.prep.outputs.VERSION }}
-          kustomize build . > kustomize-controller.yaml
+          kustomize build ./config/crd > ./config/release/kustomize-controller.crds.yaml
+          kustomize build ./config/manager > ./config/release/kustomize-controller.deployment.yaml
       - name: Create release
-        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
-        id: create_release
-        uses: actions/create-release@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          draft: false
           prerelease: true
+          artifacts: "config/release/*.yaml"
+          artifactContentType: "text/plain"
           body: |
             [CHANGELOG](https://github.com/fluxcd/kustomize-controller/blob/main/CHANGELOG.md)
-      - name: Upload artifacts
-        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./config/release/kustomize-controller.yaml
-          asset_name: kustomize-controller.yaml
-          asset_content_type: text/plain
+          token: ${{ secrets.GITHUB_TOKEN }}
