@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.9.0
+
+**Release date:** 2021-02-24
+
+This is the ninth MINOR prerelease.
+
+This prerelease comes with support for recreating Kubernetes objects
+(e.g. Jobs) when immutable fields are changed in Git.
+
+Features:
+* Add support for recreating objects when immutable fields are updated
+  [#271](https://github.com/fluxcd/kustomize-controller/pull/271)
+
+Improvements:
+* Extracting validation error from apply dry run output
+  [#280](https://github.com/fluxcd/kustomize-controller/pull/280)
+* Update kubectl to v1.20.4
+  [#283](https://github.com/fluxcd/kustomize-controller/pull/283)
+
+Fixes:
+* Avoid prompts on SOPS key import by adding batch flag to gpg
+  [#281](https://github.com/fluxcd/kustomize-controller/pull/281)
+
 ## 0.8.1
 
 **Release date:** 2021-02-18

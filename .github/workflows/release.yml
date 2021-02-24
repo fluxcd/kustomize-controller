@@ -4,6 +4,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  CONTROLLER: ${{ github.event.repository.name }}
+
 jobs:
   build-push:
     runs-on: ubuntu-latest
@@ -49,8 +52,8 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm/v7,linux/arm64
           tags: |
-            ghcr.io/fluxcd/kustomize-controller:${{ steps.prep.outputs.VERSION }}
-            docker.io/fluxcd/kustomize-controller:${{ steps.prep.outputs.VERSION }}
+            ghcr.io/fluxcd/${{ env.CONTROLLER }}:${{ steps.prep.outputs.VERSION }}
+            docker.io/fluxcd/${{ env.CONTROLLER }}:${{ steps.prep.outputs.VERSION }}
           labels: |
             org.opencontainers.image.title=${{ github.event.repository.name }}
             org.opencontainers.image.description=${{ github.event.repository.description }}
@@ -60,15 +63,15 @@ jobs:
             org.opencontainers.image.created=${{ steps.prep.outputs.BUILD_DATE }}
       - name: Check images
         run: |
-          docker buildx imagetools inspect docker.io/fluxcd/kustomize-controller:${{ steps.prep.outputs.VERSION }}
-          docker buildx imagetools inspect ghcr.io/fluxcd/kustomize-controller:${{ steps.prep.outputs.VERSION }}
-          docker pull docker.io/fluxcd/kustomize-controller:${{ steps.prep.outputs.VERSION }}
-          docker pull ghcr.io/fluxcd/kustomize-controller:${{ steps.prep.outputs.VERSION }}
+          docker buildx imagetools inspect docker.io/fluxcd/${{ env.CONTROLLER }}:${{ steps.prep.outputs.VERSION }}
+          docker buildx imagetools inspect ghcr.io/fluxcd/${{ env.CONTROLLER }}:${{ steps.prep.outputs.VERSION }}
+          docker pull docker.io/fluxcd/${{ env.CONTROLLER }}:${{ steps.prep.outputs.VERSION }}
+          docker pull ghcr.io/fluxcd/${{ env.CONTROLLER }}:${{ steps.prep.outputs.VERSION }}
       - name: Generate release manifests
         run: |
           mkdir -p config/release
-          kustomize build ./config/crd > ./config/release/kustomize-controller.crds.yaml
-          kustomize build ./config/manager > ./config/release/kustomize-controller.deployment.yaml
+          kustomize build ./config/crd > ./config/release/${{ env.CONTROLLER }}.crds.yaml
+          kustomize build ./config/manager > ./config/release/${{ env.CONTROLLER }}.deployment.yaml
       - name: Create release
         uses: ncipollo/release-action@v1
         with:
@@ -76,5 +79,5 @@ jobs:
           artifacts: "config/release/*.yaml"
           artifactContentType: "text/plain"
           body: |
-            [CHANGELOG](https://github.com/fluxcd/kustomize-controller/blob/main/CHANGELOG.md)
+            [CHANGELOG](https://github.com/fluxcd/${{ env.CONTROLLER }}/blob/main/CHANGELOG.md)
           token: ${{ secrets.GITHUB_TOKEN }}
