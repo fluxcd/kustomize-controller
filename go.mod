@@ -16,7 +16,7 @@ require (
 	github.com/fluxcd/source-controller/api v0.9.0
 	github.com/go-logr/logr v0.3.0
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
-	github.com/onsi/ginkgo v1.14.1
+	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.2
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/gopgagent v0.0.0-20170926210634-4d7ea76ff71a
@@ -28,7 +28,7 @@ require (
 	k8s.io/apimachinery v0.20.2
 	k8s.io/cli-runtime v0.20.2 // indirect
 	k8s.io/client-go v0.20.2
-	sigs.k8s.io/cli-utils v0.20.2
+	sigs.k8s.io/cli-utils v0.22.2
 	sigs.k8s.io/controller-runtime v0.8.2
 	sigs.k8s.io/kustomize/api v0.7.4
 	sigs.k8s.io/yaml v1.2.0
