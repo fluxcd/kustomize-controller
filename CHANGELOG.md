@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.9.1
+
+**Release date:** 2021-02-25
+
+This prerelease comes with an update to the `sigs.k8s.io/cli-utils`
+dependency, to guard against a potential bug with health assessments
+that was discovered in the `flux` CLI.
+
+Improvements:
+* Update sigs.k8s.io/cli-utils to v0.22.2
+  [#287](https://github.com/fluxcd/kustomize-controller/pull/287)
+
 ## 0.9.0
 
 **Release date:** 2021-02-24
