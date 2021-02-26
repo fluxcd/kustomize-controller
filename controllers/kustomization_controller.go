@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,6 +37,7 @@ import (
 	"github.com/fluxcd/pkg/untar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	"github.com/go-logr/logr"
+	"github.com/hashicorp/go-retryablehttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,6 +70,7 @@ import (
 // KustomizationReconciler reconciles a Kustomization object
 type KustomizationReconciler struct {
 	client.Client
+	httpClient            *retryablehttp.Client
 	requeueDependency     time.Duration
 	Scheme                *runtime.Scheme
 	EventRecorder         kuberecorder.EventRecorder
@@ -78,6 +81,7 @@ type KustomizationReconciler struct {
 
 type KustomizationReconcilerOptions struct {
 	MaxConcurrentReconciles   int
+	HTTPRetry                 int
 	DependencyRequeueInterval time.Duration
 }
 
@@ -95,6 +99,15 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 	}
 
 	r.requeueDependency = opts.DependencyRequeueInterval
+
+	// Configure the retryable http client used for fetching artifacts.
+	// By default it retries 10 times within a 3.5 minutes window.
+	httpClient := retryablehttp.NewClient()
+	httpClient.RetryWaitMin = 5 * time.Second
+	httpClient.RetryWaitMax = 30 * time.Second
+	httpClient.RetryMax = opts.HTTPRetry
+	httpClient.Logger = nil
+	r.httpClient = httpClient
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
@@ -410,38 +423,34 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 	return nil
 }
 
-func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomization, url string, tmpDir string) error {
+func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomization, artifactURL string, tmpDir string) error {
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	if hostname := os.Getenv("SOURCE_CONTROLLER_LOCALHOST"); hostname != "" {
-		namespace := kustomization.GetNamespace()
-		if kustomization.Spec.SourceRef.Namespace != "" {
-			namespace = kustomization.Spec.SourceRef.Namespace
+		u, err := url.Parse(artifactURL)
+		if err != nil {
+			return err
 		}
-		url = fmt.Sprintf("http://%s/%s/%s/%s/latest.tar.gz",
-			hostname,
-			strings.ToLower(kustomization.Spec.SourceRef.Kind),
-			namespace,
-			kustomization.Spec.SourceRef.Name)
+		u.Host = hostname
+		artifactURL = u.String()
 	}
 
-	// download the tarball
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := retryablehttp.NewRequest(http.MethodGet, artifactURL, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create HTTP request for %s, error: %w", url, err)
+		return fmt.Errorf("failed to create a new request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	resp, err := r.httpClient.Do(req.WithContext(ctx))
 	if err != nil {
-		return fmt.Errorf("failed to download artifact from %s, error: %w", url, err)
+		return fmt.Errorf("failed to download artifact, error: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// check response
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("faild to download artifact from %s, status: %s", url, resp.Status)
+		return fmt.Errorf("faild to download artifact from %s, status: %s", artifactURL, resp.Status)
 	}
 
 	// extract

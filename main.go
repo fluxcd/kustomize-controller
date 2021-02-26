@@ -65,6 +65,7 @@ func main() {
 		clientOptions        client.Options
 		logOptions           logger.Options
 		watchAllNamespaces   bool
+		httpRetry            int
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -77,6 +78,7 @@ func main() {
 	flag.DurationVar(&requeueDependency, "requeue-dependency", 30*time.Second, "The interval at which failing dependencies are reevaluated.")
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
+	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
 	flag.Bool("log-json", false, "Set logging to JSON format.")
 	flag.CommandLine.MarkDeprecated("log-json", "Please use --log-encoding=json instead.")
 	clientOptions.BindFlags(flag.CommandLine)
@@ -132,6 +134,7 @@ func main() {
 	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
+		HTTPRetry:                 httpRetry,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", kustomizev1.KustomizationKind)
 		os.Exit(1)
