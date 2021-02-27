@@ -200,7 +200,7 @@ var _ = Describe("KustomizationReconciler", func() {
 					Validation: "client",
 					Force:      false,
 					PostBuild: &kustomizev1.PostBuild{
-						Substitute: map[string]string{"region": "eu-central-1"},
+						Substitute: map[string]string{"_Region": "eu-central-1"},
 						SubstituteFrom: []kustomizev1.SubstituteReference{
 							{
 								Kind: "ConfigMap",
@@ -274,7 +274,7 @@ metadata:
   namespace: test
   labels:
     environment: ${env:=dev}
-    region: "${region}" 
+    region: "${_Region}" 
     zone: "${zone}"
 `,
 					},
