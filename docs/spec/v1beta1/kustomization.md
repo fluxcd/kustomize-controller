@@ -716,6 +716,10 @@ for [bash string replacement functions](https://github.com/drone/envsubst) e.g.:
 - `${var:position:length}`
 - `${var/substring/replacement}`
 
+Note that the name of a variable can contain only alphanumeric and underscore characters.
+The controller validates the var names using this regular expression:
+`^[_[:alpha:]][_[:alpha:][:digit:]]*$`.
+
 Assuming you have manifests with the following variables:
 
 ```yaml

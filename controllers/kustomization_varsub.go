@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/drone/envsubst"
@@ -14,6 +15,10 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
+
+// varsubRegex is the regular expression used to validate
+// the var names before substitution
+const varsubRegex = "^[_[:alpha:]][_[:alpha:][:digit:]]*$"
 
 // substituteVariables replaces the vars with their values in the specified resource.
 // If a resource is labeled or annotated with
@@ -68,6 +73,13 @@ func substituteVariables(
 
 	// run bash variable substitutions
 	if len(vars) > 0 {
+		r, _ := regexp.Compile(varsubRegex)
+		for v := range vars {
+			if !r.MatchString(v) {
+				return nil, fmt.Errorf("'%s' var name is invalid, must match '%s'", v, varsubRegex)
+			}
+		}
+
 		output, err := envsubst.Eval(string(resData), func(s string) string {
 			return vars[s]
 		})
