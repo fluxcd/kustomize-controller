@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.9.2
+
+**Release date:** 2021-03-05
+
+This prerelease comes with improvements to the notification system.
+The controller retries with exponential backoff when fetching artifacts,
+preventing spamming events when source-controller becomes
+unavailable for a short period of time.
+
+Improvements:
+* Retry with exponential backoff when fetching artifacts
+  [#289](https://github.com/fluxcd/kustomize-controller/pull/289)
+* Validate the var names before substitution
+  [#291](https://github.com/fluxcd/kustomize-controller/pull/291)
+
 ## 0.9.1
 
 **Release date:** 2021-02-25
