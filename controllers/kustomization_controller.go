@@ -281,7 +281,7 @@ func (r *KustomizationReconciler) reconcile(
 	defer os.RemoveAll(tmpDir)
 
 	// download artifact and extract files
-	err = r.download(kustomization, source.GetArtifact().URL, tmpDir)
+	err = r.download(source.GetArtifact().URL, tmpDir)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -423,11 +423,7 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 	return nil
 }
 
-func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomization, artifactURL string, tmpDir string) error {
-	timeout := kustomization.GetTimeout() + (time.Second * 1)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
+func (r *KustomizationReconciler) download(artifactURL string, tmpDir string) error {
 	if hostname := os.Getenv("SOURCE_CONTROLLER_LOCALHOST"); hostname != "" {
 		u, err := url.Parse(artifactURL)
 		if err != nil {
@@ -442,7 +438,7 @@ func (r *KustomizationReconciler) download(kustomization kustomizev1.Kustomizati
 		return fmt.Errorf("failed to create a new request: %w", err)
 	}
 
-	resp, err := r.httpClient.Do(req.WithContext(ctx))
+	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to download artifact, error: %w", err)
 	}
