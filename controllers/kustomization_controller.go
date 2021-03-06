@@ -446,12 +446,12 @@ func (r *KustomizationReconciler) download(artifactURL string, tmpDir string) er
 
 	// check response
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("faild to download artifact from %s, status: %s", artifactURL, resp.Status)
+		return fmt.Errorf("failed to download artifact from %s, status: %s", artifactURL, resp.Status)
 	}
 
 	// extract
 	if _, err = untar.Untar(resp.Body, tmpDir); err != nil {
-		return fmt.Errorf("faild to untar artifact, error: %w", err)
+		return fmt.Errorf("failed to untar artifact, error: %w", err)
 	}
 
 	return nil
