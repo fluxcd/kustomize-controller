@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.9.3
+
+**Release date:** 2021-03-17
+
+This prerelease comes with updates to the runtime packages.
+
+The controller exposes a gauge metric to track the suspended status
+of `Kustomization` objects: `gotk_suspend_status{kind,name,namespace}`.
+
+Improvements:
+* Expose suspended status as Prometheus metric
+  [#299](https://github.com/fluxcd/kustomize-controller/pull/299)
+* Update dependencies
+  [#298](https://github.com/fluxcd/kustomize-controller/pull/298)
+
 ## 0.9.2
 
 **Release date:** 2021-03-05
