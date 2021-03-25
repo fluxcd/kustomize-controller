@@ -10,7 +10,7 @@ require (
 	github.com/fluxcd/kustomize-controller/api v0.9.3
 	github.com/fluxcd/pkg/apis/kustomize v0.0.1
 	github.com/fluxcd/pkg/apis/meta v0.8.0
-	github.com/fluxcd/pkg/runtime v0.8.5
+	github.com/fluxcd/pkg/runtime v0.10.1
 	github.com/fluxcd/pkg/testserver v0.0.2
 	github.com/fluxcd/pkg/untar v0.0.5
 	github.com/fluxcd/source-controller/api v0.9.1
