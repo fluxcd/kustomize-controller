@@ -20,8 +20,8 @@ require (
 	github.com/onsi/gomega v1.10.2
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/gopgagent v0.0.0-20170926210634-4d7ea76ff71a
-	go.mozilla.org/sops/v3 v3.6.1
-	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
+	go.mozilla.org/sops/v3 v3.7.0
+	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	google.golang.org/grpc v1.27.1
 	k8s.io/api v0.20.2
