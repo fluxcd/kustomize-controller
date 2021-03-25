@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -41,6 +42,8 @@ import (
 	"github.com/fluxcd/kustomize-controller/controllers"
 	// +kubebuilder:scaffold:imports
 )
+
+const controllerName = "kustomize-controller"
 
 var (
 	scheme   = runtime.NewScheme()
@@ -86,7 +89,7 @@ func main() {
 
 	var eventRecorder *events.Recorder
 	if eventsAddr != "" {
-		if er, err := events.NewRecorder(eventsAddr, "kustomize-controller"); err != nil {
+		if er, err := events.NewRecorder(eventsAddr, controllerName); err != nil {
 			setupLog.Error(err, "unable to create event recorder")
 			os.Exit(1)
 		} else {
@@ -113,7 +116,7 @@ func main() {
 		LeaseDuration:                 &leaderElectionOptions.LeaseDuration,
 		RenewDeadline:                 &leaderElectionOptions.RenewDeadline,
 		RetryPeriod:                   &leaderElectionOptions.RetryPeriod,
-		LeaderElectionID:              "7593cc5d.fluxcd.io",
+		LeaderElectionID:              fmt.Sprintf("%s-leader-election", controllerName),
 		Namespace:                     watchNamespace,
 		Logger:                        ctrl.Log,
 	})
@@ -128,7 +131,7 @@ func main() {
 	if err = (&controllers.KustomizationReconciler{
 		Client:                mgr.GetClient(),
 		Scheme:                mgr.GetScheme(),
-		EventRecorder:         mgr.GetEventRecorderFor("kustomize-controller"),
+		EventRecorder:         mgr.GetEventRecorderFor(controllerName),
 		ExternalEventRecorder: eventRecorder,
 		MetricsRecorder:       metricsRecorder,
 		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper()),
