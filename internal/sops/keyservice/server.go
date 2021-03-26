@@ -65,7 +65,7 @@ func (ks *Server) decryptWithPgp(key *keyservice.PgpKey, ciphertext []byte) ([]b
 // returning the encrypted result.
 func (ks Server) Encrypt(ctx context.Context,
 	req *keyservice.EncryptRequest) (*keyservice.EncryptResponse, error) {
-	key := *req.Key
+	key := req.Key
 	var response *keyservice.EncryptResponse
 	switch k := key.KeyType.(type) {
 	case *keyservice.Key_PgpKey:
@@ -88,7 +88,7 @@ func (ks Server) Encrypt(ctx context.Context,
 	return response, nil
 }
 
-func keyToString(key keyservice.Key) string {
+func keyToString(key *keyservice.Key) string {
 	switch k := key.KeyType.(type) {
 	case *keyservice.Key_PgpKey:
 		return fmt.Sprintf("PGP key with fingerprint %s", k.PgpKey.Fingerprint)
@@ -97,7 +97,7 @@ func keyToString(key keyservice.Key) string {
 	}
 }
 
-func (ks Server) prompt(key keyservice.Key, requestType string) error {
+func (ks Server) prompt(key *keyservice.Key, requestType string) error {
 	keyString := keyToString(key)
 	var response string
 	for response != "y" && response != "n" {
@@ -117,7 +117,7 @@ func (ks Server) prompt(key keyservice.Key, requestType string) error {
 // returning the decrypted result.
 func (ks Server) Decrypt(ctx context.Context,
 	req *keyservice.DecryptRequest) (*keyservice.DecryptResponse, error) {
-	key := *req.Key
+	key := req.Key
 	var response *keyservice.DecryptResponse
 	switch k := key.KeyType.(type) {
 	case *keyservice.Key_PgpKey:
