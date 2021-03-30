@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"go.mozilla.org/sops/v3"
@@ -137,6 +138,9 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 		defer os.RemoveAll(tmpDir)
 
 		for name, key := range secret.Data {
+			if ext := filepath.Ext(name); ext != ".asc" {
+				continue
+			}
 			keyPath, err := securejoin.SecureJoin(tmpDir, name)
 			if err != nil {
 				return err
