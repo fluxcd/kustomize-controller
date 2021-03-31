@@ -1,9 +1,0 @@
-apiVersion: source.toolkit.fluxcd.io/v1beta1
-kind: GitRepository
-metadata:
-  name: sops
-spec:
-  interval: 10m
-  url: https://github.com/stefanprodan/kustomizer
-  ref:
-    tag: "v0.2.0"
