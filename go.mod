@@ -5,6 +5,7 @@ go 1.15
 replace github.com/fluxcd/kustomize-controller/api => ./api
 
 require (
+	filippo.io/age v1.0.0-beta7
 	github.com/cyphar/filepath-securejoin v0.2.2
 	github.com/drone/envsubst v1.0.3-0.20200804185402-58bc65f69603
 	github.com/fluxcd/kustomize-controller/api v0.10.0
