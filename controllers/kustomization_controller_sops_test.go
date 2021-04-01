@@ -137,8 +137,8 @@ var _ = Describe("KustomizationReconciler", func() {
 					Namespace: sopsSecretKey.Namespace,
 				},
 				StringData: map[string]string{
-					"pgp.asc": string(pgpKey),
-					"age.txt": string(ageKey),
+					"pgp.asc":    string(pgpKey),
+					"age.agekey": string(ageKey),
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), sopsSecret)).To(Succeed())

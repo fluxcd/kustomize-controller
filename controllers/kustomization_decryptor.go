@@ -152,7 +152,7 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 				if err := kd.gpgImport(keyPath); err != nil {
 					return err
 				}
-			case ".txt":
+			case ".agekey":
 				ageIdentities = append(ageIdentities, string(file))
 			}
 		}
