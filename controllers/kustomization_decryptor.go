@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"go.mozilla.org/sops/v3"
@@ -46,6 +47,7 @@ type KustomizeDecryptor struct {
 	client.Client
 	kustomization kustomizev1.Kustomization
 	homeDir       string
+	ageIdentities []string
 }
 
 func NewDecryptor(kubeClient client.Client,
@@ -84,7 +86,7 @@ func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resourc
 
 		key, err := tree.Metadata.GetDataKeyWithKeyServices(
 			[]keyservice.KeyServiceClient{
-				intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir)),
+				intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.ageIdentities)),
 			},
 		)
 		if err != nil {
@@ -136,18 +138,25 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 		}
 		defer os.RemoveAll(tmpDir)
 
-		for name, key := range secret.Data {
-			keyPath, err := securejoin.SecureJoin(tmpDir, name)
-			if err != nil {
-				return err
-			}
-			if err := ioutil.WriteFile(keyPath, key, os.ModePerm); err != nil {
-				return fmt.Errorf("unable to write key to storage: %w", err)
-			}
-			if err := kd.gpgImport(keyPath); err != nil {
-				return err
+		var ageIdentities []string
+		for name, file := range secret.Data {
+			switch filepath.Ext(name) {
+			case ".asc":
+				keyPath, err := securejoin.SecureJoin(tmpDir, name)
+				if err != nil {
+					return err
+				}
+				if err := ioutil.WriteFile(keyPath, file, os.ModePerm); err != nil {
+					return fmt.Errorf("unable to write key to storage: %w", err)
+				}
+				if err := kd.gpgImport(keyPath); err != nil {
+					return err
+				}
+			case ".agekey":
+				ageIdentities = append(ageIdentities, string(file))
 			}
 		}
+		kd.ageIdentities = ageIdentities
 	}
 
 	return nil

@@ -54,40 +54,18 @@ var _ = Describe("KustomizationReconciler", func() {
 		)
 
 		BeforeEach(func() {
-			namespace = &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{Name: "kustomization-test" + randStringRunes(5)},
-			}
+			namespace = &corev1.Namespace{}
+			namespace.Name = "kustomization-test-" + randStringRunes(5)
 			err = k8sClient.Create(context.Background(), namespace)
 			Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
 
-			c := clientcmdapi.NewConfig()
-			c.CurrentContext = "default"
-			c.Clusters["default"] = &clientcmdapi.Cluster{
-				Server: cfg.Host,
-			}
-			c.Contexts["default"] = &clientcmdapi.Context{
-				Cluster:   "default",
-				Namespace: "default",
-				AuthInfo:  "default",
-			}
-			c.AuthInfos["default"] = &clientcmdapi.AuthInfo{
-				Token: cfg.BearerToken,
-			}
-			cb, err := clientcmd.Write(*c)
-			Expect(err).NotTo(HaveOccurred())
-			kubeconfigSecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubeconfig",
-					Namespace: namespace.Name,
-				},
-				Data: map[string][]byte{
-					"value": cb,
-				},
-			}
-			k8sClient.Create(context.Background(), kubeconfigSecret)
+			kubecfgSecret, err := kubeConfigSecret()
+			Expect(err).ToNot(HaveOccurred())
+			kubecfgSecret.Namespace = namespace.Name
+			Expect(k8sClient.Create(context.Background(), kubecfgSecret)).To(Succeed())
 			kubeconfig = &kustomizev1.KubeConfig{
 				SecretRef: meta.LocalObjectReference{
-					Name: kubeconfigSecret.Name,
+					Name: kubecfgSecret.Name,
 				},
 			}
 
@@ -429,3 +407,31 @@ spec:
 		})
 	})
 })
+
+func kubeConfigSecret() (*corev1.Secret, error) {
+	c := clientcmdapi.NewConfig()
+	c.CurrentContext = "default"
+	c.Clusters["default"] = &clientcmdapi.Cluster{
+		Server: cfg.Host,
+	}
+	c.Contexts["default"] = &clientcmdapi.Context{
+		Cluster:   "default",
+		Namespace: "default",
+		AuthInfo:  "default",
+	}
+	c.AuthInfos["default"] = &clientcmdapi.AuthInfo{
+		Token: cfg.BearerToken,
+	}
+	cb, err := clientcmd.Write(*c)
+	if err != nil {
+		return nil, err
+	}
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kubeconfig",
+		},
+		Data: map[string][]byte{
+			"value": cb,
+		},
+	}, nil
+}

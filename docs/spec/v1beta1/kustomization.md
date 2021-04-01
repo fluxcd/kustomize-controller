@@ -869,10 +869,13 @@ kubectl create secret generic prod-kubeconfig \
 
 In order to store secrets safely in a public or private Git repository,
 you can use [Mozilla SOPS](https://github.com/mozilla/sops)
-and encrypt your Kubernetes Secrets data with OpenPGP keys.
+and encrypt your Kubernetes Secrets data with [OpenPGP](https://www.openpgp.org)
+and [age](https://age-encryption.org/v1/) keys.
 
-Generate a GPG key **without passphrase** using [gnupg](https://www.gnupg.org/)
-then use sops to encrypt a Kubernetes secret:
+### OpenPGP
+
+Generate a GPG key **without passphrase** using [gnupg](https://www.gnupg.org/),
+then use `sops` to encrypt a Kubernetes secret:
 
 ```sh
 sops --pgp=FBC7B9E2A4F9289AC0C1D4843D16CEE4A27381B4 \
@@ -881,10 +884,11 @@ sops --pgp=FBC7B9E2A4F9289AC0C1D4843D16CEE4A27381B4 \
 
 Commit and push the encrypted file to Git.
 
-> **Note** that you should encrypt only the `data` section, encrypting the Kubernetes secret
-> metadata, kind or apiVersion is not supported by kustomize-controller.
+> **Note** that you should encrypt only the `data` section, encrypting the Kubernetes
+> secret metadata, kind or apiVersion is not supported by kustomize-controller.
 
-Create a secret in the `default` namespace with the OpenPGP private key:
+Create a secret in the `default` namespace with the OpenPGP private key,
+the key name must end with `.asc` to be detected as an OpenPGP key:
 
 ```sh
 gpg --export-secret-keys --armor FBC7B9E2A4F9289AC0C1D4843D16CEE4A27381B4 |
@@ -910,6 +914,52 @@ spec:
     provider: sops
     secretRef:
       name: sops-pgp
+```
+
+### Age
+
+Generate an age key with [age](https://age-encryption.org) using `age-keygen`,
+then use `sops` to encrypt a Kubernetes secret:
+
+```console
+$ age-keygen -o age.agekey
+Public key: age1helqcqsh9464r8chnwc2fzj8uv7vr5ntnsft0tn45v2xtz0hpfwq98cmsg
+$ sops --age=age1helqcqsh9464r8chnwc2fzj8uv7vr5ntnsft0tn45v2xtz0hpfwq98cmsg \
+--encrypt --encrypted-regex '^(data|stringData)$' --in-place my-secret.yaml
+```
+
+Commit and push the encrypted file to Git.
+
+> **Note** that you should encrypt only the `data` section, encrypting the Kubernetes
+> secret metadata, kind or apiVersion is not supported by kustomize-controller.
+
+Create a secret in the `default` namespace with the age private key,
+the key name must end with `.agekey` to be detected as an age key:
+
+```sh
+cat age.agekey |
+kubectl -n default create secret generic sops-age \
+--from-file=age.agekey=/dev/stdin
+```
+
+Configure decryption by referring the private key secret:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: my-secrets
+  namespace: default
+spec:
+  interval: 5m
+  path: "./"
+  sourceRef:
+    kind: GitRepository
+    name: my-secrets
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
 ```
 
 ## Status

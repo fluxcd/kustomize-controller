@@ -25,6 +25,16 @@ import (
 
 // MasterKey is a PGP key used to securely store sops' data key by
 // encrypting it and decrypting it.
+//
+// Adapted from https://github.com/mozilla/sops/blob/v3.7.0/pgp/keysource.go
+// to be able to control the GPG home directory and have a "contained"
+// environment.
+//
+// We are unable to drop the dependency on the GPG binary (although we
+// wish!) because the builtin GPG support in Go is limited, it does for
+// example not offer support for FIPS:
+// * https://github.com/golang/go/issues/11658#issuecomment-120448974
+// * https://github.com/golang/go/issues/45188
 type MasterKey struct {
 	Fingerprint  string
 	EncryptedKey string
