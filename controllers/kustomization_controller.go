@@ -659,7 +659,11 @@ func (r *KustomizationReconciler) apply(ctx context.Context, kustomization kusto
 			return "", fmt.Errorf("apply failed: %w, kubectl process was killed, probably due to OOM", err)
 		}
 
-		return "", fmt.Errorf("apply failed: %s", parseApplyError(output))
+		applyErr := parseApplyError(output)
+		if applyErr == "" {
+			applyErr = "no error output found, this may happen because of a timeout"
+		}
+		return "", fmt.Errorf("apply failed: %s", applyErr)
 	}
 
 	resources := parseApplyOutput(output)
