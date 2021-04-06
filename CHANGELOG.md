@@ -2,14 +2,33 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.11.0
+
+**Release date:** 2021-04-06
+
+This prerelease extends the Mozilla SOPS integration with support for
+[age encryption format](https://github.com/fluxcd/kustomize-controller/blob/v0.11.0/docs/spec/v1beta1/kustomization.md#age).
+
+This prerelease comes with a breaking change to SOPS integration.
+The OpenPGP private keys stored in Kubernetes secrets must have the `.asc` file extension.
+For age, the private keys file extension must be `.agekey`.
+
+Features:
+* Support SOPS age encryption
+  [#309](https://github.com/fluxcd/kustomize-controller/pull/309)
+
+Improvements:
+* Move Kustomize patch tests to Go test suite
+  [#313](https://github.com/fluxcd/kustomize-controller/pull/313)
+* Detect and replace empty err output on apply
+  [#312](https://github.com/fluxcd/kustomize-controller/pull/312)
+  
 ## 0.10.0
 
 **Release date:** 2021-03-26
 
-This is the tenth MINOR prerelease.
-
 This prerelease comes with a breaking change to the leader election ID
-from `305740c0.fluxcd.io` to `source-controller-leader-election`
+from `7593cc5d.fluxcd.io` to `kustomize-controller-leader-election`
 to be more descriptive. This change should not have an impact on most
 installations, as the default replica count is `1`. If you are running
 a setup with multiple replicas, it is however advised to scale down
