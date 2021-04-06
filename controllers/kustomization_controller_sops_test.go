@@ -1,5 +1,5 @@
 /*
-Copyright 2021it com The Flux authors
+Copyright 2021 The Flux authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,16 +17,10 @@ limitations under the License.
 package controllers
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"context"
-	"crypto/sha1"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/fluxcd/pkg/apis/meta"
@@ -37,11 +31,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
-
-const timeout = 10 * time.Second
 
 var _ = Describe("KustomizationReconciler", func() {
 	var (
@@ -89,37 +82,11 @@ var _ = Describe("KustomizationReconciler", func() {
 			artifactURL, err = artifactServer.URLForFile(artifactFile)
 			Expect(err).ToNot(HaveOccurred())
 
-			gitRepoKey := types.NamespacedName{
-				Name:      fmt.Sprintf("%s", randStringRunes(5)),
+			gitRepoKey := client.ObjectKey{
+				Name:      fmt.Sprintf("sops-%s", randStringRunes(5)),
 				Namespace: namespace.Name,
 			}
-			gitRepo := &sourcev1.GitRepository{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      gitRepoKey.Name,
-					Namespace: gitRepoKey.Namespace,
-				},
-				Spec: sourcev1.GitRepositorySpec{
-					URL:      "https://github.com/test/repository",
-					Interval: metav1.Duration{Duration: time.Minute},
-				},
-				Status: sourcev1.GitRepositoryStatus{
-					Conditions: []metav1.Condition{
-						{
-							Type:               meta.ReadyCondition,
-							Status:             metav1.ConditionTrue,
-							LastTransitionTime: metav1.Now(),
-							Reason:             sourcev1.GitOperationSucceedReason,
-						},
-					},
-					Artifact: &sourcev1.Artifact{
-						Path:           artifactURL,
-						URL:            artifactURL,
-						Revision:       "main/" + artifactChecksum,
-						Checksum:       artifactChecksum,
-						LastUpdateTime: metav1.Now(),
-					},
-				},
-			}
+			gitRepo := readyGitRepository(gitRepoKey, artifactURL, "main/"+artifactChecksum, artifactChecksum)
 			Expect(k8sClient.Create(context.Background(), gitRepo)).To(Succeed())
 			Expect(k8sClient.Status().Update(context.Background(), gitRepo)).To(Succeed())
 
@@ -166,11 +133,7 @@ var _ = Describe("KustomizationReconciler", func() {
 							Name: sopsSecretKey.Name,
 						},
 					},
-					PostBuild: &kustomizev1.PostBuild{
-						Substitute: map[string]string{
-							"FIXTURE_NS": namespace.Name,
-						},
-					},
+					TargetNamespace: namespace.Name,
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
@@ -197,92 +160,3 @@ var _ = Describe("KustomizationReconciler", func() {
 		})
 	})
 })
-
-func initArtifact(artifactServer *testserver.ArtifactServer, fixture, path string) (string, error) {
-	if f, err := os.Stat(fixture); os.IsNotExist(err) || !f.IsDir() {
-		return "", fmt.Errorf("invalid fixture path: %s", fixture)
-	}
-	f, err := os.Create(filepath.Join(artifactServer.Root(), path))
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if err != nil {
-			os.Remove(f.Name())
-		}
-	}()
-
-	h := sha1.New()
-
-	mw := io.MultiWriter(h, f)
-	gw := gzip.NewWriter(mw)
-	tw := tar.NewWriter(gw)
-
-	if err = filepath.Walk(fixture, func(p string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Ignore anything that is not a file (directories, symlinks)
-		if !fi.Mode().IsRegular() {
-			return nil
-		}
-
-		// Ignore dotfiles
-		if strings.HasPrefix(fi.Name(), ".") {
-			return nil
-		}
-
-		header, err := tar.FileInfoHeader(fi, p)
-		if err != nil {
-			return err
-		}
-		// The name needs to be modified to maintain directory structure
-		// as tar.FileInfoHeader only has access to the base name of the file.
-		// Ref: https://golang.org/src/archive/tar/common.go?#L626
-		relFilePath := p
-		if filepath.IsAbs(fixture) {
-			relFilePath, err = filepath.Rel(fixture, p)
-			if err != nil {
-				return err
-			}
-		}
-		header.Name = relFilePath
-
-		if err := tw.WriteHeader(header); err != nil {
-			return err
-		}
-
-		f, err := os.Open(p)
-		if err != nil {
-			f.Close()
-			return err
-		}
-		if _, err := io.Copy(tw, f); err != nil {
-			f.Close()
-			return err
-		}
-		return f.Close()
-	}); err != nil {
-		return "", err
-	}
-
-	if err := tw.Close(); err != nil {
-		gw.Close()
-		f.Close()
-		return "", err
-	}
-	if err := gw.Close(); err != nil {
-		f.Close()
-		return "", err
-	}
-	if err := f.Close(); err != nil {
-		return "", err
-	}
-
-	if err := os.Chmod(f.Name(), 0644); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
-}
