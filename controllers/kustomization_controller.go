@@ -204,7 +204,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			// we can't rely on exponential backoff because it will prolong the execution too much,
 			// instead we requeue on a fix interval.
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
-			log.Error(err, msg)
+			log.Info(msg)
 			r.event(ctx, kustomization, source.GetArtifact().Revision, events.EventSeverityInfo, msg, nil)
 			r.recordReadiness(ctx, kustomization)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
