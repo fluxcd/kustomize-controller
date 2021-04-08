@@ -61,6 +61,7 @@ var _ = Describe("KustomizationReconciler", func() {
 			artifactChecksum string
 			artifactURL      string
 		)
+
 		BeforeEach(func() {
 			namespace = &corev1.Namespace{}
 			namespace.Name = "sops-" + randStringRunes(5)
