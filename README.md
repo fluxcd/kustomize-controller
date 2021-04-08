@@ -1,5 +1,6 @@
 # kustomize-controller
 
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/4787/badge)](https://bestpractices.coreinfrastructure.org/projects/4787)
 [![e2e](https://github.com/fluxcd/kustomize-controller/workflows/e2e/badge.svg)](https://github.com/fluxcd/kustomize-controller/actions)
 [![report](https://goreportcard.com/badge/github.com/fluxcd/kustomize-controller)](https://goreportcard.com/report/github.com/fluxcd/kustomize-controller)
 [![license](https://img.shields.io/github/license/fluxcd/kustomize-controller.svg)](https://github.com/fluxcd/kustomize-controller/blob/main/LICENSE)
