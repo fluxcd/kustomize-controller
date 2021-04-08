@@ -67,6 +67,7 @@ var _ = Describe("KustomizationReconciler", func() {
 			artifactURL      string
 			kustomization    *kustomizev1.Kustomization
 		)
+
 		BeforeEach(func() {
 			namespace = &corev1.Namespace{}
 			namespace.Name = "patch-" + randStringRunes(5)

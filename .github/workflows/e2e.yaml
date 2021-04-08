@@ -68,11 +68,6 @@ jobs:
           kubectl -n kustomize-system wait kustomizations/common --for=condition=ready --timeout=4m
           kubectl -n kustomize-system wait kustomizations/backend --for=condition=ready --timeout=4m
           kubectl -n kustomize-system wait kustomizations/frontend --for=condition=ready --timeout=4m
-      - name: Run GC tests
-        run: |
-          kubectl get ns
-          kubectl -n kustomize-system delete -k ./config/testdata/overlays
-          until kubectl get ns staging 2>&1 | grep NotFound ; do sleep 2; done
       - name: Run impersonation tests
         run: |
           kubectl -n impersonation apply -f ./config/testdata/impersonation
