@@ -35,6 +35,8 @@ const (
 	KustomizationFinalizer    = "finalizers.fluxcd.io"
 	MaxConditionMessageLength = 20000
 	DisabledValue             = "disabled"
+	StalledCondition          = "Stalled"
+	ReconcilingCondition      = "Reconciling"
 )
 
 // KustomizationSpec defines the desired state of a kustomization.
@@ -230,7 +232,9 @@ type KustomizationStatus struct {
 // KustomizationProgressing resets the conditions of the given Kustomization to a single
 // ReadyCondition with status ConditionUnknown.
 func KustomizationProgressing(k Kustomization) Kustomization {
+	RemoveKustomizationStalled(&k)
 	meta.SetResourceCondition(&k, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
+	meta.SetResourceCondition(&k, ReconcilingCondition, metav1.ConditionTrue, meta.ProgressingReason, "reconciliation in progress")
 	return k
 }
 
@@ -254,11 +258,33 @@ func SetKustomizationReadiness(k *Kustomization, status metav1.ConditionStatus, 
 
 // KustomizationNotReady registers a failed apply attempt of the given Kustomization.
 func KustomizationNotReady(k Kustomization, revision, reason, message string) Kustomization {
+	RemoveKustomizationReconciling(&k)
+	SetKustomizationStalled(&k, metav1.ConditionTrue, reason, message)
 	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
 	if revision != "" {
 		k.Status.LastAttemptedRevision = revision
 	}
 	return k
+}
+
+// SetKustomizeStalled sets the StalledCondition, ObservedGeneration on the Kustomization.
+func SetKustomizationStalled(k *Kustomization, status metav1.ConditionStatus, reason, message string) {
+	meta.SetResourceCondition(k, StalledCondition, status, reason, trimString(message, MaxConditionMessageLength))
+	k.Status.ObservedGeneration = k.Generation
+}
+
+// RemoveKustomizationStalled removes the StalledCondition on the Kustomization.
+func RemoveKustomizationStalled(k *Kustomization) {
+	if len(k.Status.Conditions) != 0 {
+		apimeta.RemoveStatusCondition(&k.Status.Conditions, StalledCondition)
+	}
+}
+
+// RemoveKustomizationReconciling removes the ReconcilingCondition on the Kustomization.
+func RemoveKustomizationReconciling(k *Kustomization) {
+	if len(k.Status.Conditions) != 0 {
+		apimeta.RemoveStatusCondition(&k.Status.Conditions, ReconcilingCondition)
+	}
 }
 
 // KustomizationNotReady registers a failed apply attempt of the given Kustomization,
@@ -273,6 +299,8 @@ func KustomizationNotReadySnapshot(k Kustomization, snapshot *Snapshot, revision
 
 // KustomizationReady registers a successful apply attempt of the given Kustomization.
 func KustomizationReady(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
+	RemoveKustomizationStalled(&k)
+	RemoveKustomizationReconciling(&k)
 	SetKustomizationReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision)
 	SetKustomizationHealthiness(&k, metav1.ConditionTrue, reason, reason)
 	k.Status.Snapshot = snapshot
