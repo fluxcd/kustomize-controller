@@ -88,13 +88,13 @@ type KustomizationReconcilerOptions struct {
 func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
 	// Index the Kustomizations by the GitRepository references they (may) point at.
 	if err := mgr.GetCache().IndexField(context.TODO(), &kustomizev1.Kustomization{}, kustomizev1.GitRepositoryIndexKey,
-		r.indexByGitRepository); err != nil {
+		r.indexBy(sourcev1.GitRepositoryKind)); err != nil {
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
 	// Index the Kustomizations by the Bucket references they (may) point at.
 	if err := mgr.GetCache().IndexField(context.TODO(), &kustomizev1.Kustomization{}, kustomizev1.BucketIndexKey,
-		r.indexByBucket); err != nil {
+		r.indexBy(sourcev1.BucketKind)); err != nil {
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
@@ -115,12 +115,12 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 		)).
 		Watches(
 			&source.Kind{Type: &sourcev1.GitRepository{}},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForGitRepositoryRevisionChange),
+			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(kustomizev1.GitRepositoryIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
 			&source.Kind{Type: &sourcev1.Bucket{}},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForBucketRevisionChange),
+			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(kustomizev1.BucketIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
