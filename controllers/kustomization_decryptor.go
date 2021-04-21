@@ -19,6 +19,7 @@ package controllers
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -75,47 +76,103 @@ func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resourc
 		return nil, err
 	}
 
-	if kd.kustomization.Spec.Decryption != nil && kd.kustomization.Spec.Decryption.Provider == DecryptionProviderSOPS &&
-		bytes.Contains(out, []byte("sops:")) && bytes.Contains(out, []byte("mac: ENC[")) {
-		store := common.StoreForFormat(formats.Yaml)
+	if kd.kustomization.Spec.Decryption != nil && kd.kustomization.Spec.Decryption.Provider == DecryptionProviderSOPS {
 
-		tree, err := store.LoadEncryptedFile(out)
-		if err != nil {
-			return nil, fmt.Errorf("LoadEncryptedFile: %w", err)
-		}
+		if bytes.Contains(out, []byte("sops:")) && bytes.Contains(out, []byte("mac: ENC[")) {
+			store := common.StoreForFormat(formats.Yaml)
 
-		key, err := tree.Metadata.GetDataKeyWithKeyServices(
-			[]keyservice.KeyServiceClient{
-				intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.ageIdentities)),
-			},
-		)
-		if err != nil {
-			if userErr, ok := err.(sops.UserError); ok {
-				err = fmt.Errorf(userErr.UserError())
+			tree, err := store.LoadEncryptedFile(out)
+			if err != nil {
+				return nil, fmt.Errorf("LoadEncryptedFile: %w", err)
 			}
-			return nil, fmt.Errorf("GetDataKey: %w", err)
-		}
 
-		cipher := aes.NewCipher()
-		if _, err := tree.Decrypt(key, cipher); err != nil {
-			return nil, fmt.Errorf("AES decrypt: %w", err)
-		}
+			key, err := tree.Metadata.GetDataKeyWithKeyServices(
+				[]keyservice.KeyServiceClient{
+					intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.ageIdentities)),
+				},
+			)
+			if err != nil {
+				if userErr, ok := err.(sops.UserError); ok {
+					err = fmt.Errorf(userErr.UserError())
+				}
+				return nil, fmt.Errorf("GetDataKey: %w", err)
+			}
 
-		data, err := store.EmitPlainFile(tree.Branches)
-		if err != nil {
-			return nil, fmt.Errorf("EmitPlainFile: %w", err)
-		}
+			cipher := aes.NewCipher()
+			if _, err := tree.Decrypt(key, cipher); err != nil {
+				return nil, fmt.Errorf("AES decrypt: %w", err)
+			}
 
-		jsonData, err := yaml.YAMLToJSON(data)
-		if err != nil {
-			return nil, fmt.Errorf("YAMLToJSON: %w", err)
-		}
+			data, err := store.EmitPlainFile(tree.Branches)
+			if err != nil {
+				return nil, fmt.Errorf("EmitPlainFile: %w", err)
+			}
 
-		err = res.UnmarshalJSON(jsonData)
-		if err != nil {
-			return nil, fmt.Errorf("UnmarshalJSON: %w", err)
+			jsonData, err := yaml.YAMLToJSON(data)
+			if err != nil {
+				return nil, fmt.Errorf("YAMLToJSON: %w", err)
+			}
+
+			err = res.UnmarshalJSON(jsonData)
+			if err != nil {
+				return nil, fmt.Errorf("UnmarshalJSON: %w", err)
+			}
+			return res, nil
+
+		} else if res.GetKind() == "Secret" {
+
+			dataMap := res.GetDataMap()
+
+			for key, value := range dataMap {
+
+				data, err := base64.StdEncoding.DecodeString(value)
+				if err != nil {
+					fmt.Println("Base64 Decode: %w", err)
+				}
+
+				if bytes.Contains(data, []byte("sops")) && bytes.Contains(data, []byte("ENC[")) {
+
+					store := common.StoreForFormat(formats.Yaml)
+
+					tree, err := store.LoadEncryptedFile(data)
+					if err != nil {
+						return nil, fmt.Errorf("LoadEncryptedFile: %w", err)
+					}
+
+					metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(
+						[]keyservice.KeyServiceClient{
+							intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.ageIdentities)),
+						},
+					)
+
+					if err != nil {
+						if userErr, ok := err.(sops.UserError); ok {
+							err = fmt.Errorf(userErr.UserError())
+						}
+						return nil, fmt.Errorf("GetDataKey: %w", err)
+					}
+
+					cipher := aes.NewCipher()
+					if _, err := tree.Decrypt(metadataKey, cipher); err != nil {
+						return nil, fmt.Errorf("AES decrypt: %w", err)
+					}
+
+					binaryStore := common.StoreForFormat(formats.Binary)
+
+					out, err := binaryStore.EmitPlainFile(tree.Branches)
+					if err != nil {
+						return nil, fmt.Errorf("EmitPlainFile: %w", err)
+					}
+
+					dataMap[key] = base64.StdEncoding.EncodeToString(out)
+				}
+			}
+
+			res.SetDataMap(dataMap)
+
+			return res, nil
+
 		}
-		return res, nil
 	}
 	return nil, nil
 }

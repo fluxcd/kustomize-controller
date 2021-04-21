@@ -962,6 +962,25 @@ spec:
       name: sops-age
 ```
 
+### Kustomize secretGenerator
+
+`sops` encrypted data can be stored as a base64 encoded Secret, which enables use of kustomize secretGenerator as follows.
+
+```console
+$ echo "day=Tuesday" | sops -e /dev/stdin > day.txt.encrypted
+$ cat <<EOF > kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+secretGenerator:
+ - name: day-secret
+   files:
+   - ./day.txt.encrypted
+EOF
+```
+
+Commit and push `day.txt.encrypted` and `kustomization.yaml` to Git.
+
 ## Status
 
 When the controller completes a Kustomization apply, reports the result in the `status` sub-resource.
