@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.11.1
+
+**Release date:** 2021-04-22
+
+This prerelease comes with a bug fix where the rate limited events were
+delaying the reconciliation.
+
+Improvements:
+* Move GC test to Go test suite
+  [#318](https://github.com/fluxcd/kustomize-controller/pull/318)
+* Refactor indexers to use high-order functions
+  [#322](https://github.com/fluxcd/kustomize-controller/pull/322)
+
+Fixes:
+* Avoid retrying rate limited events
+  [#326](https://github.com/fluxcd/kustomize-controller/pull/326)
+* Make log level info for 'Dependencies do not meet ready condition'
+  [#317](https://github.com/fluxcd/kustomize-controller/pull/317)
+
 ## 0.11.0
 
 **Release date:** 2021-04-06
