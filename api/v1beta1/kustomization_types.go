@@ -35,8 +35,6 @@ const (
 	KustomizationFinalizer    = "finalizers.fluxcd.io"
 	MaxConditionMessageLength = 20000
 	DisabledValue             = "disabled"
-	StalledCondition          = "Stalled"
-	ReconcilingCondition      = "Reconciling"
 )
 
 // KustomizationSpec defines the desired state of a kustomization.
@@ -234,7 +232,7 @@ type KustomizationStatus struct {
 func KustomizationProgressing(k Kustomization) Kustomization {
 	RemoveKustomizationStalled(&k)
 	meta.SetResourceCondition(&k, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
-	meta.SetResourceCondition(&k, ReconcilingCondition, metav1.ConditionTrue, meta.ProgressingReason, "reconciliation in progress")
+	meta.SetResourceCondition(&k, meta.ReconcilingCondition, metav1.ConditionTrue, meta.ProgressingReason, "reconciliation in progress")
 	return k
 }
 
@@ -269,21 +267,21 @@ func KustomizationNotReady(k Kustomization, revision, reason, message string) Ku
 
 // SetKustomizeStalled sets the StalledCondition, ObservedGeneration on the Kustomization.
 func SetKustomizationStalled(k *Kustomization, status metav1.ConditionStatus, reason, message string) {
-	meta.SetResourceCondition(k, StalledCondition, status, reason, trimString(message, MaxConditionMessageLength))
+	meta.SetResourceCondition(k, meta.StalledCondition, status, reason, trimString(message, MaxConditionMessageLength))
 	k.Status.ObservedGeneration = k.Generation
 }
 
 // RemoveKustomizationStalled removes the StalledCondition on the Kustomization.
 func RemoveKustomizationStalled(k *Kustomization) {
 	if len(k.Status.Conditions) != 0 {
-		apimeta.RemoveStatusCondition(&k.Status.Conditions, StalledCondition)
+		apimeta.RemoveStatusCondition(&k.Status.Conditions, meta.StalledCondition)
 	}
 }
 
 // RemoveKustomizationReconciling removes the ReconcilingCondition on the Kustomization.
 func RemoveKustomizationReconciling(k *Kustomization) {
 	if len(k.Status.Conditions) != 0 {
-		apimeta.RemoveStatusCondition(&k.Status.Conditions, ReconcilingCondition)
+		apimeta.RemoveStatusCondition(&k.Status.Conditions, meta.ReconcilingCondition)
 	}
 }
 
