@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The Flux authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package controllers
 
 import (
@@ -6,7 +22,6 @@ import (
 	"os"
 	"time"
 
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -20,11 +35,10 @@ import (
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/testserver"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
-
-const StalledCondition = "Stalled"
 
 var _ = Describe("KustomizationReconciler", func() {
 	var (
@@ -141,7 +155,7 @@ var _ = Describe("KustomizationReconciler", func() {
 				unstructured := unstructured.Unstructured{}
 				unstructured.SetUnstructuredContent(content)
 				res, _ := status.Compute(&unstructured)
-				return apimeta.IsStatusConditionTrue(obj.Status.Conditions, StalledCondition) && (res.Status == status.FailedStatus)
+				return apimeta.IsStatusConditionTrue(obj.Status.Conditions, meta.StalledCondition) && (res.Status == status.FailedStatus)
 			}, timeout, time.Second).Should(BeTrue())
 		})
 
@@ -162,7 +176,7 @@ var _ = Describe("KustomizationReconciler", func() {
 				res, _ := status.Compute(&unstructured)
 
 				isReady := apimeta.IsStatusConditionTrue(obj.Status.Conditions, meta.ReadyCondition)
-				stalledCondition := apimeta.FindStatusCondition(obj.Status.Conditions, StalledCondition)
+				stalledCondition := apimeta.FindStatusCondition(obj.Status.Conditions, meta.StalledCondition)
 				return isReady && (res.Status == status.CurrentStatus) && (stalledCondition == nil)
 			}, timeout, time.Second).Should(BeTrue())
 
@@ -176,7 +190,7 @@ var _ = Describe("KustomizationReconciler", func() {
 				unstructured := unstructured.Unstructured{}
 				unstructured.SetUnstructuredContent(content)
 				res, _ := status.Compute(&unstructured)
-				return apimeta.IsStatusConditionTrue(obj.Status.Conditions, StalledCondition) && (res.Status == status.FailedStatus)
+				return apimeta.IsStatusConditionTrue(obj.Status.Conditions, meta.StalledCondition) && (res.Status == status.FailedStatus)
 			}, timeout, time.Second).Should(BeTrue())
 		})
 
@@ -191,7 +205,7 @@ var _ = Describe("KustomizationReconciler", func() {
 				unstructured := unstructured.Unstructured{}
 				unstructured.SetUnstructuredContent(content)
 				res, _ := status.Compute(&unstructured)
-				return apimeta.IsStatusConditionTrue(obj.Status.Conditions, StalledCondition) && (res.Status == status.FailedStatus)
+				return apimeta.IsStatusConditionTrue(obj.Status.Conditions, meta.StalledCondition) && (res.Status == status.FailedStatus)
 			}, timeout, time.Second).Should(BeTrue())
 
 			gitRepo := readyGitRepository(gitRepoKey, artifactURL, "", "")
@@ -208,7 +222,7 @@ var _ = Describe("KustomizationReconciler", func() {
 				res, _ := status.Compute(&unstructured)
 
 				isReady := apimeta.IsStatusConditionTrue(obj.Status.Conditions, meta.ReadyCondition)
-				stalledCondition := apimeta.FindStatusCondition(obj.Status.Conditions, StalledCondition)
+				stalledCondition := apimeta.FindStatusCondition(obj.Status.Conditions, meta.StalledCondition)
 				return isReady && (res.Status == status.CurrentStatus) && (stalledCondition == nil)
 			}, timeout, time.Second).Should(BeTrue())
 		})
