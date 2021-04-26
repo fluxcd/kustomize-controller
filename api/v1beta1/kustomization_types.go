@@ -288,6 +288,8 @@ func RemoveKustomizationReconciling(k *Kustomization) {
 // KustomizationNotReady registers a failed apply attempt of the given Kustomization,
 // including a Snapshot.
 func KustomizationNotReadySnapshot(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
+	RemoveKustomizationReconciling(&k)
+	SetKustomizationStalled(&k, metav1.ConditionTrue, reason, message)
 	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
 	SetKustomizationHealthiness(&k, metav1.ConditionFalse, reason, reason)
 	k.Status.Snapshot = snapshot
