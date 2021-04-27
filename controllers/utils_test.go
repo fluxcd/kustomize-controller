@@ -30,3 +30,16 @@ error: error validating data: unknown field "ima  ge" in io.k8s.api.core.v1.Cont
 		t.Errorf("Should filter out all but one line from the error output, but got %d lines", numLines)
 	}
 }
+
+func Test_parseApplyError_serverDryRun(t *testing.T) {
+	filtered := parseApplyError([]byte(`
+gitrepository.source.toolkit.fluxcd.io/flux-workspaces unchanged (server dry run)
+ingressroute.traefik.containo.us/flux-receiver configured (server dry run)
+service/notification-controller created (server dry run)
+error: error validating data: unknown field "ima  ge" in io.k8s.api.core.v1.Container`))
+	filtered = strings.TrimSpace(filtered)
+	numLines := len(strings.Split(filtered, "\n"))
+	if numLines != 1 {
+		t.Errorf("Should filter out all but one line from the error output, but got %d lines", numLines)
+	}
+}
