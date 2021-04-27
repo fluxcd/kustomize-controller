@@ -41,7 +41,7 @@ to acquire the Kubernetes manifests from Git repositories and S3 compatible stor
 Download the flux CLI:
 
 ```bash
-curl -s https://toolkit.fluxcd.io/install.sh | sudo bash
+curl -s https://fluxcd.io/install.sh | sudo bash
 ```
 
 Install the toolkit controllers in the `flux-system` namespace:
