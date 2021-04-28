@@ -57,10 +57,13 @@ func parseApplyError(in []byte) string {
 		if line != "" &&
 			!strings.HasSuffix(line, "created") &&
 			!strings.HasSuffix(line, "created (dry run)") &&
+			!strings.HasSuffix(line, "created (server dry run)") &&
 			!strings.HasSuffix(line, "configured") &&
 			!strings.HasSuffix(line, "configured (dry run)") &&
+			!strings.HasSuffix(line, "configured (server dry run)") &&
 			!strings.HasSuffix(line, "unchanged") &&
-			!strings.HasSuffix(line, "unchanged (dry run)") {
+			!strings.HasSuffix(line, "unchanged (dry run)") &&
+			!strings.HasSuffix(line, "unchanged (server dry run)") {
 			errors += line + "\n"
 		}
 	}
