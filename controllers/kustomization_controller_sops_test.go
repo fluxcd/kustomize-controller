@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -95,10 +96,19 @@ var _ = Describe("KustomizationReconciler", func() {
 			Expect(err).ToNot(HaveOccurred())
 			ageKey, err := ioutil.ReadFile("testdata/sops/age.txt")
 			Expect(err).ToNot(HaveOccurred())
+			dayKey, err := ioutil.ReadFile("testdata/sops/day.txt.encrypted")
+			Expect(err).ToNot(HaveOccurred())
+
 			sopsSecretKey := types.NamespacedName{
 				Name:      "sops-" + randStringRunes(5),
 				Namespace: namespace.Name,
 			}
+
+			sopsEncodedSecretKey := types.NamespacedName{
+				Name:      "sops-encoded-" + randStringRunes(5),
+				Namespace: namespace.Name,
+			}
+
 			sopsSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      sopsSecretKey.Name,
@@ -109,7 +119,20 @@ var _ = Describe("KustomizationReconciler", func() {
 					"age.agekey": string(ageKey),
 				},
 			}
+
+			sopsEncodedSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      sopsEncodedSecretKey.Name,
+					Namespace: sopsEncodedSecretKey.Namespace,
+				},
+				StringData: map[string]string{
+					// base64.StdEncoding.EncodeToString replicates kustomize.secretGenerator
+					"day.dayKey": base64.StdEncoding.EncodeToString(dayKey),
+				},
+			}
+
 			Expect(k8sClient.Create(context.Background(), sopsSecret)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), sopsEncodedSecret)).To(Succeed())
 
 			kustomizationKey := types.NamespacedName{
 				Name:      "sops-" + randStringRunes(5),
@@ -158,6 +181,10 @@ var _ = Describe("KustomizationReconciler", func() {
 			var ageSecret corev1.Secret
 			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-age", Namespace: namespace.Name}, &ageSecret)).To(Succeed())
 			Expect(ageSecret.Data["secret"]).To(Equal([]byte(`my-sops-age-secret`)))
+
+			var daySecret corev1.Secret
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-day", Namespace: namespace.Name}, &daySecret)).To(Succeed())
+			Expect(string(daySecret.Data["secret"])).To(Equal("day=Tuesday\n"))
 		})
 	})
 })
