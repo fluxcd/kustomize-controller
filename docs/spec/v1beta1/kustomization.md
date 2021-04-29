@@ -964,22 +964,27 @@ spec:
 
 ### Kustomize secretGenerator
 
-`sops` encrypted data can be stored as a base64 encoded Secret, which enables use of kustomize secretGenerator as follows.
+SOPS encrypted data can be stored as a base64 encoded Secret,
+which enables the use of Kustomize `secretGenerator` as follows:
 
 ```console
-$ echo "day=Tuesday" | sops -e /dev/stdin > day.txt.encrypted
+$ echo "my-secret-token" | sops -e /dev/stdin > token.encrypted
 $ cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 secretGenerator:
- - name: day-secret
+ - name: token
    files:
-   - ./day.txt.encrypted
+   - token=token.encrypted
 EOF
 ```
 
-Commit and push `day.txt.encrypted` and `kustomization.yaml` to Git.
+Commit and push `token.encrypted` and `kustomization.yaml` to Git.
+
+The kustomize-controller scans the values of Kubernetes Secrets, and when it 
+detects that the values are SOPS encrypted, it decrypts them before applying 
+them on the cluster.
 
 ## Status
 
