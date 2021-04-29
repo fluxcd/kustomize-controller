@@ -72,20 +72,16 @@ The API design of the controller can be found at [kustomize.toolkit.fluxcd.io/v1
 
 ## Backward compatibility
 
-| Feature                                      | Kustomize Controller    | Flux               |
+| Feature                                      | Kustomize Controller    | Flux v1            |
 | -------------------------------------------- | ----------------------- | ------------------ |
 | Plain Kubernetes manifests sync              | :heavy_check_mark:      | :heavy_check_mark: |
 | Kustomize build sync                         | :heavy_check_mark:      | :heavy_check_mark: |
 | Garbage collection                           | :heavy_check_mark:      | :heavy_check_mark: |
 | Secrets decryption                           | :heavy_check_mark:      | :heavy_check_mark: |
-| Container image updates                      | :x:                     | :heavy_check_mark: |
 | Generate manifests with shell scripts        | :x:                     | :heavy_check_mark: |
 
 Syncing will not support the `.flux.yaml` mechanism as running shell scripts and binaries to
 generate manifests is not in the scope of Kustomize controller.
-
-Container registry scanning and automated image updates is not in the scope of Kustomize controller,
-could be implemented by a dedicated controller.
 
 ## Example
 
@@ -192,5 +188,4 @@ spec:
     name: webapp
   validation: server
 ```
-
 
