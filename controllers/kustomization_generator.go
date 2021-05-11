@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/api/filesys"
@@ -333,11 +334,19 @@ func adaptSelector(selector *kustomize.Selector) (output *kustypes.Selector) {
 	return
 }
 
+// TODO: remove mutex when kustomize fixes the concurrent map read/write panic
+var kustomizeBuildMutex sync.Mutex
+
 // buildKustomization wraps krusty.MakeKustomizer with the following settings:
 // - reorder the resources just before output (Namespaces and Cluster roles/role bindings first, CRDs before CRs, Webhooks last)
 // - load files from outside the kustomization.yaml root
 // - disable plugins except for the builtin ones
 func buildKustomization(fs filesys.FileSystem, dirPath string) (resmap.ResMap, error) {
+	// temporary workaround for concurrent map read and map write bug
+	// https://github.com/kubernetes-sigs/kustomize/issues/3659
+	kustomizeBuildMutex.Lock()
+	defer kustomizeBuildMutex.Unlock()
+
 	buildOptions := &krusty.Options{
 		DoLegacyResourceSort: true,
 		LoadRestrictions:     kustypes.LoadRestrictionsNone,
