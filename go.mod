@@ -17,9 +17,11 @@ require (
 	github.com/fluxcd/pkg/untar v0.0.5
 	github.com/fluxcd/source-controller/api v0.13.0
 	github.com/go-logr/logr v0.3.0
+	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
 	github.com/imdario/mergo v0.3.12 // indirect
+	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.2
 	github.com/spf13/pflag v1.0.5
@@ -32,10 +34,15 @@ require (
 	k8s.io/api v0.20.4
 	k8s.io/apiextensions-apiserver v0.20.4
 	k8s.io/apimachinery v0.20.4
-	k8s.io/cli-runtime v0.20.4 // indirect
 	k8s.io/client-go v0.20.4
-	sigs.k8s.io/cli-utils v0.22.4
+	sigs.k8s.io/cli-utils v0.25.0
 	sigs.k8s.io/controller-runtime v0.8.3
-	sigs.k8s.io/kustomize/api v0.7.4
+	sigs.k8s.io/kustomize/api v0.8.9
 	sigs.k8s.io/yaml v1.2.0
+)
+
+// pin kube-openapi and kyaml due to incompatibility with sigs.k8s.io/cli-utils v0.25.0
+replace (
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
+	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.10.17
 )
