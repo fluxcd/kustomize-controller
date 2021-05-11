@@ -28,9 +28,9 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/api/filesys"
-	"sigs.k8s.io/kustomize/api/k8sdeps/kunstruct"
 	"sigs.k8s.io/kustomize/api/konfig"
 	"sigs.k8s.io/kustomize/api/krusty"
+	"sigs.k8s.io/kustomize/api/provider"
 	"sigs.k8s.io/kustomize/api/resmap"
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
@@ -162,7 +162,8 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 
 	scan := func(base string) ([]string, error) {
 		var paths []string
-		uf := kunstruct.NewKunstructuredFactoryImpl()
+		pvd := provider.NewDefaultDepProvider()
+		rf := pvd.GetResourceFactory()
 		err := fs.Walk(base, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -192,7 +193,7 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 				return err
 			}
 
-			if _, err := uf.SliceFromBytes(fContents); err != nil {
+			if _, err := rf.SliceFromBytes(fContents); err != nil {
 				return fmt.Errorf("failed to decode Kubernetes YAML from %s: %w", path, err)
 			}
 			paths = append(paths, path)
@@ -333,24 +334,18 @@ func adaptSelector(selector *kustomize.Selector) (output *kustypes.Selector) {
 }
 
 // buildKustomization wraps krusty.MakeKustomizer with the following settings:
-// - disable kyaml due to critical bugs like:
-//	 - https://github.com/kubernetes-sigs/kustomize/issues/3446
-//	 - https://github.com/kubernetes-sigs/kustomize/issues/3480
 // - reorder the resources just before output (Namespaces and Cluster roles/role bindings first, CRDs before CRs, Webhooks last)
 // - load files from outside the kustomization.yaml root
 // - disable plugins except for the builtin ones
-// - prohibit changes to resourceIds, patch name/kind don't overwrite target name/kind
 func buildKustomization(fs filesys.FileSystem, dirPath string) (resmap.ResMap, error) {
 	buildOptions := &krusty.Options{
-		UseKyaml:               false,
-		DoLegacyResourceSort:   true,
-		LoadRestrictions:       kustypes.LoadRestrictionsNone,
-		AddManagedbyLabel:      false,
-		DoPrune:                false,
-		PluginConfig:           konfig.DisabledPluginConfig(),
-		AllowResourceIdChanges: false,
+		DoLegacyResourceSort: true,
+		LoadRestrictions:     kustypes.LoadRestrictionsNone,
+		AddManagedbyLabel:    false,
+		DoPrune:              false,
+		PluginConfig:         kustypes.DisabledPluginConfig(),
 	}
 
-	k := krusty.MakeKustomizer(fs, buildOptions)
-	return k.Run(dirPath)
+	k := krusty.MakeKustomizer(buildOptions)
+	return k.Run(fs, dirPath)
 }
