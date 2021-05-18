@@ -611,8 +611,8 @@ func (r *KustomizationReconciler) validate(ctx context.Context, kustomization ku
 	command := exec.CommandContext(applyCtx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return fmt.Errorf("validation timeout: %w", err)
+		if errors.Is(applyCtx.Err(), context.DeadlineExceeded) {
+			return fmt.Errorf("validation timeout: %w", applyCtx.Err())
 		}
 		return fmt.Errorf("validation failed: %s", parseApplyError(output))
 	}
@@ -651,8 +651,8 @@ func (r *KustomizationReconciler) apply(ctx context.Context, kustomization kusto
 	command := exec.CommandContext(applyCtx, "/bin/sh", "-c", cmd)
 	output, err := command.CombinedOutput()
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return "", fmt.Errorf("apply timeout: %w", err)
+		if errors.Is(applyCtx.Err(), context.DeadlineExceeded) {
+			return "", fmt.Errorf("apply timeout: %w", applyCtx.Err())
 		}
 
 		if string(output) == "" {
