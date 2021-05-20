@@ -307,7 +307,19 @@ func (in Kustomization) GetDependsOn() (types.NamespacedName, []dependency.Cross
 	}, in.Spec.DependsOn
 }
 
+// GetConditions returns a slice of the conditions in the
+// status of a kustomization
+func (in *Kustomization) GetConditions() []metav1.Condition {
+	return in.Status.Conditions
+}
+
+// SetConditions sets the conditions of a kustomization
+func (in *Kustomization) SetConditions(conditions []metav1.Condition) {
+	in.Status.Conditions = conditions
+}
+
 // GetStatusConditions returns a pointer to the Status.Conditions slice
+// Deprecated.
 func (in *Kustomization) GetStatusConditions() *[]metav1.Condition {
 	return &in.Status.Conditions
 }

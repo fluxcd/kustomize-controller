@@ -18,25 +18,23 @@ package main
 
 import (
 	"fmt"
+	helper "github.com/fluxcd/pkg/runtime/controller"
 	"os"
 	"time"
 
+	"github.com/fluxcd/pkg/runtime/client"
+	"github.com/fluxcd/pkg/runtime/events"
+	"github.com/fluxcd/pkg/runtime/leaderelection"
+	"github.com/fluxcd/pkg/runtime/logger"
+	"github.com/fluxcd/pkg/runtime/pprof"
+	"github.com/fluxcd/pkg/runtime/probes"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	ctrl "sigs.k8s.io/controller-runtime"
-	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
-
-	"github.com/fluxcd/pkg/runtime/client"
-	"github.com/fluxcd/pkg/runtime/events"
-	"github.com/fluxcd/pkg/runtime/leaderelection"
-	"github.com/fluxcd/pkg/runtime/logger"
-	"github.com/fluxcd/pkg/runtime/metrics"
-	"github.com/fluxcd/pkg/runtime/pprof"
-	"github.com/fluxcd/pkg/runtime/probes"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 	"github.com/fluxcd/kustomize-controller/controllers"
@@ -89,16 +87,13 @@ func main() {
 
 	var eventRecorder *events.Recorder
 	if eventsAddr != "" {
-		if er, err := events.NewRecorder(eventsAddr, controllerName); err != nil {
+		er, err := events.NewRecorder(eventsAddr, controllerName)
+		if err != nil {
 			setupLog.Error(err, "unable to create event recorder")
 			os.Exit(1)
-		} else {
-			eventRecorder = er
 		}
+		eventRecorder = er
 	}
-
-	metricsRecorder := metrics.NewRecorder()
-	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
 
 	watchNamespace := ""
 	if !watchAllNamespaces {
@@ -128,13 +123,14 @@ func main() {
 	probes.SetupChecks(mgr, setupLog)
 	pprof.SetupHandlers(mgr, setupLog)
 
+	mgrEvents := helper.MakeEvents(mgr, controllerName, eventRecorder)
+	mgrMetrics := helper.MustMakeMetrics(mgr)
+
 	if err = (&controllers.KustomizationReconciler{
-		Client:                mgr.GetClient(),
-		Scheme:                mgr.GetScheme(),
-		EventRecorder:         mgr.GetEventRecorderFor(controllerName),
-		ExternalEventRecorder: eventRecorder,
-		MetricsRecorder:       metricsRecorder,
-		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper()),
+		Client:       mgr.GetClient(),
+		Events:       mgrEvents,
+		Metrics:      mgrMetrics,
+		StatusPoller: polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper()),
 	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,

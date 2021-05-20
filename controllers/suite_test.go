@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"github.com/fluxcd/pkg/runtime/controller"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -90,11 +91,13 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
+	metrics := controller.MustMakeMetrics(k8sManager)
+	events := controller.MakeEvents(k8sManager, "kustomize-controller", nil)
+
 	err = (&KustomizationReconciler{
-		Client:                k8sManager.GetClient(),
-		Scheme:                scheme.Scheme,
-		EventRecorder:         k8sManager.GetEventRecorderFor("kustomize-controller"),
-		ExternalEventRecorder: nil,
+		Client:  k8sManager.GetClient(),
+		Events:  events,
+		Metrics: metrics,
 	}).SetupWithManager(k8sManager, KustomizationReconcilerOptions{MaxConcurrentReconciles: 1})
 	Expect(err).ToNot(HaveOccurred(), "failed to setup KustomizationReconciler")
 

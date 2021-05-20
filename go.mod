@@ -9,10 +9,10 @@ require (
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.2
 	github.com/drone/envsubst v1.0.3-0.20200804185402-58bc65f69603
-	github.com/fluxcd/kustomize-controller/api v0.12.0
+	github.com/fluxcd/kustomize-controller/api v0.12.0 // indirect
 	github.com/fluxcd/pkg/apis/kustomize v0.0.1
 	github.com/fluxcd/pkg/apis/meta v0.9.0
-	github.com/fluxcd/pkg/runtime v0.11.0
+	github.com/fluxcd/pkg/runtime v0.11.1-0.20210514212714-849f4a7f244f
 	github.com/fluxcd/pkg/testserver v0.0.2
 	github.com/fluxcd/pkg/untar v0.0.5
 	github.com/fluxcd/source-controller/api v0.12.1
@@ -25,6 +25,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/gopgagent v0.0.0-20170926210634-4d7ea76ff71a
 	go.mozilla.org/sops/v3 v3.7.1
+	go.uber.org/zap v1.16.0 // indirect
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/net v0.0.0-20210326060303-6b1517762897
 	google.golang.org/grpc v1.27.1
