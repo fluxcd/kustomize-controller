@@ -41,7 +41,8 @@ import (
 )
 
 const (
-	transformerFileName = "kustomization-gc-labels.yaml"
+	transformerLabelsFileName      = "kustomization-gc-labels.yaml"
+	transformerAnnotationsFileName = "kustomization-annotations.yaml"
 )
 
 type KustomizeGenerator struct {
@@ -67,6 +68,9 @@ func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string) (st
 	if err := kg.generateLabelTransformer(checksum, dirPath); err != nil {
 		return "", err
 	}
+	if err := kg.generateAnnotationsTransformer(checksum, dirPath); err != nil {
+		return "", err
+	}
 
 	data, err := ioutil.ReadFile(kfile)
 	if err != nil {
@@ -85,17 +89,21 @@ func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string) (st
 	}
 
 	if len(kus.Transformers) == 0 {
-		kus.Transformers = []string{transformerFileName}
+		kus.Transformers = []string{transformerLabelsFileName, transformerAnnotationsFileName}
 	} else {
-		var exists bool
+		var labelsExists, annotationsExists bool
 		for _, transformer := range kus.Transformers {
-			if transformer == transformerFileName {
-				exists = true
-				break
+			if transformer == transformerLabelsFileName {
+				labelsExists = true
+			} else if transformer == transformerAnnotationsFileName {
+				annotationsExists = true
 			}
 		}
-		if !exists {
-			kus.Transformers = append(kus.Transformers, transformerFileName)
+		if !labelsExists {
+			kus.Transformers = append(kus.Transformers, transformerLabelsFileName)
+		}
+		if !annotationsExists {
+			kus.Transformers = append(kus.Transformers, transformerAnnotationsFileName)
 		}
 	}
 
@@ -310,8 +318,45 @@ func (kg *KustomizeGenerator) generateLabelTransformer(checksum, dirPath string)
 		return err
 	}
 
-	labelsFile := filepath.Join(dirPath, transformerFileName)
+	labelsFile := filepath.Join(dirPath, transformerLabelsFileName)
 	if err := ioutil.WriteFile(labelsFile, data, os.ModePerm); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (kg *KustomizeGenerator) generateAnnotationsTransformer(checksum, dirPath string) error {
+	annotations := checksumAnnotation(checksum)
+
+	var at = struct {
+		ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
+		Kind       string `json:"kind" yaml:"kind"`
+		Metadata   struct {
+			Name string `json:"name" yaml:"name"`
+		} `json:"metadata" yaml:"metadata"`
+		Annotations map[string]string    `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+		FieldSpecs  []kustypes.FieldSpec `json:"fieldSpecs,omitempty" yaml:"fieldSpecs,omitempty"`
+	}{
+		ApiVersion: "builtin",
+		Kind:       "AnnotationsTransformer",
+		Metadata: struct {
+			Name string `json:"name" yaml:"name"`
+		}{
+			Name: kg.kustomization.GetName(),
+		},
+		Annotations: annotations,
+		FieldSpecs: []kustypes.FieldSpec{
+			{Path: "metadata/annotations", CreateIfNotPresent: true},
+		},
+	}
+	data, err := yaml.Marshal(at)
+	if err != nil {
+		return err
+	}
+
+	annotationsFile := filepath.Join(dirPath, transformerAnnotationsFileName)
+	if err := ioutil.WriteFile(annotationsFile, data, os.ModePerm); err != nil {
 		return err
 	}
 

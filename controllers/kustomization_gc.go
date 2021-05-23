@@ -152,6 +152,12 @@ func (kgc *KustomizeGarbageCollector) matchingLabels(name, namespace string) cli
 	return selectorLabels(name, namespace)
 }
 
+func checksumAnnotation(checksum string) map[string]string {
+	return map[string]string{
+		fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group): checksum,
+	}
+}
+
 func gcLabels(name, namespace, checksum string) map[string]string {
 	return map[string]string{
 		fmt.Sprintf("%s/name", kustomizev1.GroupVersion.Group):      name,
