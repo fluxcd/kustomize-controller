@@ -20,9 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"strings"
-
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
@@ -30,67 +27,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
+	pkgclient "github.com/fluxcd/pkg/runtime/client"
+
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
 
 type KustomizeImpersonation struct {
-	workdir       string
-	kustomization kustomizev1.Kustomization
-	statusPoller  *polling.StatusPoller
+	workdir                 string
+	enableUserImpersonation bool
+	kustomization           kustomizev1.Kustomization
+	statusPoller            *polling.StatusPoller
 	client.Client
 }
 
 func NewKustomizeImpersonation(
 	kustomization kustomizev1.Kustomization,
+	enableUserImpersonation bool,
 	kubeClient client.Client,
 	statusPoller *polling.StatusPoller,
 	workdir string) *KustomizeImpersonation {
 	return &KustomizeImpersonation{
-		workdir:       workdir,
-		kustomization: kustomization,
-		statusPoller:  statusPoller,
-		Client:        kubeClient,
+		workdir:                 workdir,
+		kustomization:           kustomization,
+		statusPoller:            statusPoller,
+		Client:                  kubeClient,
+		enableUserImpersonation: enableUserImpersonation,
 	}
-}
-
-func (ki *KustomizeImpersonation) GetServiceAccountToken(ctx context.Context) (string, error) {
-	namespacedName := types.NamespacedName{
-		Namespace: ki.kustomization.Namespace,
-		Name:      ki.kustomization.Spec.ServiceAccountName,
-	}
-
-	var serviceAccount corev1.ServiceAccount
-	err := ki.Client.Get(ctx, namespacedName, &serviceAccount)
-	if err != nil {
-		return "", err
-	}
-
-	secretName := types.NamespacedName{
-		Namespace: ki.kustomization.Namespace,
-		Name:      ki.kustomization.Spec.ServiceAccountName,
-	}
-
-	for _, secret := range serviceAccount.Secrets {
-		if strings.HasPrefix(secret.Name, fmt.Sprintf("%s-token", serviceAccount.Name)) {
-			secretName.Name = secret.Name
-			break
-		}
-	}
-
-	var secret corev1.Secret
-	err = ki.Client.Get(ctx, secretName, &secret)
-	if err != nil {
-		return "", err
-	}
-
-	var token string
-	if data, ok := secret.Data["token"]; ok {
-		token = string(data)
-	} else {
-		return "", fmt.Errorf("the service account secret '%s' does not containt a token", secretName.String())
-	}
-
-	return token, nil
 }
 
 // GetClient creates a controller-runtime client for talking to a Kubernetes API server.
@@ -99,27 +61,42 @@ func (ki *KustomizeImpersonation) GetServiceAccountToken(ctx context.Context) (s
 // If --kubeconfig is set, will use the kubeconfig file at that location.
 // Otherwise will assume running in cluster and use the cluster provided kubeconfig.
 func (ki *KustomizeImpersonation) GetClient(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
-	if ki.kustomization.Spec.KubeConfig == nil {
-		if ki.kustomization.Spec.ServiceAccountName != "" {
-			return ki.clientForServiceAccount(ctx)
-		}
-
-		return ki.Client, ki.statusPoller, nil
+	clientgenOpts := pkgclient.ImpersonationConfig{
+		Namespace: ki.kustomization.Namespace,
+		Enabled:   ki.enableUserImpersonation,
 	}
-	return ki.clientForKubeConfig(ctx)
+
+	if ki.kustomization.Spec.Principal == nil && ki.kustomization.Spec.ServiceAccountName != "" ||
+		!ki.enableUserImpersonation && ki.kustomization.Spec.ServiceAccountName != "" {
+		clientgenOpts.Name = ki.kustomization.Spec.ServiceAccountName
+		clientgenOpts.Kind = pkgclient.ServiceAccountType
+		clientgenOpts.Enabled = false
+	} else if ki.kustomization.Spec.Principal != nil {
+		clientgenOpts.Name = ki.kustomization.Spec.Principal.Name
+		clientgenOpts.Kind = ki.kustomization.Spec.Principal.Kind
+	}
+
+	if ki.kustomization.Spec.KubeConfig == nil {
+		return ki.clientForImpersonation(ctx, clientgenOpts)
+	}
+
+	clientgenOpts.KubeConfig = &pkgclient.KubeConfig{
+		SecretRef: ki.kustomization.Spec.KubeConfig.SecretRef,
+	}
+	return ki.clientForKubeConfig(ctx, clientgenOpts)
 }
 
-func (ki *KustomizeImpersonation) clientForServiceAccount(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
-	token, err := ki.GetServiceAccountToken(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
+func (ki *KustomizeImpersonation) clientForImpersonation(ctx context.Context, impConfig pkgclient.ImpersonationConfig) (client.Client, *polling.StatusPoller, error) {
 	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, nil, err
 	}
-	restConfig.BearerToken = token
-	restConfig.BearerTokenFile = "" // Clear, as it overrides BearerToken
+
+	restConfig, err = pkgclient.GetConfigForAccount(ctx, ki.Client, restConfig, impConfig)
+
+	if err != nil {
+		return nil, nil, err
+	}
 
 	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
 	if err != nil {
@@ -133,11 +110,16 @@ func (ki *KustomizeImpersonation) clientForServiceAccount(ctx context.Context) (
 
 	statusPoller := polling.NewStatusPoller(client, restMapper)
 	return client, statusPoller, err
-
 }
 
-func (ki *KustomizeImpersonation) clientForKubeConfig(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
-	kubeConfigBytes, err := ki.getKubeConfig(ctx)
+func (ki *KustomizeImpersonation) clientForKubeConfig(ctx context.Context, impConfig pkgclient.ImpersonationConfig) (client.Client, *polling.StatusPoller, error) {
+	secretName := types.NamespacedName{
+		Namespace: ki.kustomization.GetNamespace(),
+		Name:      ki.kustomization.Spec.KubeConfig.SecretRef.Name,
+	}
+
+	kubeConfigBytes, err := pkgclient.GetKubeConfigFromSecret(ctx, ki.Client, secretName)
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -145,6 +127,14 @@ func (ki *KustomizeImpersonation) clientForKubeConfig(ctx context.Context) (clie
 	restConfig, err := clientcmd.RESTConfigFromKubeConfig(kubeConfigBytes)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	// Only impersonate if user impersonation is enabled and the principal is set
+	if impConfig.Enabled && impConfig.Kind != "" && impConfig.Name != "" {
+		restConfig, err = pkgclient.GetConfigForAccount(ctx, ki.Client, restConfig, impConfig)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
@@ -168,7 +158,7 @@ func (ki *KustomizeImpersonation) WriteKubeConfig(ctx context.Context) (string, 
 		Name:      ki.kustomization.Spec.KubeConfig.SecretRef.Name,
 	}
 
-	kubeConfig, err := ki.getKubeConfig(ctx)
+	kubeConfig, err := pkgclient.GetKubeConfigFromSecret(ctx, ki.Client, secretName)
 	if err != nil {
 		return "", err
 	}
@@ -182,23 +172,4 @@ func (ki *KustomizeImpersonation) WriteKubeConfig(ctx context.Context) (string, 
 		return "", fmt.Errorf("unable to write KubeConfig secret '%s' to storage: %w", secretName.String(), err)
 	}
 	return f.Name(), nil
-}
-
-func (ki *KustomizeImpersonation) getKubeConfig(ctx context.Context) ([]byte, error) {
-	secretName := types.NamespacedName{
-		Namespace: ki.kustomization.GetNamespace(),
-		Name:      ki.kustomization.Spec.KubeConfig.SecretRef.Name,
-	}
-
-	var secret corev1.Secret
-	if err := ki.Get(ctx, secretName, &secret); err != nil {
-		return nil, fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
-	}
-
-	kubeConfig, ok := secret.Data["value"]
-	if !ok {
-		return nil, fmt.Errorf("KubeConfig secret '%s' doesn't contain a 'value' key ", secretName.String())
-	}
-
-	return kubeConfig, nil
 }

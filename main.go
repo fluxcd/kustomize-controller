@@ -60,16 +60,17 @@ func init() {
 
 func main() {
 	var (
-		metricsAddr           string
-		eventsAddr            string
-		healthAddr            string
-		concurrent            int
-		requeueDependency     time.Duration
-		clientOptions         client.Options
-		logOptions            logger.Options
-		leaderElectionOptions leaderelection.Options
-		watchAllNamespaces    bool
-		httpRetry             int
+		metricsAddr             string
+		eventsAddr              string
+		healthAddr              string
+		concurrent              int
+		requeueDependency       time.Duration
+		clientOptions           client.Options
+		logOptions              logger.Options
+		leaderElectionOptions   leaderelection.Options
+		watchAllNamespaces      bool
+		httpRetry               int
+		enableUserImpersonation bool
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -79,6 +80,8 @@ func main() {
 	flag.DurationVar(&requeueDependency, "requeue-dependency", 30*time.Second, "The interval at which failing dependencies are reevaluated.")
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
+	flag.BoolVar(&enableUserImpersonation, "user-impersonation", false,
+		"Use service account token impersonation instead of user impersonation")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)
@@ -129,12 +132,13 @@ func main() {
 	pprof.SetupHandlers(mgr, setupLog)
 
 	if err = (&controllers.KustomizationReconciler{
-		Client:                mgr.GetClient(),
-		Scheme:                mgr.GetScheme(),
-		EventRecorder:         mgr.GetEventRecorderFor(controllerName),
-		ExternalEventRecorder: eventRecorder,
-		MetricsRecorder:       metricsRecorder,
-		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper()),
+		Client:                  mgr.GetClient(),
+		Scheme:                  mgr.GetScheme(),
+		EventRecorder:           mgr.GetEventRecorderFor(controllerName),
+		ExternalEventRecorder:   eventRecorder,
+		MetricsRecorder:         metricsRecorder,
+		StatusPoller:            polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper()),
+		EnableUserImpersonation: enableUserImpersonation,
 	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,

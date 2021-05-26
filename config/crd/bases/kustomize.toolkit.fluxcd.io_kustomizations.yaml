@@ -297,6 +297,25 @@ spec:
                       type: object
                     type: array
                 type: object
+              principal:
+                description: Prinicipal provides details on how the controller should
+                  carry out impersonation during garbage collections, health-check
+                  and applies
+                properties:
+                  kind:
+                    description: Kind specifies the kind of object to be impersonated
+                      The kind could be 'User' or 'ServiceAccount'
+                    enum:
+                    - ServiceAccount
+                    - User
+                    type: string
+                  name:
+                    description: The name of the object to be impersonated
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
               prune:
                 description: Prune enables garbage collection.
                 type: boolean

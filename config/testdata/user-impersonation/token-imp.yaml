@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-d
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tenant-d
+  namespace: tenant-d
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tenant-d-admin
+  namespace: tenant-d
+rules:
+  - apiGroups: ['*']
+    resources: ['*']
+    verbs: ['*']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tenant-d-admin
+  namespace: tenant-d
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tenant-d-admin
+subjects:
+  - kind: ServiceAccount
+    name: tenant-d
+    namespace: tenant-d
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: podinfo
+  namespace: tenant-d
+spec:
+  interval: 5m
+  url: https://github.com/stefanprodan/podinfo
+  ref:
+    tag: "5.0.3"
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: tenant-d
+spec:
+  targetNamespace: tenant-d
+  # reconciler should use token impersonation when principal is nil ans serviceAccountName is specified
+  serviceAccountName: tenant-d
+  interval: 5m
+  path: "./kustomize"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: podinfo
+    namespace: tenant-d
+  validation: client
+  timeout: 2m
+  healthChecks:
+    - kind: Deployment
+      name: podinfo
+      namespace: tenant-d

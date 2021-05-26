@@ -138,6 +138,21 @@ type KustomizationSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	Force bool `json:"force,omitempty"`
+
+	// Prinicipal provides details on how the controller should
+	// carry out impersonation during garbage collections, health-check
+	// and applies
+	Principal *Principal `json:"principal,omitempty"`
+}
+
+type Principal struct {
+	// Kind specifies the kind of object to be impersonated
+	// The kind could be 'User' or 'ServiceAccount'
+	// +kubebuilder:validation:Enum=ServiceAccount;User
+	Kind string `json:"kind"`
+
+	// The name of the object to be impersonated
+	Name string `json:"name"`
 }
 
 // Decryption defines how decryption is handled for Kubernetes manifests.

@@ -39,3 +39,5 @@ require (
 	sigs.k8s.io/kustomize/api v0.7.4
 	sigs.k8s.io/yaml v1.2.0
 )
+
+replace github.com/fluxcd/pkg/runtime v0.11.0 => github.com/SomtochiAma/pkg/runtime v0.6.1-0.20210604132416-b8a19e82b555

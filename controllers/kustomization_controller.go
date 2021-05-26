@@ -30,12 +30,6 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/events"
-	"github.com/fluxcd/pkg/runtime/metrics"
-	"github.com/fluxcd/pkg/runtime/predicates"
-	"github.com/fluxcd/pkg/untar"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-retryablehttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	kuberecorder "k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
@@ -55,6 +50,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kustomize/api/filesys"
+
+	"github.com/fluxcd/pkg/apis/meta"
+	pkgclient "github.com/fluxcd/pkg/runtime/client"
+	"github.com/fluxcd/pkg/runtime/events"
+	"github.com/fluxcd/pkg/runtime/metrics"
+	"github.com/fluxcd/pkg/runtime/predicates"
+	"github.com/fluxcd/pkg/untar"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 )
@@ -70,13 +73,14 @@ import (
 // KustomizationReconciler reconciles a Kustomization object
 type KustomizationReconciler struct {
 	client.Client
-	httpClient            *retryablehttp.Client
-	requeueDependency     time.Duration
-	Scheme                *runtime.Scheme
-	EventRecorder         kuberecorder.EventRecorder
-	ExternalEventRecorder *events.Recorder
-	MetricsRecorder       *metrics.Recorder
-	StatusPoller          *polling.StatusPoller
+	httpClient              *retryablehttp.Client
+	requeueDependency       time.Duration
+	Scheme                  *runtime.Scheme
+	EventRecorder           kuberecorder.EventRecorder
+	ExternalEventRecorder   *events.Recorder
+	MetricsRecorder         *metrics.Recorder
+	StatusPoller            *polling.StatusPoller
+	EnableUserImpersonation bool
 }
 
 type KustomizationReconcilerOptions struct {
@@ -315,7 +319,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// create any necessary kube-clients for impersonation
-	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, dirPath)
+	impersonation := NewKustomizeImpersonation(kustomization, r.EnableUserImpersonation, r.Client, r.StatusPoller, dirPath)
 	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
@@ -590,22 +594,9 @@ func (r *KustomizationReconciler) validate(ctx context.Context, kustomization ku
 	cmd := fmt.Sprintf("cd %s && kubectl apply -f %s.yaml --timeout=%s --dry-run=%s --cache-dir=/tmp --force=%t",
 		dirPath, kustomization.GetUID(), kustomization.GetTimeout().String(), validation, kustomization.Spec.Force)
 
-	if kustomization.Spec.KubeConfig != nil {
-		kubeConfig, err := imp.WriteKubeConfig(ctx)
-		if err != nil {
-			return err
-		}
-		cmd = fmt.Sprintf("%s --kubeconfig=%s", cmd, kubeConfig)
-	} else {
-		// impersonate SA
-		if kustomization.Spec.ServiceAccountName != "" {
-			saToken, err := imp.GetServiceAccountToken(ctx)
-			if err != nil {
-				return fmt.Errorf("service account impersonation failed: %w", err)
-			}
-
-			cmd = fmt.Sprintf("%s --token %s", cmd, saToken)
-		}
+	cmd, err := r.buildKubectlCmdImpersonation(ctx, kustomization, imp, cmd)
+	if err != nil {
+		return err
 	}
 
 	command := exec.CommandContext(applyCtx, "/bin/sh", "-c", cmd)
@@ -630,22 +621,9 @@ func (r *KustomizationReconciler) apply(ctx context.Context, kustomization kusto
 	cmd := fmt.Sprintf("cd %s && kubectl apply --field-manager=%s -f %s.yaml --timeout=%s --cache-dir=/tmp --force=%t",
 		dirPath, fieldManager, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String(), kustomization.Spec.Force)
 
-	if kustomization.Spec.KubeConfig != nil {
-		kubeConfig, err := imp.WriteKubeConfig(ctx)
-		if err != nil {
-			return "", err
-		}
-		cmd = fmt.Sprintf("%s --kubeconfig=%s", cmd, kubeConfig)
-	} else {
-		// impersonate SA
-		if kustomization.Spec.ServiceAccountName != "" {
-			saToken, err := imp.GetServiceAccountToken(ctx)
-			if err != nil {
-				return "", fmt.Errorf("service account impersonation failed: %w", err)
-			}
-
-			cmd = fmt.Sprintf("%s --token %s", cmd, saToken)
-		}
+	cmd, err := r.buildKubectlCmdImpersonation(ctx, kustomization, imp, cmd)
+	if err != nil {
+		return "", err
 	}
 
 	command := exec.CommandContext(applyCtx, "/bin/sh", "-c", cmd)
@@ -758,7 +736,7 @@ func (r *KustomizationReconciler) reconcileDelete(ctx context.Context, kustomiza
 	log := logr.FromContext(ctx)
 	if kustomization.Spec.Prune && !kustomization.Spec.Suspend {
 		// create any necessary kube-clients
-		imp := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, "")
+		imp := NewKustomizeImpersonation(kustomization, r.EnableUserImpersonation, r.Client, r.StatusPoller, "")
 		client, _, err := imp.GetClient(ctx)
 		if err != nil {
 			err = fmt.Errorf("failed to build kube client for Kustomization: %w", err)
@@ -864,4 +842,81 @@ func (r *KustomizationReconciler) patchStatus(ctx context.Context, req ctrl.Requ
 	kustomization.Status = newStatus
 
 	return r.Status().Patch(ctx, &kustomization, patch)
+}
+
+func (r *KustomizationReconciler) buildKubectlCmdImpersonation(ctx context.Context, kustomization kustomizev1.Kustomization, imp *KustomizeImpersonation, cmd string) (string, error) {
+	enableUserImpersonation := r.EnableUserImpersonation
+	if kustomization.Spec.ServiceAccountName != "" && kustomization.Spec.Principal == nil {
+		enableUserImpersonation = false
+		kustomization.Spec.Principal = &kustomizev1.Principal{
+			Name: kustomization.Spec.ServiceAccountName,
+			Kind: pkgclient.ServiceAccountType,
+		}
+	}
+
+	if kustomization.Spec.KubeConfig != nil {
+		kubeConfig, err := imp.WriteKubeConfig(ctx)
+		if err != nil {
+			return "", err
+		}
+		cmd = fmt.Sprintf("%s --kubeconfig=%s", cmd, kubeConfig)
+
+		if !enableUserImpersonation || kustomization.Spec.Principal == nil {
+			return cmd, nil
+		}
+	}
+
+	if enableUserImpersonation {
+		var user string
+		if kustomization.Spec.Principal == nil {
+			user = fmt.Sprintf("flux:user:%s:%s", kustomization.Namespace, pkgclient.DefaultUser)
+		} else if kustomization.Spec.Principal.Kind == pkgclient.ServiceAccountType {
+			user = fmt.Sprintf("system:serviceaccount:%s:%s", kustomization.Namespace, kustomization.Spec.Principal.Name)
+		} else if kustomization.Spec.Principal.Kind == pkgclient.UserType {
+			user = fmt.Sprintf("flux:user:%s:%s", kustomization.Namespace, kustomization.Spec.Principal.Name)
+		} else {
+			return "", errors.New("unknown kind for impersonation, accepted kinds are User and ServiceAccount")
+		}
+
+		cmd = fmt.Sprintf("%s --as %s", cmd, user)
+
+		if c, err := rest.InClusterConfig(); err == nil && c != nil {
+			cmd = fmt.Sprintf("%s --certificate-authority=%s --token=%s --server=%s", cmd, c.CAFile, c.BearerToken, c.Host)
+		}
+
+		if kustomization.Spec.Principal != nil && kustomization.Spec.Principal.Kind == pkgclient.ServiceAccountType {
+			return cmd, nil
+		}
+
+		cmd = fmt.Sprintf("%s --as-group flux:users --as-group system:authenticated --as-group flux:users:%s", cmd, kustomization.Namespace)
+		return cmd, nil
+	}
+
+	if kustomization.Spec.Principal == nil {
+		return cmd, nil
+	}
+
+	var saName string
+	if kustomization.Spec.ServiceAccountName != "" {
+		saName = kustomization.Spec.ServiceAccountName
+	} else if kustomization.Spec.Principal.Kind == pkgclient.ServiceAccountType {
+		saName = kustomization.Spec.Principal.Kind
+	} else if kustomization.Spec.Principal.Kind == pkgclient.UserType {
+		return "", errors.New("cannot impersonate user if --user-impersonation is not set")
+	} else {
+		return "", errors.New("unknown kind for impersonation, accepted kinds are User and ServiceAccount")
+	}
+
+	saToken, err := pkgclient.GetServiceAccountToken(ctx, r.Client, pkgclient.ImpersonationConfig{
+		Namespace: kustomization.Namespace,
+		Name:      saName,
+		Kind:      pkgclient.ServiceAccountType,
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("service account impersonation failed: %w", err)
+	}
+
+	cmd = fmt.Sprintf("%s --token %s", cmd, saToken)
+	return cmd, nil
 }

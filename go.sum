@@ -89,6 +89,8 @@ github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 h1:d+Bc7a5rLufV
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
+github.com/SomtochiAma/pkg/runtime v0.6.1-0.20210604132416-b8a19e82b555 h1:Yof/u5vOFKB3BzXGSvD6jkmYNUmrNSTNbeeJByV5JQQ=
+github.com/SomtochiAma/pkg/runtime v0.6.1-0.20210604132416-b8a19e82b555/go.mod h1:ZjAwug6DBLXwo9UdP1/tTPyuWpK9kZ0BEJbctbuEB1o=
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
@@ -198,8 +200,6 @@ github.com/fluxcd/pkg/apis/kustomize v0.0.1 h1:TkA80R0GopRY27VJqzKyS6ifiKIAfwBd7
 github.com/fluxcd/pkg/apis/kustomize v0.0.1/go.mod h1:JAFPfnRmcrAoG1gNiA8kmEXsnOBuDyZ/F5X4DAQcVV0=
 github.com/fluxcd/pkg/apis/meta v0.9.0 h1:rxW69p+VmJCKXXkaRYnovRBFlKjd+MJQfm2RrB0B4j8=
 github.com/fluxcd/pkg/apis/meta v0.9.0/go.mod h1:yHuY8kyGHYz22I0jQzqMMGCcHViuzC/WPdo9Gisk8Po=
-github.com/fluxcd/pkg/runtime v0.11.0 h1:FPsiu1k5NQGl2tsaXH5WgSmrOMg7o44jdOP0rW/TI1Y=
-github.com/fluxcd/pkg/runtime v0.11.0/go.mod h1:ZjAwug6DBLXwo9UdP1/tTPyuWpK9kZ0BEJbctbuEB1o=
 github.com/fluxcd/pkg/testserver v0.0.2 h1:SoaMtO9cE5p/wl2zkGudzflnEHd9mk68CGjZOo7w0Uk=
 github.com/fluxcd/pkg/testserver v0.0.2/go.mod h1:pgUZTh9aQ44FSTQo+5NFlh7YMbUfdz1B80DalW7k96Y=
 github.com/fluxcd/pkg/untar v0.0.5 h1:UGI3Ch1UIEIaqQvMicmImL1s9npQa64DJ/ozqHKB7gk=

@@ -336,6 +336,21 @@ bool
 when patching fails due to an immutable field change.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>principal</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Principal">
+Principal
+</a>
+</em>
+</td>
+<td>
+<p>Prinicipal provides details on how the controller should
+carry out impersonation during garbage collections, health-check
+and applies</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -795,6 +810,21 @@ bool
 when patching fails due to an immutable field change.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>principal</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Principal">
+Principal
+</a>
+</em>
+</td>
+<td>
+<p>Prinicipal provides details on how the controller should
+carry out impersonation during garbage collections, health-check
+and applies</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -949,6 +979,49 @@ e.g. ${var:=default}, ${var:position} and ${var/substring/replacement}.</p>
 the variables and their values to be substituted in the YAML manifests.
 The ConfigMap and the Secret data keys represent the var names and they
 must match the vars declared in the manifests for the substitution to happen.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.Principal">Principal
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>kind</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Kind specifies the kind of object to be impersonated
+The kind could be &lsquo;User&rsquo; or &lsquo;ServiceAccount&rsquo;</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>name</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The name of the object to be impersonated</p>
 </td>
 </tr>
 </tbody>

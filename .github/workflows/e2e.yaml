@@ -74,6 +74,21 @@ jobs:
           kubectl -n impersonation wait kustomizations/podinfo --for=condition=ready --timeout=4m
           kubectl -n impersonation delete kustomizations/podinfo
           until kubectl -n impersonation get deploy/podinfo 2>&1 | grep NotFound ; do sleep 2; done
+      - name: Run user impersonation tests
+        run: |
+          kubectl -n kustomize-system apply -f ./config/testdata/user-impersonation/new-rbac.yaml
+          kubectl -n kustomize-system patch deploy/kustomize-controller -p "$(cat ./config/testdata/user-impersonation/patch.yaml)"
+          kubectl -n tenant-a apply -f ./config/testdata/user-impersonation/use-test.yaml
+          kubectl -n tenant-a wait kustomizations/podinfo --for=condition=ready --timeout=4m
+          kubectl -n tenant-a  delete kustomizations/podinfo --wait
+          kubectl -n tenant-b apply -f ./config/testdata/user-impersonation/sa-test.yaml
+          kubectl -n tenant-b wait kustomizations/podinfo --for=condition=ready --timeout=4m
+          kubectl -n tenant-b  delete kustomizations/podinfo --wait
+          kubectl -n tenant-d apply -f ./config/testdata/user-impersonation/token-imp.yaml
+          kubectl -n tenant-d wait kustomizations/podinfo --for=condition=ready --timeout=4m
+          kubectl -n tenant-d  delete kustomizations/podinfo --wait
+          kubectl -n tenant-c apply -f ./config/testdata/user-impersonation/fail-sa-test.yaml
+          until kubectl -n tenant-c get kustomization podinfo -oyaml | grep "Error from server (Forbidden)" ; do sleep 2; done
       - name: Logs
         run: |
           kubectl -n kustomize-system logs deploy/source-controller

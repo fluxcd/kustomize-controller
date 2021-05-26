@@ -26,6 +26,10 @@ manager: generate fmt vet
 run: generate fmt vet manifests
 	go run ./main.go --metrics-addr=:8089
 
+# Run against the configured Kubernetes cluster in ~/.kube/config with flux user enabled
+run-enable-user: generate fmt vet manifests
+	go run ./main.go --metrics-addr=:8089 --user-impersonation
+
 # Download the CRDs the controller depends on
 download-crd-deps:
 	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_gitrepositories.yaml > config/crd/bases/gitrepositories.yaml
