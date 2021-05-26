@@ -1,6 +1,6 @@
 module github.com/fluxcd/kustomize-controller
 
-go 1.15
+go 1.16
 
 replace github.com/fluxcd/kustomize-controller/api => ./api
 
@@ -15,7 +15,7 @@ require (
 	github.com/fluxcd/pkg/runtime v0.11.0
 	github.com/fluxcd/pkg/testserver v0.0.2
 	github.com/fluxcd/pkg/untar v0.0.5
-	github.com/fluxcd/source-controller/api v0.12.1
+	github.com/fluxcd/source-controller/api v0.13.0
 	github.com/go-logr/logr v0.3.0
 	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
