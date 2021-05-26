@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.12.1
+
+**Release date:** 2021-05-26
+
+This prerelease comes with a fix to the reconciliation timeout handling.
+
+Improvements:
+* Update Go to v1.16
+  [#350](https://github.com/fluxcd/kustomize-controller/pull/350)
+* Publish on-demand release candidates container images
+  [#342](https://github.com/fluxcd/kustomize-controller/pull/342)
+
+Fixes:
+* Fix validation and application timeout handling
+  [#346](https://github.com/fluxcd/kustomize-controller/pull/346)
+
 ## 0.12.0
 
 **Release date:** 2021-04-29
