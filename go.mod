@@ -22,22 +22,21 @@ require (
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/mattn/go-colorable v0.1.4 // indirect
-	github.com/onsi/ginkgo v1.15.0
-	github.com/onsi/gomega v1.10.5
+	github.com/onsi/ginkgo v1.16.2
+	github.com/onsi/gomega v1.12.0
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/gopgagent v0.0.0-20170926210634-4d7ea76ff71a
 	go.mozilla.org/sops/v3 v3.7.1
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
-	golang.org/x/net v0.0.0-20210326060303-6b1517762897
+	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	google.golang.org/grpc v1.27.1
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	k8s.io/api v0.21.1
 	k8s.io/apiextensions-apiserver v0.21.1
 	k8s.io/apimachinery v0.21.1
 	k8s.io/client-go v0.21.1
-	sigs.k8s.io/cli-utils/pkg/kstatus v0.0.0-00010101000000-000000000000
-	sigs.k8s.io/cli-utils/pkg/object v0.0.0-00010101000000-000000000000
-	sigs.k8s.io/controller-runtime v0.8.3
+	sigs.k8s.io/cli-utils v0.25.0
+	sigs.k8s.io/controller-runtime v0.9.0-beta.5.0.20210524185538-7181f1162e79
 	sigs.k8s.io/kustomize/api v0.8.10
 	sigs.k8s.io/yaml v1.2.0
 )
@@ -49,11 +48,8 @@ require (
 //		+-> sigs.k8s.io/kustomize@v2.0.3+incompatible
 //	+-> sigs.k8s.io/kustomize/kyaml@v0.10.16
 //		+-> k8s.io/kube-openapi@v0.0.0-20210421082810-95288971da7e
-// cli-utils fork: https://github.com/fluxcd/cli-utils/pull/1
-replace (
-	sigs.k8s.io/cli-utils/pkg/kstatus => github.com/fluxcd/cli-utils/pkg/kstatus v0.0.0-20210525094726-b67dded2d6ab
-	sigs.k8s.io/cli-utils/pkg/object => github.com/fluxcd/cli-utils/pkg/object v0.0.0-20210525094726-b67dded2d6ab
-)
+// Remove pin when this PR is merged: https://github.com/kubernetes-sigs/cli-utils/pull/361
+replace sigs.k8s.io/cli-utils => github.com/ash2k/cli-utils v0.15.1-0.20210526122353-4f9bdf148ae9
 
 // breaking change in k8s.io/client-go/tools/metrics@0.21.1
 // *resultAdapter does not implement metrics.ResultMetric (wrong type for Increment method)
