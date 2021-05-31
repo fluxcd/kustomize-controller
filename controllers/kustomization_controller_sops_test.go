@@ -185,6 +185,10 @@ var _ = Describe("KustomizationReconciler", func() {
 			var daySecret corev1.Secret
 			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-day", Namespace: namespace.Name}, &daySecret)).To(Succeed())
 			Expect(string(daySecret.Data["secret"])).To(Equal("day=Tuesday\n"))
+
+			var encodedSecret corev1.Secret
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-month", Namespace: namespace.Name}, &encodedSecret)).To(Succeed())
+			Expect(string(encodedSecret.Data["month.yaml"])).To(Equal("month: May\n"))
 		})
 	})
 })
