@@ -157,9 +157,9 @@ func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resourc
 						return nil, fmt.Errorf("AES decrypt: %w", err)
 					}
 
-					binaryStore := common.StoreForFormat(formats.Binary)
+					outputStore := common.DefaultStoreForPath(key)
 
-					out, err := binaryStore.EmitPlainFile(tree.Branches)
+					out, err := outputStore.EmitPlainFile(tree.Branches)
 					if err != nil {
 						return nil, fmt.Errorf("EmitPlainFile: %w", err)
 					}

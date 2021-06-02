@@ -4,6 +4,8 @@ creation_rules:
   - path_regex: \.age.yaml$
     encrypted_regex: ^(data|stringData)$
     age: age1l44xcng8dqj32nlv6d930qvvrny05hglzcv9qpc7kxjc6902ma4qufys29
+  - path_regex: month.yaml$
+    pgp: 35C1A64CD7FC0AB6EB66756B2445463C3234ECE1
   # fallback to PGP
   - encrypted_regex: ^(data|stringData)$
     pgp: 35C1A64CD7FC0AB6EB66756B2445463C3234ECE1
