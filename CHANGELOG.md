@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.12.2
+
+**Release date:** 2021-06-02
+
+This prerelease comes with support for decrypting any file format used with
+[Kustomize `secretGenerator`](https://github.com/fluxcd/kustomize-controller/blob/v0.12.2/docs/spec/v1beta1/kustomization.md#kustomize-secretgenerator).
+
+Improvements:
+* Support decrypting any file format in secret generator
+  [#353](https://github.com/fluxcd/kustomize-controller/pull/353)
+
 ## 0.12.1
 
 **Release date:** 2021-05-26
