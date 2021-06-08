@@ -36,8 +36,6 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/fluxcd/pkg/apis/meta"
@@ -366,29 +364,12 @@ spec:
 })
 
 func kubeConfigSecret() (*corev1.Secret, error) {
-	c := clientcmdapi.NewConfig()
-	c.CurrentContext = "default"
-	c.Clusters["default"] = &clientcmdapi.Cluster{
-		Server: cfg.Host,
-	}
-	c.Contexts["default"] = &clientcmdapi.Context{
-		Cluster:   "default",
-		Namespace: "default",
-		AuthInfo:  "default",
-	}
-	c.AuthInfos["default"] = &clientcmdapi.AuthInfo{
-		Token: cfg.BearerToken,
-	}
-	cb, err := clientcmd.Write(*c)
-	if err != nil {
-		return nil, err
-	}
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubeconfig",
 		},
 		Data: map[string][]byte{
-			"value": cb,
+			"value": kubeConfig,
 		},
 	}, nil
 }

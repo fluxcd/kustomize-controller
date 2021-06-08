@@ -1,6 +1,6 @@
 module github.com/fluxcd/kustomize-controller
 
-go 1.15
+go 1.16
 
 replace github.com/fluxcd/kustomize-controller/api => ./api
 
@@ -21,8 +21,8 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
 	github.com/mattn/go-colorable v0.1.4 // indirect
-	github.com/onsi/ginkgo v1.16.2
-	github.com/onsi/gomega v1.12.0
+	github.com/onsi/ginkgo v1.16.4
+	github.com/onsi/gomega v1.13.0
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/gopgagent v0.0.0-20170926210634-4d7ea76ff71a
 	go.mozilla.org/sops/v3 v3.7.1
@@ -35,7 +35,7 @@ require (
 	k8s.io/apimachinery v0.21.1
 	k8s.io/client-go v0.21.1
 	sigs.k8s.io/cli-utils v0.25.1-0.20210603052138-670dee18a123
-	sigs.k8s.io/controller-runtime v0.9.0-beta.5.0.20210524185538-7181f1162e79
+	sigs.k8s.io/controller-runtime v0.9.0
 	sigs.k8s.io/kustomize/api v0.8.10
 	sigs.k8s.io/yaml v1.2.0
 )
@@ -44,7 +44,7 @@ require (
 // *resultAdapter does not implement metrics.ResultMetric (wrong type for Increment method)
 //   have Increment(string, string, string)
 //   want Increment(context.Context, string, string, string)
-replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.9.0-beta.5
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.9.0
 
 // pin kustomize to v4.1.3
 replace (
