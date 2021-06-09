@@ -46,6 +46,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
+var kubeConfig []byte
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -76,6 +77,15 @@ var _ = BeforeSuite(func(done Done) {
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
+
+	user, err := testEnv.ControlPlane.AddUser(envtest.User{
+		Name:   "envtest-admin",
+		Groups: []string{"system:masters"},
+	}, nil)
+	Expect(err).ToNot(HaveOccurred())
+
+	kubeConfig, err = user.KubeConfig()
+	Expect(err).ToNot(HaveOccurred())
 
 	err = kustomizev1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())

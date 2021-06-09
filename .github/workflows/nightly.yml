@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 env:
-  CONTROLLER: ${{ github.event.repository.name }}
+  REPOSITORY: ${{ github.repository }}
 
 jobs:
   build:
@@ -30,4 +30,4 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm/v7,linux/arm64
           tags: |
-            fluxcd/${{ env.CONTROLLER }}:nightly
+            ${{ env.REPOSITORY }}:nightly
