@@ -104,6 +104,13 @@ func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string) (st
 		kus.Namespace = kg.kustomization.Spec.TargetNamespace
 	}
 
+	for _, m := range kg.kustomization.Spec.Patches {
+		kus.Patches = append(kus.Patches, kustypes.Patch{
+			Patch:  m.Patch,
+			Target: adaptSelector(&m.Target),
+		})
+	}
+
 	for _, m := range kg.kustomization.Spec.PatchesStrategicMerge {
 		kus.PatchesStrategicMerge = append(kus.PatchesStrategicMerge, kustypes.PatchStrategicMerge(m.Raw))
 	}
