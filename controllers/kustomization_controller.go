@@ -165,7 +165,6 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			),
 		)
 
-		// TODO(somtochiama):
 		// Patch the object, ignoring conflicts on the conditions owned by
 		// this controller
 		patchOpts := []patch.Option{
@@ -230,12 +229,12 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return r.reconcileDelete(ctx, kustomization)
 	}
 
-	return r.reconcile(ctx, kustomization)
+	return r.reconcile(ctx, kustomization, patchHelper)
 }
 
 func (r *KustomizationReconciler) reconcile(
 	ctx context.Context,
-	kustomization *kustomizev1.Kustomization) (ctrl.Result, error) {
+	kustomization *kustomizev1.Kustomization, patchHelper *patch.Helper) (ctrl.Result, error) {
 	// Mark the resource as under reconciliation
 	conditions.MarkTrue(kustomization, meta.ReconcilingCondition, "Reconciling", "")
 
@@ -243,14 +242,11 @@ func (r *KustomizationReconciler) reconcile(
 	if result, err := r.reconcileSource(ctx, kustomization, &artifact); err != nil || conditions.IsFalse(kustomization, sourcev1.SourceAvailableCondition) {
 		return result, err
 	}
+	kustomization.Status.LastAttemptedRevision = artifact.Revision
 
 	if result, err := r.reconcileDependencies(ctx, kustomization, artifact.Revision); err != nil {
 		return result, err
 	}
-
-	// Mark the resource as under reconciliation
-	conditions.MarkTrue(kustomization, meta.ReconcilingCondition, "Reconciling", "")
-	kustomization.Status.LastAttemptedRevision = artifact.Revision
 
 	// create tmp dir
 	tmpDir, err := ioutil.TempDir("", kustomization.Name)
@@ -309,6 +305,23 @@ func (r *KustomizationReconciler) reconcile(
 		return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, err
 	}
 
+	// patch kustomization before apply because it takes sometime
+	patchOpts := []patch.Option{
+		patch.WithOwnedConditions{
+			Conditions: []string{
+				sourcev1.ArtifactAvailableCondition,
+				sourcev1.SourceAvailableCondition,
+				meta.ReadyCondition,
+				meta.ReconcilingCondition,
+				meta.StalledCondition,
+				meta.ProgressingReason,
+			},
+		},
+	}
+	if err := patchHelper.Patch(ctx, kustomization, patchOpts...); err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
+
 	// apply
 	changeSet, err := r.applyWithRetry(ctx, *kustomization, impersonation, artifact.Revision, dirPath, 5*time.Second)
 	if err != nil {
@@ -322,8 +335,15 @@ func (r *KustomizationReconciler) reconcile(
 		conditions.MarkFalse(kustomization, meta.ReadyCondition, kustomizev1.PruneFailedReason, err.Error())
 		return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, err
 	}
+	kustomization.Status.Snapshot = snapshot
 
 	// health assessment
+	conditions.MarkUnknown(kustomization, kustomizev1.HealthyCondition, "HealthCheckInProgress", "")
+	conditions.MarkUnknown(kustomization, meta.ReadyCondition, "HealthCheckInProgress", "")
+	if err := patchHelper.Patch(ctx, kustomization, patchOpts...); err != nil {
+		logr.FromContext(ctx).Error(err, "unable to patch status for health check in progress")
+		return ctrl.Result{Requeue: true}, err
+	}
 	err = r.checkHealth(ctx, statusPoller, kustomization, artifact.Revision, changeSet != "")
 	if err != nil {
 		conditions.MarkFalse(kustomization, meta.ReadyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
@@ -332,7 +352,6 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	kustomization.Status.LastAppliedRevision = artifact.Revision
-	kustomization.Status.Snapshot = snapshot
 	msg := "Applied revision: " + artifact.Revision
 	conditions.MarkTrue(kustomization, meta.ReadyCondition, meta.ReconciliationSucceededReason, msg)
 	conditions.MarkTrue(kustomization, kustomizev1.HealthyCondition, meta.ReconciliationSucceededReason, msg)
