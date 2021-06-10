@@ -61,13 +61,13 @@ func NewDecryptor(kubeClient client.Client,
 }
 
 func NewTempDecryptor(kubeClient client.Client,
-	kustomization kustomizev1.Kustomization) (*KustomizeDecryptor, func(), error) {
+	kustomization *kustomizev1.Kustomization) (*KustomizeDecryptor, func(), error) {
 	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("decryptor-%s-", kustomization.Name))
 	if err != nil {
 		return nil, nil, fmt.Errorf("tmp dir error: %w", err)
 	}
 	cleanup := func() { os.RemoveAll(tmpDir) }
-	return NewDecryptor(kubeClient, kustomization, tmpDir), cleanup, nil
+	return NewDecryptor(kubeClient, *kustomization, tmpDir), cleanup, nil
 }
 
 func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resource, error) {

@@ -45,11 +45,11 @@ const (
 )
 
 type KustomizeGenerator struct {
-	kustomization kustomizev1.Kustomization
+	kustomization *kustomizev1.Kustomization
 	client.Client
 }
 
-func NewGenerator(kustomization kustomizev1.Kustomization, kubeClient client.Client) *KustomizeGenerator {
+func NewGenerator(kustomization *kustomizev1.Kustomization, kubeClient client.Client) *KustomizeGenerator {
 	return &KustomizeGenerator{
 		kustomization: kustomization,
 		Client:        kubeClient,

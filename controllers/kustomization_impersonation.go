@@ -35,13 +35,13 @@ import (
 
 type KustomizeImpersonation struct {
 	workdir       string
-	kustomization kustomizev1.Kustomization
+	kustomization *kustomizev1.Kustomization
 	statusPoller  *polling.StatusPoller
 	client.Client
 }
 
 func NewKustomizeImpersonation(
-	kustomization kustomizev1.Kustomization,
+	kustomization *kustomizev1.Kustomization,
 	kubeClient client.Client,
 	statusPoller *polling.StatusPoller,
 	workdir string) *KustomizeImpersonation {

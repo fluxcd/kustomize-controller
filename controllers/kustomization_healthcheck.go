@@ -35,11 +35,11 @@ import (
 )
 
 type KustomizeHealthCheck struct {
-	kustomization kustomizev1.Kustomization
+	kustomization *kustomizev1.Kustomization
 	statusPoller  *polling.StatusPoller
 }
 
-func NewHealthCheck(kustomization kustomizev1.Kustomization, statusPoller *polling.StatusPoller) *KustomizeHealthCheck {
+func NewHealthCheck(kustomization *kustomizev1.Kustomization, statusPoller *polling.StatusPoller) *KustomizeHealthCheck {
 	return &KustomizeHealthCheck{
 		kustomization: kustomization,
 		statusPoller:  statusPoller,
