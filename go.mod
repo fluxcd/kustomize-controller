@@ -15,7 +15,7 @@ require (
 	github.com/fluxcd/pkg/runtime v0.11.1-0.20210514212714-849f4a7f244f
 	github.com/fluxcd/pkg/testserver v0.0.2
 	github.com/fluxcd/pkg/untar v0.0.5
-	github.com/fluxcd/source-controller/api v0.12.1
+	github.com/fluxcd/source-controller/api v0.13.1-0.20210603122717-b629c741bdca
 	github.com/go-logr/logr v0.3.0
 	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
@@ -38,8 +38,4 @@ require (
 	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/kustomize/api v0.7.4
 	sigs.k8s.io/yaml v1.2.0
-)
-
-replace (
-	github.com/fluxcd/source-controller/api => ../source-controller/api
 )
