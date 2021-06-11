@@ -43,6 +43,7 @@ Prerequisites:
 * go >= 1.13
 * kubebuilder >= 2.3
 * kustomize >= 3.1
+* kubectl >= 1.21
 
 You can run the unit tests by simply doing
 

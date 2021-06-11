@@ -137,9 +137,21 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 	return changeSet, true
 }
 
+// Check both labels and annotations for the checksum to preserve backwards compatibility
 func (kgc *KustomizeGarbageCollector) isStale(obj unstructured.Unstructured) bool {
-	itemChecksum := obj.GetLabels()[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]
-	return kgc.newChecksum == "" || itemChecksum != kgc.newChecksum
+	itemLabelChecksum := obj.GetLabels()[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]
+	itemAnnotationChecksum := obj.GetAnnotations()[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]
+
+	switch kgc.newChecksum {
+	case "":
+		return true
+	case itemAnnotationChecksum:
+		return false
+	case itemLabelChecksum:
+		return false
+	default:
+		return true
+	}
 }
 
 func (kgc *KustomizeGarbageCollector) shouldSkip(obj unstructured.Unstructured) bool {
@@ -156,7 +168,11 @@ func gcLabels(name, namespace, checksum string) map[string]string {
 	return map[string]string{
 		fmt.Sprintf("%s/name", kustomizev1.GroupVersion.Group):      name,
 		fmt.Sprintf("%s/namespace", kustomizev1.GroupVersion.Group): namespace,
-		fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group):  checksum,
+	}
+}
+func gcAnnotation(checksum string) map[string]string {
+	return map[string]string{
+		fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group): checksum,
 	}
 }
 
@@ -165,4 +181,5 @@ func selectorLabels(name, namespace string) map[string]string {
 		fmt.Sprintf("%s/name", kustomizev1.GroupVersion.Group):      name,
 		fmt.Sprintf("%s/namespace", kustomizev1.GroupVersion.Group): namespace,
 	}
+
 }

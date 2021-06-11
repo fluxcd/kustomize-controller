@@ -36,13 +36,13 @@ import (
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
 
-	"github.com/fluxcd/pkg/apis/kustomize"
-
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
+	"github.com/fluxcd/pkg/apis/kustomize"
 )
 
 const (
-	transformerFileName = "kustomization-gc-labels.yaml"
+	transformerFileName           = "kustomization-gc-labels.yaml"
+	transformerAnnotationFileName = "kustomization-gc-annotations.yaml"
 )
 
 type KustomizeGenerator struct {
@@ -68,6 +68,9 @@ func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string) (st
 	if err := kg.generateLabelTransformer(checksum, dirPath); err != nil {
 		return "", err
 	}
+	if err = kg.generateAnnotationTransformer(checksum, dirPath); err != nil {
+		return "", err
+	}
 
 	data, err := ioutil.ReadFile(kfile)
 	if err != nil {
@@ -86,18 +89,16 @@ func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string) (st
 	}
 
 	if len(kus.Transformers) == 0 {
-		kus.Transformers = []string{transformerFileName}
+		kus.Transformers = []string{transformerFileName, transformerAnnotationFileName}
 	} else {
-		var exists bool
-		for _, transformer := range kus.Transformers {
-			if transformer == transformerFileName {
-				exists = true
-				break
-			}
-		}
-		if !exists {
+		if !find(kus.Transformers, transformerFileName) {
 			kus.Transformers = append(kus.Transformers, transformerFileName)
 		}
+
+		if !find(kus.Transformers, transformerAnnotationFileName) {
+			kus.Transformers = append(kus.Transformers, transformerAnnotationFileName)
+		}
+
 	}
 
 	if kg.kustomization.Spec.TargetNamespace != "" {
@@ -277,13 +278,52 @@ func (kg *KustomizeGenerator) checksum(ctx context.Context, dirPath string) (str
 	return fmt.Sprintf("%x", sha1.Sum(resources)), nil
 }
 
+func (kg *KustomizeGenerator) generateAnnotationTransformer(checksum, dirPath string) error {
+	var annotations map[string]string
+	// add checksum annotations only if GC is enabled
+	if kg.kustomization.Spec.Prune {
+		annotations = gcAnnotation(checksum)
+	}
+
+	var lt = struct {
+		ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
+		Kind       string `json:"kind" yaml:"kind"`
+		Metadata   struct {
+			Name string `json:"name" yaml:"name"`
+		} `json:"metadata" yaml:"metadata"`
+		Annotations map[string]string    `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+		FieldSpecs  []kustypes.FieldSpec `json:"fieldSpecs,omitempty" yaml:"fieldSpecs,omitempty"`
+	}{
+		ApiVersion: "builtin",
+		Kind:       "AnnotationsTransformer",
+		Metadata: struct {
+			Name string `json:"name" yaml:"name"`
+		}{
+			Name: kg.kustomization.GetName(),
+		},
+		Annotations: annotations,
+		FieldSpecs: []kustypes.FieldSpec{
+			{Path: "metadata/annotations", CreateIfNotPresent: true},
+		},
+	}
+
+	data, err := yaml.Marshal(lt)
+	if err != nil {
+		return err
+	}
+
+	annotationsFile := filepath.Join(dirPath, transformerAnnotationFileName)
+	if err := ioutil.WriteFile(annotationsFile, data, os.ModePerm); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (kg *KustomizeGenerator) generateLabelTransformer(checksum, dirPath string) error {
 	labels := selectorLabels(kg.kustomization.GetName(), kg.kustomization.GetNamespace())
 
-	// add checksum label only if GC is enabled
-	if kg.kustomization.Spec.Prune {
-		labels = gcLabels(kg.kustomization.GetName(), kg.kustomization.GetNamespace(), checksum)
-	}
+	labels = gcLabels(kg.kustomization.GetName(), kg.kustomization.GetNamespace(), checksum)
 
 	var lt = struct {
 		ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
@@ -357,4 +397,14 @@ func buildKustomization(fs filesys.FileSystem, dirPath string) (resmap.ResMap, e
 
 	k := krusty.MakeKustomizer(buildOptions)
 	return k.Run(fs, dirPath)
+}
+
+func find(source []string, value string) bool {
+	for _, item := range source {
+		if item == value {
+			return true
+		}
+	}
+
+	return false
 }
