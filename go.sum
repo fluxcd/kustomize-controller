@@ -183,8 +183,8 @@ github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwo
 github.com/fatih/color v1.7.0 h1:DkWD4oS2D8LGGgTQ6IvwJJXSL5Vp2ffcQg58nFV38Ys=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/structs v1.1.0/go.mod h1:9NiDSp5zOcgEDl+j00MP/WkGVPOlPRLejGD8Ga6PJ7M=
-github.com/fluxcd/pkg/apis/kustomize v0.1.0 h1:sauL+KHmZ0zV2ZgpsLMyDzCQudBTtaFzSys+rXn9g9w=
-github.com/fluxcd/pkg/apis/kustomize v0.1.0/go.mod h1:gEl+W5cVykCC3RfrCaqe+Pz+j4lKl2aeR4dxsom/zII=
+github.com/fluxcd/pkg/apis/kustomize v0.2.0 h1:jhu2QHvs+j3Zo9rR6w8hkO3LSC6h3M37zY5ejufOmxY=
+github.com/fluxcd/pkg/apis/kustomize v0.2.0/go.mod h1:gEl+W5cVykCC3RfrCaqe+Pz+j4lKl2aeR4dxsom/zII=
 github.com/fluxcd/pkg/apis/meta v0.10.0 h1:N7wVGHC1cyPdT87hrDC7UwCwRwnZdQM46PBSLjG2rlE=
 github.com/fluxcd/pkg/apis/meta v0.10.0/go.mod h1:CW9X9ijMTpNe7BwnokiUOrLl/h13miwVr/3abEQLbKE=
 github.com/fluxcd/pkg/runtime v0.12.0 h1:BPZZ8bBkimpqGAPXqOf3LTaw+tcw6HgbWyCuzbbsJGs=

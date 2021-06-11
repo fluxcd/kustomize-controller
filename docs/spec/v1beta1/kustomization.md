@@ -647,6 +647,8 @@ spec:
           name: not-used
           labels:
             app.kubernetes.io/part-of: test-app
+      target:
+        labelSelector: "app=podinfo"
 ```
 
 ### Strategic Merge patches
