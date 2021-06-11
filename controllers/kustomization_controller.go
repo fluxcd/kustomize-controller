@@ -172,10 +172,10 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				Conditions: []string{
 					sourcev1.ArtifactAvailableCondition,
 					sourcev1.SourceAvailableCondition,
+					kustomizev1.HealthyCondition,
 					meta.ReadyCondition,
 					meta.ReconcilingCondition,
 					meta.StalledCondition,
-					meta.ProgressingReason,
 				},
 			},
 		}
@@ -311,10 +311,10 @@ func (r *KustomizationReconciler) reconcile(
 			Conditions: []string{
 				sourcev1.ArtifactAvailableCondition,
 				sourcev1.SourceAvailableCondition,
+				kustomizev1.HealthyCondition,
 				meta.ReadyCondition,
 				meta.ReconcilingCondition,
 				meta.StalledCondition,
-				meta.ProgressingReason,
 			},
 		},
 	}
