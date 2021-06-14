@@ -144,10 +144,17 @@ var _ = Describe("KustomizationReconciler", func() {
 			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("ghcr.io/stefanprodan/podinfo:5.2.0"))
 		})
 
-		It("strategic merge patches", func() {
-			kustomization.Spec.PatchesStrategicMerge = []apiextensionsv1.JSON{
+		It("patches as JSON", func() {
+			kustomization.Spec.Patches = []kustomize.Patch{
 				{
-					Raw: []byte(`{"kind":"Deployment","apiVersion":"apps/v1","metadata":{"name":"podinfo","labels":{"xxxx":"yyyy"}}}`),
+					Patch: `
+- op: add
+  path: /metadata/labels/patch
+  value: inline-json
+						`,
+					Target: kustomize.Selector{
+						LabelSelector: "app=podinfo",
+					},
 				},
 			}
 			Expect(k8sClient.Create(context.TODO(), kustomization)).To(Succeed())
@@ -160,15 +167,59 @@ var _ = Describe("KustomizationReconciler", func() {
 
 			var deployment appsv1.Deployment
 			Expect(k8sClient.Get(context.TODO(), client.ObjectKey{Name: "podinfo", Namespace: namespace.Name}, &deployment)).To(Succeed())
-			Expect(deployment.ObjectMeta.Labels["xxxx"]).To(Equal("yyyy"))
+			Expect(deployment.ObjectMeta.Labels["patch"]).To(Equal("inline-json"))
+		})
+
+		It("patches as YAML", func() {
+			kustomization.Spec.Patches = []kustomize.Patch{
+				{
+					Patch: `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podinfo
+  labels:
+    patch: inline-yaml
+						`,
+				},
+			}
+			Expect(k8sClient.Create(context.TODO(), kustomization)).To(Succeed())
+
+			Eventually(func() bool {
+				var obj kustomizev1.Kustomization
+				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &obj)
+				return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
+			}, timeout, time.Second).Should(BeTrue())
+
+			var deployment appsv1.Deployment
+			Expect(k8sClient.Get(context.TODO(), client.ObjectKey{Name: "podinfo", Namespace: namespace.Name}, &deployment)).To(Succeed())
+			Expect(deployment.ObjectMeta.Labels["patch"]).To(Equal("inline-yaml"))
+		})
+
+		It("strategic merge patches", func() {
+			kustomization.Spec.PatchesStrategicMerge = []apiextensionsv1.JSON{
+				{
+					Raw: []byte(`{"kind":"Deployment","apiVersion":"apps/v1","metadata":{"name":"podinfo","labels":{"patch":"strategic-merge"}}}`),
+				},
+			}
+			Expect(k8sClient.Create(context.TODO(), kustomization)).To(Succeed())
+
+			Eventually(func() bool {
+				var obj kustomizev1.Kustomization
+				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &obj)
+				return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
+			}, timeout, time.Second).Should(BeTrue())
+
+			var deployment appsv1.Deployment
+			Expect(k8sClient.Get(context.TODO(), client.ObjectKey{Name: "podinfo", Namespace: namespace.Name}, &deployment)).To(Succeed())
+			Expect(deployment.ObjectMeta.Labels["patch"]).To(Equal("strategic-merge"))
 		})
 
 		It("JSON6902 patches", func() {
 			kustomization.Spec.PatchesJSON6902 = []kustomize.JSON6902Patch{
 				{
-
 					Patch: []kustomize.JSON6902{
-						{Op: "add", Path: "/metadata/labels/yyyy", Value: &apiextensionsv1.JSON{Raw: []byte(`"xxxx"`)}},
+						{Op: "add", Path: "/metadata/labels/patch", Value: &apiextensionsv1.JSON{Raw: []byte(`"json6902"`)}},
 						{Op: "replace", Path: "/spec/replicas", Value: &apiextensionsv1.JSON{Raw: []byte("2")}},
 					},
 					Target: kustomize.Selector{
@@ -189,7 +240,7 @@ var _ = Describe("KustomizationReconciler", func() {
 
 			var deployment appsv1.Deployment
 			Expect(k8sClient.Get(context.TODO(), client.ObjectKey{Name: "podinfo", Namespace: namespace.Name}, &deployment)).To(Succeed())
-			Expect(deployment.ObjectMeta.Labels["yyyy"]).To(Equal("xxxx"))
+			Expect(deployment.ObjectMeta.Labels["patch"]).To(Equal("json6902"))
 			Expect(*deployment.Spec.Replicas).To(Equal(int32(2)))
 		})
 	})

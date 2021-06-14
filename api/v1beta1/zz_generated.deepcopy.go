@@ -173,6 +173,11 @@ func (in *KustomizationSpec) DeepCopyInto(out *KustomizationSpec) {
 		*out = make([]meta.NamespacedObjectKindReference, len(*in))
 		copy(*out, *in)
 	}
+	if in.Patches != nil {
+		in, out := &in.Patches, &out.Patches
+		*out = make([]kustomize.Patch, len(*in))
+		copy(*out, *in)
+	}
 	if in.PatchesStrategicMerge != nil {
 		in, out := &in.PatchesStrategicMerge, &out.PatchesStrategicMerge
 		*out = make([]apiextensionsv1.JSON, len(*in))

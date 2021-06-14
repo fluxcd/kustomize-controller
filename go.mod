@@ -9,7 +9,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.2
 	github.com/drone/envsubst v1.0.3-0.20200804185402-58bc65f69603
 	github.com/fluxcd/kustomize-controller/api v0.12.2
-	github.com/fluxcd/pkg/apis/kustomize v0.1.0
+	github.com/fluxcd/pkg/apis/kustomize v0.2.0
 	github.com/fluxcd/pkg/apis/meta v0.10.0
 	github.com/fluxcd/pkg/runtime v0.12.0
 	github.com/fluxcd/pkg/testserver v0.1.0
