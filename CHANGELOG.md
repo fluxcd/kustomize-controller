@@ -2,6 +2,40 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.13.0
+
+**Release date:** 2021-06-14
+
+This prerelease brings the controller on a par with **Kustomize v4**.
+The Kubernetes and controller-runtime dependencies have been updated to match the Kubernetes 1.21 release.
+
+The Kustomization API has been extended with support for generic in-line
+[patches](https://github.com/fluxcd/kustomize-controller/blob/v0.13.0/docs/spec/v1beta1/kustomization.md##patches).
+
+Starting with this version, the controller uses an annotation instead of a label
+to keep track of removed manifests from source.
+Please consult the [garbage collection docs](https://github.com/fluxcd/kustomize-controller/blob/v0.13.0/docs/spec/v1beta1/kustomization.md#garbage-collection)
+for more details.
+
+**Breaking changes**:
+* Due to the removal of `hashicorp/go-getter` from Kustomize v4,
+  the set of URLs accepted by Kustomize in the `resources` filed
+  is reduced to only file system paths or values compatible with `git clone`.
+  This means you can no longer use resources from archives (zip, tgz, etc).
+* Due to a [bug](https://github.com/kubernetes-sigs/kustomize/issues/3446)
+  in Kustomize v4, if you have **non-string keys** in your manifests,
+  the controller will fail with `json: unsupported type` error.
+ 
+Features:
+* Add support for in-line generic patches to Flux Kustomization API
+  [#364](https://github.com/fluxcd/kustomize-controller/pull/364)
+
+Improvements:
+* Upgrade controller to Kustomize v4
+  [#343](https://github.com/fluxcd/kustomize-controller/pull/343)
+* Move the GC checksum from labels to annotations
+  [#362](https://github.com/fluxcd/kustomize-controller/pull/362)
+
 ## 0.12.2
 
 **Release date:** 2021-06-02
