@@ -25,6 +25,7 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -111,7 +112,7 @@ var _ = Describe("KustomizationReconciler", func() {
 			Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 		})
 
-		It("garbage collects removed workloads", func() {
+		It("garbage collects deleted manifests", func() {
 			configMapManifest := func(name string) string {
 				return fmt.Sprintf(`---
 apiVersion: v1
@@ -167,9 +168,171 @@ data:
 
 			Expect(k8sClient.Delete(context.Background(), kustomization)).To(Succeed())
 			Eventually(func() bool {
-				err = k8sClient.Get(context.Background(), client.ObjectKey{Name: "second", Namespace: namespace.Name}, &configMap)
+				err = k8sClient.Get(context.Background(), client.ObjectKey{Name: kustomization.Name, Namespace: namespace.Name}, kustomization)
 				return apierrors.IsNotFound(err)
 			}, timeout, time.Second).Should(BeTrue())
+
+			err = k8sClient.Get(context.Background(), client.ObjectKey{Name: "second", Namespace: namespace.Name}, &configMap)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("skips deleted manifests labeled with prune disabled", func() {
+			configMapManifest := func(name string, skip string) string {
+				return fmt.Sprintf(`---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %[1]s
+  labels:
+    kustomize.toolkit.fluxcd.io/prune: "%[2]s"
+data:
+  value: %[1]s
+`, name, skip)
+			}
+			manifest := testserver.File{Name: "configmap.yaml", Body: configMapManifest("first", "disabled")}
+			artifact, err := artifactServer.ArtifactFromFiles([]testserver.File{manifest})
+			Expect(err).ToNot(HaveOccurred())
+			artifactURL, err := artifactServer.URLForFile(artifact)
+			Expect(err).ToNot(HaveOccurred())
+
+			gitRepo.Status.Artifact.URL = artifactURL
+			gitRepo.Status.Artifact.Revision = "first"
+
+			Expect(k8sClient.Create(context.Background(), gitRepo)).To(Succeed())
+			Expect(k8sClient.Status().Update(context.Background(), gitRepo)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+			var got kustomizev1.Kustomization
+			Eventually(func() bool {
+				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &got)
+				c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
+				return c != nil && c.Reason == meta.ReconciliationSucceededReason
+			}, timeout, time.Second).Should(BeTrue())
+
+			var configMap corev1.ConfigMap
+			Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: "first", Namespace: namespace.Name}, &configMap)).To(Succeed())
+			Expect(configMap.Annotations[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]).NotTo(BeEmpty())
+
+			manifest.Body = configMapManifest("second", "enabled")
+			artifact, err = artifactServer.ArtifactFromFiles([]testserver.File{manifest})
+			Expect(err).ToNot(HaveOccurred())
+			artifactURL, err = artifactServer.URLForFile(artifact)
+			Expect(err).ToNot(HaveOccurred())
+
+			gitRepo.Status.Artifact.URL = artifactURL
+			gitRepo.Status.Artifact.Revision = "second"
+			Expect(k8sClient.Status().Update(context.Background(), gitRepo)).To(Succeed())
+
+			Eventually(func() bool {
+				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &got)
+				return got.Status.LastAppliedRevision == gitRepo.Status.Artifact.Revision
+			}, timeout, time.Second).Should(BeTrue())
+			err = k8sClient.Get(context.Background(), client.ObjectKey{Name: "first", Namespace: namespace.Name}, &configMap)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(k8sClient.Delete(context.Background(), kustomization)).To(Succeed())
+			Eventually(func() bool {
+				err = k8sClient.Get(context.Background(), client.ObjectKey{Name: kustomization.Name, Namespace: namespace.Name}, kustomization)
+				return apierrors.IsNotFound(err)
+			}, timeout, time.Second).Should(BeTrue())
+
+			err = k8sClient.Get(context.Background(), client.ObjectKey{Name: "second", Namespace: namespace.Name}, &configMap)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			err = k8sClient.Get(context.Background(), client.ObjectKey{Name: "first", Namespace: namespace.Name}, &configMap)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("does not set the checksum annotation when GC is disabled", func() {
+			deploymentManifest := func(namespace string) string {
+				return fmt.Sprintf(`---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+  namespace: %s
+spec:
+  selector:
+    matchLabels:
+      app: test-deployment
+  template:
+    metadata:
+      labels:
+        app: test-deployment
+    spec:
+      containers:
+      - name: test
+        image: podinfo
+`,
+					namespace)
+			}
+
+			manifests := []testserver.File{
+				{
+					Name: "deployment.yaml",
+					Body: deploymentManifest(namespace.Name),
+				},
+			}
+			artifact, err := artifactServer.ArtifactFromFiles(manifests)
+			Expect(err).NotTo(HaveOccurred())
+
+			url := fmt.Sprintf("%s/%s", artifactServer.URL(), artifact)
+
+			repositoryName := types.NamespacedName{
+				Name:      fmt.Sprintf("%s", randStringRunes(5)),
+				Namespace: namespace.Name,
+			}
+			repository := readyGitRepository(repositoryName, url, "v1", "")
+			Expect(k8sClient.Create(context.Background(), repository)).To(Succeed())
+			Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
+			defer k8sClient.Delete(context.Background(), repository)
+
+			kName := types.NamespacedName{
+				Name:      fmt.Sprintf("%s", randStringRunes(5)),
+				Namespace: namespace.Name,
+			}
+			k := &kustomizev1.Kustomization{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      kName.Name,
+					Namespace: kName.Namespace,
+				},
+				Spec: kustomizev1.KustomizationSpec{
+					KubeConfig: kubeconfig,
+					Interval:   metav1.Duration{Duration: time.Hour},
+					Path:       "./",
+					Prune:      false,
+					SourceRef: kustomizev1.CrossNamespaceSourceReference{
+						Kind: sourcev1.GitRepositoryKind,
+						Name: repository.Name,
+					},
+					Suspend:    false,
+					Timeout:    &metav1.Duration{Duration: 60 * time.Second},
+					Validation: "client",
+					Force:      true,
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), k)).To(Succeed())
+			defer k8sClient.Delete(context.Background(), k)
+
+			got := &kustomizev1.Kustomization{}
+			Eventually(func() bool {
+				_ = k8sClient.Get(context.Background(), kName, got)
+				c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
+				return c != nil && c.Reason == meta.ReconciliationSucceededReason
+			}, timeout, time.Second).Should(BeTrue())
+			Expect(got.Status.LastAppliedRevision).To(Equal("v1"))
+
+			deployment := &appsv1.Deployment{}
+			deploymentName := types.NamespacedName{Name: "test-deployment", Namespace: namespace.Name}
+			Expect(k8sClient.Get(context.Background(), deploymentName, deployment)).To(Succeed())
+			Expect(deployment.Annotations[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]).To(BeEmpty())
+
+			Expect(k8sClient.Delete(context.Background(), k)).To(Succeed())
+			Eventually(func() bool {
+				err = k8sClient.Get(context.Background(), kName, got)
+				return apierrors.IsNotFound(err)
+			}, timeout, time.Second).Should(BeTrue())
+
+			Expect(k8sClient.Get(context.Background(), deploymentName, deployment)).To(Succeed())
 		})
 	})
 })
