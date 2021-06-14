@@ -144,7 +144,7 @@ data:
 
 			var configMap corev1.ConfigMap
 			Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: "first", Namespace: namespace.Name}, &configMap)).To(Succeed())
-			Expect(configMap.Labels[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]).NotTo(BeEmpty())
+			Expect(configMap.Annotations[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]).NotTo(BeEmpty())
 
 			manifest.Body = configMapManifest("second")
 			artifact, err = artifactServer.ArtifactFromFiles([]testserver.File{manifest})
@@ -163,7 +163,7 @@ data:
 			err = k8sClient.Get(context.Background(), client.ObjectKey{Name: "first", Namespace: namespace.Name}, &configMap)
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: "second", Namespace: namespace.Name}, &configMap)).To(Succeed())
-			Expect(configMap.Labels[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]).NotTo(BeEmpty())
+			Expect(configMap.Annotations[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]).NotTo(BeEmpty())
 
 			Expect(k8sClient.Delete(context.Background(), kustomization)).To(Succeed())
 			Eventually(func() bool {
