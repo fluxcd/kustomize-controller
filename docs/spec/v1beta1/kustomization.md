@@ -364,18 +364,19 @@ but are missing from the current source revision, are removed from cluster autom
 Garbage collection is also performed when a Kustomization object is deleted,
 triggering a removal of all Kubernetes objects previously applied on the cluster.
 
-To keep track of the Kubernetes objects reconciled from a Kustomization, the following labels 
-are injected into the manifests:
+To keep track of the Kubernetes objects reconciled from a Kustomization, the following metadata 
+is injected into the manifests:
 
 ```yaml
 labels:
   kustomize.toolkit.fluxcd.io/name: "<Kustomization name>"
   kustomize.toolkit.fluxcd.io/namespace: "<Kustomization namespace>"
+annotations:
   kustomize.toolkit.fluxcd.io/checksum: "<manifests checksum>"
 ```
 
-The checksum label value is updated if the content of `spec.path` changes.
-When pruning is disabled, the checksum label is omitted. 
+The checksum annotation value is updated if the content of `spec.path` changes.
+When pruning is disabled, the checksum annotation is omitted. 
 
 You can disable pruning for certain resources by either
 labeling or annotating them with:
