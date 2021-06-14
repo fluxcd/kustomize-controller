@@ -137,17 +137,14 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 	return changeSet, true
 }
 
-// Check both labels and annotations for the checksum to preserve backwards compatibility
+// Determine staleness by checking if the annotation matches the latest checksum
 func (kgc *KustomizeGarbageCollector) isStale(obj unstructured.Unstructured) bool {
-	itemLabelChecksum := obj.GetLabels()[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]
 	itemAnnotationChecksum := obj.GetAnnotations()[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]
 
 	switch kgc.newChecksum {
 	case "":
 		return true
 	case itemAnnotationChecksum:
-		return false
-	case itemLabelChecksum:
 		return false
 	default:
 		return true
