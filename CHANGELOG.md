@@ -22,6 +22,9 @@ for more details.
   the set of URLs accepted by Kustomize in the `resources` filed
   is reduced to only file system paths or values compatible with `git clone`.
   This means you can no longer use resources from archives (zip, tgz, etc).
+* YAML anchors are no longer supported in Kustomize v4,
+  see [kustomize/issues/3675](https://github.com/kubernetes-sigs/kustomize/issues/3675)
+  for more details. 
 * Due to a [bug](https://github.com/kubernetes-sigs/kustomize/issues/3446)
   in Kustomize v4, if you have **non-string keys** in your manifests,
   the controller will fail with `json: unsupported type` error.
