@@ -55,6 +55,11 @@ type KustomizationSpec struct {
 	// +optional
 	HealthChecks []meta.NamespacedObjectKindReference `json:"healthChecks,omitempty"`
 
+	// Strategic merge and JSON patches, defined as inline YAML objects,
+	// capable of targeting objects based on kind, label and annotation selectors.
+	// +optional
+	Patches []kustomize.Patch `json:"patches,omitempty"`
+
 	// Strategic merge patches, defined as inline YAML objects.
 	// +optional
 	PatchesStrategicMerge []apiextensionsv1.JSON `json:"patchesStrategicMerge,omitempty"`
@@ -630,7 +635,7 @@ To add [Kustomize `patches` entries](https://kubectl.docs.kubernetes.io/referenc
 to the configuration, and patch resources using either a [strategic merge](https://kubectl.docs.kubernetes.io/references/kustomize/glossary#patchstrategicmerge) 
 patch or a [JSON](https://kubectl.docs.kubernetes.io/references/kustomize/glossary#patchjson6902) patch,
 `spec.patches` items must contain a `target` selector and a `patch` document.
-The patch can target a single resource or multiple resources
+The patch can target a single resource or multiple resources:
 
 ```yaml
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
