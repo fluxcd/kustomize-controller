@@ -83,7 +83,8 @@ type KustomizationSpec struct {
 	// +optional
 	HealthChecks []meta.NamespacedObjectKindReference `json:"healthChecks,omitempty"`
 
-	// Patches (also called overlays), defined as inline YAML objects.
+	// Strategic merge and JSON patches, defined as inline YAML objects,
+	// capable of targeting objects based on kind, label and annotation selectors.
 	// +optional
 	Patches []kustomize.Patch `json:"patches,omitempty"`
 

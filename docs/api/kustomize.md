@@ -207,7 +207,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Patches (also called overlays), defined as inline YAML objects.</p>
+<p>Strategic merge and JSON patches, defined as inline YAML objects,
+capable of targeting objects based on kind, label and annotation selectors.</p>
 </td>
 </tr>
 <tr>
@@ -680,7 +681,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Patches (also called overlays), defined as inline YAML objects.</p>
+<p>Strategic merge and JSON patches, defined as inline YAML objects,
+capable of targeting objects based on kind, label and annotation selectors.</p>
 </td>
 </tr>
 <tr>

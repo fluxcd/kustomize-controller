@@ -143,7 +143,7 @@ spec:
                     type: object
                 type: object
               patches:
-                description: Patches (also called overlays), defined as inline YAML objects.
+                description: Strategic merge and JSON patches, defined as inline YAML objects, capable of targeting objects based on kind, label and annotation selectors.
                 items:
                   description: Patch contains either a StrategicMerge or a JSON6902 patch, either a file or inline, and the target the patch should be applied to.
                   properties:
