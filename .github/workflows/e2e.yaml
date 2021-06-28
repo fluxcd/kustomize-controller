@@ -33,6 +33,8 @@ jobs:
         uses: fluxcd/pkg/actions/kubectl@main
         with:
           version: 1.21.0
+      - name: Override Kubebuilder kubectl
+        run: sudo cp /usr/local/bin/kubectl /home/runner/work/kustomize-controller/kustomize-controller/kubebuilder/bin/kubectl
       - name: Run tests
         run: make test
         env:
