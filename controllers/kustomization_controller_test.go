@@ -396,7 +396,7 @@ spec:
 						Interval:   metav1.Duration{Duration: reconciliationInterval},
 						Path:       "./",
 						Prune:      true,
-						DependsOn:  []dependency.CrossNamespaceDependencyReference{
+						DependsOn: []dependency.CrossNamespaceDependencyReference{
 							{
 								Name: "test-kustomization",
 							},
