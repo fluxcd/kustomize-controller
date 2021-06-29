@@ -33,8 +33,11 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	eventv1beta1 "k8s.io/api/events/v1beta1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -427,6 +430,95 @@ spec:
 
 				deployment := &appsv1.Deployment{}
 				Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: "test", Namespace: namespace.Name}, deployment)).NotTo(Succeed())
+			})
+		})
+
+		Describe("Kustomization resources event tests", func() {
+			configMapManifest := func(name string) string {
+				return fmt.Sprintf(`---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %[1]s
+data:
+  value: %[1]s
+`, name)
+			}
+			It("should get event for resources output", func() {
+				manifests := []testserver.File{
+					{
+						Name: "configmap.yaml",
+						Body: configMapManifest("test-configmap"),
+					},
+				}
+				artifact, err := httpServer.ArtifactFromFiles(manifests)
+				Expect(err).NotTo(HaveOccurred())
+
+				url := fmt.Sprintf("%s/%s", httpServer.URL(), artifact)
+
+				repositoryName := types.NamespacedName{
+					Name:      fmt.Sprintf("%s", randStringRunes(5)),
+					Namespace: namespace.Name,
+				}
+				repository := readyGitRepository(repositoryName, url, "v1", "")
+				Expect(k8sClient.Create(context.Background(), repository)).To(Succeed())
+				Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
+				defer k8sClient.Delete(context.Background(), repository)
+
+				kName := types.NamespacedName{
+					Name:      fmt.Sprintf("kustomization-test-%s", randStringRunes(5)),
+					Namespace: namespace.Name,
+				}
+				k := &kustomizev1.Kustomization{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      kName.Name,
+						Namespace: kName.Namespace,
+					},
+					Spec: kustomizev1.KustomizationSpec{
+						KubeConfig: kubeconfig,
+						Interval:   metav1.Duration{Duration: reconciliationInterval},
+						Path:       "./",
+						Prune:      true,
+						SourceRef: kustomizev1.CrossNamespaceSourceReference{
+							Kind: sourcev1.GitRepositoryKind,
+							Name: repository.Name,
+						},
+						Suspend:    false,
+						Timeout:    &metav1.Duration{Duration: 60 * time.Second},
+						Validation: "client",
+						Force:      true,
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), k)).To(Succeed())
+				defer k8sClient.Delete(context.Background(), k)
+
+				got := &kustomizev1.Kustomization{}
+				Eventually(func() bool {
+					_ = k8sClient.Get(context.Background(), kName, got)
+					c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
+					return c != nil && c.Reason == meta.ReconciliationSucceededReason
+				}, timeout, interval).Should(BeTrue())
+				Expect(got.Status.LastAppliedRevision).To(Equal("v1"))
+
+				var configMap corev1.ConfigMap
+				Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: "test-configmap", Namespace: "default"}, &configMap)).To(Succeed())
+
+				Consistently(func() bool {
+					eventList := &eventv1beta1.EventList{}
+					labelSelector := labels.NewSelector()
+					requirement, err := labels.NewRequirement("name", selection.Equals, []string{k.Name})
+					Expect(err).NotTo(HaveOccurred())
+					labelSelector.Add(*requirement)
+					err = k8sClient.List(context.Background(), eventList, &client.ListOptions{LabelSelector: labelSelector})
+					Expect(err).NotTo(HaveOccurred(), "could not list Kustomization events")
+
+					for _, event := range eventList.Items {
+						if event.Note == "configmap/test-configmap created\n" {
+							return true
+						}
+					}
+					return false
+				}, timeout, interval).Should(BeTrue())
 			})
 		})
 	})

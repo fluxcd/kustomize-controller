@@ -624,11 +624,15 @@ func (r *KustomizationReconciler) apply(ctx context.Context, kustomization kusto
 	start := time.Now()
 	timeout := kustomization.GetTimeout() + (time.Second * 1)
 	applyCtx, cancel := context.WithTimeout(ctx, timeout)
+	var resources map[string]string
 	defer cancel()
 	fieldManager := "kustomize-controller"
 
 	cmd := fmt.Sprintf("cd %s && kubectl apply --field-manager=%s -f %s.yaml --timeout=%s --cache-dir=/tmp --force=%t",
 		dirPath, fieldManager, kustomization.GetUID(), kustomization.Spec.Interval.Duration.String(), kustomization.Spec.Force)
+	// kubectl diff command to get the changeset
+	diffcmd := fmt.Sprintf("cd %s && kubectl diff --field-manager=%s -f %s.yaml  --cache-dir=/tmp",
+		dirPath, fieldManager, kustomization.GetUID())
 
 	if kustomization.Spec.KubeConfig != nil {
 		kubeConfig, err := imp.WriteKubeConfig(ctx)
@@ -636,6 +640,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, kustomization kusto
 			return "", err
 		}
 		cmd = fmt.Sprintf("%s --kubeconfig=%s", cmd, kubeConfig)
+		diffcmd = fmt.Sprintf("%s --kubeconfig %s", diffcmd, kubeConfig)
 	} else {
 		// impersonate SA
 		if kustomization.Spec.ServiceAccountName != "" {
@@ -645,18 +650,30 @@ func (r *KustomizationReconciler) apply(ctx context.Context, kustomization kusto
 			}
 
 			cmd = fmt.Sprintf("%s --token %s", cmd, saToken)
+			diffcmd = fmt.Sprintf("%s --token %s", diffcmd, saToken)
 		}
 	}
 
+	// The reason for we parse the output via kubectl diff could be check from : https://github.com/fluxcd/kustomize-controller/issues/305
+	diffcommand := exec.CommandContext(applyCtx, "/bin/sh", "-c", diffcmd)
+	diffoutput, err := diffcommand.CombinedOutput()
+
 	command := exec.CommandContext(applyCtx, "/bin/sh", "-c", cmd)
-	output, err := command.CombinedOutput()
+	output, applyerr := command.CombinedOutput()
+
 	if err != nil {
+		resources = parseApplyOutput(output)
+	} else {
+		resources = parseDiffOutput(diffoutput)
+	}
+
+	if applyerr != nil {
 		if errors.Is(applyCtx.Err(), context.DeadlineExceeded) {
 			return "", fmt.Errorf("apply timeout: %w", applyCtx.Err())
 		}
 
 		if string(output) == "" {
-			return "", fmt.Errorf("apply failed: %w, kubectl process was killed, probably due to OOM", err)
+			return "", fmt.Errorf("apply failed: %w, kubectl process was killed, probably due to OOM", applyerr)
 		}
 
 		applyErr := parseApplyError(output)
@@ -666,7 +683,6 @@ func (r *KustomizationReconciler) apply(ctx context.Context, kustomization kusto
 		return "", fmt.Errorf("apply failed: %s", applyErr)
 	}
 
-	resources := parseApplyOutput(output)
 	log.Info(
 		fmt.Sprintf("Kustomization applied in %s",
 			time.Now().Sub(start).String()),
