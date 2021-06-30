@@ -60,7 +60,8 @@ spec:
     name: podinfo
   validation: client
   healthChecks:
-    - kind: Deployment
+    - kind: Service
+      apiVersion: v1
       name: podinfo
       namespace: impersonation
   timeout: 2m
