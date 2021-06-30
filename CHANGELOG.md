@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.13.1
+
+**Release date:** 2021-06-30
+
+This prerelease comes with kubectl v1.21.1.
+
+Improvements:
+* Update kubectl to v1.21.1
+  [#381](https://github.com/fluxcd/kustomize-controller/pull/381)
+* e2e: Update Kubernetes to v1.21.1
+  [#380](https://github.com/fluxcd/kustomize-controller/pull/380)
+* Improve test coverage of the `dependsOn` feature
+  [#380](https://github.com/fluxcd/kustomize-controller/pull/380)
+
 ## 0.13.0
 
 **Release date:** 2021-06-14

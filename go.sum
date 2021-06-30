@@ -193,8 +193,8 @@ github.com/fluxcd/pkg/testserver v0.1.0 h1:nOYgM1HYFZNNSUFykuWDmrsxj4jQxUCvmLHWO
 github.com/fluxcd/pkg/testserver v0.1.0/go.mod h1:fvt8BHhXw6c1+CLw1QFZxcQprlcXzsrL4rzXaiGM+Iw=
 github.com/fluxcd/pkg/untar v0.1.0 h1:k97V/xV5hFrAkIkVPuv5AVhyxh1ZzzAKba/lbDfGo6o=
 github.com/fluxcd/pkg/untar v0.1.0/go.mod h1:aGswNyzB1mlz/T/kpOS58mITBMxMKc9tlJBH037A2HY=
-github.com/fluxcd/source-controller/api v0.14.0 h1:BiRhSF13RAcDzAi9k/HzOgzdobcDhEATYINr7Dn+wiE=
-github.com/fluxcd/source-controller/api v0.14.0/go.mod h1:P1pIkaoIsiCJ/NLC7IBXPb9XEime9NvA1WN4hZu2Of4=
+github.com/fluxcd/source-controller/api v0.15.3 h1:xJodSIQr/pAlUhVsmaiPNLV+tabSYLjr+93remjI3WI=
+github.com/fluxcd/source-controller/api v0.15.3/go.mod h1:P1pIkaoIsiCJ/NLC7IBXPb9XEime9NvA1WN4hZu2Of4=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible h1:TcekIExNqud5crz4xD2pavyTgWiPvpYe4Xau31I0PRk=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/franela/goblin v0.0.0-20200105215937-c9ffbefa60db/go.mod h1:7dvUGVsVBjqR7JHJk0brhHOZYGmfBYOrK0ZhYMEtBr4=

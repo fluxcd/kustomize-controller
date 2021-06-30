@@ -8,13 +8,13 @@ require (
 	filippo.io/age v1.0.0-beta7
 	github.com/cyphar/filepath-securejoin v0.2.2
 	github.com/drone/envsubst v1.0.3-0.20200804185402-58bc65f69603
-	github.com/fluxcd/kustomize-controller/api v0.13.0
+	github.com/fluxcd/kustomize-controller/api v0.13.1
 	github.com/fluxcd/pkg/apis/kustomize v0.2.0
 	github.com/fluxcd/pkg/apis/meta v0.10.0
 	github.com/fluxcd/pkg/runtime v0.12.0
 	github.com/fluxcd/pkg/testserver v0.1.0
 	github.com/fluxcd/pkg/untar v0.1.0
-	github.com/fluxcd/source-controller/api v0.14.0
+	github.com/fluxcd/source-controller/api v0.15.3
 	github.com/go-logr/logr v0.4.0
 	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
