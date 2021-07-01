@@ -658,29 +658,32 @@ func (r *KustomizationReconciler) apply(ctx context.Context, kustomization kusto
 	diffcommand := exec.CommandContext(applyCtx, "/bin/sh", "-c", diffcmd)
 	diffoutput, err := diffcommand.CombinedOutput()
 
-	command := exec.CommandContext(applyCtx, "/bin/sh", "-c", cmd)
-	output, applyerr := command.CombinedOutput()
-
-	if err != nil {
-		resources = parseApplyOutput(output)
-	} else {
-		resources = parseDiffOutput(diffoutput)
-	}
-
-	if applyerr != nil {
-		if errors.Is(applyCtx.Err(), context.DeadlineExceeded) {
-			return "", fmt.Errorf("apply timeout: %w", applyCtx.Err())
+	// The reason that we still parse diff output when exit is for : https://github.com/kubernetes/kubernetes/pull/82336/files
+	// For the "diff" command Exit status:
+	//		 0
+	//		No differences were found.
+	//		 1
+	//		Differences were found.
+	//		 >1
+	//		Kubectl or diff failed with an error.
+	if differr, ok := err.(*exec.ExitError); ok {
+		if differr.ExitCode() > 1 {
+			log.V(1).Info("Kubectl or diff failed with an error, will execute apply soon")
+			output, applyErr := execApply(ctx, cmd)
+			if applyErr != nil {
+				return "", applyErr
+			}
+			resources = parseApplyOutput(output)
+		} else if differr.ExitCode() == 1 {
+			resources = parseDiffOutput(diffoutput)
+			//	Since we found difference in "diff" command, so we need to execute apply
+			log.V(1).Info("Differences found, will execute apply soon")
+			_, applyErr := execApply(ctx, cmd)
+			if applyErr != nil {
+				log.Error(applyErr, "unable to apply")
+				return "", applyErr
+			}
 		}
-
-		if string(output) == "" {
-			return "", fmt.Errorf("apply failed: %w, kubectl process was killed, probably due to OOM", applyerr)
-		}
-
-		applyErr := parseApplyError(output)
-		if applyErr == "" {
-			applyErr = "no error output found, this may happen because of a timeout"
-		}
-		return "", fmt.Errorf("apply failed: %s", applyErr)
 	}
 
 	log.Info(

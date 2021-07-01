@@ -435,8 +435,7 @@ spec:
 
 		Describe("Kustomization resources event tests", func() {
 			configMapManifest := func(name string) string {
-				return fmt.Sprintf(`---
-apiVersion: v1
+				return fmt.Sprintf(`apiVersion: v1
 kind: ConfigMap
 metadata:
   name: %[1]s
@@ -513,11 +512,242 @@ data:
 					Expect(err).NotTo(HaveOccurred(), "could not list Kustomization events")
 
 					for _, event := range eventList.Items {
-						if event.Note == "configmap/test-configmap created\n" {
+						if event.Note == "v1.ConfigMap.default.test-configmap created\n" {
 							return true
 						}
 					}
 					return false
+				}, timeout, interval).Should(BeTrue())
+			})
+
+			It("should succeed on update for configmap in new namespace", func() {
+				configMapManifest := func(namespace, value string) string {
+					return fmt.Sprintf(`---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: %[1]s
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: %[1]s
+  name: %[2]s
+data:
+  value: %[2]s
+`, namespace, value)
+				}
+				resourceNamespace := fmt.Sprintf("%s", randStringRunes(5))
+				manifests := []testserver.File{
+					{
+						Name: "configmap.yaml",
+						Body: configMapManifest(resourceNamespace, "second-configmap"),
+					},
+				}
+				artifact, err := httpServer.ArtifactFromFiles(manifests)
+				Expect(err).NotTo(HaveOccurred())
+
+				url := fmt.Sprintf("%s/%s", httpServer.URL(), artifact)
+
+				repositoryName := types.NamespacedName{
+					Name:      fmt.Sprintf("%s", randStringRunes(5)),
+					Namespace: namespace.Name,
+				}
+				repository := readyGitRepository(repositoryName, url, "v2", "")
+				Expect(k8sClient.Create(context.Background(), repository)).To(Succeed())
+				Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
+				defer k8sClient.Delete(context.Background(), repository)
+
+				kName := types.NamespacedName{
+					Name:      fmt.Sprintf("kustomization-test-%s", randStringRunes(5)),
+					Namespace: namespace.Name,
+				}
+				k := &kustomizev1.Kustomization{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      kName.Name,
+						Namespace: kName.Namespace,
+					},
+					Spec: kustomizev1.KustomizationSpec{
+						KubeConfig: kubeconfig,
+						Interval:   metav1.Duration{Duration: reconciliationInterval},
+						Path:       "./",
+						Prune:      true,
+						SourceRef: kustomizev1.CrossNamespaceSourceReference{
+							Kind: sourcev1.GitRepositoryKind,
+							Name: repository.Name,
+						},
+						Suspend:    false,
+						Timeout:    &metav1.Duration{Duration: 60 * time.Second},
+						Validation: "client",
+						Force:      true,
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), k)).To(Succeed())
+				defer k8sClient.Delete(context.Background(), k)
+
+				got := &kustomizev1.Kustomization{}
+				Eventually(func() bool {
+					_ = k8sClient.Get(context.Background(), kName, got)
+					c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
+					return c != nil && c.Reason == meta.ReconciliationSucceededReason
+				}, timeout, interval).Should(BeTrue())
+				Expect(got.Status.LastAppliedRevision).To(Equal("v2"))
+
+				ns := &corev1.Namespace{}
+				Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: resourceNamespace}, ns)).Should(Succeed())
+
+				var configMap corev1.ConfigMap
+				Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: "second-configmap", Namespace: resourceNamespace}, &configMap)).To(Succeed())
+			})
+
+			It("Ignore objects that are changed only due to the checksum annotation", func() {
+				manifests := []testserver.File{
+					{
+						Name: "configmap.yaml",
+						Body: configMapManifest("third-configmap"),
+					},
+				}
+				artifact, err := httpServer.ArtifactFromFiles(manifests)
+				Expect(err).NotTo(HaveOccurred())
+
+				url := fmt.Sprintf("%s/%s", httpServer.URL(), artifact)
+
+				repositoryName := types.NamespacedName{
+					Name:      fmt.Sprintf("%s", randStringRunes(5)),
+					Namespace: namespace.Name,
+				}
+				repository := readyGitRepository(repositoryName, url, "v3", "")
+				Expect(k8sClient.Create(context.Background(), repository)).To(Succeed())
+				Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
+				defer k8sClient.Delete(context.Background(), repository)
+
+				kName := types.NamespacedName{
+					Name:      fmt.Sprintf("kustomization-test-%s", randStringRunes(5)),
+					Namespace: namespace.Name,
+				}
+				k := &kustomizev1.Kustomization{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      kName.Name,
+						Namespace: kName.Namespace,
+					},
+					Spec: kustomizev1.KustomizationSpec{
+						KubeConfig: kubeconfig,
+						Interval:   metav1.Duration{Duration: reconciliationInterval},
+						Path:       "./",
+						Prune:      true,
+						SourceRef: kustomizev1.CrossNamespaceSourceReference{
+							Kind: sourcev1.GitRepositoryKind,
+							Name: repository.Name,
+						},
+						Suspend:    false,
+						Timeout:    &metav1.Duration{Duration: 60 * time.Second},
+						Validation: "client",
+						Force:      true,
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), k)).To(Succeed())
+				defer k8sClient.Delete(context.Background(), k)
+
+				got := &kustomizev1.Kustomization{}
+				Eventually(func() bool {
+					_ = k8sClient.Get(context.Background(), kName, got)
+					c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
+					return c != nil && c.Reason == meta.ReconciliationSucceededReason
+				}, timeout, interval).Should(BeTrue())
+				Expect(got.Status.LastAppliedRevision).To(Equal("v3"))
+
+				var configMap corev1.ConfigMap
+				Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: "third-configmap", Namespace: "default"}, &configMap)).To(Succeed())
+
+				checksum := configMap.Annotations[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]
+
+				Consistently(func() bool {
+					eventList := &eventv1beta1.EventList{}
+					labelSelector := labels.NewSelector()
+					requirement, err := labels.NewRequirement("name", selection.Equals, []string{k.Name})
+					Expect(err).NotTo(HaveOccurred())
+					labelSelector.Add(*requirement)
+					err = k8sClient.List(context.Background(), eventList, &client.ListOptions{LabelSelector: labelSelector})
+					Expect(err).NotTo(HaveOccurred(), "could not list Kustomization events")
+
+					configmapEvent := false
+					for _, event := range eventList.Items {
+						if event.Note == "v1.ConfigMap.default.third-configmap created\n" {
+							configmapEvent = true
+						}
+					}
+					return configmapEvent
+				}, timeout, interval).Should(BeTrue())
+
+				manifests = []testserver.File{
+					{
+						Name: "configmap.yaml",
+						Body: configMapManifest("third-configmap"),
+					},
+					{
+						Name: "fourthconfigmap.yaml",
+						Body: configMapManifest("fourth-configmap"),
+					},
+				}
+
+				artifact, err = httpServer.ArtifactFromFiles(manifests)
+				Expect(err).ToNot(HaveOccurred())
+
+				url = fmt.Sprintf("%s/%s", httpServer.URL(), artifact)
+				repository.Status.Artifact.URL = url
+				repository.Status.Artifact.Revision = "v4"
+				Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
+
+				Eventually(func() bool {
+					_ = k8sClient.Get(context.Background(), kName, got)
+					return got.Status.LastAppliedRevision == repository.Status.Artifact.Revision
+				}, timeout, time.Second).Should(BeTrue())
+
+				Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: "fourth-configmap", Namespace: "default"}, &configMap)).To(Succeed())
+				Expect(configMap.Annotations[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]).NotTo(Equal(checksum))
+
+				Consistently(func() bool {
+					eventList := &eventv1beta1.EventList{}
+					labelSelector := labels.NewSelector()
+					requirement, err := labels.NewRequirement("name", selection.Equals, []string{k.Name})
+					Expect(err).NotTo(HaveOccurred())
+					labelSelector.Add(*requirement)
+					err = k8sClient.List(context.Background(), eventList, &client.ListOptions{LabelSelector: labelSelector})
+					Expect(err).NotTo(HaveOccurred(), "could not list Kustomization events")
+
+					configmapEvent := false
+					for _, event := range eventList.Items {
+						if event.Note == "v1.ConfigMap.default.fourth-configmap created\n" {
+							configmapEvent = true
+						}
+					}
+					return configmapEvent
+				}, timeout, interval).Should(BeTrue())
+
+				repository.Status.Artifact.Revision = "v5"
+				Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
+
+				Eventually(func() bool {
+					_ = k8sClient.Get(context.Background(), kName, got)
+					return got.Status.LastAppliedRevision == repository.Status.Artifact.Revision
+				}, timeout, time.Second).Should(BeTrue())
+
+				Consistently(func() bool {
+					eventList := &eventv1beta1.EventList{}
+					labelSelector := labels.NewSelector()
+					requirement, err := labels.NewRequirement("name", selection.Equals, []string{k.Name})
+					Expect(err).NotTo(HaveOccurred())
+					labelSelector.Add(*requirement)
+					err = k8sClient.List(context.Background(), eventList, &client.ListOptions{LabelSelector: labelSelector})
+					Expect(err).NotTo(HaveOccurred(), "could not list Kustomization events")
+
+					configmapEvent := false
+					for _, event := range eventList.Items {
+						if event.Note == "v1.ConfigMap.default.fourth-configmap created\n" {
+							configmapEvent = true
+						}
+					}
+					return configmapEvent
 				}, timeout, interval).Should(BeTrue())
 			})
 		})

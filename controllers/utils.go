@@ -17,7 +17,12 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os/exec"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
@@ -61,32 +66,30 @@ func parseApplyOutput(in []byte) map[string]string {
 // @@ -0,0 +1,36 @@
 func parseDiffOutput(in []byte) map[string]string {
 	result := make(map[string]string)
-	var parts []string
-	var actions []string
+	var resourcename string
+	var action string
 
-	input := strings.Split(string(in), "\n")
+	input := strings.Split(string(in), "diff -u -N")
 	if len(input) == 0 {
 		return result
 	}
 
 	for _, str := range input {
-		if strings.Contains(str, "diff -u -N ") {
-			s := strings.Split(str, "/")
-			parts = append(parts, s[len(s)-1])
+		stringSlice := strings.Split(str, "\n")
+		s := strings.Split(stringSlice[0], "/")
+		resourcename = s[len(s)-1]
+
+		if containsChangeInSlice(stringSlice) {
+			action = "configured"
+		} else {
+			action = "unchanged"
 		}
-
-		if strings.Contains(str, "@@") {
-			if strings.Contains(str, "@@ -0,0") {
-				actions = append(actions, "created")
-
-			} else {
-				actions = append(actions, "configured")
-			}
+		if strings.Contains(str, "@@ -0,0") {
+			action = "created"
 		}
-	}
-
-	for k, v := range parts {
-		result[v] = actions[k]
+		if resourcename != "" {
+			result[resourcename] = action
+		}
 	}
 
 	return result
@@ -115,6 +118,27 @@ func parseApplyError(in []byte) string {
 	return errors
 }
 
+func execApply(ctx context.Context, cmd string) ([]byte, error) {
+	command := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
+	output, applyerr := command.CombinedOutput()
+	if applyerr != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return output, fmt.Errorf("apply timeout: %w", ctx.Err())
+		}
+
+		if string(output) == "" {
+			return output, fmt.Errorf("apply failed: %w, kubectl process was killed, probably due to OOM", applyerr)
+		}
+
+		applyErr := parseApplyError(output)
+		if applyErr == "" {
+			applyErr = "no error output found, this may happen because of a timeout"
+		}
+		return output, fmt.Errorf("apply failed: %s", applyErr)
+	}
+	return output, nil
+}
+
 func containsString(slice []string, s string) bool {
 	for _, item := range slice {
 		if item == s {
@@ -130,4 +154,17 @@ func ObjectKey(object metav1.Object) client.ObjectKey {
 		Namespace: object.GetNamespace(),
 		Name:      object.GetName(),
 	}
+}
+
+func containsChangeInSlice(tmpslice []string) bool {
+	checksumAnnotation := fmt.Sprintf("    %s/checksum:", kustomizev1.GroupVersion.Group)
+	for _, s := range tmpslice {
+		if strings.HasPrefix(s, "+"+checksumAnnotation) || strings.HasPrefix(s, "-"+checksumAnnotation) || strings.HasPrefix(s, "--- /tmp") || strings.HasPrefix(s, "+++ /tmp") {
+			continue
+		}
+		if strings.Contains(s, "-  ") || strings.Contains(s, "+  ") {
+			return true
+		}
+	}
+	return false
 }
