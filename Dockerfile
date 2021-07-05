@@ -6,7 +6,7 @@ WORKDIR /workspace
 
 RUN apk add --no-cache ca-certificates curl
 
-RUN kubectl_ver=1.21.1 && \
+RUN kubectl_ver=1.21.2 && \
 arch=${TARGETPLATFORM:-linux/amd64} && \
 if [ "$TARGETPLATFORM" == "linux/arm/v7" ]; then arch="linux/arm"; fi && \
 curl -sL https://storage.googleapis.com/kubernetes-release/release/v${kubectl_ver}/bin/${arch}/kubectl \
@@ -32,7 +32,7 @@ COPY internal/ internal/
 # build
 RUN CGO_ENABLED=0 go build -a -o kustomize-controller main.go
 
-FROM alpine:3.13
+FROM alpine:3.14
 
 LABEL org.opencontainers.image.source="https://github.com/fluxcd/kustomize-controller"
 
