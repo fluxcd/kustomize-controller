@@ -59,10 +59,14 @@ func (hc *KustomizeHealthCheck) Assess(pollInterval time.Duration) error {
 	opts := polling.Options{PollInterval: pollInterval, UseCache: true}
 	eventsChan := hc.statusPoller.Poll(ctx, objMetadata, opts)
 	coll := collector.NewResourceStatusCollector(objMetadata)
+	lastStatus := make(map[object.ObjMetadata]*event.ResourceStatus)
 	done := coll.ListenWithObserver(eventsChan, collector.ObserverFunc(
 		func(statusCollector *collector.ResourceStatusCollector, e event.Event) {
 			var rss []*event.ResourceStatus
 			for _, rs := range statusCollector.ResourceStatuses {
+				if rs.Error == nil {
+					lastStatus[rs.Identifier] = rs
+				}
 				rss = append(rss, rs)
 			}
 			desired := status.CurrentStatus
@@ -81,14 +85,19 @@ func (hc *KustomizeHealthCheck) Assess(pollInterval time.Duration) error {
 	}
 
 	if ctx.Err() == context.DeadlineExceeded {
-		ids := []string{}
+		errors := []string{}
 		for _, rs := range coll.ResourceStatuses {
-			if rs.Status != status.CurrentStatus {
+			if lastStatus[rs.Identifier].Status != status.CurrentStatus {
 				id := hc.objMetadataToString(rs.Identifier)
-				ids = append(ids, id)
+				var bld strings.Builder
+				bld.WriteString(fmt.Sprintf("%s (status '%s')", id, lastStatus[rs.Identifier].Status))
+				if rs.Error != nil {
+					bld.WriteString(fmt.Sprintf(": %s", rs.Error))
+				}
+				errors = append(errors, bld.String())
 			}
 		}
-		return fmt.Errorf("Health check timed out for [%v]", strings.Join(ids, ", "))
+		return fmt.Errorf("Health check failed for [%s]", strings.Join(errors, ", "))
 	}
 
 	return nil
