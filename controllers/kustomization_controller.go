@@ -209,7 +209,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			r.recordReadiness(ctx, kustomization)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
-		log.Info("All dependencies area ready, proceeding with reconciliation")
+		log.Info("All dependencies are ready, proceeding with reconciliation")
 	}
 
 	// record reconciliation duration
