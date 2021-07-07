@@ -803,6 +803,23 @@ labeling or annotating them with:
 kustomize.toolkit.fluxcd.io/substitute: disabled
 ``` 
 
+Substitution of variables only happens if at least a single variable or resource to substitute
+from is defined. This may cause issues if you rely on expressions which should evaluate to a
+default, even if no other variables are configured. To work around this, one can set an
+arbitrary key/value pair to enable the substitution of variables. For example: 
+
+```
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: apps
+spec:
+  ...
+  postBuild:
+    substitute:
+      var_substitution_enabled: "true"
+```
+
 You can replicate the controller post-build substitutions locally using
 [kustomize](https://github.com/kubernetes-sigs/kustomize)
 and Drone's [envsubst](https://github.com/drone/envsubst):
