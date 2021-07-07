@@ -803,7 +803,10 @@ labeling or annotating them with:
 kustomize.toolkit.fluxcd.io/substitute: disabled
 ``` 
 
-Substitution needs to be defined opt-in. If not at least a single variable or resource to substitute from is defined, no var substitution is performed. So even expressions which should evaluate to a default value won't be evaluated. To enable var substitution, just set at least one variable which will enable var substitution for the Kustomization, if you don't have any other variables on the Kustomization. For example:
+Substitution of variables only happens if at least a single variable or resource to substitute
+from is defined. This may cause issues if you rely on expressions which should evaluate to a
+default, even if no other variables are configured. To work around this, one can set an
+arbitrary key/value pair to enable the substitution of variables. For example: 
 
 ```
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
@@ -814,7 +817,7 @@ spec:
   ...
   postBuild:
     substitute:
-      enabled: "true"
+      var_substitution_enabled: "true"
 ```
 
 You can replicate the controller post-build substitutions locally using
