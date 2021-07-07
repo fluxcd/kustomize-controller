@@ -803,6 +803,20 @@ labeling or annotating them with:
 kustomize.toolkit.fluxcd.io/substitute: disabled
 ``` 
 
+Substitution needs to be defined opt-in. If not at least a single variable or resource to substitute from is defined, no var substitution is performed. So even expressions which should evaluate to a default value won't be evaluated. To enable var substitution, just set at least one variable which will enable var substitution for the Kustomization, if you don't have any other variables on the Kustomization. For example:
+
+```
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: apps
+spec:
+  ...
+  postBuild:
+    substitute:
+      enabled: "true"
+```
+
 You can replicate the controller post-build substitutions locally using
 [kustomize](https://github.com/kubernetes-sigs/kustomize)
 and Drone's [envsubst](https://github.com/drone/envsubst):
