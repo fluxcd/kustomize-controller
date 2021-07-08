@@ -334,5 +334,118 @@ spec:
 
 			Expect(k8sClient.Get(context.Background(), deploymentName, deployment)).To(Succeed())
 		})
+
+		It("reset the checksum annotation when prune is turned on", func() {
+			deploymentManifest := func(namespace string) string {
+				return fmt.Sprintf(`---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+  namespace: %s
+spec:
+  selector:
+    matchLabels:
+      app: test-deployment
+  template:
+    metadata:
+      labels:
+        app: test-deployment
+    spec:
+      containers:
+      - name: test
+        image: podinfo
+`,
+					namespace)
+			}
+
+			manifests := []testserver.File{
+				{
+					Name: "deployment.yaml",
+					Body: deploymentManifest(namespace.Name),
+				},
+			}
+			artifact, err := artifactServer.ArtifactFromFiles(manifests)
+			Expect(err).NotTo(HaveOccurred())
+
+			url := fmt.Sprintf("%s/%s", artifactServer.URL(), artifact)
+
+			repositoryName := types.NamespacedName{
+				Name:      fmt.Sprintf("%s", randStringRunes(5)),
+				Namespace: namespace.Name,
+			}
+			repository := readyGitRepository(repositoryName, url, "v1", "")
+			Expect(k8sClient.Create(context.Background(), repository)).To(Succeed())
+			Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
+			defer k8sClient.Delete(context.Background(), repository)
+
+			kName := types.NamespacedName{
+				Name:      fmt.Sprintf("%s", randStringRunes(5)),
+				Namespace: namespace.Name,
+			}
+			k := &kustomizev1.Kustomization{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      kName.Name,
+					Namespace: kName.Namespace,
+				},
+				Spec: kustomizev1.KustomizationSpec{
+					KubeConfig: kubeconfig,
+					Interval:   metav1.Duration{Duration: time.Hour},
+					Path:       "./",
+					Prune:      false,
+					SourceRef: kustomizev1.CrossNamespaceSourceReference{
+						Kind: sourcev1.GitRepositoryKind,
+						Name: repository.Name,
+					},
+					Suspend:    false,
+					Timeout:    &metav1.Duration{Duration: 60 * time.Second},
+					Validation: "client",
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), k)).To(Succeed())
+			defer k8sClient.Delete(context.Background(), k)
+
+			got := &kustomizev1.Kustomization{}
+			Eventually(func() bool {
+				_ = k8sClient.Get(context.Background(), kName, got)
+				c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
+				return c != nil && c.Reason == meta.ReconciliationSucceededReason
+			}, timeout, time.Second).Should(BeTrue())
+			Expect(got.Status.LastAppliedRevision).To(Equal("v1"))
+
+			deployment := &appsv1.Deployment{}
+			deploymentName := types.NamespacedName{Name: "test-deployment", Namespace: namespace.Name}
+			Expect(k8sClient.Get(context.Background(), deploymentName, deployment)).To(Succeed())
+			Expect(deployment.Annotations[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]).To(BeEmpty())
+
+			// Trigger a change in repository
+			repository.Status.Artifact.Revision = "v2"
+			Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
+
+			// Turn Kustomization pruning on
+			_ = k8sClient.Get(context.Background(), kName, k)
+			k.Spec.Prune = true
+			Expect(k8sClient.Update(context.Background(), k)).To(Succeed())
+
+			Eventually(func() bool {
+				got := &kustomizev1.Kustomization{}
+				_ = k8sClient.Get(context.Background(), kName, got)
+				c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
+				return c != nil && c.Reason == meta.ReconciliationSucceededReason && got.Status.LastAppliedRevision == "v2"
+			}, timeout, time.Second).Should(BeTrue())
+
+			// Checking Deployment has checksum annotation
+			Expect(k8sClient.Get(context.Background(), deploymentName, deployment)).To(Succeed())
+			Expect(deployment.Annotations[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]).NotTo(BeEmpty())
+
+			// Deleting Kustomization, expecting to delete deployment in cascade
+			Expect(k8sClient.Delete(context.Background(), k)).To(Succeed())
+			Eventually(func() bool {
+				err = k8sClient.Get(context.Background(), kName, got)
+				return apierrors.IsNotFound(err)
+			}, timeout, time.Second).Should(BeTrue())
+
+			Expect(k8sClient.Get(context.Background(), deploymentName, deployment)).NotTo(Succeed())
+		})
 	})
 })
