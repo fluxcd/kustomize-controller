@@ -317,9 +317,8 @@ spec:
 			Eventually(func() bool {
 				_ = k8sClient.Get(context.Background(), kName, got)
 				c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
-				return c != nil && c.Reason == meta.ReconciliationSucceededReason
+				return c != nil && c.Reason == meta.ReconciliationSucceededReason && got.Status.LastAppliedRevision == "v1"
 			}, timeout, time.Second).Should(BeTrue())
-			Expect(got.Status.LastAppliedRevision).To(Equal("v1"))
 
 			deployment := &appsv1.Deployment{}
 			deploymentName := types.NamespacedName{Name: "test-deployment", Namespace: namespace.Name}
@@ -409,23 +408,22 @@ spec:
 			Eventually(func() bool {
 				_ = k8sClient.Get(context.Background(), kName, got)
 				c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
-				return c != nil && c.Reason == meta.ReconciliationSucceededReason
+				return c != nil && c.Reason == meta.ReconciliationSucceededReason && got.Status.LastAppliedRevision == "v1"
 			}, timeout, time.Second).Should(BeTrue())
-			Expect(got.Status.LastAppliedRevision).To(Equal("v1"))
 
 			deployment := &appsv1.Deployment{}
 			deploymentName := types.NamespacedName{Name: "test-deployment", Namespace: namespace.Name}
 			Expect(k8sClient.Get(context.Background(), deploymentName, deployment)).To(Succeed())
 			Expect(deployment.Annotations[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]).To(BeEmpty())
 
-			// Trigger a change in repository
-			repository.Status.Artifact.Revision = "v2"
-			Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
-
 			// Turn Kustomization pruning on
 			_ = k8sClient.Get(context.Background(), kName, k)
 			k.Spec.Prune = true
 			Expect(k8sClient.Update(context.Background(), k)).To(Succeed())
+
+			// Trigger a change in repository
+			repository.Status.Artifact.Revision = "v2"
+			Expect(k8sClient.Status().Update(context.Background(), repository)).To(Succeed())
 
 			Eventually(func() bool {
 				got := &kustomizev1.Kustomization{}
