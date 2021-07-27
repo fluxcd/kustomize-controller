@@ -64,6 +64,9 @@ func (hc *KustomizeHealthCheck) Assess(pollInterval time.Duration) error {
 		func(statusCollector *collector.ResourceStatusCollector, e event.Event) {
 			var rss []*event.ResourceStatus
 			for _, rs := range statusCollector.ResourceStatuses {
+				if rs == nil {
+					continue
+				}
 				if rs.Error == nil {
 					lastStatus[rs.Identifier] = rs
 				}
@@ -86,11 +89,15 @@ func (hc *KustomizeHealthCheck) Assess(pollInterval time.Duration) error {
 
 	if ctx.Err() == context.DeadlineExceeded {
 		errors := []string{}
-		for _, rs := range coll.ResourceStatuses {
-			if lastStatus[rs.Identifier].Status != status.CurrentStatus {
-				id := hc.objMetadataToString(rs.Identifier)
+		for id, rs := range coll.ResourceStatuses {
+			if rs == nil {
+				errors = append(errors, fmt.Sprintf("no status for %s available", id))
+				continue
+			}
+			if lastStatus[id].Status != status.CurrentStatus {
+				idString := hc.objMetadataToString(rs.Identifier)
 				var bld strings.Builder
-				bld.WriteString(fmt.Sprintf("%s (status '%s')", id, lastStatus[rs.Identifier].Status))
+				bld.WriteString(fmt.Sprintf("%s (status '%s')", idString, lastStatus[id].Status))
 				if rs.Error != nil {
 					bld.WriteString(fmt.Sprintf(": %s", rs.Error))
 				}
