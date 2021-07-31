@@ -135,7 +135,7 @@ var _ = Describe("KustomizationReconciler", func() {
 
 			Eventually(func() bool {
 				var obj kustomizev1.Kustomization
-				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &obj)
+				_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
 				return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
 			}, timeout, time.Second).Should(BeTrue())
 
@@ -161,7 +161,7 @@ var _ = Describe("KustomizationReconciler", func() {
 
 			Eventually(func() bool {
 				var obj kustomizev1.Kustomization
-				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &obj)
+				_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
 				return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
 			}, timeout, time.Second).Should(BeTrue())
 
@@ -187,7 +187,7 @@ metadata:
 
 			Eventually(func() bool {
 				var obj kustomizev1.Kustomization
-				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &obj)
+				_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
 				return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
 			}, timeout, time.Second).Should(BeTrue())
 
@@ -206,7 +206,7 @@ metadata:
 
 			Eventually(func() bool {
 				var obj kustomizev1.Kustomization
-				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &obj)
+				_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
 				return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
 			}, timeout, time.Second).Should(BeTrue())
 
@@ -234,7 +234,7 @@ metadata:
 
 			Eventually(func() bool {
 				var obj kustomizev1.Kustomization
-				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &obj)
+				_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
 				return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
 			}, timeout, time.Second).Should(BeTrue())
 

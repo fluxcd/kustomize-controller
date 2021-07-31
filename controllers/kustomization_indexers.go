@@ -44,7 +44,7 @@ func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) f
 		ctx := context.Background()
 		var list kustomizev1.KustomizationList
 		if err := r.List(ctx, &list, client.MatchingFields{
-			indexKey: ObjectKey(obj).String(),
+			indexKey: client.ObjectKeyFromObject(obj).String(),
 		}); err != nil {
 			return nil
 		}

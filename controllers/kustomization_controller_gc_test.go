@@ -138,7 +138,7 @@ data:
 
 			var got kustomizev1.Kustomization
 			Eventually(func() bool {
-				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &got)
+				_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &got)
 				c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
 				return c != nil && c.Reason == meta.ReconciliationSucceededReason
 			}, timeout, time.Second).Should(BeTrue())
@@ -158,7 +158,7 @@ data:
 			Expect(k8sClient.Status().Update(context.Background(), gitRepo)).To(Succeed())
 
 			Eventually(func() bool {
-				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &got)
+				_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &got)
 				return got.Status.LastAppliedRevision == gitRepo.Status.Artifact.Revision
 			}, timeout, time.Second).Should(BeTrue())
 			err = k8sClient.Get(context.Background(), client.ObjectKey{Name: "first", Namespace: namespace.Name}, &configMap)
@@ -204,7 +204,7 @@ data:
 
 			var got kustomizev1.Kustomization
 			Eventually(func() bool {
-				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &got)
+				_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &got)
 				c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
 				return c != nil && c.Reason == meta.ReconciliationSucceededReason
 			}, timeout, time.Second).Should(BeTrue())
@@ -224,7 +224,7 @@ data:
 			Expect(k8sClient.Status().Update(context.Background(), gitRepo)).To(Succeed())
 
 			Eventually(func() bool {
-				_ = k8sClient.Get(context.Background(), ObjectKey(kustomization), &got)
+				_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &got)
 				return got.Status.LastAppliedRevision == gitRepo.Status.Artifact.Revision
 			}, timeout, time.Second).Should(BeTrue())
 			err = k8sClient.Get(context.Background(), client.ObjectKey{Name: "first", Namespace: namespace.Name}, &configMap)
