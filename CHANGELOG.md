@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.13.3
+
+**Release date:** 2021-08-05
+
+This prerelease comes with support for SOPS encrypted kubeconfigs.
+
+Improvements:
+* Make the kubeconfig secrets compatible with SOPS
+  [#400](https://github.com/fluxcd/kustomize-controller/pull/400)
+* Remove old util ObjectKey
+  [#397](https://github.com/fluxcd/kustomize-controller/pull/397)
+* Var substitution opt-in docs
+  [#389](https://github.com/fluxcd/kustomize-controller/pull/389) 
+* Update dependencies
+  [#401](https://github.com/fluxcd/kustomize-controller/pull/401)
+
+Fixes:
+* Prevent nil pointer dereference in health checks
+  [#394](https://github.com/fluxcd/kustomize-controller/pull/394)
+
 ## 0.13.2
 
 **Release date:** 2021-07-05
