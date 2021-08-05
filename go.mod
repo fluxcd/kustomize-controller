@@ -14,7 +14,7 @@ require (
 	github.com/fluxcd/pkg/runtime v0.12.0
 	github.com/fluxcd/pkg/testserver v0.1.0
 	github.com/fluxcd/pkg/untar v0.1.0
-	github.com/fluxcd/source-controller/api v0.15.3
+	github.com/fluxcd/source-controller/api v0.15.4
 	github.com/go-logr/logr v0.4.0
 	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
