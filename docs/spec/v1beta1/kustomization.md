@@ -845,11 +845,10 @@ If the `kubeConfig` field is set, objects will be applied, health-checked, prune
 cluster specified in that KubeConfig instead of using the in-cluster ServiceAccount.
 
 The secret defined in the `kubeConfig.SecretRef` must exist in the same namespace as the Kustomization.
-On every reconciliation, the KubeConfig bytes will be loaded from the `values` key of the secret's data, and
-the secret can thus be regularly updated if cluster-access-tokens have to rotate due to expiration.
+On every reconciliation, the KubeConfig bytes will be loaded from the `value` or `value.yaml` key of the secret's data,
+and the secret can thus be regularly updated if cluster-access-tokens have to rotate due to expiration.
 
-This composes well with Cluster API bootstrap providers such as CAPBK (kubeadm) as well as the CAPA (AWS) EKS
-integration.
+This composes well with Cluster API bootstrap providers such as CAPBK (kubeadm), CAPA (AWS) and others.
 
 To reconcile a Kustomization to a CAPI controlled cluster, put the `Kustomization` in the same namespace as your
 `Cluster` object, and set the `kubeConfig.secretRef.name` to `<cluster-name>-kubeconfig`:
@@ -908,7 +907,7 @@ cluster where kustomize-controller is running e.g.:
 
 ```sh
 kubectl create secret generic prod-kubeconfig \
-    --from-file=value=./kubeconfig
+    --from-file=value.yaml=./kubeconfig
 ```
 
 > **Note** that the KubeConfig should be self-contained and not rely on binaries, environment,

@@ -195,8 +195,15 @@ func (ki *KustomizeImpersonation) getKubeConfig(ctx context.Context) ([]byte, er
 		return nil, fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
 	}
 
-	kubeConfig, ok := secret.Data["value"]
-	if !ok {
+	var kubeConfig []byte
+	for k, _ := range secret.Data {
+		if k == "value" || k == "value.yaml" {
+			kubeConfig = secret.Data[k]
+			break
+		}
+	}
+
+	if len(kubeConfig) == 0 {
 		return nil, fmt.Errorf("KubeConfig secret '%s' doesn't contain a 'value' key ", secretName.String())
 	}
 

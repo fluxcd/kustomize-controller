@@ -438,7 +438,7 @@ func kubeConfigSecret() (*corev1.Secret, error) {
 			Name: "kubeconfig",
 		},
 		Data: map[string][]byte{
-			"value": kubeConfig,
+			"value.yaml": kubeConfig,
 		},
 	}, nil
 }
