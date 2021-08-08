@@ -340,7 +340,8 @@ type Kustomization struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   KustomizationSpec   `json:"spec,omitempty"`
+	Spec KustomizationSpec `json:"spec,omitempty"`
+	// +kubebuilder:default:={"observedGeneration":-1}
 	Status KustomizationStatus `json:"status,omitempty"`
 }
 
