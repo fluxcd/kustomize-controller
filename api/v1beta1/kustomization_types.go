@@ -139,7 +139,7 @@ type KustomizationSpec struct {
 	// +optional
 	Force bool `json:"force,omitempty"`
 
-	// Prinicipal provides details on how the controller should
+	// Principal provides details on how the controller should
 	// carry out impersonation during garbage collections, health-check
 	// and applies
 	Principal *Principal `json:"principal,omitempty"`

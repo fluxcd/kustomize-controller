@@ -81,7 +81,7 @@ func main() {
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
 	flag.BoolVar(&enableUserImpersonation, "user-impersonation", false,
-		"Use service account token impersonation instead of user impersonation")
+		"Use user impersonation instead of service account token impersonation")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)

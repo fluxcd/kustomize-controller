@@ -870,10 +870,10 @@ func (r *KustomizationReconciler) buildKubectlCmdImpersonation(ctx context.Conte
 		var user string
 		if kustomization.Spec.Principal == nil {
 			user = fmt.Sprintf("flux:user:%s:%s", kustomization.Namespace, pkgclient.DefaultUser)
-		} else if kustomization.Spec.Principal.Kind == pkgclient.ServiceAccountType {
-			user = fmt.Sprintf("system:serviceaccount:%s:%s", kustomization.Namespace, kustomization.Spec.Principal.Name)
 		} else if kustomization.Spec.Principal.Kind == pkgclient.UserType {
 			user = fmt.Sprintf("flux:user:%s:%s", kustomization.Namespace, kustomization.Spec.Principal.Name)
+		} else if kustomization.Spec.Principal.Kind == pkgclient.ServiceAccountType {
+			user = fmt.Sprintf("system:serviceaccount:%s:%s", kustomization.Namespace, kustomization.Spec.Principal.Name)
 		} else {
 			return "", errors.New("unknown kind for impersonation, accepted kinds are User and ServiceAccount")
 		}
@@ -897,10 +897,11 @@ func (r *KustomizationReconciler) buildKubectlCmdImpersonation(ctx context.Conte
 	}
 
 	var saName string
+	fmt.Println(kustomization.Spec.ServiceAccountName)
 	if kustomization.Spec.ServiceAccountName != "" {
 		saName = kustomization.Spec.ServiceAccountName
 	} else if kustomization.Spec.Principal.Kind == pkgclient.ServiceAccountType {
-		saName = kustomization.Spec.Principal.Kind
+		saName = kustomization.Spec.Principal.Name
 	} else if kustomization.Spec.Principal.Kind == pkgclient.UserType {
 		return "", errors.New("cannot impersonate user if --user-impersonation is not set")
 	} else {
