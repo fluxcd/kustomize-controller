@@ -346,7 +346,7 @@ Principal
 </em>
 </td>
 <td>
-<p>Prinicipal provides details on how the controller should
+<p>Principal provides details on how the controller should
 carry out impersonation during garbage collections, health-check
 and applies</p>
 </td>
@@ -820,7 +820,7 @@ Principal
 </em>
 </td>
 <td>
-<p>Prinicipal provides details on how the controller should
+<p>Principal provides details on how the controller should
 carry out impersonation during garbage collections, health-check
 and applies</p>
 </td>

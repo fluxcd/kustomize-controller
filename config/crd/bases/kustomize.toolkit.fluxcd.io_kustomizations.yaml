@@ -298,7 +298,7 @@ spec:
                     type: array
                 type: object
               principal:
-                description: Prinicipal provides details on how the controller should
+                description: Principal provides details on how the controller should
                   carry out impersonation during garbage collections, health-check
                   and applies
                 properties:

@@ -30,6 +30,7 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
+	pkgclient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-retryablehttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -52,7 +53,6 @@ import (
 	"sigs.k8s.io/kustomize/api/filesys"
 
 	"github.com/fluxcd/pkg/apis/meta"
-	pkgclient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/predicates"
@@ -844,7 +844,11 @@ func (r *KustomizationReconciler) patchStatus(ctx context.Context, req ctrl.Requ
 	return r.Status().Patch(ctx, &kustomization, patch)
 }
 
-func (r *KustomizationReconciler) buildKubectlCmdImpersonation(ctx context.Context, kustomization kustomizev1.Kustomization, imp *KustomizeImpersonation, cmd string) (string, error) {
+func (r *KustomizationReconciler) buildKubectlCmdImpersonation(
+	ctx context.Context, kustomization kustomizev1.Kustomization,
+	imp *KustomizeImpersonation,
+	cmd string,
+) (string, error) {
 	enableUserImpersonation := r.EnableUserImpersonation
 	if kustomization.Spec.ServiceAccountName != "" && kustomization.Spec.Principal == nil {
 		enableUserImpersonation = false
@@ -897,7 +901,6 @@ func (r *KustomizationReconciler) buildKubectlCmdImpersonation(ctx context.Conte
 	}
 
 	var saName string
-	fmt.Println(kustomization.Spec.ServiceAccountName)
 	if kustomization.Spec.ServiceAccountName != "" {
 		saName = kustomization.Spec.ServiceAccountName
 	} else if kustomization.Spec.Principal.Kind == pkgclient.ServiceAccountType {
