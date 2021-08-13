@@ -1,0 +1,9 @@
+apiVersion: builtin
+kind: ImageTagTransformer
+metadata:
+  name: notImportantHere
+imageTag:
+  name: podinfo
+  newTag: 6.0.0
+fieldSpecs:
+  - path: spec/template/spec/containers[]/image

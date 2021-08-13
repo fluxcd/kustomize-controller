@@ -1,0 +1,5 @@
+apiVersion: builtin
+kind: PatchTransformer
+metadata:
+  name: notImportantHere
+path: patch.yaml

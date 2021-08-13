@@ -1,0 +1,7 @@
+apiVersion: builtin
+kind: ConfigMapGenerator
+metadata:
+  name: metas
+literals:
+  - limits.cpu=16
+  - limits.memory=24Gi

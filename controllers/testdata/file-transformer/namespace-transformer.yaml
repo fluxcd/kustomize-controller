@@ -1,0 +1,8 @@
+apiVersion: builtin
+kind: NamespaceTransformer
+metadata:
+  name: notImportantHere
+  namespace: second-system
+fieldSpecs:
+  - path: metadata/namespace
+    create: true
