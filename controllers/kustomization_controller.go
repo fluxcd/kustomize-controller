@@ -347,6 +347,7 @@ func (r *KustomizationReconciler) reconcile(
 			err.Error(),
 		), err
 	}
+	hasSecrets := snapshotContainsSecret(snapshot)
 
 	// dry-run apply
 	err = r.validate(ctx, kustomization, impersonation, dirPath)
@@ -362,12 +363,18 @@ func (r *KustomizationReconciler) reconcile(
 	// apply
 	changeSet, err := r.applyWithRetry(ctx, kustomization, impersonation, source.GetArtifact().Revision, dirPath, 5*time.Second)
 	if err != nil {
-		return kustomizev1.KustomizationNotReady(
+		applyNotReady := kustomizev1.KustomizationNotReady(
 			kustomization,
 			source.GetArtifact().Revision,
 			meta.ReconciliationFailedReason,
 			err.Error(),
-		), err
+		)
+		if hasSecrets {
+			return applyNotReady, fmt.Errorf("contains sensitive material")
+		} else {
+			return applyNotReady, err
+		}
+
 	}
 
 	// prune
@@ -864,4 +871,17 @@ func (r *KustomizationReconciler) patchStatus(ctx context.Context, req ctrl.Requ
 	kustomization.Status = newStatus
 
 	return r.Status().Patch(ctx, &kustomization, patch)
+}
+
+// snapshotContainsSecret iterates through the items in a snapshot and returns
+// true if any of them are a Secret.
+func snapshotContainsSecret(snapshot *kustomizev1.Snapshot) bool {
+	for _, kinds := range snapshot.NamespacedKinds() {
+		for _, kind := range kinds {
+			if kind.Kind == "Secret" {
+				return true
+			}
+		}
+	}
+	return false
 }
