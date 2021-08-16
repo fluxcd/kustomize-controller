@@ -1,0 +1,8 @@
+apiVersion: builtin
+kind: PrefixSuffixTransformer
+metadata:
+  name: notImportantHere
+prefix: test-
+suffix: -transform
+fieldSpecs:
+  - path: metadata/name

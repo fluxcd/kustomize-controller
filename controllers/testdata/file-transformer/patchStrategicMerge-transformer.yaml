@@ -1,0 +1,13 @@
+apiVersion: builtin
+kind: PatchStrategicMergeTransformer
+metadata:
+  name: notImportantHere
+patches: |-
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: podinfo
+  spec:
+    template:
+      spec:
+        serviceAccountName: test

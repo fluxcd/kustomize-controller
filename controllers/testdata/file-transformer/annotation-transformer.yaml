@@ -1,0 +1,9 @@
+apiVersion: builtin
+kind: AnnotationsTransformer
+metadata:
+  name: notImportantHere
+annotations:
+  test: annotations
+fieldSpecs:
+  - path: metadata/annotations
+    create: true
