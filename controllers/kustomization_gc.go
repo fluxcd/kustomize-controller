@@ -71,8 +71,14 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 			if err == nil {
 				for _, item := range ulist.Items {
 					id := fmt.Sprintf("%s/%s/%s", item.GetKind(), item.GetNamespace(), item.GetName())
+
 					if kgc.shouldSkip(item) {
 						kgc.log.V(1).Info(fmt.Sprintf("gc is disabled for '%s'", id))
+						continue
+					}
+
+					if kgc.hasBlockOwnerDeletion(item) {
+						kgc.log.V(1).Info(fmt.Sprintf("gc is disabled for '%s' due to 'ownerReference.blockOwnerDeletion=true'", id))
 						continue
 					}
 
@@ -113,6 +119,11 @@ func (kgc *KustomizeGarbageCollector) Prune(timeout time.Duration, name string, 
 					continue
 				}
 
+				if kgc.hasBlockOwnerDeletion(item) {
+					kgc.log.V(1).Info(fmt.Sprintf("gc is disabled for '%s' due to 'ownerReference.blockOwnerDeletion=true'", id))
+					continue
+				}
+
 				if kgc.isStale(item) && item.GetDeletionTimestamp().IsZero() {
 					err = kgc.Delete(ctx, &item)
 					if err != nil {
@@ -142,13 +153,25 @@ func (kgc *KustomizeGarbageCollector) isStale(obj unstructured.Unstructured) boo
 	itemAnnotationChecksum := obj.GetAnnotations()[fmt.Sprintf("%s/checksum", kustomizev1.GroupVersion.Group)]
 
 	switch kgc.newChecksum {
+	// when the Kustomization is deleted the new checksum is set to string empty making all objects stale
 	case "":
 		return true
+	// skip GC if the new checksum matches the object checksum
 	case itemAnnotationChecksum:
 		return false
-	default:
-		return true
 	}
+
+	// skip GC if the checksum annotation is missing from the object
+	return itemAnnotationChecksum != ""
+}
+
+func (kgc *KustomizeGarbageCollector) hasBlockOwnerDeletion(obj unstructured.Unstructured) bool {
+	for _, ownerReference := range obj.GetOwnerReferences() {
+		if bod := ownerReference.BlockOwnerDeletion; bod != nil && *bod == true {
+			return true
+		}
+	}
+	return false
 }
 
 func (kgc *KustomizeGarbageCollector) shouldSkip(obj unstructured.Unstructured) bool {
