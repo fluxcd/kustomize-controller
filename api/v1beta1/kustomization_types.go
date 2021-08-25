@@ -358,14 +358,9 @@ func init() {
 }
 
 func trimString(str string, limit int) string {
-	result := str
-	chars := 0
-	for i := range str {
-		if chars >= limit {
-			result = str[:i] + "..."
-			break
-		}
-		chars++
+	if len(str) <= limit {
+		return str
 	}
-	return result
+
+	return str[0:limit] + "..."
 }
