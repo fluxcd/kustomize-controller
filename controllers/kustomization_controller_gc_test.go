@@ -112,7 +112,7 @@ var _ = Describe("KustomizationReconciler", func() {
 			Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 		})
 
-		It("garbage collects deleted manifests", func() {
+		It("collects deleted manifests", func() {
 			configMapManifest := func(name string) string {
 				return fmt.Sprintf(`---
 apiVersion: v1
@@ -173,6 +173,163 @@ data:
 			}, timeout, time.Second).Should(BeTrue())
 
 			err = k8sClient.Get(context.Background(), client.ObjectKey{Name: "second", Namespace: namespace.Name}, &configMap)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("skips objects with blockOwnerDeletion=true", func() {
+			configMapManifest := func(name string) string {
+				return fmt.Sprintf(`---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %[1]s
+data:
+  value: %[1]s
+`, name)
+			}
+			manifest := testserver.File{Name: "configmap.yaml", Body: configMapManifest("first")}
+			artifact, err := artifactServer.ArtifactFromFiles([]testserver.File{manifest})
+			Expect(err).ToNot(HaveOccurred())
+			artifactURL, err := artifactServer.URLForFile(artifact)
+			Expect(err).ToNot(HaveOccurred())
+
+			gitRepo.Status.Artifact.URL = artifactURL
+			gitRepo.Status.Artifact.Revision = "first"
+
+			Expect(k8sClient.Create(context.Background(), gitRepo)).To(Succeed())
+			Expect(k8sClient.Status().Update(context.Background(), gitRepo)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+			var got kustomizev1.Kustomization
+			Eventually(func() bool {
+				_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &got)
+				c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
+				return c != nil && c.Reason == meta.ReconciliationSucceededReason
+			}, timeout, time.Second).Should(BeTrue())
+
+			var configMap corev1.ConfigMap
+			Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: "first", Namespace: namespace.Name}, &configMap)).To(Succeed())
+
+			owner := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: namespace.Name,
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), owner)).To(Succeed())
+
+			sa := &corev1.ServiceAccount{}
+			objName := types.NamespacedName{Name: "test", Namespace: namespace.Name}
+			Expect(k8sClient.Get(context.Background(), objName, sa)).To(Succeed())
+
+			blockOwnerDeletion := true
+			owned := &corev1.ConfigMap{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					Namespace:   namespace.Name,
+					Labels:      configMap.GetLabels(),
+					Annotations: configMap.GetAnnotations(),
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion:         "v1",
+							Kind:               "ServiceAccount",
+							Name:               sa.Name,
+							UID:                sa.UID,
+							Controller:         &blockOwnerDeletion,
+							BlockOwnerDeletion: &blockOwnerDeletion,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), owned)).To(Succeed())
+
+			Expect(k8sClient.Delete(context.Background(), kustomization)).To(Succeed())
+			Eventually(func() bool {
+				err = k8sClient.Get(context.Background(), client.ObjectKey{Name: kustomization.Name, Namespace: namespace.Name}, kustomization)
+				return apierrors.IsNotFound(err)
+			}, timeout, time.Second).Should(BeTrue())
+
+			cf := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(context.Background(), objName, cf)).To(Succeed())
+		})
+
+		It("deletes objects with blockOwnerDeletion=false", func() {
+			configMapManifest := func(name string) string {
+				return fmt.Sprintf(`---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %[1]s
+data:
+  value: %[1]s
+`, name)
+			}
+			manifest := testserver.File{Name: "configmap.yaml", Body: configMapManifest("first")}
+			artifact, err := artifactServer.ArtifactFromFiles([]testserver.File{manifest})
+			Expect(err).ToNot(HaveOccurred())
+			artifactURL, err := artifactServer.URLForFile(artifact)
+			Expect(err).ToNot(HaveOccurred())
+
+			gitRepo.Status.Artifact.URL = artifactURL
+			gitRepo.Status.Artifact.Revision = "first"
+
+			Expect(k8sClient.Create(context.Background(), gitRepo)).To(Succeed())
+			Expect(k8sClient.Status().Update(context.Background(), gitRepo)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+			var got kustomizev1.Kustomization
+			Eventually(func() bool {
+				_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &got)
+				c := apimeta.FindStatusCondition(got.Status.Conditions, meta.ReadyCondition)
+				return c != nil && c.Reason == meta.ReconciliationSucceededReason
+			}, timeout, time.Second).Should(BeTrue())
+
+			var configMap corev1.ConfigMap
+			Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: "first", Namespace: namespace.Name}, &configMap)).To(Succeed())
+
+			owner := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: namespace.Name,
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), owner)).To(Succeed())
+
+			sa := &corev1.ServiceAccount{}
+			objName := types.NamespacedName{Name: "test", Namespace: namespace.Name}
+			Expect(k8sClient.Get(context.Background(), objName, sa)).To(Succeed())
+
+			blockOwnerDeletion := false
+			owned := &corev1.ConfigMap{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					Namespace:   namespace.Name,
+					Labels:      configMap.GetLabels(),
+					Annotations: configMap.GetAnnotations(),
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion:         "v1",
+							Kind:               "ServiceAccount",
+							Name:               sa.Name,
+							UID:                sa.UID,
+							Controller:         &blockOwnerDeletion,
+							BlockOwnerDeletion: &blockOwnerDeletion,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), owned)).To(Succeed())
+
+			Expect(k8sClient.Delete(context.Background(), kustomization)).To(Succeed())
+			Eventually(func() bool {
+				err = k8sClient.Get(context.Background(), client.ObjectKey{Name: kustomization.Name, Namespace: namespace.Name}, kustomization)
+				return apierrors.IsNotFound(err)
+			}, timeout, time.Second).Should(BeTrue())
+
+			cf := &corev1.ConfigMap{}
+			err = k8sClient.Get(context.Background(), objName, cf)
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
 
