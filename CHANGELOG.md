@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.14.0
+
+**Release date:** 2021-08-26
+
+This prerelease comes with improvements to garbage collection.
+When pruning is enabled, the controller will skip the deletion of objects with
+[ownerReference.BlockOwnerDeletion=true](https://v1-18.docs.kubernetes.io/docs/concepts/workloads/controllers/garbage-collection/#controlling-how-the-garbage-collector-deletes-dependents),
+as they are subject to Kubernetes GC.
+
+The controller dependencies has been updated to match
+kustomize [v4.3.0](https://github.com/kubernetes-sigs/kustomize/releases/tag/kustomize%2Fv4.3.0).
+
+Improvements:
+* Update controller to kustomize v4.3.0
+  [#416](https://github.com/fluxcd/kustomize-controller/pull/416)
+* Skip garbage collection of objects with owner references
+  [#411](https://github.com/fluxcd/kustomize-controller/pull/411)
+* Add tests for various kustomize transformers
+  [#408](https://github.com/fluxcd/kustomize-controller/pull/408)
+
 ## 0.13.3
 
 **Release date:** 2021-08-05
