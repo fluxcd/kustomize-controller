@@ -367,7 +367,7 @@ func (r *KustomizationReconciler) reconcile(
 			source.GetArtifact().Revision,
 			meta.ReconciliationFailedReason,
 			err.Error(),
-		), err
+		), stripSensitiveData(err)
 	}
 
 	// prune
