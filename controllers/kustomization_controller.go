@@ -356,7 +356,7 @@ func (r *KustomizationReconciler) reconcile(
 			source.GetArtifact().Revision,
 			kustomizev1.ValidationFailedReason,
 			err.Error(),
-		), err
+		), stripSensitiveData(err)
 	}
 
 	// apply
