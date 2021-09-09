@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.14.1
+
+**Release date:** 2021-09-09
+
+This prerelease comes with improvements to logging.
+When Kubernetes Secrets can't be reconciled due to validation errors,
+the controller will mask the secret data from logs and events to prevent
+disclosing sensitive information.
+
+Improvements:
+* Mask the Kubernetes Secrets data from dry-run and apply logs
+  [#420](https://github.com/fluxcd/kustomize-controller/pull/420)
+
 ## 0.14.0
 
 **Release date:** 2021-08-26
