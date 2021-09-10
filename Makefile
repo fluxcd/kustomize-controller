@@ -13,10 +13,17 @@ endif
 
 all: manager
 
+# Download the envtest binaries to testbin
+ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
+ENVTEST_AKUBERNETES_VERSION=latest
+install-envtest: setup-envtest
+	$(SETUP_ENVTEST) use $(ENVTEST_AKUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR)
+
 # Run tests
-test: generate fmt vet manifests api-docs download-crd-deps
-	go test ./... -coverprofile cover.out
-	cd api; go test ./... -coverprofile cover.out
+KUBEBUILDER_ASSETS?="$(shell $(SETUP_ENVTEST) use -i $(ENVTEST_AKUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR) -p path)"
+test: generate fmt vet manifests api-docs download-crd-deps install-envtest
+	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./...  -v -coverprofile cover.out
+	cd api; go test ./... -v
 
 # Build manager binary
 manager: generate fmt vet
@@ -129,4 +136,19 @@ ifeq (, $(shell which gen-crd-api-reference-docs))
 API_REF_GEN=$(GOBIN)/gen-crd-api-reference-docs
 else
 API_REF_GEN=$(shell which gen-crd-api-reference-docs)
+endif
+
+setup-envtest:
+ifeq (, $(shell which setup-envtest))
+	@{ \
+	set -e ;\
+	SETUP_ENVTEST_TMP_DIR=$$(mktemp -d) ;\
+	cd $$SETUP_ENVTEST_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/controller-runtime/tools/setup-envtest@latest ;\
+	rm -rf $$SETUP_ENVTEST_TMP_DIR ;\
+	}
+SETUP_ENVTEST=$(GOBIN)/setup-envtest
+else
+SETUP_ENVTEST=$(shell which setup-envtest)
 endif
