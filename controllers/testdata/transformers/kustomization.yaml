@@ -4,7 +4,7 @@ resources:
   - quota.yaml
   - deployment.yaml
 
-namespace: deploy-system
+namespace: transformers-inline
 
 namePrefix: test-
 
