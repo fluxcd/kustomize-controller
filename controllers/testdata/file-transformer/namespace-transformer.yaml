@@ -2,7 +2,7 @@ apiVersion: builtin
 kind: NamespaceTransformer
 metadata:
   name: notImportantHere
-  namespace: second-system
+  namespace: transformer-files
 fieldSpecs:
   - path: metadata/namespace
     create: true
