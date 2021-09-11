@@ -142,16 +142,25 @@ data:
 			return k8sClient.Update(context.Background(), resultK)
 		}, timeout, time.Second).Should(BeNil())
 
+		readyCondition := &metav1.Condition{}
+		healthyCondition := &metav1.Condition{}
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
-			return ready.Reason == meta.ProgressingReason
+			readyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
+			healthyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, kustomizev1.HealthyCondition)
+			return readyCondition.Reason == meta.ProgressingReason
 		}, timeout, time.Second).Should(BeTrue())
+
+		expectedMessage := "running health checks"
+		g.Expect(readyCondition.Status).To(BeIdenticalTo(metav1.ConditionUnknown))
+		g.Expect(readyCondition.Message).To(ContainSubstring(expectedMessage))
+		g.Expect(healthyCondition.Status).To(BeIdenticalTo(metav1.ConditionUnknown))
+		g.Expect(healthyCondition.Message).To(ContainSubstring(expectedMessage))
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			healthy := apimeta.FindStatusCondition(resultK.Status.Conditions, kustomizev1.HealthyCondition)
-			return healthy.Reason == kustomizev1.HealthCheckFailedReason
+			healthyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, kustomizev1.HealthyCondition)
+			return healthyCondition.Reason == kustomizev1.HealthCheckFailedReason
 		}, time.Minute, time.Second).Should(BeTrue())
 	})
 

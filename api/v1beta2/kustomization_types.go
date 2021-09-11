@@ -228,8 +228,8 @@ type KustomizationStatus struct {
 
 // KustomizationProgressing resets the conditions of the given Kustomization to a single
 // ReadyCondition with status ConditionUnknown.
-func KustomizationProgressing(k Kustomization) Kustomization {
-	meta.SetResourceCondition(&k, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
+func KustomizationProgressing(k Kustomization, message string) Kustomization {
+	meta.SetResourceCondition(&k, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, message)
 	return k
 }
 

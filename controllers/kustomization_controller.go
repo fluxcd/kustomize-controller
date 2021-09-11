@@ -53,6 +53,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kustomize/api/filesys"
 
@@ -224,7 +225,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// set the reconciliation status to progressing
-	kustomization = kustomizev1.KustomizationProgressing(kustomization)
+	kustomization = kustomizev1.KustomizationProgressing(kustomization, "reconciliation in progress")
 	if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
 		log.Error(err, "unable to update status to progressing")
 		return ctrl.Result{Requeue: true}, err
@@ -692,13 +693,22 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context, man *ssa.Reso
 		return err
 	}
 
+	// set the Healthy and Ready conditions to progressing
+	message := fmt.Sprintf("running health checks with a timeout of %d", kustomization.GetTimeout())
+	kustomization = kustomizev1.KustomizationProgressing(kustomization, message)
+	kustomizev1.SetKustomizationHealthiness(&kustomization, metav1.ConditionUnknown, meta.ProgressingReason, message)
+	if err := r.patchStatus(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&kustomization)}, kustomization.Status); err != nil {
+		return fmt.Errorf("unable to update status to progressing, error: %w", err)
+	}
+
+	// check the health with a default timeout of 30sec shorter than the reconciliation interval
 	if err := man.Wait(objects, time.Second, kustomization.GetTimeout()); err != nil {
 		return err
 	}
 
+	// emit event if the previous health check result differs
 	healthiness := apimeta.FindStatusCondition(kustomization.Status.Conditions, kustomizev1.HealthyCondition)
 	healthy := healthiness != nil && healthiness.Status == metav1.ConditionTrue
-
 	if !healthy || (kustomization.Status.LastAppliedRevision != revision && changed) {
 		r.event(ctx, kustomization, revision, events.EventSeverityInfo, "Health check passed", nil)
 	}
