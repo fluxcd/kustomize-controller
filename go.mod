@@ -16,6 +16,7 @@ require (
 	github.com/fluxcd/pkg/untar v0.1.0
 	github.com/fluxcd/source-controller/api v0.15.4
 	github.com/go-logr/logr v0.4.0
+	github.com/google/go-cmp v0.5.5
 	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
 	github.com/onsi/gomega v1.15.0
