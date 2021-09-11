@@ -38,12 +38,10 @@ import (
 	"github.com/fluxcd/pkg/runtime/probes"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/kustomize-controller/controllers"
 	// +kubebuilder:scaffold:imports
 )
-
-const controllerName = "kustomize-controller"
 
 var (
 	scheme   = runtime.NewScheme()
@@ -89,7 +87,7 @@ func main() {
 
 	var eventRecorder *events.Recorder
 	if eventsAddr != "" {
-		if er, err := events.NewRecorder(eventsAddr, controllerName); err != nil {
+		if er, err := events.NewRecorder(eventsAddr, kustomizev1.KustomizationController); err != nil {
 			setupLog.Error(err, "unable to create event recorder")
 			os.Exit(1)
 		} else {
@@ -116,7 +114,7 @@ func main() {
 		LeaseDuration:                 &leaderElectionOptions.LeaseDuration,
 		RenewDeadline:                 &leaderElectionOptions.RenewDeadline,
 		RetryPeriod:                   &leaderElectionOptions.RetryPeriod,
-		LeaderElectionID:              fmt.Sprintf("%s-leader-election", controllerName),
+		LeaderElectionID:              fmt.Sprintf("%s-leader-election", kustomizev1.KustomizationController),
 		Namespace:                     watchNamespace,
 		Logger:                        ctrl.Log,
 	})
@@ -131,7 +129,7 @@ func main() {
 	if err = (&controllers.KustomizationReconciler{
 		Client:                mgr.GetClient(),
 		Scheme:                mgr.GetScheme(),
-		EventRecorder:         mgr.GetEventRecorderFor(controllerName),
+		EventRecorder:         mgr.GetEventRecorderFor(kustomizev1.KustomizationController),
 		ExternalEventRecorder: eventRecorder,
 		MetricsRecorder:       metricsRecorder,
 		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper()),

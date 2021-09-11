@@ -17,8 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"context"
-	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -27,7 +25,6 @@ import (
 	"strings"
 	"sync"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/konfig"
 	"sigs.k8s.io/kustomize/api/krusty"
@@ -36,45 +33,30 @@ import (
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/apis/kustomize"
-)
-
-const (
-	transformerFileName           = "kustomization-gc-labels.yaml"
-	transformerAnnotationFileName = "kustomization-gc-annotations.yaml"
 )
 
 type KustomizeGenerator struct {
 	kustomization kustomizev1.Kustomization
-	client.Client
 }
 
-func NewGenerator(kustomization kustomizev1.Kustomization, kubeClient client.Client) *KustomizeGenerator {
+func NewGenerator(kustomization kustomizev1.Kustomization) *KustomizeGenerator {
 	return &KustomizeGenerator{
 		kustomization: kustomization,
-		Client:        kubeClient,
 	}
 }
 
-func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string) (string, error) {
+func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
+	if err := kg.generateKustomization(dirPath); err != nil {
+		return err
+	}
+
 	kfile := filepath.Join(dirPath, konfig.DefaultKustomizationFileName())
-
-	checksum, err := kg.checksum(ctx, dirPath)
-	if err != nil {
-		return "", err
-	}
-
-	if err := kg.generateLabelTransformer(checksum, dirPath); err != nil {
-		return "", err
-	}
-	if err = kg.generateAnnotationTransformer(checksum, dirPath); err != nil {
-		return "", err
-	}
 
 	data, err := ioutil.ReadFile(kfile)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	kus := kustypes.Kustomization{
@@ -85,20 +67,7 @@ func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string) (st
 	}
 
 	if err := yaml.Unmarshal(data, &kus); err != nil {
-		return "", err
-	}
-
-	if len(kus.Transformers) == 0 {
-		kus.Transformers = []string{transformerFileName, transformerAnnotationFileName}
-	} else {
-		if !find(kus.Transformers, transformerFileName) {
-			kus.Transformers = append(kus.Transformers, transformerFileName)
-		}
-
-		if !find(kus.Transformers, transformerAnnotationFileName) {
-			kus.Transformers = append(kus.Transformers, transformerAnnotationFileName)
-		}
-
+		return err
 	}
 
 	if kg.kustomization.Spec.TargetNamespace != "" {
@@ -119,7 +88,7 @@ func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string) (st
 	for _, m := range kg.kustomization.Spec.PatchesJSON6902 {
 		patch, err := json.Marshal(m.Patch)
 		if err != nil {
-			return "", err
+			return err
 		}
 		kus.PatchesJson6902 = append(kus.PatchesJson6902, kustypes.Patch{
 			Patch:  string(patch),
@@ -142,10 +111,10 @@ func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string) (st
 
 	kd, err := yaml.Marshal(kus)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	return checksum, ioutil.WriteFile(kfile, kd, os.ModePerm)
+	return ioutil.WriteFile(kfile, kd, os.ModePerm)
 }
 
 func checkKustomizeImageExists(images []kustypes.Image, imageName string) (bool, int) {
@@ -193,7 +162,7 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 			}
 
 			extension := filepath.Ext(path)
-			if !containsString([]string{".yaml", ".yml"}, extension) {
+			if extension != ".yaml" && extension != ".yml" {
 				return nil
 			}
 
@@ -249,124 +218,6 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 	return ioutil.WriteFile(kfile, kd, os.ModePerm)
 }
 
-func (kg *KustomizeGenerator) checksum(ctx context.Context, dirPath string) (string, error) {
-	if err := kg.generateKustomization(dirPath); err != nil {
-		return "", fmt.Errorf("kustomize create failed: %w", err)
-	}
-
-	fs := filesys.MakeFsOnDisk()
-	m, err := buildKustomization(fs, dirPath)
-	if err != nil {
-		return "", fmt.Errorf("kustomize build failed: %w", err)
-	}
-
-	// run variable substitutions
-	if kg.kustomization.Spec.PostBuild != nil {
-		for _, res := range m.Resources() {
-			outRes, err := substituteVariables(ctx, kg.Client, kg.kustomization, res)
-			if err != nil {
-				return "", fmt.Errorf("var substitution failed for '%s': %w", res.GetName(), err)
-			}
-
-			if outRes != nil {
-				_, err = m.Replace(res)
-				if err != nil {
-					return "", err
-				}
-			}
-		}
-	}
-
-	resources, err := m.AsYaml()
-	if err != nil {
-		return "", fmt.Errorf("kustomize build failed: %w", err)
-	}
-
-	return fmt.Sprintf("%x", sha1.Sum(resources)), nil
-}
-
-func (kg *KustomizeGenerator) generateAnnotationTransformer(checksum, dirPath string) error {
-	var annotations map[string]string
-	// add checksum annotations only if GC is enabled
-	if kg.kustomization.Spec.Prune {
-		annotations = gcAnnotation(checksum)
-	}
-
-	var lt = struct {
-		ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
-		Kind       string `json:"kind" yaml:"kind"`
-		Metadata   struct {
-			Name string `json:"name" yaml:"name"`
-		} `json:"metadata" yaml:"metadata"`
-		Annotations map[string]string    `json:"annotations,omitempty" yaml:"annotations,omitempty"`
-		FieldSpecs  []kustypes.FieldSpec `json:"fieldSpecs,omitempty" yaml:"fieldSpecs,omitempty"`
-	}{
-		ApiVersion: "builtin",
-		Kind:       "AnnotationsTransformer",
-		Metadata: struct {
-			Name string `json:"name" yaml:"name"`
-		}{
-			Name: kg.kustomization.GetName(),
-		},
-		Annotations: annotations,
-		FieldSpecs: []kustypes.FieldSpec{
-			{Path: "metadata/annotations", CreateIfNotPresent: true},
-		},
-	}
-
-	data, err := yaml.Marshal(lt)
-	if err != nil {
-		return err
-	}
-
-	annotationsFile := filepath.Join(dirPath, transformerAnnotationFileName)
-	if err := ioutil.WriteFile(annotationsFile, data, os.ModePerm); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (kg *KustomizeGenerator) generateLabelTransformer(checksum, dirPath string) error {
-	labels := selectorLabels(kg.kustomization.GetName(), kg.kustomization.GetNamespace())
-
-	labels = gcLabels(kg.kustomization.GetName(), kg.kustomization.GetNamespace(), checksum)
-
-	var lt = struct {
-		ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
-		Kind       string `json:"kind" yaml:"kind"`
-		Metadata   struct {
-			Name string `json:"name" yaml:"name"`
-		} `json:"metadata" yaml:"metadata"`
-		Labels     map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
-		FieldSpecs []kustypes.FieldSpec `json:"fieldSpecs,omitempty" yaml:"fieldSpecs,omitempty"`
-	}{
-		ApiVersion: "builtin",
-		Kind:       "LabelTransformer",
-		Metadata: struct {
-			Name string `json:"name" yaml:"name"`
-		}{
-			Name: kg.kustomization.GetName(),
-		},
-		Labels: labels,
-		FieldSpecs: []kustypes.FieldSpec{
-			{Path: "metadata/labels", CreateIfNotPresent: true},
-		},
-	}
-
-	data, err := yaml.Marshal(lt)
-	if err != nil {
-		return err
-	}
-
-	labelsFile := filepath.Join(dirPath, transformerFileName)
-	if err := ioutil.WriteFile(labelsFile, data, os.ModePerm); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func adaptSelector(selector *kustomize.Selector) (output *kustypes.Selector) {
 	if selector != nil {
 		output = &kustypes.Selector{}
@@ -385,7 +236,6 @@ func adaptSelector(selector *kustomize.Selector) (output *kustypes.Selector) {
 var kustomizeBuildMutex sync.Mutex
 
 // buildKustomization wraps krusty.MakeKustomizer with the following settings:
-// - reorder the resources just before output (Namespaces and Cluster roles/role bindings first, CRDs before CRs, Webhooks last)
 // - load files from outside the kustomization.yaml root
 // - disable plugins except for the builtin ones
 func buildKustomization(fs filesys.FileSystem, dirPath string) (resmap.ResMap, error) {
@@ -395,23 +245,10 @@ func buildKustomization(fs filesys.FileSystem, dirPath string) (resmap.ResMap, e
 	defer kustomizeBuildMutex.Unlock()
 
 	buildOptions := &krusty.Options{
-		DoLegacyResourceSort: true,
-		LoadRestrictions:     kustypes.LoadRestrictionsNone,
-		AddManagedbyLabel:    false,
-		DoPrune:              false,
-		PluginConfig:         kustypes.DisabledPluginConfig(),
+		LoadRestrictions: kustypes.LoadRestrictionsNone,
+		PluginConfig:     kustypes.DisabledPluginConfig(),
 	}
 
 	k := krusty.MakeKustomizer(buildOptions)
 	return k.Run(fs, dirPath)
-}
-
-func find(source []string, value string) bool {
-	for _, item := range source {
-		if item == value {
-			return true
-		}
-	}
-
-	return false
 }

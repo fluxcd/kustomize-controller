@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestKustomizationReconciler_Vars(t *testing.T) {
+func TestKustomizationReconciler_Varsub(t *testing.T) {
 	g := NewWithT(t)
 	id := "vars-" + randStringRunes(5)
 	revision := "v1.0.0/" + randStringRunes(7)
@@ -120,10 +120,6 @@ metadata:
 				Kind: sourcev1.GitRepositoryKind,
 				Name: repositoryName.Name,
 			},
-			Suspend:    false,
-			Timeout:    nil,
-			Validation: "client",
-			Force:      false,
 			PostBuild: &kustomizev1.PostBuild{
 				Substitute: map[string]string{"_Region": "eu-central-1"},
 				SubstituteFrom: []kustomizev1.SubstituteReference{

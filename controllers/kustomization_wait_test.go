@@ -19,24 +19,24 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/fluxcd/pkg/testserver"
-	corev1 "k8s.io/api/core/v1"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"testing"
 	"time"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	. "github.com/onsi/gomega"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
 
-func TestKustomizationReconciler_Force(t *testing.T) {
+func TestKustomizationReconciler_HealthCheck(t *testing.T) {
 	g := NewWithT(t)
-	id := "force-" + randStringRunes(5)
+	id := "wait-" + randStringRunes(5)
 	revision := "v1.0.0"
 
 	err := createNamespace(id)
@@ -48,27 +48,26 @@ func TestKustomizationReconciler_Force(t *testing.T) {
 	manifests := func(name string, data string) []testserver.File {
 		return []testserver.File{
 			{
-				Name: "secret.yaml",
+				Name: "config.yaml",
 				Body: fmt.Sprintf(`---
 apiVersion: v1
-kind: Secret
+kind: ConfigMap
 metadata:
   name: %[1]s
-immutable: true
-stringData:
+data:
   key: "%[2]s"
 `, name, data),
 			},
 		}
 	}
 
-	artifact, err := testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
+	artifact, err := testServer.ArtifactFromFiles(manifests(id, id))
 	g.Expect(err).NotTo(HaveOccurred())
 
 	url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
 
 	repositoryName := types.NamespacedName{
-		Name:      fmt.Sprintf("force-%s", randStringRunes(5)),
+		Name:      fmt.Sprintf("wait-%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
@@ -76,7 +75,7 @@ stringData:
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kustomizationKey := types.NamespacedName{
-		Name:      fmt.Sprintf("force-%s", randStringRunes(5)),
+		Name:      fmt.Sprintf("wait-%s", randStringRunes(5)),
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
@@ -85,7 +84,7 @@ stringData:
 			Namespace: kustomizationKey.Namespace,
 		},
 		Spec: kustomizev1.KustomizationSpec{
-			Interval: metav1.Duration{Duration: reconciliationInterval},
+			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
 			KubeConfig: &kustomizev1.KubeConfig{
 				SecretRef: meta.LocalObjectReference{
@@ -97,76 +96,69 @@ stringData:
 				Namespace: repositoryName.Namespace,
 				Kind:      sourcev1.GitRepositoryKind,
 			},
+			TargetNamespace: id,
+			Prune:           true,
+			Timeout:         &metav1.Duration{Duration: time.Second},
 			HealthChecks: []meta.NamespacedObjectKindReference{
 				{
 					APIVersion: "v1",
-					Kind:       "Secret",
+					Kind:       "ConfigMap",
 					Name:       id,
 					Namespace:  id,
 				},
 			},
-			TargetNamespace: id,
-			Force:           false,
 		},
 	}
 
 	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
 
 	resultK := &kustomizev1.Kustomization{}
-	resultSecret := &corev1.Secret{}
 
 	g.Eventually(func() bool {
 		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 		return resultK.Status.LastAppliedRevision == revision
 	}, timeout, time.Second).Should(BeTrue())
 
-	t.Run("creates immutable secret", func(t *testing.T) {
-		g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultSecret)).Should(Succeed())
-	})
-
-	t.Run("fails to update immutable secret", func(t *testing.T) {
-		artifact, err := testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
-		g.Expect(err).NotTo(HaveOccurred())
-		url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
-		revision := "v2.0.0"
-		err = applyGitRepository(repositoryName, url, revision, "")
-		g.Expect(err).NotTo(HaveOccurred())
-
+	t.Run("reports healthy status", func(t *testing.T) {
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			return resultK.Status.LastAttemptedRevision == revision
+			ready := apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.ReadyCondition)
+			healthy := apimeta.IsStatusConditionTrue(resultK.Status.Conditions, kustomizev1.HealthyCondition)
+			return ready && healthy
 		}, timeout, time.Second).Should(BeTrue())
-
-		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.ReadyCondition)).To(BeFalse())
-
-		t.Run("emits validation error event", func(t *testing.T) {
-			events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
-			g.Expect(len(events) > 0).To(BeTrue())
-			g.Expect(events[0].Type).To(BeIdenticalTo("Warning"))
-			g.Expect(events[0].Message).To(ContainSubstring("invalid, error: secret is immutable"))
-		})
 	})
 
-	t.Run("recreates immutable secret", func(t *testing.T) {
-		artifact, err := testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
-		g.Expect(err).NotTo(HaveOccurred())
-		url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
-		revision := "v3.0.0"
-		err = applyGitRepository(repositoryName, url, revision, "")
-		g.Expect(err).NotTo(HaveOccurred())
-
+	t.Run("reports unhealthy status", func(t *testing.T) {
 		g.Eventually(func() error {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			resultK.Spec.Force = true
+			resultK.Spec.HealthChecks = []meta.NamespacedObjectKindReference{
+				{
+					APIVersion: "v1",
+					Kind:       "ConfigMap",
+					Name:       "does-not-exists",
+					Namespace:  id,
+				},
+			}
 			return k8sClient.Update(context.Background(), resultK)
 		}, timeout, time.Second).Should(BeNil())
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			return resultK.Status.LastAppliedRevision == revision
+			ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
+			return ready.Reason == meta.ProgressingReason
 		}, timeout, time.Second).Should(BeTrue())
 
-		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.ReadyCondition)).To(BeTrue())
-		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, kustomizev1.HealthyCondition)).To(BeTrue())
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			healthy := apimeta.FindStatusCondition(resultK.Status.Conditions, kustomizev1.HealthyCondition)
+			return healthy.Reason == kustomizev1.HealthCheckFailedReason
+		}, time.Minute, time.Second).Should(BeTrue())
+	})
+
+	t.Run("emits unhealthy event", func(t *testing.T) {
+		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+		g.Expect(len(events) > 0).To(BeTrue())
+		g.Expect(events[len(events)-1].Type).To(BeIdenticalTo("Warning"))
+		g.Expect(events[len(events)-1].Message).To(ContainSubstring("NotFound"))
 	})
 }

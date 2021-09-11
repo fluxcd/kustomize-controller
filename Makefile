@@ -19,11 +19,14 @@ ENVTEST_AKUBERNETES_VERSION=latest
 install-envtest: setup-envtest
 	$(SETUP_ENVTEST) use $(ENVTEST_AKUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR)
 
-# Run tests
+# Run controller tests
 KUBEBUILDER_ASSETS?="$(shell $(SETUP_ENVTEST) use -i $(ENVTEST_AKUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR) -p path)"
 test: generate fmt vet manifests api-docs download-crd-deps install-envtest
-	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./...  -v -coverprofile cover.out
-	cd api; go test ./... -v
+	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./controllers/...  -v -coverprofile cover.out
+
+# Run internal tests
+test-internal: install-envtest
+	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./internal/...  -v -coverprofile cover.out
 
 # Build manager binary
 manager: generate fmt vet
@@ -72,7 +75,7 @@ manifests: controller-gen
 
 # Generate API reference documentation
 api-docs: gen-crd-api-reference-docs
-	$(API_REF_GEN) -api-dir=./api/v1beta1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/api/kustomize.md
+	$(API_REF_GEN) -api-dir=./api/v1beta2 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/api/kustomize.md
 
 # Run go mod tidy
 tidy:

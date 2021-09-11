@@ -30,7 +30,7 @@ import (
 	"testing"
 	"time"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/testserver"
@@ -126,6 +126,14 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
+	events := &corev1.EventList{}
+	_ = k8sClient.List(ctx, events)
+	for _, event := range events.Items {
+		fmt.Println(fmt.Sprintf("%s %s \n%s\n",
+			event.InvolvedObject.Name, event.GetAnnotations()["kustomize.toolkit.fluxcd.io/revision"],
+			event.Message))
+	}
+
 	fmt.Println("Stopping the file server")
 	testServer.Stop()
 	if err := os.RemoveAll(testServer.Root()); err != nil {
@@ -146,6 +154,27 @@ func randStringRunes(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func getEvents(objName string, annotations map[string]string) []corev1.Event {
+	var result []corev1.Event
+	events := &corev1.EventList{}
+	_ = k8sClient.List(ctx, events)
+	for _, event := range events.Items {
+		if event.InvolvedObject.Name == objName {
+			if annotations == nil && len(annotations) == 0 {
+				result = append(result, event)
+			} else {
+				for ak, av := range annotations {
+					if event.GetAnnotations()[ak] == av {
+						result = append(result, event)
+						break
+					}
+				}
+			}
+		}
+	}
+	return result
 }
 
 func createNamespace(name string) error {

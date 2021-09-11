@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
@@ -80,7 +80,7 @@ data:
 	url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
 
 	repositoryName := types.NamespacedName{
-		Name:      fmt.Sprintf("%s", randStringRunes(5)),
+		Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
@@ -88,7 +88,7 @@ data:
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kustomizationKey := types.NamespacedName{
-		Name:      "sops-" + randStringRunes(5),
+		Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
@@ -97,7 +97,8 @@ data:
 			Namespace: kustomizationKey.Namespace,
 		},
 		Spec: kustomizev1.KustomizationSpec{
-			Path: "./",
+			Interval: metav1.Duration{Duration: reconciliationInterval},
+			Path:     "./",
 			KubeConfig: &kustomizev1.KubeConfig{
 				SecretRef: meta.LocalObjectReference{
 					Name: "kubeconfig",
@@ -117,17 +118,19 @@ data:
 
 	resultK := &kustomizev1.Kustomization{}
 	resultSecret := &corev1.Secret{}
+	resultConfig := &corev1.ConfigMap{}
 
 	g.Eventually(func() bool {
 		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 		return resultK.Status.LastAppliedRevision == revision
 	}, timeout, time.Second).Should(BeTrue())
 
-	t.Run("creates secret", func(t *testing.T) {
+	t.Run("creates objects", func(t *testing.T) {
 		g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultSecret)).Should(Succeed())
+		g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultConfig)).Should(Succeed())
 	})
 
-	t.Run("deletes stale secret", func(t *testing.T) {
+	t.Run("deletes stale objects", func(t *testing.T) {
 		newID := randStringRunes(5)
 		artifact, err := testServer.ArtifactFromFiles(manifests(newID, newID))
 		g.Expect(err).NotTo(HaveOccurred())
@@ -146,80 +149,20 @@ data:
 		old := &corev1.Secret{}
 		err = k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, old)
 		g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
-
 	})
 
-	t.Run("handles blockOwnerDeletion", func(t *testing.T) {
-		owner := &corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: id,
-			},
-		}
-		g.Expect(k8sClient.Create(context.Background(), owner)).To(Succeed())
-
-		sa := &corev1.ServiceAccount{}
-		g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(owner), sa)).To(Succeed())
-
-		blockOwnerDeletion := true
-		owned := &corev1.ConfigMap{
-			TypeMeta: metav1.TypeMeta{},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        "test1",
-				Namespace:   id,
-				Labels:      resultSecret.GetLabels(),
-				Annotations: resultSecret.GetAnnotations(),
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion:         "v1",
-						Kind:               "ServiceAccount",
-						Name:               sa.Name,
-						UID:                sa.UID,
-						Controller:         &blockOwnerDeletion,
-						BlockOwnerDeletion: &blockOwnerDeletion,
-					},
-				},
-			},
-		}
-		g.Expect(k8sClient.Create(context.Background(), owned)).To(Succeed())
-
-		blockOwnerDeletion = false
-		notOwned := &corev1.ConfigMap{
-			TypeMeta: metav1.TypeMeta{},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        "test2",
-				Namespace:   id,
-				Labels:      resultSecret.GetLabels(),
-				Annotations: resultSecret.GetAnnotations(),
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion:         "v1",
-						Kind:               "ServiceAccount",
-						Name:               sa.Name,
-						UID:                sa.UID,
-						Controller:         &blockOwnerDeletion,
-						BlockOwnerDeletion: &blockOwnerDeletion,
-					},
-				},
-			},
-		}
-		g.Expect(k8sClient.Create(context.Background(), notOwned)).To(Succeed())
-
+	t.Run("handles finalizer", func(t *testing.T) {
 		g.Expect(k8sClient.Delete(context.Background(), kustomization)).To(Succeed())
 		g.Eventually(func() bool {
-			err = k8sClient.Get(context.Background(), client.ObjectKey{Name: kustomization.Name, Namespace: id}, kustomization)
+			err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), kustomization)
 			return apierrors.IsNotFound(err)
 		}, timeout, time.Second).Should(BeTrue())
 
-		cf := &corev1.ConfigMap{}
-		g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(owned), cf)).To(Succeed())
-
-		err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(notOwned), cf)
+		err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(resultSecret), resultSecret)
 		g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 	})
 
 	t.Run("preserves objects with pruning disabled", func(t *testing.T) {
-		cf := &corev1.ConfigMap{}
-		g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, cf)).Should(Succeed())
+		g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(resultConfig), resultConfig)).Should(Succeed())
 	})
 }
