@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -43,6 +44,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	controllerLog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func init() {
@@ -64,6 +67,7 @@ var (
 	testMetricsH controller.Metrics
 	ctx          = ctrl.SetupSignalHandler()
 	kubeConfig   []byte
+	debugMode    = os.Getenv("DEBUG_TEST") != ""
 )
 
 // TODO: port this to github.com/fluxcd/pkg/runtime/testenv once testenv can generate kubeconfigs for admin users
@@ -71,6 +75,10 @@ func TestMain(m *testing.M) {
 	var err error
 	utilruntime.Must(sourcev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(kustomizev1.AddToScheme(scheme.Scheme))
+
+	if debugMode {
+		controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))
+	}
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "config", "crd", "bases")},
@@ -107,12 +115,13 @@ func TestMain(m *testing.M) {
 
 	testEventsH = controller.MakeEvents(k8sManager, "kustomize-controller-test", nil)
 	testMetricsH = controller.MustMakeMetrics(k8sManager)
-
-	if err := (&KustomizationReconciler{
+	reconciler := &KustomizationReconciler{
 		Client:          k8sManager.GetClient(),
 		EventRecorder:   testEventsH.EventRecorder,
 		MetricsRecorder: testMetricsH.MetricsRecorder,
-	}).SetupWithManager(k8sManager, KustomizationReconcilerOptions{MaxConcurrentReconciles: 1}); err != nil {
+	}
+
+	if err := (reconciler).SetupWithManager(k8sManager, KustomizationReconcilerOptions{MaxConcurrentReconciles: 4}); err != nil {
 		panic(fmt.Sprintf("Failed to start GitRepositoryReconciler: %v", err))
 	}
 
@@ -126,13 +135,18 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	events := &corev1.EventList{}
-	_ = k8sClient.List(ctx, events)
-	for _, event := range events.Items {
-		fmt.Println(fmt.Sprintf("%s %s \n%s\n",
-			event.InvolvedObject.Name, event.GetAnnotations()["kustomize.toolkit.fluxcd.io/revision"],
-			event.Message))
+	if debugMode {
+		events := &corev1.EventList{}
+		_ = k8sClient.List(ctx, events)
+		for _, event := range events.Items {
+			fmt.Println(fmt.Sprintf("%s %s \n%s\n",
+				event.InvolvedObject.Name, event.GetAnnotations()["kustomize.toolkit.fluxcd.io/revision"],
+				event.Message))
+		}
 	}
+
+	fmt.Println("Stopping the controller")
+	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 
 	fmt.Println("Stopping the file server")
 	testServer.Stop()

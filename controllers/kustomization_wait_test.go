@@ -129,8 +129,12 @@ data:
 	})
 
 	t.Run("reports unhealthy status", func(t *testing.T) {
+		reconcileRequestAt := metav1.Now().String()
 		g.Eventually(func() error {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			resultK.SetAnnotations(map[string]string{
+				meta.ReconcileRequestAnnotation: reconcileRequestAt,
+			})
 			resultK.Spec.HealthChecks = []meta.NamespacedObjectKindReference{
 				{
 					APIVersion: "v1",
@@ -148,7 +152,7 @@ data:
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			readyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
 			healthyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, kustomizev1.HealthyCondition)
-			return readyCondition.Reason == meta.ProgressingReason
+			return healthyCondition.Reason == meta.ProgressingReason
 		}, timeout, time.Second).Should(BeTrue())
 
 		expectedMessage := "running health checks"
@@ -159,9 +163,15 @@ data:
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			readyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
 			healthyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, kustomizev1.HealthyCondition)
 			return healthyCondition.Reason == kustomizev1.HealthCheckFailedReason
 		}, time.Minute, time.Second).Should(BeTrue())
+
+		g.Expect(resultK.Status.LastHandledReconcileAt).To(BeIdenticalTo(reconcileRequestAt))
+		g.Expect(readyCondition.Status).To(BeIdenticalTo(metav1.ConditionFalse))
+		g.Expect(healthyCondition.Status).To(BeIdenticalTo(metav1.ConditionFalse))
+		g.Expect(healthyCondition.Message).To(BeIdenticalTo(kustomizev1.HealthCheckFailedReason))
 	})
 
 	t.Run("emits unhealthy event", func(t *testing.T) {
@@ -169,5 +179,35 @@ data:
 		g.Expect(len(events) > 0).To(BeTrue())
 		g.Expect(events[len(events)-1].Type).To(BeIdenticalTo("Warning"))
 		g.Expect(events[len(events)-1].Message).To(ContainSubstring("NotFound"))
+	})
+
+	t.Run("recovers and reports healthy status", func(t *testing.T) {
+		g.Eventually(func() error {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			resultK.Spec.HealthChecks = []meta.NamespacedObjectKindReference{
+				{
+					APIVersion: "v1",
+					Kind:       "ConfigMap",
+					Name:       id,
+					Namespace:  id,
+				},
+			}
+			return k8sClient.Update(context.Background(), resultK)
+		}, timeout, time.Second).Should(BeNil())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			ready := apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.ReadyCondition)
+			healthy := apimeta.IsStatusConditionTrue(resultK.Status.Conditions, kustomizev1.HealthyCondition)
+			return ready && healthy
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
+	t.Run("emits recovery event", func(t *testing.T) {
+		expectedMessage := "Health check passed"
+		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+		g.Expect(len(events) > 1).To(BeTrue())
+		g.Expect(events[len(events)-2].Type).To(BeIdenticalTo("Normal"))
+		g.Expect(events[len(events)-2].Message).To(ContainSubstring(expectedMessage))
 	})
 }

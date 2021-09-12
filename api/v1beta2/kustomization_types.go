@@ -262,7 +262,7 @@ func KustomizationNotReady(k Kustomization, revision, reason, message string) Ku
 // KustomizationNotReadyInventory registers a failed apply attempt of the given Kustomization.
 func KustomizationNotReadyInventory(k Kustomization, inventory *Inventory, revision, reason, message string) Kustomization {
 	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
-	SetKustomizationHealthiness(&k, metav1.ConditionTrue, reason, reason)
+	SetKustomizationHealthiness(&k, metav1.ConditionFalse, reason, reason)
 	if revision != "" {
 		k.Status.LastAttemptedRevision = revision
 	}

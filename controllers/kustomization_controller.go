@@ -274,7 +274,7 @@ func (r *KustomizationReconciler) reconcile(
 		kustomization.Status.SetLastHandledReconcileRequest(v)
 	}
 
-	log := logr.FromContext(ctx)
+	revision := source.GetArtifact().Revision
 
 	// create tmp dir
 	tmpDir, err := ioutil.TempDir("", kustomization.Name)
@@ -282,7 +282,7 @@ func (r *KustomizationReconciler) reconcile(
 		err = fmt.Errorf("tmp dir error: %w", err)
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
-			source.GetArtifact().Revision,
+			revision,
 			sourcev1.StorageOperationFailedReason,
 			err.Error(),
 		), err
@@ -294,7 +294,7 @@ func (r *KustomizationReconciler) reconcile(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
-			source.GetArtifact().Revision,
+			revision,
 			kustomizev1.ArtifactFailedReason,
 			err.Error(),
 		), err
@@ -305,7 +305,7 @@ func (r *KustomizationReconciler) reconcile(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
-			source.GetArtifact().Revision,
+			revision,
 			kustomizev1.ArtifactFailedReason,
 			err.Error(),
 		), err
@@ -314,7 +314,7 @@ func (r *KustomizationReconciler) reconcile(
 		err = fmt.Errorf("kustomization path not found: %w", err)
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
-			source.GetArtifact().Revision,
+			revision,
 			kustomizev1.ArtifactFailedReason,
 			err.Error(),
 		), err
@@ -326,7 +326,7 @@ func (r *KustomizationReconciler) reconcile(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
-			source.GetArtifact().Revision,
+			revision,
 			meta.ReconciliationFailedReason,
 			err.Error(),
 		), fmt.Errorf("failed to build kube client: %w", err)
@@ -337,7 +337,7 @@ func (r *KustomizationReconciler) reconcile(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
-			source.GetArtifact().Revision,
+			revision,
 			kustomizev1.BuildFailedReason,
 			err.Error(),
 		), err
@@ -348,7 +348,7 @@ func (r *KustomizationReconciler) reconcile(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
-			source.GetArtifact().Revision,
+			revision,
 			kustomizev1.BuildFailedReason,
 			err.Error(),
 		), err
@@ -358,7 +358,7 @@ func (r *KustomizationReconciler) reconcile(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
-			source.GetArtifact().Revision,
+			revision,
 			kustomizev1.BuildFailedReason,
 			err.Error(),
 		), err
@@ -376,7 +376,7 @@ func (r *KustomizationReconciler) reconcile(
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
-			source.GetArtifact().Revision,
+			revision,
 			kustomizev1.BuildFailedReason,
 			err.Error(),
 		), err
@@ -390,122 +390,41 @@ func (r *KustomizationReconciler) reconcile(
 		if err != nil {
 			return kustomizev1.KustomizationNotReady(
 				kustomization,
-				source.GetArtifact().Revision,
-				kustomizev1.BuildFailedReason,
-				err.Error(),
-			), err
-		}
-	}
-
-	// contains only CRDs and Namespaces
-	var stageOne []*unstructured.Unstructured
-
-	// contains all objects except for CRDs and Namespaces
-	var stageTwo []*unstructured.Unstructured
-
-	for _, u := range objects {
-		if resourceManager.IsClusterDefinition(u.GetKind()) {
-			stageOne = append(stageOne, u)
-		} else {
-			stageTwo = append(stageTwo, u)
-		}
-	}
-
-	var changeSetLog strings.Builder
-
-	// validate, apply and wait for CRDs and Namespaces to register
-	if len(stageOne) > 0 {
-		changeSet, err := resourceManager.ApplyAll(ctx, stageOne, kustomization.Spec.Force)
-		if err != nil {
-			return kustomizev1.KustomizationNotReady(
-				kustomization,
-				source.GetArtifact().Revision,
-				meta.ReconciliationFailedReason,
-				err.Error(),
-			), err
-		}
-
-		if changeSet != nil && len(changeSet.Entries) > 0 {
-			log.Info("server-side apply completed", "output", changeSet.ToMap())
-			for _, change := range changeSet.Entries {
-				if change.Action != string(ssa.UnchangedAction) {
-					changeSetLog.WriteString(change.String() + "\n")
-				}
-			}
-		}
-
-		if err := resourceManager.Wait(stageOne, 2*time.Second, kustomization.GetTimeout()); err != nil {
-			return kustomizev1.KustomizationNotReady(
-				kustomization,
-				source.GetArtifact().Revision,
+				revision,
 				meta.ReconciliationFailedReason,
 				err.Error(),
 			), err
 		}
 	}
 
-	// sort by kind, validate and apply all the others objects
-	sort.Sort(objectutil.SortableUnstructureds(stageTwo))
-	if len(stageTwo) > 0 {
-		changeSet, err := resourceManager.ApplyAll(ctx, stageTwo, kustomization.Spec.Force)
-		if err != nil {
-			return kustomizev1.KustomizationNotReady(
-				kustomization,
-				source.GetArtifact().Revision,
-				meta.ReconciliationFailedReason,
-				err.Error(),
-			), err
-		}
-
-		if changeSet != nil && len(changeSet.Entries) > 0 {
-			log.Info("server-side apply completed", "output", changeSet.ToMap())
-			for _, change := range changeSet.Entries {
-				if change.Action != string(ssa.UnchangedAction) {
-					changeSetLog.WriteString(change.String() + "\n")
-				}
-			}
-		}
-	}
-
-	// emit event only if the server-side apply resulted in changes
-	applyLog := strings.TrimSuffix(changeSetLog.String(), "\n")
-	if applyLog == "" {
-		log.Info("server-side apply dry-run completed: no drift detected")
-	} else {
-		r.event(ctx, kustomization, source.GetArtifact().Revision, events.EventSeverityInfo, applyLog, nil)
+	// validate and apply resources in stages
+	drifted, err := r.apply(ctx, resourceManager, kustomization, revision, objects)
+	if err != nil {
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			revision,
+			meta.ReconciliationFailedReason,
+			err.Error(),
+		), err
 	}
 
 	// run garbage collection for stale objects that do not have pruning disabled
-	if kustomization.Spec.Prune {
-		changeSet, err := resourceManager.DeleteAll(ctx, staleObjects,
-			map[string]string{
-				fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
-			},
-		)
-		if err != nil {
-			return kustomizev1.KustomizationNotReadyInventory(
-				kustomization,
-				newInventory,
-				source.GetArtifact().Revision,
-				kustomizev1.PruneFailedReason,
-				err.Error(),
-			), err
-		}
-
-		// emit event only if the prune operation resulted in changes
-		if changeSet != nil && len(changeSet.Entries) > 0 {
-			log.Info(fmt.Sprintf("garbage collection completed: %s", changeSet.String()))
-			r.event(ctx, kustomization, source.GetArtifact().Revision, events.EventSeverityInfo, changeSet.String(), nil)
-		}
-	}
-
-	// health assessment
-	err = r.checkHealth(ctx, resourceManager, kustomization, source.GetArtifact().Revision, applyLog != "")
-	if err != nil {
+	if _, err := r.prune(ctx, resourceManager, kustomization, revision, staleObjects); err != nil {
 		return kustomizev1.KustomizationNotReadyInventory(
 			kustomization,
 			newInventory,
-			source.GetArtifact().Revision,
+			revision,
+			kustomizev1.PruneFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// health assessment
+	if err := r.checkHealth(ctx, resourceManager, kustomization, revision, drifted); err != nil {
+		return kustomizev1.KustomizationNotReadyInventory(
+			kustomization,
+			newInventory,
+			revision,
 			kustomizev1.HealthCheckFailedReason,
 			err.Error(),
 		), err
@@ -514,9 +433,9 @@ func (r *KustomizationReconciler) reconcile(
 	return kustomizev1.KustomizationReadyInventory(
 		kustomization,
 		newInventory,
-		source.GetArtifact().Revision,
+		revision,
 		meta.ReconciliationSucceededReason,
-		"Applied revision: "+source.GetArtifact().Revision,
+		fmt.Sprintf("Applied revision: %s", revision),
 	), nil
 }
 
@@ -683,36 +602,132 @@ func (r *KustomizationReconciler) build(ctx context.Context, kustomization kusto
 	return resources, nil
 }
 
-func (r *KustomizationReconciler) checkHealth(ctx context.Context, man *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, changed bool) error {
+func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, objects []*unstructured.Unstructured) (bool, error) {
+	log := logr.FromContext(ctx)
+
+	// contains only CRDs and Namespaces
+	var stageOne []*unstructured.Unstructured
+
+	// contains all objects except for CRDs and Namespaces
+	var stageTwo []*unstructured.Unstructured
+
+	for _, u := range objects {
+		if manager.IsClusterDefinition(u.GetKind()) {
+			stageOne = append(stageOne, u)
+		} else {
+			stageTwo = append(stageTwo, u)
+		}
+	}
+
+	var changeSetLog strings.Builder
+
+	// validate, apply and wait for CRDs and Namespaces to register
+	if len(stageOne) > 0 {
+		changeSet, err := manager.ApplyAll(ctx, stageOne, kustomization.Spec.Force)
+		if err != nil {
+			return false, err
+		}
+
+		if changeSet != nil && len(changeSet.Entries) > 0 {
+			log.Info("server-side apply completed", "output", changeSet.ToMap())
+			for _, change := range changeSet.Entries {
+				if change.Action != string(ssa.UnchangedAction) {
+					changeSetLog.WriteString(change.String() + "\n")
+				}
+			}
+		}
+
+		if err := manager.Wait(stageOne, 2*time.Second, kustomization.GetTimeout()); err != nil {
+			return false, err
+		}
+	}
+
+	// sort by kind, validate and apply all the others objects
+	sort.Sort(objectutil.SortableUnstructureds(stageTwo))
+	if len(stageTwo) > 0 {
+		changeSet, err := manager.ApplyAll(ctx, stageTwo, kustomization.Spec.Force)
+		if err != nil {
+			return false, err
+		}
+
+		if changeSet != nil && len(changeSet.Entries) > 0 {
+			log.Info("server-side apply completed", "output", changeSet.ToMap())
+			for _, change := range changeSet.Entries {
+				if change.Action != string(ssa.UnchangedAction) {
+					changeSetLog.WriteString(change.String() + "\n")
+				}
+			}
+		}
+	}
+
+	// emit event only if the server-side apply resulted in changes
+	applyLog := strings.TrimSuffix(changeSetLog.String(), "\n")
+	if applyLog != "" {
+		r.event(ctx, kustomization, revision, events.EventSeverityInfo, applyLog, nil)
+	}
+
+	return applyLog != "", nil
+}
+
+func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, drifted bool) error {
 	if len(kustomization.Spec.HealthChecks) == 0 {
 		return nil
 	}
 
+	checkStart := time.Now()
 	objects, err := referenceToUnstructured(kustomization.Spec.HealthChecks)
 	if err != nil {
 		return err
 	}
 
+	// find the previous health check result
+	wasHealthy := apimeta.IsStatusConditionTrue(kustomization.Status.Conditions, kustomizev1.HealthyCondition)
+
 	// set the Healthy and Ready conditions to progressing
 	message := fmt.Sprintf("running health checks with a timeout of %d", kustomization.GetTimeout())
-	kustomization = kustomizev1.KustomizationProgressing(kustomization, message)
-	kustomizev1.SetKustomizationHealthiness(&kustomization, metav1.ConditionUnknown, meta.ProgressingReason, message)
-	if err := r.patchStatus(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&kustomization)}, kustomization.Status); err != nil {
-		return fmt.Errorf("unable to update status to progressing, error: %w", err)
+	k := kustomizev1.KustomizationProgressing(kustomization, message)
+	kustomizev1.SetKustomizationHealthiness(&k, metav1.ConditionUnknown, meta.ProgressingReason, message)
+	if err := r.patchStatus(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&kustomization)}, k.Status); err != nil {
+		return fmt.Errorf("unable to update the healthy status to progressing, error: %w", err)
 	}
 
 	// check the health with a default timeout of 30sec shorter than the reconciliation interval
-	if err := man.Wait(objects, time.Second, kustomization.GetTimeout()); err != nil {
-		return err
+	if err := manager.Wait(objects, time.Second, kustomization.GetTimeout()); err != nil {
+		return fmt.Errorf("Health check failed after %s, %w", time.Now().Sub(checkStart).String(), err)
 	}
 
-	// emit event if the previous health check result differs
-	healthiness := apimeta.FindStatusCondition(kustomization.Status.Conditions, kustomizev1.HealthyCondition)
-	healthy := healthiness != nil && healthiness.Status == metav1.ConditionTrue
-	if !healthy || (kustomization.Status.LastAppliedRevision != revision && changed) {
-		r.event(ctx, kustomization, revision, events.EventSeverityInfo, "Health check passed", nil)
+	// emit event if the previous health check failed
+	if !wasHealthy || (kustomization.Status.LastAppliedRevision != revision && drifted) {
+		r.event(ctx, kustomization, revision, events.EventSeverityInfo,
+			fmt.Sprintf("Health check passed in %s", time.Now().Sub(checkStart).String()), nil)
 	}
+
 	return nil
+}
+
+func (r *KustomizationReconciler) prune(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, objects []*unstructured.Unstructured) (bool, error) {
+	if !kustomization.Spec.Prune {
+		return false, nil
+	}
+
+	log := logr.FromContext(ctx)
+	changeSet, err := manager.DeleteAll(ctx, objects,
+		map[string]string{
+			fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
+		},
+	)
+	if err != nil {
+		return false, err
+	}
+
+	// emit event only if the prune operation resulted in changes
+	if changeSet != nil && len(changeSet.Entries) > 0 {
+		log.Info(fmt.Sprintf("garbage collection completed: %s", changeSet.String()))
+		r.event(ctx, kustomization, revision, events.EventSeverityInfo, changeSet.String(), nil)
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization kustomizev1.Kustomization) (ctrl.Result, error) {
