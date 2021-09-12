@@ -733,37 +733,36 @@ func (r *KustomizationReconciler) prune(ctx context.Context, manager *ssa.Resour
 func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization kustomizev1.Kustomization) (ctrl.Result, error) {
 	log := logr.FromContext(ctx)
 	if kustomization.Spec.Prune && !kustomization.Spec.Suspend {
-		// create any necessary kube-clients
-		imp := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, "")
-		kubeClient, _, err := imp.GetClient(ctx)
-		if err != nil {
-			err = fmt.Errorf("failed to build kube client for Kustomization: %w", err)
-			log.Error(err, "Unable to prune for finalizer")
-			return ctrl.Result{}, err
-		}
-
-		resourceManager := ssa.NewResourceManager(kubeClient, nil, ssa.Owner{
-			Field: kustomizev1.KustomizationController,
-			Group: kustomizev1.GroupVersion.Group,
-		})
-
 		objects, err := ListObjectsInInventory(kustomization.Status.Inventory)
 
-		changeSet, err := resourceManager.DeleteAll(ctx, objects,
-			map[string]string{
-				fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
-			},
-		)
+		impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, "")
+		kubeClient, _, err := impersonation.GetClient(ctx)
 		if err != nil {
-			r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
-			// Return the error so we retry the failed garbage collection
-			return ctrl.Result{}, err
-		}
+			// when impersonation fails, log the stale objects and continue with the finalization
+			msg := fmt.Sprintf("unable to prune objects: \n%s", objectutil.FmtUnstructuredList(objects))
+			log.Error(fmt.Errorf("failed to build kube client: %w", err), msg)
+			r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, msg, nil)
+		} else {
+			resourceManager := ssa.NewResourceManager(kubeClient, nil, ssa.Owner{
+				Field: kustomizev1.KustomizationController,
+				Group: kustomizev1.GroupVersion.Group,
+			})
 
-		if changeSet != nil && len(changeSet.Entries) > 0 {
-			r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityInfo, changeSet.String(), nil)
-		}
+			changeSet, err := resourceManager.DeleteAll(ctx, objects,
+				map[string]string{
+					fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
+				},
+			)
+			if err != nil {
+				r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
+				// Return the error so we retry the failed garbage collection
+				return ctrl.Result{}, err
+			}
 
+			if changeSet != nil && len(changeSet.Entries) > 0 {
+				r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityInfo, changeSet.String(), nil)
+			}
+		}
 	}
 
 	// Record deleted status

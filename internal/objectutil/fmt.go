@@ -42,6 +42,15 @@ func FmtUnstructured(obj *unstructured.Unstructured) string {
 	return FmtObjMetadata(object.UnstructuredToObjMeta(obj))
 }
 
+// FmtUnstructuredList returns a line per object in the format <kind>/<namespace>/<name>.
+func FmtUnstructuredList(objects []*unstructured.Unstructured) string {
+	var b strings.Builder
+	for _, obj := range objects {
+		b.WriteString(FmtObjMetadata(object.UnstructuredToObjMeta(obj)) + "\n")
+	}
+	return strings.TrimSuffix(b.String(), "\n")
+}
+
 // MaskSecret replaces the data key values with the given mask.
 func MaskSecret(object *unstructured.Unstructured, mask string) (*unstructured.Unstructured, error) {
 	data, found, err := unstructured.NestedMap(object.Object, "data")
