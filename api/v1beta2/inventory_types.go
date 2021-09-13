@@ -29,5 +29,5 @@ type Entry struct {
 	ObjectID string `json:"id"`
 
 	// ObjectVersion is the API version of this  Kubernetes object kind.
-	ObjectVersion string `json:"ver"`
+	ObjectVersion string `json:"v"`
 }

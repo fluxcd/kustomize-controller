@@ -80,6 +80,7 @@ type KustomizationReconciler struct {
 	ExternalEventRecorder *events.Recorder
 	MetricsRecorder       *metrics.Recorder
 	StatusPoller          *polling.StatusPoller
+	ControllerName        string
 }
 
 type KustomizationReconcilerOptions struct {
@@ -365,7 +366,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	resourceManager := ssa.NewResourceManager(kubeClient, statusPoller, ssa.Owner{
-		Field: kustomizev1.KustomizationController,
+		Field: r.ControllerName,
 		Group: kustomizev1.GroupVersion.Group,
 	})
 	resourceManager.SetOwnerLabels(objects, kustomization.GetName(), kustomization.GetNamespace())
@@ -420,7 +421,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// health assessment
-	if err := r.checkHealth(ctx, resourceManager, kustomization, revision, drifted); err != nil {
+	if err := r.checkHealth(ctx, resourceManager, kustomization, revision, drifted, objects); err != nil {
 		return kustomizev1.KustomizationNotReadyInventory(
 			kustomization,
 			newInventory,
@@ -669,15 +670,18 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	return applyLog != "", nil
 }
 
-func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, drifted bool) error {
-	if len(kustomization.Spec.HealthChecks) == 0 {
+func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, drifted bool, objects []*unstructured.Unstructured) error {
+	if len(kustomization.Spec.HealthChecks) == 0 && !kustomization.Spec.Wait {
 		return nil
 	}
 
 	checkStart := time.Now()
-	objects, err := referenceToUnstructured(kustomization.Spec.HealthChecks)
-	if err != nil {
-		return err
+	var err error
+	if !kustomization.Spec.Wait {
+		objects, err = referenceToUnstructured(kustomization.Spec.HealthChecks)
+		if err != nil {
+			return err
+		}
 	}
 
 	// find the previous health check result
@@ -744,7 +748,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 			r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, msg, nil)
 		} else {
 			resourceManager := ssa.NewResourceManager(kubeClient, nil, ssa.Owner{
-				Field: kustomizev1.KustomizationController,
+				Field: r.ControllerName,
 				Group: kustomizev1.GroupVersion.Group,
 			})
 

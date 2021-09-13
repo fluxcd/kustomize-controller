@@ -43,6 +43,8 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
+const controllerName = "kustomize-controller"
+
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
@@ -87,7 +89,7 @@ func main() {
 
 	var eventRecorder *events.Recorder
 	if eventsAddr != "" {
-		if er, err := events.NewRecorder(eventsAddr, kustomizev1.KustomizationController); err != nil {
+		if er, err := events.NewRecorder(eventsAddr, controllerName); err != nil {
 			setupLog.Error(err, "unable to create event recorder")
 			os.Exit(1)
 		} else {
@@ -114,7 +116,7 @@ func main() {
 		LeaseDuration:                 &leaderElectionOptions.LeaseDuration,
 		RenewDeadline:                 &leaderElectionOptions.RenewDeadline,
 		RetryPeriod:                   &leaderElectionOptions.RetryPeriod,
-		LeaderElectionID:              fmt.Sprintf("%s-leader-election", kustomizev1.KustomizationController),
+		LeaderElectionID:              fmt.Sprintf("%s-leader-election", controllerName),
 		Namespace:                     watchNamespace,
 		Logger:                        ctrl.Log,
 	})
@@ -127,9 +129,10 @@ func main() {
 	pprof.SetupHandlers(mgr, setupLog)
 
 	if err = (&controllers.KustomizationReconciler{
+		ControllerName:        controllerName,
 		Client:                mgr.GetClient(),
 		Scheme:                mgr.GetScheme(),
-		EventRecorder:         mgr.GetEventRecorderFor(kustomizev1.KustomizationController),
+		EventRecorder:         mgr.GetEventRecorderFor(controllerName),
 		ExternalEventRecorder: eventRecorder,
 		MetricsRecorder:       metricsRecorder,
 		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper()),
@@ -138,7 +141,7 @@ func main() {
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,
 	}); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", kustomizev1.KustomizationKind)
+		setupLog.Error(err, "unable to create controller", "controller", controllerName)
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

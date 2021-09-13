@@ -722,6 +722,9 @@ spec:
               timeout:
                 description: Timeout for validation, apply and health checking operations. Defaults to 'Interval' duration.
                 type: string
+              wait:
+                description: Wait instructs the controller to check the health of all the reconciled resources. When enabled, the HealthChecks are ignored. Defaults to false.
+                type: boolean
             required:
             - interval
             - prune
@@ -786,12 +789,12 @@ spec:
                         id:
                           description: ObjectID is the string representation of a Kubernetes object metadata, in the format '<namespace>_<name>_<group>_<kind>'.
                           type: string
-                        ver:
+                        v:
                           description: ObjectVersion is the API version of this  Kubernetes object kind.
                           type: string
                       required:
                       - id
-                      - ver
+                      - v
                       type: object
                     type: array
                 required:

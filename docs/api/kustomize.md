@@ -337,6 +337,19 @@ bool
 when patching fails due to an immutable field change.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>wait</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Wait instructs the controller to check the health of all the reconciled resources.
+When enabled, the HealthChecks are ignored. Defaults to false.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -501,7 +514,7 @@ in the format &lsquo;<namespace><em><name></em><group>_<kind>&rsquo;.</p>
 </tr>
 <tr>
 <td>
-<code>ver</code><br>
+<code>v</code><br>
 <em>
 string
 </em>
@@ -873,6 +886,19 @@ bool
 <em>(Optional)</em>
 <p>Force instructs the controller to recreate resources
 when patching fails due to an immutable field change.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>wait</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Wait instructs the controller to check the health of all the reconciled resources.
+When enabled, the HealthChecks are ignored. Defaults to false.</p>
 </td>
 </tr>
 </tbody>

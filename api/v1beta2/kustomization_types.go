@@ -17,11 +17,10 @@ limitations under the License.
 package v1beta2
 
 import (
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -31,7 +30,6 @@ import (
 )
 
 const (
-	KustomizationController   = "kustomize-controller"
 	KustomizationKind         = "Kustomization"
 	KustomizationFinalizer    = "finalizers.fluxcd.io"
 	MaxConditionMessageLength = 20000
@@ -137,6 +135,11 @@ type KustomizationSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	Force bool `json:"force,omitempty"`
+
+	// Wait instructs the controller to check the health of all the reconciled resources.
+	// When enabled, the HealthChecks are ignored. Defaults to false.
+	// +optional
+	Wait bool `json:"wait,omitempty"`
 }
 
 // Decryption defines how decryption is handled for Kubernetes manifests.
@@ -235,12 +238,12 @@ func KustomizationProgressing(k Kustomization, message string) Kustomization {
 
 // SetKustomizationHealthiness sets the HealthyCondition status for a Kustomization.
 func SetKustomizationHealthiness(k *Kustomization, status metav1.ConditionStatus, reason, message string) {
-	switch len(k.Spec.HealthChecks) {
-	case 0:
+	if !k.Spec.Wait && len(k.Spec.HealthChecks) == 0 {
 		apimeta.RemoveStatusCondition(k.GetStatusConditions(), HealthyCondition)
-	default:
+	} else {
 		meta.SetResourceCondition(k, HealthyCondition, status, reason, trimString(message, MaxConditionMessageLength))
 	}
+
 }
 
 // SetKustomizationReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision, on the Kustomization.

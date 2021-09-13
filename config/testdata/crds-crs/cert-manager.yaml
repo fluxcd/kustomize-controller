@@ -19,13 +19,5 @@ spec:
   sourceRef:
     kind: GitRepository
     name: certs
-  healthChecks:
-    - apiVersion: apps/v1
-      kind: Deployment
-      name: cert-manager
-      namespace: cert-manager
-    - apiVersion: apps/v1
-      kind: Deployment
-      name: cert-manager-webhook
-      namespace: cert-manager
+  wait: true
   timeout: 2m

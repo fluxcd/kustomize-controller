@@ -99,14 +99,7 @@ data:
 			TargetNamespace: id,
 			Prune:           true,
 			Timeout:         &metav1.Duration{Duration: time.Second},
-			HealthChecks: []meta.NamespacedObjectKindReference{
-				{
-					APIVersion: "v1",
-					Kind:       "ConfigMap",
-					Name:       id,
-					Namespace:  id,
-				},
-			},
+			Wait:            true,
 		},
 	}
 
@@ -135,6 +128,7 @@ data:
 			resultK.SetAnnotations(map[string]string{
 				meta.ReconcileRequestAnnotation: reconcileRequestAt,
 			})
+			resultK.Spec.Wait = false
 			resultK.Spec.HealthChecks = []meta.NamespacedObjectKindReference{
 				{
 					APIVersion: "v1",
@@ -184,14 +178,7 @@ data:
 	t.Run("recovers and reports healthy status", func(t *testing.T) {
 		g.Eventually(func() error {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			resultK.Spec.HealthChecks = []meta.NamespacedObjectKindReference{
-				{
-					APIVersion: "v1",
-					Kind:       "ConfigMap",
-					Name:       id,
-					Namespace:  id,
-				},
-			}
+			resultK.Spec.Wait = true
 			return k8sClient.Update(context.Background(), resultK)
 		}, timeout, time.Second).Should(BeNil())
 

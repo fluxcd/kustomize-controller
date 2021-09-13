@@ -113,9 +113,11 @@ func TestMain(m *testing.M) {
 		Scheme: scheme.Scheme,
 	})
 
-	testEventsH = controller.MakeEvents(k8sManager, "kustomize-controller-test", nil)
+	controllerName := "kustomize-controller"
+	testEventsH = controller.MakeEvents(k8sManager, controllerName, nil)
 	testMetricsH = controller.MustMakeMetrics(k8sManager)
 	reconciler := &KustomizationReconciler{
+		ControllerName:  controllerName,
 		Client:          k8sManager.GetClient(),
 		EventRecorder:   testEventsH.EventRecorder,
 		MetricsRecorder: testMetricsH.MetricsRecorder,
