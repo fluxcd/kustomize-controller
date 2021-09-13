@@ -58,6 +58,7 @@ jobs:
             echo -e "${RESULT}\n\ndoes not equal\n\n${EXPECTED}"
             exit 1
           fi
+          kubectl delete -f config/testdata/status-defaults
       - name: Deploy controllers
         run: |
           make dev-deploy IMG=test/kustomize-controller:latest
@@ -80,6 +81,11 @@ jobs:
           kubectl -n impersonation wait kustomizations/podinfo --for=condition=ready --timeout=4m
           kubectl -n impersonation delete kustomizations/podinfo
           until kubectl -n impersonation get deploy/podinfo 2>&1 | grep NotFound ; do sleep 2; done
+      - name: Run CRDs + CRs tests
+        run: |
+          kubectl -n kustomize-system apply -f ./config/testdata/crds-crs
+          kubectl -n kustomize-system wait kustomizations/certs --for=condition=ready --timeout=4m
+          kubectl -n kustomizer-cert-test wait issuers/my-ca-issuer --for=condition=ready --timeout=1m
       - name: Logs
         run: |
           kubectl -n kustomize-system logs deploy/source-controller

@@ -647,7 +647,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	if len(stageTwo) > 0 {
 		changeSet, err := manager.ApplyAll(ctx, stageTwo, kustomization.Spec.Force)
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("%w\n%s", err, changeSetLog.String())
 		}
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {

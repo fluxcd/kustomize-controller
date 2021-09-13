@@ -1,0 +1,31 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: certs
+spec:
+  interval: 15m
+  url: https://github.com/stefanprodan/kustomizer
+  ref:
+    tag: "v1.1.0"
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: certs
+spec:
+  interval: 10m
+  path: "./testdata/certs"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: certs
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: cert-manager
+      namespace: cert-manager
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: cert-manager-webhook
+      namespace: cert-manager
+  timeout: 2m
