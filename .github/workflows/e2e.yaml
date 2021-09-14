@@ -34,7 +34,9 @@ jobs:
         uses: fluxcd/pkg/actions/kubectl@main
         with:
           version: 1.21.2
-      - name: Run tests
+      - name: Run internal tests
+        run: make test-internal
+      - name: Run controller tests
         run: make test
       - name: Check if working tree is dirty
         run: |

@@ -779,7 +779,7 @@ spec:
                   type: object
                 type: array
               inventory:
-                description: The last successfully applied revision metadata.
+                description: Inventory contains the list of Kubernetes resource object references that have been successfully applied.
                 properties:
                   entries:
                     description: Entries of Kubernetes resource object references.

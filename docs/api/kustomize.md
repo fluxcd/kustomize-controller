@@ -920,7 +920,7 @@ ResourceInventory
 </td>
 <td>
 <em>(Optional)</em>
-<p>The last successfully applied revision metadata.</p>
+<p>Inventory contains the list of Kubernetes resource object references that have been successfully applied.</p>
 </td>
 </tr>
 </tbody>
