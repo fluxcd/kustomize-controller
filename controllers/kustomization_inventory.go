@@ -28,14 +28,14 @@ import (
 	"github.com/fluxcd/kustomize-controller/internal/objectutil"
 )
 
-func NewInventory() *kustomizev1.Inventory {
-	return &kustomizev1.Inventory{
-		Entries: []kustomizev1.Entry{},
+func NewInventory() *kustomizev1.ResourceInventory {
+	return &kustomizev1.ResourceInventory{
+		Entries: []kustomizev1.ResourceRef{},
 	}
 }
 
 // AddObjectsToInventory extracts the metadata from the given objects and adds it to the inventory.
-func AddObjectsToInventory(inv *kustomizev1.Inventory, objects []*unstructured.Unstructured) error {
+func AddObjectsToInventory(inv *kustomizev1.ResourceInventory, objects []*unstructured.Unstructured) error {
 	sort.Sort(objectutil.SortableUnstructureds(objects))
 	for _, om := range objects {
 		objMetadata := object.UnstructuredToObjMeta(om)
@@ -44,9 +44,9 @@ func AddObjectsToInventory(inv *kustomizev1.Inventory, objects []*unstructured.U
 			return err
 		}
 
-		inv.Entries = append(inv.Entries, kustomizev1.Entry{
-			ObjectID:      objMetadata.String(),
-			ObjectVersion: gv.Version,
+		inv.Entries = append(inv.Entries, kustomizev1.ResourceRef{
+			ID:      objMetadata.String(),
+			Version: gv.Version,
 		})
 	}
 
@@ -54,11 +54,11 @@ func AddObjectsToInventory(inv *kustomizev1.Inventory, objects []*unstructured.U
 }
 
 // ListObjectsInInventory returns the inventory entries as unstructured.Unstructured objects.
-func ListObjectsInInventory(inv *kustomizev1.Inventory) ([]*unstructured.Unstructured, error) {
+func ListObjectsInInventory(inv *kustomizev1.ResourceInventory) ([]*unstructured.Unstructured, error) {
 	objects := make([]*unstructured.Unstructured, 0)
 
 	for _, entry := range inv.Entries {
-		objMetadata, err := object.ParseObjMetadata(entry.ObjectID)
+		objMetadata, err := object.ParseObjMetadata(entry.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +67,7 @@ func ListObjectsInInventory(inv *kustomizev1.Inventory) ([]*unstructured.Unstruc
 		u.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   objMetadata.GroupKind.Group,
 			Kind:    objMetadata.GroupKind.Kind,
-			Version: entry.ObjectVersion,
+			Version: entry.Version,
 		})
 		u.SetName(objMetadata.Name)
 		u.SetNamespace(objMetadata.Namespace)
@@ -79,10 +79,10 @@ func ListObjectsInInventory(inv *kustomizev1.Inventory) ([]*unstructured.Unstruc
 }
 
 // ListMetaInInventory returns the inventory entries as object.ObjMetadata objects.
-func ListMetaInInventory(inv *kustomizev1.Inventory) ([]object.ObjMetadata, error) {
+func ListMetaInInventory(inv *kustomizev1.ResourceInventory) ([]object.ObjMetadata, error) {
 	var metas []object.ObjMetadata
 	for _, e := range inv.Entries {
-		m, err := object.ParseObjMetadata(e.ObjectID)
+		m, err := object.ParseObjMetadata(e.ID)
 		if err != nil {
 			return metas, err
 		}
@@ -93,11 +93,11 @@ func ListMetaInInventory(inv *kustomizev1.Inventory) ([]object.ObjMetadata, erro
 }
 
 // DiffInventory returns the slice of objects that do not exist in the target inventory.
-func DiffInventory(inv *kustomizev1.Inventory, target *kustomizev1.Inventory) ([]*unstructured.Unstructured, error) {
-	versionOf := func(i *kustomizev1.Inventory, objMetadata object.ObjMetadata) string {
+func DiffInventory(inv *kustomizev1.ResourceInventory, target *kustomizev1.ResourceInventory) ([]*unstructured.Unstructured, error) {
+	versionOf := func(i *kustomizev1.ResourceInventory, objMetadata object.ObjMetadata) string {
 		for _, entry := range i.Entries {
-			if entry.ObjectID == objMetadata.String() {
-				return entry.ObjectVersion
+			if entry.ID == objMetadata.String() {
+				return entry.Version
 			}
 		}
 		return ""

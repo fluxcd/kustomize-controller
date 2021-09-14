@@ -16,18 +16,18 @@ limitations under the License.
 
 package v1beta2
 
-// Inventory is a record of objects that have been reconciled.
-type Inventory struct {
-	// Entries of Kubernetes objects IDs.
-	Entries []Entry `json:"entries"`
+// ResourceInventory contains a list of Kubernetes resource object references that have been applied by a Kustomization.
+type ResourceInventory struct {
+	// Entries of Kubernetes resource object references.
+	Entries []ResourceRef `json:"entries"`
 }
 
-// Entry contains the information necessary to locate a resource within a cluster.
-type Entry struct {
-	// ObjectID is the string representation of a Kubernetes object metadata,
+// ResourceRef contains the information necessary to locate a resource within a cluster.
+type ResourceRef struct {
+	// ID is the string representation of the Kubernetes resource object's metadata,
 	// in the format '<namespace>_<name>_<group>_<kind>'.
-	ObjectID string `json:"id"`
+	ID string `json:"id"`
 
-	// ObjectVersion is the API version of this  Kubernetes object kind.
-	ObjectVersion string `json:"v"`
+	// Version is the API version of the Kubernetes resource object's kind.
+	Version string `json:"v"`
 }

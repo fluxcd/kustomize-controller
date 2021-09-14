@@ -6,7 +6,7 @@
 </li>
 </ul>
 <h2 id="kustomize.toolkit.fluxcd.io/v1beta2">kustomize.toolkit.fluxcd.io/v1beta2</h2>
-<p>Package v1beta2 contains API Schema definitions for the kustomize v1beta2 API group</p>
+<p>Package v1beta2 contains API Schema definitions for the kustomize.toolkit.fluxcd.io v1beta2 API group.</p>
 Resource Types:
 <ul class="simple"><li>
 <a href="#kustomize.toolkit.fluxcd.io/v1beta2.Kustomization">Kustomization</a>
@@ -376,7 +376,7 @@ KustomizationStatus
 <a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>CrossNamespaceSourceReference contains enough information to let you locate the
-typed referenced object at cluster level</p>
+typed Kubernetes resource object at cluster level.</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -396,7 +396,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>API version of the referent</p>
+<p>API version of the referent.</p>
 </td>
 </tr>
 <tr>
@@ -407,7 +407,7 @@ string
 </em>
 </td>
 <td>
-<p>Kind of the referent</p>
+<p>Kind of the referent.</p>
 </td>
 </tr>
 <tr>
@@ -418,7 +418,7 @@ string
 </em>
 </td>
 <td>
-<p>Name of the referent</p>
+<p>Name of the referent.</p>
 </td>
 </tr>
 <tr>
@@ -430,7 +430,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Namespace of the referent, defaults to the Kustomization namespace</p>
+<p>Namespace of the referent, defaults to the namespace of the Kubernetes resource object that contains the reference.</p>
 </td>
 </tr>
 </tbody>
@@ -477,84 +477,6 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 <td>
 <em>(Optional)</em>
 <p>The secret name containing the private OpenPGP keys used for decryption.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.Entry">Entry
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Inventory">Inventory</a>)
-</p>
-<p>Entry contains the information necessary to locate a resource within a cluster.</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>id</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>ObjectID is the string representation of a Kubernetes object metadata,
-in the format &lsquo;<namespace><em><name></em><group>_<kind>&rsquo;.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>v</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>ObjectVersion is the API version of this  Kubernetes object kind.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.Inventory">Inventory
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationStatus">KustomizationStatus</a>)
-</p>
-<p>Inventory is a record of objects that have been reconciled.</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>entries</code><br>
-<em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Entry">
-[]Entry
-</a>
-</em>
-</td>
-<td>
-<p>Entries of Kubernetes objects IDs.</p>
 </td>
 </tr>
 </tbody>
@@ -608,7 +530,7 @@ the Kustomization.</p>
 (<em>Appears on:</em>
 <a href="#kustomize.toolkit.fluxcd.io/v1beta2.Kustomization">Kustomization</a>)
 </p>
-<p>KustomizationSpec defines the desired state of a kustomization.</p>
+<p>KustomizationSpec defines the configuration to calculate the desired state from a Source using Kustomize.</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -991,8 +913,8 @@ string
 <td>
 <code>inventory</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Inventory">
-Inventory
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.ResourceInventory">
+ResourceInventory
 </a>
 </em>
 </td>
@@ -1055,6 +977,84 @@ e.g. ${var:=default}, ${var:position} and ${var/substring/replacement}.</p>
 the variables and their values to be substituted in the YAML manifests.
 The ConfigMap and the Secret data keys represent the var names and they
 must match the vars declared in the manifests for the substitution to happen.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.ResourceInventory">ResourceInventory
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationStatus">KustomizationStatus</a>)
+</p>
+<p>ResourceInventory contains a list of Kubernetes resource object references that have been applied by a Kustomization.</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>entries</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.ResourceRef">
+[]ResourceRef
+</a>
+</em>
+</td>
+<td>
+<p>Entries of Kubernetes resource object references.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.ResourceRef">ResourceRef
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.ResourceInventory">ResourceInventory</a>)
+</p>
+<p>ResourceRef contains the information necessary to locate a resource within a cluster.</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>id</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ID is the string representation of the Kubernetes resource object&rsquo;s metadata,
+in the format &lsquo;<namespace><em><name></em><group>_<kind>&rsquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>v</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Version is the API version of the Kubernetes resource object&rsquo;s kind.</p>
 </td>
 </tr>
 </tbody>

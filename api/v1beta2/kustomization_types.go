@@ -36,7 +36,7 @@ const (
 	DisabledValue             = "disabled"
 )
 
-// KustomizationSpec defines the desired state of a kustomization.
+// KustomizationSpec defines the configuration to calculate the desired state from a Source using Kustomize.
 type KustomizationSpec struct {
 	// DependsOn may contain a dependency.CrossNamespaceDependencyReference slice
 	// with references to Kustomization resources that must be ready before this
@@ -224,9 +224,9 @@ type KustomizationStatus struct {
 	// +optional
 	LastAttemptedRevision string `json:"lastAttemptedRevision,omitempty"`
 
-	// The last successfully applied revision metadata.
+	// Inventory contains the list of Kubernetes resource object references that have been successfully applied.
 	// +optional
-	Inventory *Inventory `json:"inventory,omitempty"`
+	Inventory *ResourceInventory `json:"inventory,omitempty"`
 }
 
 // KustomizationProgressing resets the conditions of the given Kustomization to a single
@@ -263,7 +263,7 @@ func KustomizationNotReady(k Kustomization, revision, reason, message string) Ku
 }
 
 // KustomizationNotReadyInventory registers a failed apply attempt of the given Kustomization.
-func KustomizationNotReadyInventory(k Kustomization, inventory *Inventory, revision, reason, message string) Kustomization {
+func KustomizationNotReadyInventory(k Kustomization, inventory *ResourceInventory, revision, reason, message string) Kustomization {
 	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
 	SetKustomizationHealthiness(&k, metav1.ConditionFalse, reason, reason)
 	if revision != "" {
@@ -274,7 +274,7 @@ func KustomizationNotReadyInventory(k Kustomization, inventory *Inventory, revis
 }
 
 // KustomizationReadyInventory registers a successful apply attempt of the given Kustomization.
-func KustomizationReadyInventory(k Kustomization, inventory *Inventory, revision, reason, message string) Kustomization {
+func KustomizationReadyInventory(k Kustomization, inventory *ResourceInventory, revision, reason, message string) Kustomization {
 	SetKustomizationReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision)
 	SetKustomizationHealthiness(&k, metav1.ConditionTrue, reason, reason)
 	k.Status.Inventory = inventory
@@ -314,13 +314,6 @@ func (in Kustomization) GetDependsOn() (types.NamespacedName, []dependency.Cross
 func (in *Kustomization) GetStatusConditions() *[]metav1.Condition {
 	return &in.Status.Conditions
 }
-
-const (
-	// GitRepositoryIndexKey is the key used for indexing kustomizations based on their Git sources.
-	GitRepositoryIndexKey string = ".metadata.gitRepository"
-	// BucketIndexKey is the key used for indexing kustomizations based on their S3 sources.
-	BucketIndexKey string = ".metadata.bucket"
-)
 
 // +genclient
 // +genclient:Namespaced

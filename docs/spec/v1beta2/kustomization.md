@@ -51,10 +51,12 @@ type KustomizationSpec struct {
 	// +required
 	Prune bool `json:"prune"`
 
-	// A list of resources to be included in the health assessment.
+	// Force instructs the controller to recreate resources
+	// when patching fails due to an immutable field change.
+	// +kubebuilder:default:=false
 	// +optional
-	HealthChecks []meta.NamespacedObjectKindReference `json:"healthChecks,omitempty"`
-
+	Force bool `json:"force,omitempty"`
+	
 	// Strategic merge and JSON patches, defined as inline YAML objects,
 	// capable of targeting objects based on kind, label and annotation selectors.
 	// +optional
@@ -90,11 +92,14 @@ type KustomizationSpec struct {
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 	
-	// Force instructs the controller to recreate resources
-	// when patching fails due to an immutable field change.
-	// +kubebuilder:default:=false
+	// A list of resources to be included in the health assessment.
 	// +optional
-	Force bool `json:"force,omitempty"`
+	HealthChecks []meta.NamespacedObjectKindReference `json:"healthChecks,omitempty"`
+
+	// Wait instructs the controller to check the health of all the reconciled resources.
+	// When enabled, the HealthChecks are ignored. Defaults to false.
+	// +optional
+	Wait bool `json:"wait,omitempty"`
 }
 ```
 
@@ -178,9 +183,10 @@ type KustomizationStatus struct {
 	// +optional
 	LastHandledReconcileAt string `json:"lastHandledReconcileAt,omitempty"`
 
-	// The last successfully applied revision metadata.
+	// Inventory contains the list of Kubernetes resource object references
+	// that have been successfully applied.
 	// +optional
-	Inventory *Inventory `json:"inventory"`
+	Inventory *ResourceInventory `json:"inventory,omitempty"`
 }
 ```
 
@@ -233,10 +239,6 @@ const (
 	// HealthCheckFailedReason represents the fact that
 	// one of the health checks of the Kustomization failed.
 	HealthCheckFailedReason string = "HealthCheckFailed"
-
-	// ValidationFailedReason represents the fact that the
-	// validation of the Kustomization manifests has failed.
-	ValidationFailedReason string = "ValidationFailed"
 )
 ```
 
@@ -300,7 +302,7 @@ kustomize build | kubeval --ignore-missing-schemas
 
 The Kustomization `spec.interval` tells the controller at which interval to fetch the
 Kubernetes manifest for the source, build the Kustomization and apply it on the cluster.
-The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
+The interval time units are `s` and `m` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
 
 The Kustomization execution can be suspended by setting `spec.suspend` to `true`.
 
@@ -358,6 +360,10 @@ kustomize.toolkit.fluxcd.io/prune: disabled
 A Kustomization can contain a series of health checks used to determine the
 [rollout status](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#deployment-status)
 of the deployed workloads and the ready status of custom resources.
+
+To enabled health checking for all the reconciled resources, set `spec.wait` to `true`.
+If you wish to select only certain resources, list them under `spec.healthChecks`.
+Note that when `spec.wait` is enabled, the `spec.healthChecks` field is ignored.
 
 A health check entry can reference one of the following types:
 

@@ -19,22 +19,22 @@ package v1beta2
 import "fmt"
 
 // CrossNamespaceSourceReference contains enough information to let you locate the
-// typed referenced object at cluster level
+// typed Kubernetes resource object at cluster level.
 type CrossNamespaceSourceReference struct {
-	// API version of the referent
+	// API version of the referent.
 	// +optional
 	APIVersion string `json:"apiVersion,omitempty"`
 
-	// Kind of the referent
+	// Kind of the referent.
 	// +kubebuilder:validation:Enum=GitRepository;Bucket
 	// +required
 	Kind string `json:"kind"`
 
-	// Name of the referent
+	// Name of the referent.
 	// +required
 	Name string `json:"name"`
 
-	// Namespace of the referent, defaults to the Kustomization namespace
+	// Namespace of the referent, defaults to the namespace of the Kubernetes resource object that contains the reference.
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 }

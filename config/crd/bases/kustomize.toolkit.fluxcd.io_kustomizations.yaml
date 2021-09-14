@@ -447,7 +447,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: KustomizationSpec defines the desired state of a kustomization.
+            description: KustomizationSpec defines the configuration to calculate the desired state from a Source using Kustomize.
             properties:
               decryption:
                 description: Decrypt Kubernetes secrets before applying them on the cluster.
@@ -693,19 +693,19 @@ spec:
                 description: Reference of the source where the kustomization file is.
                 properties:
                   apiVersion:
-                    description: API version of the referent
+                    description: API version of the referent.
                     type: string
                   kind:
-                    description: Kind of the referent
+                    description: Kind of the referent.
                     enum:
                     - GitRepository
                     - Bucket
                     type: string
                   name:
-                    description: Name of the referent
+                    description: Name of the referent.
                     type: string
                   namespace:
-                    description: Namespace of the referent, defaults to the Kustomization namespace
+                    description: Namespace of the referent, defaults to the namespace of the Kubernetes resource object that contains the reference.
                     type: string
                 required:
                 - kind
@@ -782,15 +782,15 @@ spec:
                 description: The last successfully applied revision metadata.
                 properties:
                   entries:
-                    description: Entries of Kubernetes objects IDs.
+                    description: Entries of Kubernetes resource object references.
                     items:
-                      description: Entry contains the information necessary to locate a resource within a cluster.
+                      description: ResourceRef contains the information necessary to locate a resource within a cluster.
                       properties:
                         id:
-                          description: ObjectID is the string representation of a Kubernetes object metadata, in the format '<namespace>_<name>_<group>_<kind>'.
+                          description: ID is the string representation of the Kubernetes resource object's metadata, in the format '<namespace>_<name>_<group>_<kind>'.
                           type: string
                         v:
-                          description: ObjectVersion is the API version of this  Kubernetes object kind.
+                          description: Version is the API version of the Kubernetes resource object's kind.
                           type: string
                       required:
                       - id
