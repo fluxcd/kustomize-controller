@@ -689,6 +689,10 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.
 		}
 	}
 
+	if len(objects) == 0 {
+		return nil
+	}
+
 	// find the previous health check result
 	wasHealthy := apimeta.IsStatusConditionTrue(kustomization.Status.Conditions, kustomizev1.HealthyCondition)
 

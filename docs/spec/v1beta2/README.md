@@ -1,6 +1,6 @@
 # kustomize.toolkit.fluxcd.io/v1beta2
 
-This is the v1beta1 API specification for defining continuous delivery pipelines
+This is the v1beta2 API specification for defining continuous delivery pipelines
 of Kubernetes objects generated with Kustomize.
 
 ## Specification

@@ -166,3 +166,151 @@ data:
 		g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(resultConfig), resultConfig)).Should(Succeed())
 	})
 }
+
+func TestKustomizationReconciler_PruneEmpty(t *testing.T) {
+	g := NewWithT(t)
+	id := "gc-" + randStringRunes(5)
+	revision := "v1.0.0"
+
+	err := createNamespace(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	err = createKubeConfigSecret(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	manifests := func(name string, data string) []testserver.File {
+		return []testserver.File{
+			{
+				Name: "secret.yaml",
+				Body: fmt.Sprintf(`---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: %[1]s
+stringData:
+  key: "%[2]s"
+`, name, data),
+			},
+			{
+				Name: "config.yaml",
+				Body: fmt.Sprintf(`---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %[1]s
+data:
+  key: "%[2]s"
+`, name, data),
+			},
+		}
+	}
+
+	artifact, err := testServer.ArtifactFromFiles(manifests(id, id))
+	g.Expect(err).NotTo(HaveOccurred())
+
+	url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
+
+	repositoryName := types.NamespacedName{
+		Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+
+	err = applyGitRepository(repositoryName, url, revision, "")
+	g.Expect(err).NotTo(HaveOccurred())
+
+	kustomizationKey := types.NamespacedName{
+		Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+	kustomization := &kustomizev1.Kustomization{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kustomizationKey.Name,
+			Namespace: kustomizationKey.Namespace,
+		},
+		Spec: kustomizev1.KustomizationSpec{
+			Interval: metav1.Duration{Duration: reconciliationInterval},
+			Path:     "./",
+			KubeConfig: &kustomizev1.KubeConfig{
+				SecretRef: meta.LocalObjectReference{
+					Name: "kubeconfig",
+				},
+			},
+			SourceRef: kustomizev1.CrossNamespaceSourceReference{
+				Name:      repositoryName.Name,
+				Namespace: repositoryName.Namespace,
+				Kind:      sourcev1.GitRepositoryKind,
+			},
+			TargetNamespace: id,
+			Prune:           true,
+			Wait:            true,
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+	resultK := &kustomizev1.Kustomization{}
+
+	g.Eventually(func() bool {
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+		return resultK.Status.LastAppliedRevision == revision
+	}, timeout, time.Second).Should(BeTrue())
+
+	g.Expect(len(resultK.Status.Inventory.Entries)).Should(BeIdenticalTo(2))
+
+	t.Run("deletes stale objects", func(t *testing.T) {
+		artifact, err := testServer.ArtifactFromFiles([]testserver.File{})
+		g.Expect(err).NotTo(HaveOccurred())
+		url = fmt.Sprintf("%s/%s", testServer.URL(), artifact)
+		revision = "v2.0.0"
+		err = applyGitRepository(repositoryName, url, revision, "")
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return resultK.Status.LastAppliedRevision == revision
+		}, timeout, time.Second).Should(BeTrue())
+
+		g.Expect(len(resultK.Status.Inventory.Entries)).Should(BeIdenticalTo(0))
+	})
+
+	t.Run("reconciles empty kustomization", func(t *testing.T) {
+		empty := []testserver.File{
+			{
+				Name: "kustomization.yaml",
+				Body: fmt.Sprintf(`---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+`),
+			},
+		}
+		artifact, err := testServer.ArtifactFromFiles(empty)
+		g.Expect(err).NotTo(HaveOccurred())
+		url = fmt.Sprintf("%s/%s", testServer.URL(), artifact)
+		revision = "v3.0.0"
+		err = applyGitRepository(repositoryName, url, revision, "")
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return resultK.Status.LastAppliedRevision == revision
+		}, timeout, time.Second).Should(BeTrue())
+
+		g.Expect(len(resultK.Status.Inventory.Entries)).Should(BeIdenticalTo(0))
+	})
+
+	t.Run("restores objects", func(t *testing.T) {
+		artifact, err := testServer.ArtifactFromFiles(manifests(id, id))
+		g.Expect(err).NotTo(HaveOccurred())
+		url = fmt.Sprintf("%s/%s", testServer.URL(), artifact)
+		revision = "v4.0.0"
+		err = applyGitRepository(repositoryName, url, revision, "")
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return resultK.Status.LastAppliedRevision == revision
+		}, timeout, time.Second).Should(BeTrue())
+
+		g.Expect(len(resultK.Status.Inventory.Entries)).Should(BeIdenticalTo(2))
+	})
+}
