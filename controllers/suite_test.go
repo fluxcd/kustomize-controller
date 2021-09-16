@@ -100,12 +100,19 @@ func TestMain(m *testing.M) {
 
 	// client with caching disabled
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create new client: %s", err))
+	}
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
 	})
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create new manager: %s", err))
+	}
 
 	testEventsH = controller.MakeEvents(k8sManager, "kustomize-controller-test", nil)
+
 	testMetricsH = controller.MustMakeMetrics(k8sManager)
 
 	if err := (&KustomizationReconciler{

@@ -265,6 +265,7 @@ func (r *KustomizationReconciler) reconcile(
 	ctx context.Context,
 	kustomization kustomizev1.Kustomization,
 	source sourcev1.Source) (kustomizev1.Kustomization, error) {
+
 	// record the value of the reconciliation request, if any
 	if v, ok := meta.ReconcileAnnotationValue(kustomization.GetAnnotations()); ok {
 		kustomization.Status.SetLastHandledReconcileRequest(v)
@@ -500,7 +501,7 @@ func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization k
 
 func (r *KustomizationReconciler) generate(ctx context.Context, kubeClient client.Client, kustomization kustomizev1.Kustomization, dirPath string) (string, error) {
 	gen := NewGenerator(kustomization, kubeClient)
-	return gen.WriteFile(ctx, dirPath)
+	return gen.WriteFile(ctx, dirPath, kubeClient, kustomization)
 }
 
 func (r *KustomizationReconciler) build(ctx context.Context, kustomization kustomizev1.Kustomization, checksum, dirPath string) (*kustomizev1.Snapshot, error) {
