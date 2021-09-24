@@ -5,7 +5,16 @@
 package keyservice
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"unicode/utf16"
 
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
@@ -14,6 +23,12 @@ import (
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
+
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/keyvault/keyvault"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"github.com/dimchansky/utfbom"
 )
 
 // Server is a key service server that uses SOPS MasterKeys to fulfill
@@ -86,6 +101,138 @@ func (ks *Server) decryptWithAge(key *keyservice.AgeKey, ciphertext []byte) ([]b
 	return plaintext, err
 }
 
+func (ks *Server) newKeyvaultAuthorizerFromFile(fileLocation string) (autorest.Authorizer, error) {
+	s := auth.FileSettings{}
+	s.Values = map[string]string{}
+
+	contents, err := ioutil.ReadFile(fileLocation)
+	if err != nil {
+		return nil, err
+	}
+
+	// Auth file might be encoded
+	var decoded []byte
+	reader, enc := utfbom.Skip(bytes.NewReader(contents))
+	switch enc {
+	case utfbom.UTF16LittleEndian:
+		u16 := make([]uint16, (len(contents)/2)-1)
+		err := binary.Read(reader, binary.LittleEndian, &u16)
+		if err != nil {
+			return nil, err
+		}
+		decoded = []byte(string(utf16.Decode(u16)))
+	case utfbom.UTF16BigEndian:
+		u16 := make([]uint16, (len(contents)/2)-1)
+		err := binary.Read(reader, binary.BigEndian, &u16)
+		if err != nil {
+			return nil, err
+		}
+		decoded = []byte(string(utf16.Decode(u16)))
+	default:
+		decoded, err = ioutil.ReadAll(reader)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// unmarshal file
+	authFile := map[string]interface{}{}
+	err = json.Unmarshal(decoded, &authFile)
+	if err != nil {
+		return nil, err
+	}
+
+	if val, ok := authFile["clientId"]; ok {
+		s.Values["AZURE_CLIENT_ID"] = val.(string)
+	}
+	if val, ok := authFile["clientSecret"]; ok {
+		s.Values["AZURE_CLIENT_SECRET"] = val.(string)
+	}
+	if val, ok := authFile["clientCertificate"]; ok {
+		s.Values["AZURE_CERTIFICATE_PATH"] = val.(string)
+	}
+	if val, ok := authFile["clientCertificatePassword"]; ok {
+		s.Values["AZURE_CERTIFICATE_PASSWORD"] = val.(string)
+	}
+	if val, ok := authFile["subscriptionId"]; ok {
+		s.Values["AZURE_SUBSCRIPTION_ID"] = val.(string)
+	}
+	if val, ok := authFile["tenantId"]; ok {
+		s.Values["AZURE_TENANT_ID"] = val.(string)
+	}
+	if val, ok := authFile["activeDirectoryEndpointUrl"]; ok {
+		s.Values["ActiveDirectoryEndpoint"] = val.(string)
+	}
+	if val, ok := authFile["resourceManagerEndpointUrl"]; ok {
+		s.Values["ResourceManagerEndpoint"] = val.(string)
+	}
+	if val, ok := authFile["activeDirectoryGraphResourceId"]; ok {
+		s.Values["GraphResourceID"] = val.(string)
+	}
+	if val, ok := authFile["sqlManagementEndpointUrl"]; ok {
+		s.Values["SQLManagementEndpoint"] = val.(string)
+	}
+	if val, ok := authFile["galleryEndpointUrl"]; ok {
+		s.Values["GalleryEndpoint"] = val.(string)
+	}
+	if val, ok := authFile["managementEndpointUrl"]; ok {
+		s.Values["ManagementEndpoint"] = val.(string)
+	}
+
+	resource := azure.PublicCloud.ResourceIdentifiers.KeyVault
+	if a, err := s.ClientCredentialsAuthorizerWithResource(resource); err == nil {
+		return a, err
+	}
+	if a, err := s.ClientCertificateAuthorizerWithResource(resource); err == nil {
+		return a, err
+	}
+	return nil, errors.New("auth file missing client and certificate credentials")
+}
+
+func (ks *Server) encryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
+	var err error
+
+	kv := keyvault.New()
+	if kv.Authorizer, err = ks.newKeyvaultAuthorizerFromFile(filepath.Join(ks.HomeDir, "azure_kv.json")); err != nil {
+		return nil, err
+	}
+
+	plainstring := string(plaintext)
+	result, err := kv.Encrypt(context.Background(), key.VaultUrl, key.Name, "", keyvault.KeyOperationsParameters{Algorithm: keyvault.RSAOAEP256, Value: &plainstring})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to encrypt data: %w", err)
+	}
+
+	ciphertext, err := base64.RawURLEncoding.DecodeString(*result.Result)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to encrypt data: %w", err)
+	}
+
+	return ciphertext, nil
+}
+
+func (ks *Server) decryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
+	var err error
+
+	kv := keyvault.New()
+	if kv.Authorizer, err = ks.newKeyvaultAuthorizerFromFile(filepath.Join(ks.HomeDir, "azure_kv.json")); err != nil {
+		return nil, err
+	}
+
+	cipherstring := string(ciphertext)
+	result, err := kv.Decrypt(context.Background(), key.VaultUrl, key.Name, key.Version, keyvault.KeyOperationsParameters{Algorithm: keyvault.RSAOAEP256, Value: &cipherstring})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to decrypt data: %w", err)
+	}
+
+	plaintext, err := base64.RawURLEncoding.DecodeString(*result.Result)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to decrypt data: %w", err)
+	}
+
+	return plaintext, nil
+}
+
 // Encrypt takes an encrypt request and encrypts the provided plaintext with the provided key,
 // returning the encrypted result.
 func (ks Server) Encrypt(ctx context.Context,
@@ -108,6 +255,18 @@ func (ks Server) Encrypt(ctx context.Context,
 		}
 		response = &keyservice.EncryptResponse{
 			Ciphertext: ciphertext,
+		}
+	case *keyservice.Key_AzureKeyvaultKey:
+		if _, err := os.Stat(filepath.Join(ks.HomeDir, "azure_kv.json")); os.IsNotExist(err) {
+			return ks.Encrypt(ctx, req)
+		} else {
+			ciphertext, err := ks.encryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Plaintext)
+			if err != nil {
+				return nil, err
+			}
+			response = &keyservice.EncryptResponse{
+				Ciphertext: ciphertext,
+			}
 		}
 	default:
 		return ks.Encrypt(ctx, req)
@@ -168,6 +327,18 @@ func (ks Server) Decrypt(ctx context.Context,
 		}
 		response = &keyservice.DecryptResponse{
 			Plaintext: plaintext,
+		}
+	case *keyservice.Key_AzureKeyvaultKey:
+		if _, err := os.Stat(filepath.Join(ks.HomeDir, "azure_kv.json")); os.IsNotExist(err) {
+			return ks.DefaultServer.Decrypt(ctx, req)
+		} else {
+			plaintext, err := ks.decryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Ciphertext)
+			if err != nil {
+				return nil, err
+			}
+			response = &keyservice.DecryptResponse{
+				Plaintext: plaintext,
+			}
 		}
 	default:
 		return ks.DefaultServer.Decrypt(ctx, req)

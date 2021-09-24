@@ -6,7 +6,11 @@ replace github.com/fluxcd/kustomize-controller/api => ./api
 
 require (
 	filippo.io/age v1.0.0
+	github.com/Azure/azure-sdk-for-go v57.2.0+incompatible // indirect
+	github.com/Azure/go-autorest/autorest v0.11.22 // indirect
+	github.com/Azure/go-autorest/autorest/azure/auth v0.5.9 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.2
+	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/drone/envsubst v1.0.3-0.20200804185402-58bc65f69603
 	github.com/fluxcd/kustomize-controller/api v0.18.0
 	github.com/fluxcd/pkg/apis/kustomize v0.2.0
@@ -21,7 +25,7 @@ require (
 	github.com/onsi/gomega v1.15.0
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.1
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
 	google.golang.org/grpc v1.42.0
 	k8s.io/api v0.22.2

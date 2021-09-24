@@ -160,6 +160,11 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 				if err := kd.gpgImport(keyPath); err != nil {
 					return err
 				}
+			case ".json":
+				keyPath := filepath.Join(kd.homeDir, name)
+				if err := os.WriteFile(keyPath, file, os.ModePerm); err != nil {
+					return fmt.Errorf("unable to write key to storage: %w", err)
+				}
 			case ".agekey":
 				ageIdentities = append(ageIdentities, string(file))
 			}
