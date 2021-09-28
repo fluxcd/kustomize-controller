@@ -31,12 +31,12 @@ require (
 	k8s.io/client-go v0.22.1
 	sigs.k8s.io/cli-utils v0.25.1-0.20210608181808-f3974341173a
 	sigs.k8s.io/controller-runtime v0.10.0
-	sigs.k8s.io/kustomize/api v0.9.0
+	sigs.k8s.io/kustomize/api v0.10.0
 	sigs.k8s.io/yaml v1.2.0
 )
 
-// pin kustomize to v4.3.0
+// pin kustomize to v4.4.0
 replace (
-	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.9.0
-	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.11.1
+	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.10.0
+	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.12.0
 )
