@@ -48,7 +48,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	t.Run("deletes objects in order", func(t *testing.T) {
-		changeSet, err := manager.DeleteAll(ctx, objects, nil)
+		changeSet, err := manager.DeleteAll(ctx, objects, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -87,7 +87,7 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("waits for objects termination", func(t *testing.T) {
-		_, err := manager.DeleteAll(ctx, objects, nil)
+		_, err := manager.DeleteAll(ctx, objects, nil, nil)
 		if err != nil {
 			t.Error(err)
 		}

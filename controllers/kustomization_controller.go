@@ -725,6 +725,7 @@ func (r *KustomizationReconciler) prune(ctx context.Context, manager *ssa.Resour
 
 	log := logr.FromContext(ctx)
 	changeSet, err := manager.DeleteAll(ctx, objects,
+		manager.GetOwnerLabels(kustomization.Name, kustomization.Namespace),
 		map[string]string{
 			fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
 		},
@@ -762,6 +763,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 			})
 
 			changeSet, err := resourceManager.DeleteAll(ctx, objects,
+				resourceManager.GetOwnerLabels(kustomization.Name, kustomization.Namespace),
 				map[string]string{
 					fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
 				},

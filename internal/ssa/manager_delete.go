@@ -25,12 +25,14 @@ import (
 	"github.com/fluxcd/kustomize-controller/internal/objectutil"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Delete deletes the given object (not found errors are ignored).
-func (m *ResourceManager) Delete(ctx context.Context, object *unstructured.Unstructured, skipFor map[string]string) (*ChangeSetEntry, error) {
+func (m *ResourceManager) Delete(ctx context.Context, object *unstructured.Unstructured, labelSelector map[string]string, skipFor map[string]string) (*ChangeSetEntry, error) {
 	existingObject := object.DeepCopy()
 	err := m.client.Get(ctx, client.ObjectKeyFromObject(object), existingObject)
 	if err != nil {
@@ -39,6 +41,16 @@ func (m *ResourceManager) Delete(ctx context.Context, object *unstructured.Unstr
 				fmt.Errorf("%s query failed, error: %w", objectutil.FmtUnstructured(object), err)
 		}
 		return m.changeSetEntry(object, DeletedAction), nil
+	}
+
+	sel, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchLabels: labelSelector})
+	if err != nil {
+		return m.changeSetEntry(object, UnknownAction),
+			fmt.Errorf("%s label selector failed, error: %w", objectutil.FmtUnstructured(object), err)
+	}
+
+	if !sel.Matches(labels.Set(existingObject.GetLabels())) {
+		return m.changeSetEntry(object, UnchangedAction), nil
 	}
 
 	for n, s := range skipFor {
@@ -56,13 +68,14 @@ func (m *ResourceManager) Delete(ctx context.Context, object *unstructured.Unstr
 }
 
 // DeleteAll deletes the given set of objects (not found errors are ignored).
-func (m *ResourceManager) DeleteAll(ctx context.Context, objects []*unstructured.Unstructured, skipFor map[string]string) (*ChangeSet, error) {
+// The given objects are filtered based on the metadata present in-cluster.
+func (m *ResourceManager) DeleteAll(ctx context.Context, objects []*unstructured.Unstructured, labelSelector map[string]string, skipFor map[string]string) (*ChangeSet, error) {
 	sort.Sort(sort.Reverse(objectutil.SortableUnstructureds(objects)))
 	changeSet := NewChangeSet()
 
 	var errors string
 	for _, object := range objects {
-		cse, err := m.Delete(ctx, object, skipFor)
+		cse, err := m.Delete(ctx, object, labelSelector, skipFor)
 		if cse != nil {
 			changeSet.Add(*cse)
 		}

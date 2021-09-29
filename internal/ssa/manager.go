@@ -64,6 +64,14 @@ func (m *ResourceManager) SetOwnerLabels(objects []*unstructured.Unstructured, n
 	}
 }
 
+// GetOwnerLabels returns a map of labels for the specified name and namespace.
+func (m *ResourceManager) GetOwnerLabels(name, namespace string) map[string]string {
+	return map[string]string{
+		m.owner.Group + "/name":      name,
+		m.owner.Group + "/namespace": namespace,
+	}
+}
+
 func (m *ResourceManager) changeSetEntry(object *unstructured.Unstructured, action Action) *ChangeSetEntry {
 	return &ChangeSetEntry{Subject: objectutil.FmtUnstructured(object), Action: string(action)}
 }

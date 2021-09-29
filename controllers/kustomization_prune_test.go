@@ -314,3 +314,124 @@ kind: Kustomization
 		g.Expect(len(resultK.Status.Inventory.Entries)).Should(BeIdenticalTo(2))
 	})
 }
+
+func TestKustomizationReconciler_PruneSkipNotOwned(t *testing.T) {
+	g := NewWithT(t)
+	id := "gc-" + randStringRunes(5)
+	revision := "v1.0.0"
+
+	err := createNamespace(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	err = createKubeConfigSecret(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	manifests := func(name string, data string) []testserver.File {
+		return []testserver.File{
+			{
+				Name: "secret.yaml",
+				Body: fmt.Sprintf(`---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: %[1]s
+stringData:
+  key: "%[2]s"
+`, name, data),
+			},
+			{
+				Name: "config.yaml",
+				Body: fmt.Sprintf(`---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %[1]s
+data:
+  key: "%[2]s"
+`, name, data),
+			},
+		}
+	}
+
+	artifact, err := testServer.ArtifactFromFiles(manifests(id, id))
+	g.Expect(err).NotTo(HaveOccurred())
+
+	url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
+
+	repositoryName := types.NamespacedName{
+		Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+
+	err = applyGitRepository(repositoryName, url, revision, "")
+	g.Expect(err).NotTo(HaveOccurred())
+
+	kustomizationKey := types.NamespacedName{
+		Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+	kustomization := &kustomizev1.Kustomization{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kustomizationKey.Name,
+			Namespace: kustomizationKey.Namespace,
+		},
+		Spec: kustomizev1.KustomizationSpec{
+			Interval: metav1.Duration{Duration: reconciliationInterval},
+			Path:     "./",
+			KubeConfig: &kustomizev1.KubeConfig{
+				SecretRef: meta.LocalObjectReference{
+					Name: "kubeconfig",
+				},
+			},
+			SourceRef: kustomizev1.CrossNamespaceSourceReference{
+				Name:      repositoryName.Name,
+				Namespace: repositoryName.Namespace,
+				Kind:      sourcev1.GitRepositoryKind,
+			},
+			TargetNamespace: id,
+			Prune:           true,
+			Wait:            true,
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+	resultK := &kustomizev1.Kustomization{}
+	resultSecret := &corev1.Secret{}
+	resultConfig := &corev1.ConfigMap{}
+
+	g.Eventually(func() bool {
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+		return resultK.Status.LastAppliedRevision == revision
+	}, timeout, time.Second).Should(BeTrue())
+
+	t.Run("creates objects with owner labels", func(t *testing.T) {
+		g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultSecret)).Should(Succeed())
+		g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultConfig)).Should(Succeed())
+
+		name, _ := resultConfig.GetLabels()["kustomize.toolkit.fluxcd.io/name"]
+		g.Expect(name).Should(BeIdenticalTo(kustomizationKey.Name))
+
+		namespace, _ := resultConfig.GetLabels()["kustomize.toolkit.fluxcd.io/namespace"]
+		g.Expect(namespace).Should(BeIdenticalTo(kustomizationKey.Namespace))
+	})
+
+	resultConfig.Labels["kustomize.toolkit.fluxcd.io/name"] = "new-owner"
+	g.Expect(k8sClient.Update(context.Background(), resultConfig)).Should(Succeed())
+
+	t.Run("deletes owned objects", func(t *testing.T) {
+		g.Expect(k8sClient.Delete(context.Background(), kustomization)).To(Succeed())
+		g.Eventually(func() bool {
+			err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), kustomization)
+			return apierrors.IsNotFound(err)
+		}, timeout, time.Second).Should(BeTrue())
+
+		err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(resultSecret), resultSecret)
+		g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+	})
+
+	t.Run("preserves objects with different owner", func(t *testing.T) {
+		g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(resultConfig), resultConfig)).Should(Succeed())
+	})
+
+}
