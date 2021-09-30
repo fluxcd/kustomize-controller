@@ -57,7 +57,7 @@ func NewGenerator(kustomization kustomizev1.Kustomization, kubeClient client.Cli
 	}
 }
 
-func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string) (string, error) {
+func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string, kubeClient client.Client, kustomization kustomizev1.Kustomization) (string, error) {
 	kfile := filepath.Join(dirPath, konfig.DefaultKustomizationFileName())
 
 	checksum, err := kg.checksum(ctx, dirPath)
@@ -140,6 +140,15 @@ func (kg *KustomizeGenerator) WriteFile(ctx context.Context, dirPath string) (st
 		}
 	}
 
+	// if prebuild is specified, substitude kustomization with given variables
+	// and return resulting kustomization
+	if kustomization.Spec.PreBuild != nil {
+		kus, err = preSubstituteVariables(ctx, kubeClient, kustomization, kus)
+		if err != nil {
+			return "", fmt.Errorf("var substitution failed for '%s'", err)
+		}
+	}
+
 	kd, err := yaml.Marshal(kus)
 	if err != nil {
 		return "", err
@@ -158,14 +167,14 @@ func checkKustomizeImageExists(images []kustypes.Image, imageName string) (bool,
 	return false, -1
 }
 
-func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
+func (kg *KustomizeGenerator) generateKustomization(dirPath string) (string, error) {
 	fs := filesys.MakeFsOnDisk()
 
 	// Determine if there already is a Kustomization file at the root,
 	// as this means we do not have to generate one.
 	for _, kfilename := range konfig.RecognizedKustomizationFileNames() {
 		if kpath := filepath.Join(dirPath, kfilename); fs.Exists(kpath) && !fs.IsDir(kpath) {
-			return nil
+			return kpath, nil
 		}
 	}
 
@@ -213,18 +222,18 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 
 	abs, err := filepath.Abs(dirPath)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	files, err := scan(abs)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	kfile := filepath.Join(dirPath, konfig.DefaultKustomizationFileName())
 	f, err := fs.Create(kfile)
 	if err != nil {
-		return err
+		return "", err
 	}
 	f.Close()
 
@@ -243,15 +252,38 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 	kus.Resources = resources
 	kd, err := yaml.Marshal(kus)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return ioutil.WriteFile(kfile, kd, os.ModePerm)
+	return kfile, ioutil.WriteFile(kfile, kd, os.ModePerm)
 }
 
 func (kg *KustomizeGenerator) checksum(ctx context.Context, dirPath string) (string, error) {
-	if err := kg.generateKustomization(dirPath); err != nil {
+	kf, err := kg.generateKustomization(dirPath)
+	if err != nil {
 		return "", fmt.Errorf("kustomize create failed: %w", err)
+	}
+
+	// Run PreBuild Variable Substitution
+	if kg.kustomization.Spec.PreBuild != nil {
+		content, err := ioutil.ReadFile(kf)
+		if err != nil {
+			return "", fmt.Errorf("kustomize prebuild failed: %w", err)
+		}
+
+		kd := kustypes.Kustomization{}
+		err = yaml.Unmarshal(content, &kd)
+		if err != nil {
+			return "", fmt.Errorf("kustomize prebuild failed: %w", err)
+		}
+
+		kd, err = preSubstituteVariables(ctx, kg.Client, kg.kustomization, kd)
+		if err != nil {
+			return "", fmt.Errorf("var substitution failed for '%s'", err)
+		}
+
+		kdYaml, err := yaml.Marshal(kd)
+		ioutil.WriteFile(kf, kdYaml, os.ModePerm)
 	}
 
 	fs := filesys.MakeFsOnDisk()
