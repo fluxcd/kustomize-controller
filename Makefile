@@ -24,10 +24,6 @@ KUBEBUILDER_ASSETS?="$(shell $(SETUP_ENVTEST) use -i $(ENVTEST_AKUBERNETES_VERSI
 test: generate fmt vet manifests api-docs download-crd-deps install-envtest
 	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./controllers/...  -v -coverprofile cover.out
 
-# Run internal tests
-test-internal: install-envtest
-	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./internal/...  -v -coverprofile cover.out
-
 # Build manager binary
 manager: generate fmt vet
 	go build -o bin/manager main.go

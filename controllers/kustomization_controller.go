@@ -29,12 +29,6 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/events"
-	"github.com/fluxcd/pkg/runtime/metrics"
-	"github.com/fluxcd/pkg/runtime/predicates"
-	"github.com/fluxcd/pkg/untar"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-retryablehttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,9 +51,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kustomize/api/filesys"
 
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/events"
+	"github.com/fluxcd/pkg/runtime/metrics"
+	"github.com/fluxcd/pkg/runtime/predicates"
+	"github.com/fluxcd/pkg/ssa"
+	"github.com/fluxcd/pkg/untar"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	"github.com/fluxcd/kustomize-controller/internal/objectutil"
-	"github.com/fluxcd/kustomize-controller/internal/ssa"
 )
 
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
@@ -360,7 +360,7 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
-	objects, err := objectutil.ReadObjects(bytes.NewReader(resources))
+	objects, err := ssa.ReadObjects(bytes.NewReader(resources))
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -618,7 +618,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	var stageTwo []*unstructured.Unstructured
 
 	for _, u := range objects {
-		if manager.IsClusterDefinition(u.GetKind()) {
+		if ssa.IsClusterDefinition(u) {
 			stageOne = append(stageOne, u)
 		} else {
 			stageTwo = append(stageTwo, u)
@@ -649,7 +649,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	}
 
 	// sort by kind, validate and apply all the others objects
-	sort.Sort(objectutil.SortableUnstructureds(stageTwo))
+	sort.Sort(ssa.SortableUnstructureds(stageTwo))
 	if len(stageTwo) > 0 {
 		changeSet, err := manager.ApplyAll(ctx, stageTwo, kustomization.Spec.Force)
 		if err != nil {
@@ -753,7 +753,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 		kubeClient, _, err := impersonation.GetClient(ctx)
 		if err != nil {
 			// when impersonation fails, log the stale objects and continue with the finalization
-			msg := fmt.Sprintf("unable to prune objects: \n%s", objectutil.FmtUnstructuredList(objects))
+			msg := fmt.Sprintf("unable to prune objects: \n%s", ssa.FmtUnstructuredList(objects))
 			log.Error(fmt.Errorf("failed to build kube client: %w", err), msg)
 			r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, msg, nil)
 		} else {

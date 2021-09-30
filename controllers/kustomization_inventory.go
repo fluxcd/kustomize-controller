@@ -17,15 +17,15 @@ limitations under the License.
 package controllers
 
 import (
-	"github.com/fluxcd/pkg/apis/meta"
 	"sort"
 
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/ssa"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/object"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	"github.com/fluxcd/kustomize-controller/internal/objectutil"
 )
 
 func NewInventory() *kustomizev1.ResourceInventory {
@@ -36,7 +36,7 @@ func NewInventory() *kustomizev1.ResourceInventory {
 
 // AddObjectsToInventory extracts the metadata from the given objects and adds it to the inventory.
 func AddObjectsToInventory(inv *kustomizev1.ResourceInventory, objects []*unstructured.Unstructured) error {
-	sort.Sort(objectutil.SortableUnstructureds(objects))
+	sort.Sort(ssa.SortableUnstructureds(objects))
 	for _, om := range objects {
 		objMetadata := object.UnstructuredToObjMeta(om)
 		gv, err := schema.ParseGroupVersion(om.GetAPIVersion())
@@ -74,7 +74,7 @@ func ListObjectsInInventory(inv *kustomizev1.ResourceInventory) ([]*unstructured
 		objects = append(objects, u)
 	}
 
-	sort.Sort(objectutil.SortableUnstructureds(objects))
+	sort.Sort(ssa.SortableUnstructureds(objects))
 	return objects, nil
 }
 
@@ -131,7 +131,7 @@ func DiffInventory(inv *kustomizev1.ResourceInventory, target *kustomizev1.Resou
 		objects = append(objects, u)
 	}
 
-	sort.Sort(objectutil.SortableUnstructureds(objects))
+	sort.Sort(ssa.SortableUnstructureds(objects))
 	return objects, nil
 }
 
