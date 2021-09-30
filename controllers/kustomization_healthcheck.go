@@ -67,7 +67,10 @@ func (hc *KustomizeHealthCheck) Assess(pollInterval time.Duration) error {
 				if rs == nil {
 					continue
 				}
-				if rs.Error == nil {
+				// skip DeadlineExceeded errors because kstatus emits that error
+				// for every resource it's monitoring even when only one of them
+				// actually fails.
+				if rs.Error != context.DeadlineExceeded {
 					lastStatus[rs.Identifier] = rs
 				}
 				rss = append(rss, rs)
@@ -94,7 +97,10 @@ func (hc *KustomizeHealthCheck) Assess(pollInterval time.Duration) error {
 				errors = append(errors, fmt.Sprintf("no status for %s available", id))
 				continue
 			}
-			if lastStatus[id].Status != status.CurrentStatus {
+			if lastStatus[id] == nil {
+				// this is only nil in the rare case where no status can be determined for the resource at all
+				errors = append(errors, fmt.Sprintf("%s (unknown status)", hc.objMetadataToString(rs.Identifier)))
+			} else if lastStatus[id].Status != status.CurrentStatus {
 				idString := hc.objMetadataToString(rs.Identifier)
 				var bld strings.Builder
 				bld.WriteString(fmt.Sprintf("%s (status '%s')", idString, lastStatus[id].Status))
