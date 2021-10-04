@@ -12,7 +12,7 @@ require (
 	github.com/fluxcd/pkg/apis/kustomize v0.2.0
 	github.com/fluxcd/pkg/apis/meta v0.10.1
 	github.com/fluxcd/pkg/runtime v0.12.1
-	github.com/fluxcd/pkg/ssa v0.0.0-20211001071904-2da41b6c8ff8
+	github.com/fluxcd/pkg/ssa v0.0.1
 	github.com/fluxcd/pkg/testserver v0.1.0
 	github.com/fluxcd/pkg/untar v0.1.0
 	github.com/fluxcd/source-controller/api v0.15.4
@@ -32,12 +32,12 @@ require (
 	k8s.io/client-go v0.22.2
 	sigs.k8s.io/cli-utils v0.25.1-0.20210608181808-f3974341173a
 	sigs.k8s.io/controller-runtime v0.10.1
-	sigs.k8s.io/kustomize/api v0.9.0
+	sigs.k8s.io/kustomize/api v0.10.0
 	sigs.k8s.io/yaml v1.3.0
 )
 
-// pin kustomize to v4.3.0
+// pin kustomize to v4.4.0
 replace (
-	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.9.0
-	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.11.1
+	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.10.0
+	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.12.0
 )
