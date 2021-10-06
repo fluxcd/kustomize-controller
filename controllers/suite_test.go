@@ -33,13 +33,13 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/controller"
+	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -58,34 +58,28 @@ const (
 )
 
 var (
-	cfg          *rest.Config
 	k8sClient    client.Client
-	testEnv      *envtest.Environment
+	testEnv      *testenv.Environment
 	testServer   *testserver.ArtifactServer
 	testEventsH  controller.Events
 	testMetricsH controller.Metrics
 	ctx          = ctrl.SetupSignalHandler()
-	cancel       context.CancelFunc
 	kubeConfig   []byte
 	debugMode    = os.Getenv("DEBUG_TEST") != ""
 )
 
-// TODO: port this to github.com/fluxcd/pkg/runtime/testenv once testenv can generate kubeconfigs for admin users
 func TestMain(m *testing.M) {
 	var err error
 	utilruntime.Must(sourcev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(kustomizev1.AddToScheme(scheme.Scheme))
 
-	// Cancellable context to stop the controllers.
-	ctx, cancel = context.WithCancel(ctx)
-
 	if debugMode {
 		controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))
 	}
 
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "config", "crd", "bases")},
-	}
+	testEnv = testenv.New(testenv.WithCRDPath(
+		filepath.Join("..", "config", "crd", "bases"),
+	))
 
 	testServer, err = testserver.NewTempArtifactServer()
 	if err != nil {
@@ -94,49 +88,45 @@ func TestMain(m *testing.M) {
 	fmt.Println("Starting the test storage server")
 	testServer.Start()
 
-	cfg, err = testEnv.Start()
-
-	user, err := testEnv.ControlPlane.AddUser(envtest.User{
-		Name:   "envtest-admin",
-		Groups: []string{"system:masters"},
-	}, nil)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create envtest-admin user: %v", err))
-	}
-
-	kubeConfig, err = user.KubeConfig()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create the envtest-admin user kubeconfig: %v", err))
-	}
-
-	// client with caching disabled
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-	})
-
 	controllerName := "kustomize-controller"
-	testEventsH = controller.MakeEvents(k8sManager, controllerName, nil)
-	testMetricsH = controller.MustMakeMetrics(k8sManager)
+	testEventsH = controller.MakeEvents(testEnv, controllerName, nil)
+	testMetricsH = controller.MustMakeMetrics(testEnv)
 	reconciler := &KustomizationReconciler{
 		ControllerName:  controllerName,
-		Client:          k8sManager.GetClient(),
+		Client:          testEnv,
 		EventRecorder:   testEventsH.EventRecorder,
 		MetricsRecorder: testMetricsH.MetricsRecorder,
 	}
-
-	if err := (reconciler).SetupWithManager(k8sManager, KustomizationReconcilerOptions{MaxConcurrentReconciles: 4}); err != nil {
+	if err := (reconciler).SetupWithManager(testEnv, KustomizationReconcilerOptions{MaxConcurrentReconciles: 4}); err != nil {
 		panic(fmt.Sprintf("Failed to start GitRepositoryReconciler: %v", err))
 	}
 
 	go func() {
 		fmt.Println("Starting the test environment")
-		if err := k8sManager.Start(ctx); err != nil {
+		if err := testEnv.Start(ctx); err != nil {
 			panic(fmt.Sprintf("Failed to start the test environment manager: %v", err))
 		}
 	}()
-	<-k8sManager.Elected()
+	<-testEnv.Manager.Elected()
+
+	user, err := testEnv.AddUser(envtest.User{
+		Name:   "testenv-admin",
+		Groups: []string{"system:masters"},
+	}, nil)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create testenv-admin user: %v", err))
+	}
+
+	kubeConfig, err = user.KubeConfig()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create the testenv-admin user kubeconfig: %v", err))
+	}
+
+	// Client with caching disabled.
+	k8sClient, err = client.New(testEnv.Config, client.Options{Scheme: scheme.Scheme})
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create k8s client: %v", err))
+	}
 
 	code := m.Run()
 
@@ -144,23 +134,22 @@ func TestMain(m *testing.M) {
 		events := &corev1.EventList{}
 		_ = k8sClient.List(ctx, events)
 		for _, event := range events.Items {
-			fmt.Println(fmt.Sprintf("%s %s \n%s\n",
+			fmt.Printf("%s %s \n%s\n",
 				event.InvolvedObject.Name, event.GetAnnotations()["kustomize.toolkit.fluxcd.io/revision"],
-				event.Message))
+				event.Message)
 		}
 	}
 
-	fmt.Println("Stopping the controller")
-	cancel()
+	fmt.Println("Stopping the test environment")
+	if err := testEnv.Stop(); err != nil {
+		panic(fmt.Sprintf("Failed to stop the test environment: %v", err))
+	}
 
 	fmt.Println("Stopping the file server")
 	testServer.Stop()
 	if err := os.RemoveAll(testServer.Root()); err != nil {
 		panic(fmt.Sprintf("Failed to remove storage server dir: %v", err))
 	}
-
-	fmt.Println("Stopping the test environment")
-	testEnv.Stop()
 
 	os.Exit(code)
 }
