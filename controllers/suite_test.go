@@ -27,7 +27,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -66,6 +65,7 @@ var (
 	testEventsH  controller.Events
 	testMetricsH controller.Metrics
 	ctx          = ctrl.SetupSignalHandler()
+	cancel       context.CancelFunc
 	kubeConfig   []byte
 	debugMode    = os.Getenv("DEBUG_TEST") != ""
 )
@@ -75,6 +75,9 @@ func TestMain(m *testing.M) {
 	var err error
 	utilruntime.Must(sourcev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(kustomizev1.AddToScheme(scheme.Scheme))
+
+	// Cancellable context to stop the controllers.
+	ctx, cancel = context.WithCancel(ctx)
 
 	if debugMode {
 		controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))
@@ -148,7 +151,7 @@ func TestMain(m *testing.M) {
 	}
 
 	fmt.Println("Stopping the controller")
-	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+	cancel()
 
 	fmt.Println("Stopping the file server")
 	testServer.Stop()
