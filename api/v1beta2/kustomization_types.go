@@ -140,6 +140,11 @@ type KustomizationSpec struct {
 	// When enabled, the HealthChecks are ignored. Defaults to false.
 	// +optional
 	Wait bool `json:"wait,omitempty"`
+
+	// Deprecated: Not used in v1beta2.
+	// +kubebuilder:validation:Enum=none;client;server
+	// +optional
+	Validation string `json:"validation,omitempty"`
 }
 
 // Decryption defines how decryption is handled for Kubernetes manifests.

@@ -722,6 +722,13 @@ spec:
               timeout:
                 description: Timeout for validation, apply and health checking operations. Defaults to 'Interval' duration.
                 type: string
+              validation:
+                description: 'Deprecated: Not used in v1beta2.'
+                enum:
+                - none
+                - client
+                - server
+                type: string
               wait:
                 description: Wait instructs the controller to check the health of all the reconciled resources. When enabled, the HealthChecks are ignored. Defaults to false.
                 type: boolean

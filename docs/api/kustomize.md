@@ -350,6 +350,18 @@ bool
 When enabled, the HealthChecks are ignored. Defaults to false.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>validation</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deprecated: Not used in v1beta2.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -821,6 +833,18 @@ bool
 <em>(Optional)</em>
 <p>Wait instructs the controller to check the health of all the reconciled resources.
 When enabled, the HealthChecks are ignored. Defaults to false.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validation</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deprecated: Not used in v1beta2.</p>
 </td>
 </tr>
 </tbody>
