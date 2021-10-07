@@ -41,3 +41,6 @@ replace (
 	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.10.0
 	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.12.0
 )
+
+// fix CVE-2021-30465
+replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.0-rc95
