@@ -38,7 +38,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/probes"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/kustomize-controller/controllers"
 	// +kubebuilder:scaffold:imports
 )
@@ -129,6 +129,7 @@ func main() {
 	pprof.SetupHandlers(mgr, setupLog)
 
 	if err = (&controllers.KustomizationReconciler{
+		ControllerName:        controllerName,
 		Client:                mgr.GetClient(),
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         mgr.GetEventRecorderFor(controllerName),
@@ -140,7 +141,7 @@ func main() {
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,
 	}); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", kustomizev1.KustomizationKind)
+		setupLog.Error(err, "unable to create controller", "controller", controllerName)
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

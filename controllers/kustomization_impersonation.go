@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
 
 type KustomizeImpersonation struct {
@@ -160,28 +159,6 @@ func (ki *KustomizeImpersonation) clientForKubeConfig(ctx context.Context) (clie
 	statusPoller := polling.NewStatusPoller(client, restMapper)
 
 	return client, statusPoller, err
-}
-
-func (ki *KustomizeImpersonation) WriteKubeConfig(ctx context.Context) (string, error) {
-	secretName := types.NamespacedName{
-		Namespace: ki.kustomization.GetNamespace(),
-		Name:      ki.kustomization.Spec.KubeConfig.SecretRef.Name,
-	}
-
-	kubeConfig, err := ki.getKubeConfig(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	f, err := ioutil.TempFile(ki.workdir, "kubeconfig")
-	defer f.Close()
-	if err != nil {
-		return "", fmt.Errorf("unable to write KubeConfig secret '%s' to storage: %w", secretName.String(), err)
-	}
-	if _, err := f.Write(kubeConfig); err != nil {
-		return "", fmt.Errorf("unable to write KubeConfig secret '%s' to storage: %w", secretName.String(), err)
-	}
-	return f.Name(), nil
 }
 
 func (ki *KustomizeImpersonation) getKubeConfig(ctx context.Context) ([]byte, error) {

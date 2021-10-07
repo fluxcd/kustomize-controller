@@ -2,16 +2,16 @@
 <p>Packages:</p>
 <ul class="simple">
 <li>
-<a href="#kustomize.toolkit.fluxcd.io%2fv1beta1">kustomize.toolkit.fluxcd.io/v1beta1</a>
+<a href="#kustomize.toolkit.fluxcd.io%2fv1beta2">kustomize.toolkit.fluxcd.io/v1beta2</a>
 </li>
 </ul>
-<h2 id="kustomize.toolkit.fluxcd.io/v1beta1">kustomize.toolkit.fluxcd.io/v1beta1</h2>
-<p>Package v1beta1 contains API Schema definitions for the kustomize v1beta1 API group</p>
+<h2 id="kustomize.toolkit.fluxcd.io/v1beta2">kustomize.toolkit.fluxcd.io/v1beta2</h2>
+<p>Package v1beta2 contains API Schema definitions for the kustomize.toolkit.fluxcd.io v1beta2 API group.</p>
 Resource Types:
 <ul class="simple"><li>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Kustomization">Kustomization</a>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Kustomization">Kustomization</a>
 </li></ul>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.Kustomization">Kustomization
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.Kustomization">Kustomization
 </h3>
 <p>Kustomization is the Schema for the kustomizations API.</p>
 <div class="md-typeset__scrollwrap">
@@ -29,7 +29,7 @@ Resource Types:
 <code>apiVersion</code><br>
 string</td>
 <td>
-<code>kustomize.toolkit.fluxcd.io/v1beta1</code>
+<code>kustomize.toolkit.fluxcd.io/v1beta2</code>
 </td>
 </tr>
 <tr>
@@ -59,7 +59,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">
 KustomizationSpec
 </a>
 </em>
@@ -88,7 +88,7 @@ Kustomization can be reconciled.</p>
 <td>
 <code>decryption</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Decryption">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Decryption">
 Decryption
 </a>
 </em>
@@ -131,7 +131,7 @@ value to retry failures.</p>
 <td>
 <code>kubeConfig</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KubeConfig">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KubeConfig">
 KubeConfig
 </a>
 </em>
@@ -160,7 +160,7 @@ Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceR
 <td>
 <code>postBuild</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.PostBuild">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.PostBuild">
 PostBuild
 </a>
 </em>
@@ -222,7 +222,8 @@ capable of targeting objects based on kind, label and annotation selectors.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Strategic merge patches, defined as inline YAML objects.</p>
+<p>Strategic merge patches, defined as inline YAML objects.
+Deprecated: Use Patches instead.</p>
 </td>
 </tr>
 <tr>
@@ -236,7 +237,8 @@ capable of targeting objects based on kind, label and annotation selectors.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>JSON 6902 patches, defined as inline YAML objects.</p>
+<p>JSON 6902 patches, defined as inline YAML objects.
+Deprecated: Use Patches instead.</p>
 </td>
 </tr>
 <tr>
@@ -272,7 +274,7 @@ when reconciling this Kustomization.</p>
 <td>
 <code>sourceRef</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.CrossNamespaceSourceReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.CrossNamespaceSourceReference">
 CrossNamespaceSourceReference
 </a>
 </em>
@@ -324,22 +326,6 @@ Defaults to &lsquo;Interval&rsquo; duration.</p>
 </tr>
 <tr>
 <td>
-<code>validation</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Validate the Kubernetes objects before applying them on the cluster.
-The validation strategy can be &lsquo;client&rsquo; (local dry-run), &lsquo;server&rsquo;
-(APIServer dry-run) or &lsquo;none&rsquo;.
-When &lsquo;Force&rsquo; is &lsquo;true&rsquo;, validation will fallback to &lsquo;client&rsquo; if set to
-&lsquo;server&rsquo; because server-side validation is not supported in this scenario.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>force</code><br>
 <em>
 bool
@@ -351,6 +337,31 @@ bool
 when patching fails due to an immutable field change.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>wait</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Wait instructs the controller to check the health of all the reconciled resources.
+When enabled, the HealthChecks are ignored. Defaults to false.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validation</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deprecated: Not used in v1beta2.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -358,7 +369,7 @@ when patching fails due to an immutable field change.</p>
 <td>
 <code>status</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationStatus">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationStatus">
 KustomizationStatus
 </a>
 </em>
@@ -370,14 +381,14 @@ KustomizationStatus
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.CrossNamespaceSourceReference">CrossNamespaceSourceReference
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.CrossNamespaceSourceReference">CrossNamespaceSourceReference
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>CrossNamespaceSourceReference contains enough information to let you locate the
-typed referenced object at cluster level</p>
+typed Kubernetes resource object at cluster level.</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -397,7 +408,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>API version of the referent</p>
+<p>API version of the referent.</p>
 </td>
 </tr>
 <tr>
@@ -408,7 +419,7 @@ string
 </em>
 </td>
 <td>
-<p>Kind of the referent</p>
+<p>Kind of the referent.</p>
 </td>
 </tr>
 <tr>
@@ -419,7 +430,7 @@ string
 </em>
 </td>
 <td>
-<p>Name of the referent</p>
+<p>Name of the referent.</p>
 </td>
 </tr>
 <tr>
@@ -431,18 +442,18 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Namespace of the referent, defaults to the Kustomization namespace</p>
+<p>Namespace of the referent, defaults to the namespace of the Kubernetes resource object that contains the reference.</p>
 </td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.Decryption">Decryption
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.Decryption">Decryption
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>Decryption defines how decryption is handled for Kubernetes manifests.</p>
 <div class="md-typeset__scrollwrap">
@@ -484,11 +495,11 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.KubeConfig">KubeConfig
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.KubeConfig">KubeConfig
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>KubeConfig references a Kubernetes secret that contains a kubeconfig file.</p>
 <div class="md-typeset__scrollwrap">
@@ -525,13 +536,13 @@ the Kustomization.</p>
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Kustomization">Kustomization</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Kustomization">Kustomization</a>)
 </p>
-<p>KustomizationSpec defines the desired state of a kustomization.</p>
+<p>KustomizationSpec defines the configuration to calculate the desired state from a Source using Kustomize.</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -562,7 +573,7 @@ Kustomization can be reconciled.</p>
 <td>
 <code>decryption</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Decryption">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Decryption">
 Decryption
 </a>
 </em>
@@ -605,7 +616,7 @@ value to retry failures.</p>
 <td>
 <code>kubeConfig</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KubeConfig">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KubeConfig">
 KubeConfig
 </a>
 </em>
@@ -634,7 +645,7 @@ Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceR
 <td>
 <code>postBuild</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.PostBuild">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.PostBuild">
 PostBuild
 </a>
 </em>
@@ -696,7 +707,8 @@ capable of targeting objects based on kind, label and annotation selectors.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Strategic merge patches, defined as inline YAML objects.</p>
+<p>Strategic merge patches, defined as inline YAML objects.
+Deprecated: Use Patches instead.</p>
 </td>
 </tr>
 <tr>
@@ -710,7 +722,8 @@ capable of targeting objects based on kind, label and annotation selectors.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>JSON 6902 patches, defined as inline YAML objects.</p>
+<p>JSON 6902 patches, defined as inline YAML objects.
+Deprecated: Use Patches instead.</p>
 </td>
 </tr>
 <tr>
@@ -746,7 +759,7 @@ when reconciling this Kustomization.</p>
 <td>
 <code>sourceRef</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.CrossNamespaceSourceReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.CrossNamespaceSourceReference">
 CrossNamespaceSourceReference
 </a>
 </em>
@@ -798,22 +811,6 @@ Defaults to &lsquo;Interval&rsquo; duration.</p>
 </tr>
 <tr>
 <td>
-<code>validation</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Validate the Kubernetes objects before applying them on the cluster.
-The validation strategy can be &lsquo;client&rsquo; (local dry-run), &lsquo;server&rsquo;
-(APIServer dry-run) or &lsquo;none&rsquo;.
-When &lsquo;Force&rsquo; is &lsquo;true&rsquo;, validation will fallback to &lsquo;client&rsquo; if set to
-&lsquo;server&rsquo; because server-side validation is not supported in this scenario.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>force</code><br>
 <em>
 bool
@@ -825,15 +822,40 @@ bool
 when patching fails due to an immutable field change.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>wait</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Wait instructs the controller to check the health of all the reconciled resources.
+When enabled, the HealthChecks are ignored. Defaults to false.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validation</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deprecated: Not used in v1beta2.</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.KustomizationStatus">KustomizationStatus
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.KustomizationStatus">KustomizationStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Kustomization">Kustomization</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Kustomization">Kustomization</a>)
 </p>
 <p>KustomizationStatus defines the observed state of a kustomization.</p>
 <div class="md-typeset__scrollwrap">
@@ -846,6 +868,21 @@ when patching fails due to an immutable field change.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>ReconcileRequestStatus</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#ReconcileRequestStatus">
+github.com/fluxcd/pkg/apis/meta.ReconcileRequestStatus
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>ReconcileRequestStatus</code> are embedded into this type.)
+</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>observedGeneration</code><br>
@@ -898,42 +935,27 @@ string
 </tr>
 <tr>
 <td>
-<code>ReconcileRequestStatus</code><br>
+<code>inventory</code><br>
 <em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#ReconcileRequestStatus">
-github.com/fluxcd/pkg/apis/meta.ReconcileRequestStatus
-</a>
-</em>
-</td>
-<td>
-<p>
-(Members of <code>ReconcileRequestStatus</code> are embedded into this type.)
-</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>snapshot</code><br>
-<em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Snapshot">
-Snapshot
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.ResourceInventory">
+ResourceInventory
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>The last successfully applied revision metadata.</p>
+<p>Inventory contains the list of Kubernetes resource object references that have been successfully applied.</p>
 </td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.PostBuild">PostBuild
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.PostBuild">PostBuild
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>PostBuild describes which actions to perform on the YAML manifest
 generated by building the kustomize overlay.</p>
@@ -968,7 +990,7 @@ e.g. ${var:=default}, ${var:position} and ${var/substring/replacement}.</p>
 <td>
 <code>substituteFrom</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.SubstituteReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.SubstituteReference">
 []SubstituteReference
 </a>
 </em>
@@ -985,14 +1007,13 @@ must match the vars declared in the manifests for the substitution to happen.</p
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.Snapshot">Snapshot
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.ResourceInventory">ResourceInventory
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.KustomizationStatus">KustomizationStatus</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationStatus">KustomizationStatus</a>)
 </p>
-<p>Snapshot holds the metadata of the Kubernetes objects
-generated for a source revision</p>
+<p>ResourceInventory contains a list of Kubernetes resource object references that have been applied by a Kustomization.</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -1003,42 +1024,30 @@ generated for a source revision</p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>
-<code>checksum</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>The manifests sha1 checksum.</p>
-</td>
-</tr>
 <tr>
 <td>
 <code>entries</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.SnapshotEntry">
-[]SnapshotEntry
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.ResourceRef">
+[]ResourceRef
 </a>
 </em>
 </td>
 <td>
-<p>A list of Kubernetes kinds grouped by namespace.</p>
+<p>Entries of Kubernetes resource object references.</p>
 </td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.SnapshotEntry">SnapshotEntry
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.ResourceRef">ResourceRef
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.Snapshot">Snapshot</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.ResourceInventory">ResourceInventory</a>)
 </p>
-<p>Snapshot holds the metadata of namespaced
-Kubernetes objects</p>
+<p>ResourceRef contains the information necessary to locate a resource within a cluster.</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -1051,36 +1060,36 @@ Kubernetes objects</p>
 <tbody>
 <tr>
 <td>
-<code>namespace</code><br>
+<code>id</code><br>
 <em>
 string
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>The namespace of this entry.</p>
+<p>ID is the string representation of the Kubernetes resource object&rsquo;s metadata,
+in the format &lsquo;<namespace><em><name></em><group>_<kind>&rsquo;.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>kinds</code><br>
+<code>v</code><br>
 <em>
-map[string]string
+string
 </em>
 </td>
 <td>
-<p>The list of Kubernetes kinds.</p>
+<p>Version is the API version of the Kubernetes resource object&rsquo;s kind.</p>
 </td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta1.SubstituteReference">SubstituteReference
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.SubstituteReference">SubstituteReference
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta1.PostBuild">PostBuild</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.PostBuild">PostBuild</a>)
 </p>
 <p>SubstituteReference contains a reference to a resource containing
 the variables name and value.</p>
