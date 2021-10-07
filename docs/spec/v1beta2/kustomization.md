@@ -361,7 +361,25 @@ A Kustomization can contain a series of health checks used to determine the
 [rollout status](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#deployment-status)
 of the deployed workloads and the ready status of custom resources.
 
-To enabled health checking for all the reconciled resources, set `spec.wait` to `true`.
+To enabled health checking for all the reconciled resources,
+set `spec.wait` and `spec.timeout`:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: backend
+  namespace: default
+spec:
+  interval: 5m
+  path: "./deploy"
+  sourceRef:
+    kind: GitRepository
+    name: webapp
+  wait: true
+  timeout: 2m
+```
+
 If you wish to select only certain resources, list them under `spec.healthChecks`.
 Note that when `spec.wait` is enabled, the `spec.healthChecks` field is ignored.
 

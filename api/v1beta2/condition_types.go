@@ -17,8 +17,8 @@ limitations under the License.
 package v1beta2
 
 const (
-	// HealthyCondition is the condition type used
-	// to record the last health assessment result.
+	// HealthyCondition represents the last recorded
+	// health assessment result.
 	HealthyCondition string = "Healthy"
 
 	// PruneFailedReason represents the fact that the
@@ -26,18 +26,14 @@ const (
 	PruneFailedReason string = "PruneFailed"
 
 	// ArtifactFailedReason represents the fact that the
-	// artifact download of the kustomization failed.
+	// source artifact download failed.
 	ArtifactFailedReason string = "ArtifactFailed"
 
 	// BuildFailedReason represents the fact that the
-	// kustomize build of the Kustomization failed.
+	// kustomize build failed.
 	BuildFailedReason string = "BuildFailed"
 
 	// HealthCheckFailedReason represents the fact that
-	// one of the health checks of the Kustomization failed.
+	// one of the health checks failed.
 	HealthCheckFailedReason string = "HealthCheckFailed"
-
-	// ValidationFailedReason represents the fact that the
-	// validation of the Kustomization manifests has failed.
-	ValidationFailedReason string = "ValidationFailed"
 )
