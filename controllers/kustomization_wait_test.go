@@ -172,7 +172,7 @@ data:
 		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
 		g.Expect(len(events) > 0).To(BeTrue())
 		g.Expect(events[len(events)-1].Type).To(BeIdenticalTo("Warning"))
-		g.Expect(events[len(events)-1].Message).To(ContainSubstring("context deadline"))
+		g.Expect(events[len(events)-1].Message).To(ContainSubstring("does-not-exists"))
 	})
 
 	t.Run("recovers and reports healthy status", func(t *testing.T) {
