@@ -19,7 +19,7 @@ Features:
 * generates the `kustomization.yaml` file if needed
 * generates Kubernetes manifests with kustomize build
 * decrypts Kubernetes secrets with Mozilla SOPS
-* validates the build output with client-side or APIServer dry-run
+* validates the build output with server-side apply dry-run
 * applies the generated manifests on the cluster
 * prunes the Kubernetes objects removed from source
 * checks the health of the deployed workloads
@@ -27,7 +27,7 @@ Features:
 * notifies whenever a `Kustomization` status changes
 
 Specifications:
-* [API](docs/spec/v1beta1/README.md)
+* [API](docs/spec/v1beta2/README.md)
 * [Controller](docs/spec/README.md)
 
 ## Usage
@@ -55,7 +55,7 @@ flux install
 Create a source object that points to a Git repository containing Kubernetes and Kustomize manifests:
 
 ```yaml
-apiVersion: source.toolkit.fluxcd.io/v1beta1
+apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: GitRepository
 metadata:
   name: podinfo
@@ -88,7 +88,7 @@ kubectl -n flux-system annotate --overwrite gitrepository/podinfo reconcile.flux
 Create a kustomization object that uses the git repository defined above:
 
 ```yaml
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: podinfo-dev
@@ -100,7 +100,6 @@ spec:
   sourceRef:
     kind: GitRepository
     name: podinfo
-  validation: client
   healthChecks:
     - kind: Deployment
       name: frontend
@@ -147,12 +146,12 @@ kubectl -n flux-system logs deploy/kustomize-controller | jq .
   "kustomization": "flux-system/podinfo-dev",
   "output": {
     "namespace/dev": "created",
-    "service/frontend": "created",
-    "deployment.apps/frontend": "created",
-    "horizontalpodautoscaler.autoscaling/frontend": "created",
-    "service/backend": "created",
-    "deployment.apps/backend": "created",
-    "horizontalpodautoscaler.autoscaling/backend": "created"
+    "service/dev/frontend": "created",
+    "deployment/dev/frontend": "created",
+    "horizontalpodautoscaler/dev/frontend": "created",
+    "service/dev/backend": "created",
+    "deployment/dev/backend": "created",
+    "horizontalpodautoscaler/dev/backend": "created"
   }
 }
 ```
@@ -182,7 +181,7 @@ status:
 ```json
 {
   "kustomization": "flux-system/podinfo-dev",
-  "error": "Error from server (NotFound): error when creating podinfo-dev.yaml: namespaces dev not found"
+  "error": "Error when creating 'Service/dev/frontend': namespaces dev not found"
 }
 ```
 
@@ -195,7 +194,7 @@ When combined with health assessment, a kustomization will run after all its dep
 For example, a service mesh proxy injector should be running before deploying applications inside the mesh:
 
 ```yaml
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: istio
@@ -212,7 +211,7 @@ spec:
       namespace: istio-system
   timeout: 2m
 ---
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: podinfo-dev
@@ -251,7 +250,7 @@ that matches the semver range.
 Create a production kustomization and reference the git source that follows the latest semver release:
 
 ```yaml
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: podinfo-production
