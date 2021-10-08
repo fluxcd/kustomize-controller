@@ -12,7 +12,7 @@ require (
 	github.com/fluxcd/pkg/apis/kustomize v0.2.0
 	github.com/fluxcd/pkg/apis/meta v0.10.1
 	github.com/fluxcd/pkg/runtime v0.12.2
-	github.com/fluxcd/pkg/ssa v0.0.1
+	github.com/fluxcd/pkg/ssa v0.0.2
 	github.com/fluxcd/pkg/testserver v0.1.0
 	github.com/fluxcd/pkg/untar v0.1.0
 	github.com/fluxcd/source-controller/api v0.15.4
@@ -41,3 +41,6 @@ replace (
 	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.10.0
 	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.12.0
 )
+
+// fix CVE-2021-30465
+replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.0-rc95
