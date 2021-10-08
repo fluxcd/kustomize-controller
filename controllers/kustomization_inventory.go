@@ -57,6 +57,10 @@ func AddObjectsToInventory(inv *kustomizev1.ResourceInventory, objects []*unstru
 func ListObjectsInInventory(inv *kustomizev1.ResourceInventory) ([]*unstructured.Unstructured, error) {
 	objects := make([]*unstructured.Unstructured, 0)
 
+	if inv.Entries == nil {
+		return objects, nil
+	}
+
 	for _, entry := range inv.Entries {
 		objMetadata, err := object.ParseObjMetadata(entry.ID)
 		if err != nil {

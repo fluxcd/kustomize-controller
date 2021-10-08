@@ -757,7 +757,10 @@ func (r *KustomizationReconciler) prune(ctx context.Context, manager *ssa.Resour
 
 func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization kustomizev1.Kustomization) (ctrl.Result, error) {
 	log := logr.FromContext(ctx)
-	if kustomization.Spec.Prune && !kustomization.Spec.Suspend {
+	if kustomization.Spec.Prune &&
+		!kustomization.Spec.Suspend &&
+		kustomization.Status.Inventory != nil &&
+		kustomization.Status.Inventory.Entries != nil {
 		objects, err := ListObjectsInInventory(kustomization.Status.Inventory)
 
 		impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, "")
