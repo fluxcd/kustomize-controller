@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.15.1
+
+**Release date:** 2021-10-08
+
+This prerelease comes with fixes to backwards compatibility with Flux CLI 0.17 and older.
+
+Fixes:
+* Fix inventory panic for v1beta1 objects
+  [#445](https://github.com/fluxcd/kustomize-controller/pull/445)
+
 ## 0.15.0
 
 **Release date:** 2021-10-08
