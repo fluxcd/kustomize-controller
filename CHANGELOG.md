@@ -2,6 +2,60 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.15.0
+
+**Release date:** 2021-10-08
+
+This prerelease comes with a [new reconciler](https://github.com/fluxcd/kustomize-controller/pull/426)
+based on Kubernetes server-side apply and graduates the API to `v1beta2`.
+
+The controller dependencies has been updated to match
+kustomize [v4.4.0](https://github.com/kubernetes-sigs/kustomize/releases/tag/kustomize%2Fv4.4.0)
+which restores the usage of YAML anchors.
+
+**Breaking changes**
+
+- Namespaced objects must contain `metadata.namespace`, defaulting to the `default` namespace is no longer supported.
+  Setting a namespace for all objects reconciled by a Kustomization can be done with `spec.targetNamespace`.
+- The logs, events and alerts that report Kubernetes namespaced object changes are
+  now using the `Kind/Namespace/Name` format instead of `Kind/Name`.
+- The minimum required version of Kubernetes has changed to:
+
+    | Kubernetes version | Minimum required |
+    | --- | --- |
+    | `v1.16` | `>= 1.16.11` |
+    | `v1.17` | `>= 1.17.7` |
+    | `v1.18` | `>= 1.18.4` |
+    | `v1.19` and later | `>= 1.19.0` |
+
+**Features and Improvements**
+
+- Being able to validate and reconcile sources that contain both CRDs and CRs.
+- Being able to wait for all the applied resources to become ready
+  without requiring users to fill-in the health check list.
+- Improve performance (CPU, memory, network, FD usage) and reduce the number of calls to Kubernetes API
+  by replacing kubectl execs with a specialized applier written in Go.
+- Detect and report drift between the desired state (git, s3, etc) and cluster state reliably.
+- Improve the overall observably of the reconciliation process by reporting in real-time
+  the garbage collection and health assessment actions.
+- Reconcile empty sources including pruning of all the resources previously applied.
+- Mask secrets data in logs, events and alerts.
+
+**API changes**
+
+The `kustomize.toolkit.fluxcd.io/v1beta2` API is backwards compatible with `v1beta1`.
+
+Additions, deprecations and removals:
+- `.spec.patchesStrategicMerge` deprecated in favour of `.spec.patches`
+- `.spec.patchesJson6902` deprecated in favour of `.spec.patches`
+- `.spec.validation` deprecated and no longer used (server-side validation is implicit)
+- `.spec.wait` added (when enabled, will wait for all the reconciled resources to become ready)
+- `.status.snapshot` replaced by `.status.inventory`
+
+Updating the manifests in Git to `v1beta2` can be done at any time after the kustomize-controller upgrade.
+All users are encouraged to update the manifests as the deprecated fields
+will be removed when the next API version will be released.
+
 ## 0.14.1
 
 **Release date:** 2021-09-09

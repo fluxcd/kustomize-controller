@@ -1,4 +1,4 @@
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: webapp-dev
@@ -9,17 +9,10 @@ spec:
   sourceRef:
     kind: GitRepository
     name: webapp-latest
-  validation: client
-  healthChecks:
-    - kind: Deployment
-      name: backend
-      namespace: webapp
-    - kind: Deployment
-      name: frontend
-      namespace: webapp
+  wait: true
   timeout: 2m
 ---
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: webapp-production
@@ -30,7 +23,6 @@ spec:
   sourceRef:
     kind: GitRepository
     name: webapp-releases
-  validation: client
   healthChecks:
     - kind: Deployment
       name: backend
