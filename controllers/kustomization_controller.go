@@ -693,11 +693,22 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.
 		return nil
 	}
 
+	// guard against deadlock (waiting on itself)
+	var toCheck []*unstructured.Unstructured
+	for _, object := range objects {
+		if object.GetKind() == kustomizev1.KustomizationKind &&
+			object.GetName() == kustomization.GetName() &&
+			object.GetNamespace() == kustomization.GetNamespace() {
+			continue
+		}
+		toCheck = append(toCheck, object)
+	}
+
 	// find the previous health check result
 	wasHealthy := apimeta.IsStatusConditionTrue(kustomization.Status.Conditions, kustomizev1.HealthyCondition)
 
 	// set the Healthy and Ready conditions to progressing
-	message := fmt.Sprintf("running health checks with a timeout of %d", kustomization.GetTimeout())
+	message := fmt.Sprintf("running health checks with a timeout of %s", kustomization.GetTimeout().String())
 	k := kustomizev1.KustomizationProgressing(kustomization, message)
 	kustomizev1.SetKustomizationHealthiness(&k, metav1.ConditionUnknown, meta.ProgressingReason, message)
 	if err := r.patchStatus(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&kustomization)}, k.Status); err != nil {
@@ -705,7 +716,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.
 	}
 
 	// check the health with a default timeout of 30sec shorter than the reconciliation interval
-	if err := manager.Wait(objects, time.Second, kustomization.GetTimeout()); err != nil {
+	if err := manager.Wait(toCheck, time.Second, kustomization.GetTimeout()); err != nil {
 		return fmt.Errorf("Health check failed after %s, %w", time.Now().Sub(checkStart).String(), err)
 	}
 
