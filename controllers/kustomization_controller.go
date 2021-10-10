@@ -651,6 +651,9 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	// sort by kind, validate and apply all the others objects
 	sort.Sort(ssa.SortableUnstructureds(stageTwo))
 	if len(stageTwo) > 0 {
+		if err := ssa.SetNativeKindsDefaults(stageTwo); err != nil {
+			return false, err
+		}
 		changeSet, err := manager.ApplyAll(ctx, stageTwo, kustomization.Spec.Force)
 		if err != nil {
 			return false, fmt.Errorf("%w\n%s", err, changeSetLog.String())
