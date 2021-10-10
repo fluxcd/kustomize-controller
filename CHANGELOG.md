@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.15.2
+
+**Release date:** 2021-10-10
+
+This prerelease comes with fixes for server-side apply upstream bugs affecting Kubernetes < 1.22.
+
+Fixes:
+* Fix SSA upstream bugs for Kubernetes < 1.22
+  [#448](https://github.com/fluxcd/kustomize-controller/pull/448)
+
 ## 0.15.1
 
 **Release date:** 2021-10-08
