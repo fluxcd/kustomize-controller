@@ -611,6 +611,10 @@ func (r *KustomizationReconciler) build(ctx context.Context, kustomization kusto
 func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, objects []*unstructured.Unstructured) (bool, error) {
 	log := logr.FromContext(ctx)
 
+	if err := ssa.SetNativeKindsDefaults(objects); err != nil {
+		return false, err
+	}
+
 	// contains only CRDs and Namespaces
 	var stageOne []*unstructured.Unstructured
 
@@ -651,9 +655,6 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	// sort by kind, validate and apply all the others objects
 	sort.Sort(ssa.SortableUnstructureds(stageTwo))
 	if len(stageTwo) > 0 {
-		if err := ssa.SetNativeKindsDefaults(stageTwo); err != nil {
-			return false, err
-		}
 		changeSet, err := manager.ApplyAll(ctx, stageTwo, kustomization.Spec.Force)
 		if err != nil {
 			return false, fmt.Errorf("%w\n%s", err, changeSetLog.String())

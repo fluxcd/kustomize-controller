@@ -138,4 +138,20 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		g.Expect(string(encodedSecret.Data["month.yaml"])).To(Equal("month: May\n"))
 	})
 
+	t.Run("does not emit change events for identical secrets", func(t *testing.T) {
+		resultK := &kustomizev1.Kustomization{}
+		revision := "v2.0.0"
+		err = applyGitRepository(repositoryName, artifactURL, revision, artifactChecksum+"v2")
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return resultK.Status.LastAttemptedRevision == revision
+		}, timeout, time.Second).Should(BeTrue())
+
+		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+		g.Expect(len(events)).To(BeIdenticalTo(1))
+		g.Expect(events[0].Message).Should(ContainSubstring("Reconciliation finished"))
+		g.Expect(events[0].Message).ShouldNot(ContainSubstring("configured"))
+	})
 }
