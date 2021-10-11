@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.15.3
+
+**Release date:** 2021-10-11
+
+This prerelease comes with fixes for drift detection in Secrets and ConfigMaps.
+
+Fixes:
+* Fix drift detection in Secrets and ConfigMaps
+  [#451](https://github.com/fluxcd/kustomize-controller/pull/451)
+
 ## 0.15.2
 
 **Release date:** 2021-10-10
