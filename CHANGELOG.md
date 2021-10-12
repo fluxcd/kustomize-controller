@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.15.4
+
+**Release date:** 2021-10-12
+
+This prerelease comes with fixes to HPA and Service objects validation.
+
+Fixes:
+* Fix Service and HPA v2beta1 validation
+  [#455](https://github.com/fluxcd/kustomize-controller/pull/455)
+
 ## 0.15.3
 
 **Release date:** 2021-10-11
