@@ -1,4 +1,13 @@
-FROM golang:1.16-alpine as builder
+ARG XX_VERSION=1.0.0-rc.2
+
+FROM --platform=$BUILDPLATFORM tonistiigi/xx:${XX_VERSION} AS xx
+
+FROM --platform=$BUILDPLATFORM golang:1.16-alpine as builder
+
+# Copy the build utilities.
+COPY --from=xx / /
+
+ARG TARGETPLATFORM
 
 WORKDIR /workspace
 
@@ -18,7 +27,8 @@ COPY controllers/ controllers/
 COPY internal/ internal/
 
 # build
-RUN CGO_ENABLED=0 go build -a -o kustomize-controller main.go
+ENV CGO_ENABLED=0
+RUN xx-go build -a -o kustomize-controller main.go
 
 FROM alpine:3.14
 
