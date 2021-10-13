@@ -218,8 +218,8 @@ github.com/fluxcd/pkg/apis/meta v0.10.1/go.mod h1:yUblM2vg+X8TE3A2VvJfdhkGmg+uqB
 github.com/fluxcd/pkg/runtime v0.12.0/go.mod h1:EyaTR2TOYcjL5U//C4yH3bt2tvTgIOSXpVRbWxUn/C4=
 github.com/fluxcd/pkg/runtime v0.12.2 h1:4iOpx2j/w15kNemDOnZrF6ugJ/rhSmRu7aI+xn23+BI=
 github.com/fluxcd/pkg/runtime v0.12.2/go.mod h1:tuWdqpWPhgjQvYrSnojdZ4plyU8DRU1NDzsfOhnzl2g=
-github.com/fluxcd/pkg/ssa v0.0.7 h1:RWKN+iPZ9oPg+5Tj4v9bxxeazsAnmmajxPS6Y1uh/uM=
-github.com/fluxcd/pkg/ssa v0.0.7/go.mod h1:B/6V2gF3zq3P6EstM/qTmOEUf3YgOh1ybFfAAmG4Shw=
+github.com/fluxcd/pkg/ssa v0.1.0 h1:JqKuujOpH/L+WlNJx7wdLhLOPzA7EnQl2oMAGKzIAss=
+github.com/fluxcd/pkg/ssa v0.1.0/go.mod h1:B/6V2gF3zq3P6EstM/qTmOEUf3YgOh1ybFfAAmG4Shw=
 github.com/fluxcd/pkg/testserver v0.1.0 h1:nOYgM1HYFZNNSUFykuWDmrsxj4jQxUCvmLHWOQeqmyA=
 github.com/fluxcd/pkg/testserver v0.1.0/go.mod h1:fvt8BHhXw6c1+CLw1QFZxcQprlcXzsrL4rzXaiGM+Iw=
 github.com/fluxcd/pkg/untar v0.1.0 h1:k97V/xV5hFrAkIkVPuv5AVhyxh1ZzzAKba/lbDfGo6o=
