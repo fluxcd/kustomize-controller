@@ -12,7 +12,7 @@ require (
 	github.com/fluxcd/pkg/apis/kustomize v0.2.0
 	github.com/fluxcd/pkg/apis/meta v0.10.1
 	github.com/fluxcd/pkg/runtime v0.12.2
-	github.com/fluxcd/pkg/ssa v0.0.7
+	github.com/fluxcd/pkg/ssa v0.1.0
 	github.com/fluxcd/pkg/testserver v0.1.0
 	github.com/fluxcd/pkg/untar v0.1.0
 	github.com/fluxcd/source-controller/api v0.16.0
