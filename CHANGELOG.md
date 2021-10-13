@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.15.5
+
+**Release date:** 2021-10-13
+
+This prerelease comes with improvements to drift detection of Kubernetes custom resources.
+
+Improvements:
+* Improve drift detection
+  [#459](https://github.com/fluxcd/kustomize-controller/pull/459)
+
 ## 0.15.4
 
 **Release date:** 2021-10-12
