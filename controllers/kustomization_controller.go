@@ -563,6 +563,12 @@ func (r *KustomizationReconciler) build(ctx context.Context, kustomization kusto
 	}
 
 	fs := filesys.MakeFsOnDisk()
+	// decrypt .env files before building kustomization
+	if kustomization.Spec.Decryption != nil {
+		if err = dec.decryptDotEnvFiles(dirPath); err != nil {
+			return nil, fmt.Errorf("error decrypting .env file: %w", err)
+		}
+	}
 	m, err := buildKustomization(fs, dirPath)
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)

@@ -35,7 +35,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/kustomize/api/konfig"
 	"sigs.k8s.io/kustomize/api/resource"
+	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
@@ -77,35 +79,10 @@ func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resourc
 	}
 
 	if kd.kustomization.Spec.Decryption != nil && kd.kustomization.Spec.Decryption.Provider == DecryptionProviderSOPS {
-
 		if bytes.Contains(out, []byte("sops:")) && bytes.Contains(out, []byte("mac: ENC[")) {
-			store := common.StoreForFormat(formats.Yaml)
-
-			tree, err := store.LoadEncryptedFile(out)
+			data, err := kd.DataWithFormat(out, formats.Yaml, formats.Yaml)
 			if err != nil {
-				return nil, fmt.Errorf("LoadEncryptedFile: %w", err)
-			}
-
-			key, err := tree.Metadata.GetDataKeyWithKeyServices(
-				[]keyservice.KeyServiceClient{
-					intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.ageIdentities)),
-				},
-			)
-			if err != nil {
-				if userErr, ok := err.(sops.UserError); ok {
-					err = fmt.Errorf(userErr.UserError())
-				}
-				return nil, fmt.Errorf("GetDataKey: %w", err)
-			}
-
-			cipher := aes.NewCipher()
-			if _, err := tree.Decrypt(key, cipher); err != nil {
-				return nil, fmt.Errorf("AES decrypt: %w", err)
-			}
-
-			data, err := store.EmitPlainFile(tree.Branches)
-			if err != nil {
-				return nil, fmt.Errorf("EmitPlainFile: %w", err)
+				return nil, fmt.Errorf("DataWithFormat: %w", err)
 			}
 
 			jsonData, err := yaml.YAMLToJSON(data)
@@ -131,37 +108,10 @@ func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resourc
 				}
 
 				if bytes.Contains(data, []byte("sops")) && bytes.Contains(data, []byte("ENC[")) {
-
-					store := common.StoreForFormat(formats.Yaml)
-
-					tree, err := store.LoadEncryptedFile(data)
+					outputFormat := formats.FormatForPath(key)
+					out, err := kd.DataWithFormat(data, formats.Yaml, outputFormat)
 					if err != nil {
-						return nil, fmt.Errorf("LoadEncryptedFile: %w", err)
-					}
-
-					metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(
-						[]keyservice.KeyServiceClient{
-							intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.ageIdentities)),
-						},
-					)
-
-					if err != nil {
-						if userErr, ok := err.(sops.UserError); ok {
-							err = fmt.Errorf(userErr.UserError())
-						}
-						return nil, fmt.Errorf("GetDataKey: %w", err)
-					}
-
-					cipher := aes.NewCipher()
-					if _, err := tree.Decrypt(metadataKey, cipher); err != nil {
-						return nil, fmt.Errorf("AES decrypt: %w", err)
-					}
-
-					outputStore := common.DefaultStoreForPath(key)
-
-					out, err := outputStore.EmitPlainFile(tree.Branches)
-					if err != nil {
-						return nil, fmt.Errorf("EmitPlainFile: %w", err)
+						return nil, fmt.Errorf("DataWithFormat: %w", err)
 					}
 
 					dataMap[key] = base64.StdEncoding.EncodeToString(out)
@@ -230,4 +180,105 @@ func (kd *KustomizeDecryptor) gpgImport(path string) error {
 		return fmt.Errorf("gpg import error: %s", string(out))
 	}
 	return nil
+}
+
+func (kd *KustomizeDecryptor) decryptDotEnvFiles(dirpath string) error {
+	kustomizePath := filepath.Join(dirpath, konfig.DefaultKustomizationFileName())
+	ksData, err := ioutil.ReadFile(kustomizePath)
+	if err != nil {
+		return nil
+	}
+
+	kus := kustypes.Kustomization{
+		TypeMeta: kustypes.TypeMeta{
+			APIVersion: kustypes.KustomizationVersion,
+			Kind:       kustypes.KustomizationKind,
+		},
+	}
+
+	if err := yaml.Unmarshal(ksData, &kus); err != nil {
+		return err
+	}
+
+	// recursively decrypt .env files in directories in
+	for _, rsrc := range kus.Resources {
+		rsrcPath := filepath.Join(dirpath, rsrc)
+		isDir, err := isDir(rsrcPath)
+		if err == nil && isDir {
+			err := kd.decryptDotEnvFiles(rsrcPath)
+			if err != nil {
+				return fmt.Errorf("error decrypting .env files in dir '%s': %w",
+					rsrcPath, err)
+			}
+		}
+	}
+
+	secretGens := kus.SecretGenerator
+	for _, gen := range secretGens {
+		for _, envFile := range gen.EnvSources {
+			filepath := filepath.Join(dirpath, envFile)
+			data, err := ioutil.ReadFile(filepath)
+			if err != nil {
+				return err
+			}
+
+			if bytes.Contains(data, []byte("sops_mac=ENC[")) {
+				out, err := kd.DataWithFormat(data, formats.Dotenv, formats.Dotenv)
+				if err != nil {
+					return nil
+				}
+
+				err = ioutil.WriteFile(filepath, out, 0644)
+				if err != nil {
+					return fmt.Errorf("error writing to file: %w", err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (kd KustomizeDecryptor) DataWithFormat(data []byte, inputFormat, outputFormat formats.Format) ([]byte, error) {
+	store := common.StoreForFormat(inputFormat)
+
+	tree, err := store.LoadEncryptedFile(data)
+	if err != nil {
+		return nil, fmt.Errorf("LoadEncryptedFile: %w", err)
+	}
+
+	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(
+		[]keyservice.KeyServiceClient{
+			intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.ageIdentities)),
+		},
+	)
+	if err != nil {
+		if userErr, ok := err.(sops.UserError); ok {
+			err = fmt.Errorf(userErr.UserError())
+		}
+		return nil, fmt.Errorf("GetDataKey: %w", err)
+	}
+
+	cipher := aes.NewCipher()
+	if _, err := tree.Decrypt(metadataKey, cipher); err != nil {
+		return nil, fmt.Errorf("AES decrypt: %w", err)
+	}
+
+	outputStore := common.StoreForFormat(outputFormat)
+
+	out, err := outputStore.EmitPlainFile(tree.Branches)
+	if err != nil {
+		return nil, fmt.Errorf("EmitPlainFile: %w", err)
+	}
+
+	return out, err
+}
+
+func isDir(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+
+	return fileInfo.IsDir(), nil
 }
