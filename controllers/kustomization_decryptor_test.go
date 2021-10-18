@@ -49,12 +49,26 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 	artifactURL, err := testServer.URLForFile(artifactFile)
 	g.Expect(err).ToNot(HaveOccurred())
 
+	overlayArtifactFile := "sops-" + randStringRunes(5)
+	overlayChecksum, err := createArtifact(testServer, "testdata/test-dotenv", overlayArtifactFile)
+	g.Expect(err).ToNot(HaveOccurred())
+	overlayArtifactUrl, err := testServer.URLForFile(overlayArtifactFile)
+	g.Expect(err).ToNot(HaveOccurred())
+
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("sops-%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
+	overlayRepositoryName := types.NamespacedName{
+		Name:      fmt.Sprintf("sops-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+
 	err = applyGitRepository(repositoryName, artifactURL, "main/"+artifactChecksum, artifactChecksum)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	err = applyGitRepository(overlayRepositoryName, overlayArtifactUrl, "main/"+overlayChecksum, overlayChecksum)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	pgpKey, err := ioutil.ReadFile("testdata/sops/pgp.asc")
@@ -111,8 +125,17 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 			TargetNamespace: id,
 		},
 	}
-
 	g.Expect(k8sClient.Create(context.TODO(), kustomization)).To(Succeed())
+
+	overlayKustomizationName := fmt.Sprintf("sops-%s", randStringRunes(5))
+	overlayKs := kustomization.DeepCopy()
+	overlayKs.ResourceVersion = ""
+	overlayKs.Name = overlayKustomizationName
+	overlayKs.Spec.SourceRef.Name = overlayRepositoryName.Name
+	overlayKs.Spec.SourceRef.Namespace = overlayRepositoryName.Namespace
+	overlayKs.Spec.Path = "./testdata/test-dotenv/overlays"
+
+	g.Expect(k8sClient.Create(context.TODO(), overlayKs)).To(Succeed())
 
 	g.Eventually(func() bool {
 		var obj kustomizev1.Kustomization
@@ -132,6 +155,22 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		var daySecret corev1.Secret
 		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-day", Namespace: id}, &daySecret)).To(Succeed())
 		g.Expect(string(daySecret.Data["secret"])).To(Equal("day=Tuesday\n"))
+
+		var yearSecret corev1.Secret
+		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-year", Namespace: id}, &yearSecret)).To(Succeed())
+		g.Expect(string(yearSecret.Data["year"])).To(Equal("2017"))
+
+		var unencryptedSecret corev1.Secret
+		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "unencrypted-sops-year", Namespace: id}, &unencryptedSecret)).To(Succeed())
+		g.Expect(string(unencryptedSecret.Data["year"])).To(Equal("2021"))
+
+		var year1Secret corev1.Secret
+		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-year1", Namespace: id}, &year1Secret)).To(Succeed())
+		g.Expect(string(year1Secret.Data["year"])).To(Equal("year1"))
+
+		var year2Secret corev1.Secret
+		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-year2", Namespace: id}, &year2Secret)).To(Succeed())
+		g.Expect(string(year2Secret.Data["year"])).To(Equal("year2"))
 
 		var encodedSecret corev1.Secret
 		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-month", Namespace: id}, &encodedSecret)).To(Succeed())
