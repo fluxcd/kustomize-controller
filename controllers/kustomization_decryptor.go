@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"go.mozilla.org/sops/v3"
@@ -216,8 +217,14 @@ func (kd *KustomizeDecryptor) decryptDotEnvFiles(dirpath string) error {
 	secretGens := kus.SecretGenerator
 	for _, gen := range secretGens {
 		for _, envFile := range gen.EnvSources {
-			filepath := filepath.Join(dirpath, envFile)
-			data, err := ioutil.ReadFile(filepath)
+
+			envFileParts := strings.Split(envFile, "=")
+			if len(envFileParts) > 1 {
+				envFile = envFileParts[1]
+			}
+
+			envPath := filepath.Join(dirpath, envFile)
+			data, err := ioutil.ReadFile(envPath)
 			if err != nil {
 				return err
 			}
@@ -225,10 +232,10 @@ func (kd *KustomizeDecryptor) decryptDotEnvFiles(dirpath string) error {
 			if bytes.Contains(data, []byte("sops_mac=ENC[")) {
 				out, err := kd.DataWithFormat(data, formats.Dotenv, formats.Dotenv)
 				if err != nil {
-					return nil
+					return err
 				}
 
-				err = ioutil.WriteFile(filepath, out, 0644)
+				err = ioutil.WriteFile(envPath, out, 0644)
 				if err != nil {
 					return fmt.Errorf("error writing to file: %w", err)
 				}

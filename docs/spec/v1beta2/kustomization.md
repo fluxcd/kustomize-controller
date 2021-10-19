@@ -994,6 +994,35 @@ The kustomize-controller scans the values of Kubernetes Secrets, and when it
 detects that the values are SOPS encrypted, it decrypts them before applying 
 them on the cluster.
 
+For secrets in `.json`, `.yaml` and `.env` format, make sure you specify the input type when encrypting them with SOPS:
+
+```sh
+cat config.json | sops -e --input-type=json > config.json.encrypted
+cat config.yaml | sops -e --input-type=yaml > config.yaml.encrypted
+cat config.env | sops -e --input-type=env > config.env.encrypted
+```
+
+For kustomize-controller to be able to decrypt a JSON config, you need to set the file extension to `.json`:
+
+```yaml
+kind: Kustomization
+secretGenerator:
+  - name: config
+    files:
+      - config.json=config.json.encrypted
+```
+
+For dotenv files, use the `envs` directive:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+secretGenerator:
+  - name: config
+    envs:
+      - config.env.encrypted
+```
+
 ## Status
 
 When the controller completes a Kustomization apply, reports the result in the `status` sub-resource.
