@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.16.0
+
+**Release date:** 2021-10-19
+
+This prerelease comes with support for SOPS encrypted `.env` files used in kustomize secret generator.
+
+Improvements:
+* SOPS: Decrypt dotenv files used in kustomize secret generator
+  [#463](https://github.com/fluxcd/kustomize-controller/pull/463)
+* SOPS: Document dotenv secret generator
+  [#469](https://github.com/fluxcd/kustomize-controller/pull/469)
+
+Fixes:
+* Fix cluster scope detection of applied objects
+  [#465](https://github.com/fluxcd/kustomize-controller/pull/465)
+
 ## 0.15.5
 
 **Release date:** 2021-10-13
