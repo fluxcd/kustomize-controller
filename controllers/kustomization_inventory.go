@@ -35,18 +35,15 @@ func NewInventory() *kustomizev1.ResourceInventory {
 }
 
 // AddObjectsToInventory extracts the metadata from the given objects and adds it to the inventory.
-func AddObjectsToInventory(inv *kustomizev1.ResourceInventory, objects []*unstructured.Unstructured) error {
-	sort.Sort(ssa.SortableUnstructureds(objects))
-	for _, om := range objects {
-		objMetadata := object.UnstructuredToObjMeta(om)
-		gv, err := schema.ParseGroupVersion(om.GetAPIVersion())
-		if err != nil {
-			return err
-		}
+func AddObjectsToInventory(inv *kustomizev1.ResourceInventory, set *ssa.ChangeSet) error {
+	if set == nil {
+		return nil
+	}
 
+	for _, entry := range set.Entries {
 		inv.Entries = append(inv.Entries, kustomizev1.ResourceRef{
-			ID:      objMetadata.String(),
-			Version: gv.Version,
+			ID:      entry.ObjMetadata.String(),
+			Version: entry.GroupVersion,
 		})
 	}
 
@@ -83,7 +80,7 @@ func ListObjectsInInventory(inv *kustomizev1.ResourceInventory) ([]*unstructured
 }
 
 // ListMetaInInventory returns the inventory entries as object.ObjMetadata objects.
-func ListMetaInInventory(inv *kustomizev1.ResourceInventory) ([]object.ObjMetadata, error) {
+func ListMetaInInventory(inv *kustomizev1.ResourceInventory) (object.ObjMetadataSet, error) {
 	var metas []object.ObjMetadata
 	for _, e := range inv.Entries {
 		m, err := object.ParseObjMetadata(e.ID)
@@ -118,7 +115,7 @@ func DiffInventory(inv *kustomizev1.ResourceInventory, target *kustomizev1.Resou
 		return nil, err
 	}
 
-	list := object.SetDiff(aList, bList)
+	list := aList.Diff(bList)
 	if len(list) == 0 {
 		return objects, nil
 	}
@@ -139,8 +136,8 @@ func DiffInventory(inv *kustomizev1.ResourceInventory, target *kustomizev1.Resou
 	return objects, nil
 }
 
-func referenceToUnstructured(cr []meta.NamespacedObjectKindReference) ([]*unstructured.Unstructured, error) {
-	var objects []*unstructured.Unstructured
+func referenceToObjMetadataSet(cr []meta.NamespacedObjectKindReference) (object.ObjMetadataSet, error) {
+	var objects []object.ObjMetadata
 
 	for _, c := range cr {
 		// For backwards compatibility with Kustomization v1beta1
@@ -160,8 +157,15 @@ func referenceToUnstructured(cr []meta.NamespacedObjectKindReference) ([]*unstru
 			Version: gv.Version,
 		})
 		u.SetName(c.Name)
-		u.SetNamespace(c.Namespace)
-		objects = append(objects, u)
+		if c.Namespace != "" {
+			u.SetNamespace(c.Namespace)
+		}
+
+		om, err := object.UnstructuredToObjMeta(u)
+		if err != nil {
+			return nil, err
+		}
+		objects = append(objects, om)
 
 	}
 

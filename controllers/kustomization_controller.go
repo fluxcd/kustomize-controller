@@ -40,6 +40,7 @@ import (
 	kuberecorder "k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
+	"sigs.k8s.io/cli-utils/pkg/object"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -326,7 +327,7 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
-	// create any necessary kube-clients for impersonation
+	// setup the Kubernetes client for impersonation
 	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, dirPath)
 	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
 	if err != nil {
@@ -360,6 +361,7 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
+	// convert the build result into Kubernetes unstructured objects
 	objects, err := ssa.ReadObjects(bytes.NewReader(resources))
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
@@ -370,29 +372,43 @@ func (r *KustomizationReconciler) reconcile(
 		), err
 	}
 
+	// create a snapshot of the current inventory
+	oldStatus := kustomization.Status.DeepCopy()
+
+	// create the server-side apply manager
 	resourceManager := ssa.NewResourceManager(kubeClient, statusPoller, ssa.Owner{
 		Field: r.ControllerName,
 		Group: kustomizev1.GroupVersion.Group,
 	})
 	resourceManager.SetOwnerLabels(objects, kustomization.GetName(), kustomization.GetNamespace())
 
-	// create an inventory of objects to be reconciled
-	newInventory := NewInventory()
-	err = AddObjectsToInventory(newInventory, objects)
+	// validate and apply resources in stages
+	drifted, changeSet, err := r.apply(ctx, resourceManager, kustomization, revision, objects)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			revision,
-			kustomizev1.BuildFailedReason,
+			meta.ReconciliationFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// create an inventory of objects to be reconciled
+	newInventory := NewInventory()
+	err = AddObjectsToInventory(newInventory, changeSet)
+	if err != nil {
+		return kustomizev1.KustomizationNotReady(
+			kustomization,
+			revision,
+			meta.ReconciliationFailedReason,
 			err.Error(),
 		), err
 	}
 
 	// detect stale objects which are subject to garbage collection
 	var staleObjects []*unstructured.Unstructured
-	oldInventory := kustomization.Status.Inventory
-	if oldInventory != nil {
-		staleObjects, err = DiffInventory(oldInventory, newInventory)
+	if oldStatus.Inventory != nil {
+		diffObjects, err := DiffInventory(oldStatus.Inventory, newInventory)
 		if err != nil {
 			return kustomizev1.KustomizationNotReady(
 				kustomization,
@@ -401,17 +417,28 @@ func (r *KustomizationReconciler) reconcile(
 				err.Error(),
 			), err
 		}
-	}
 
-	// validate and apply resources in stages
-	drifted, err := r.apply(ctx, resourceManager, kustomization, revision, objects)
-	if err != nil {
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			revision,
-			meta.ReconciliationFailedReason,
-			err.Error(),
-		), err
+		// TODO: remove this workaround after kustomize-controller 0.18 release
+		// skip objects that were wrongly marked as namespaced
+		// https://github.com/fluxcd/kustomize-controller/issues/466
+		newObjects, _ := ListObjectsInInventory(newInventory)
+		for _, obj := range diffObjects {
+			preserve := false
+			if obj.GetNamespace() != "" {
+				for _, newObj := range newObjects {
+					if newObj.GetNamespace() == "" &&
+						obj.GetKind() == newObj.GetKind() &&
+						obj.GetAPIVersion() == newObj.GetAPIVersion() &&
+						obj.GetName() == newObj.GetName() {
+						preserve = true
+						break
+					}
+				}
+			}
+			if !preserve {
+				staleObjects = append(staleObjects, obj)
+			}
+		}
 	}
 
 	// run garbage collection for stale objects that do not have pruning disabled
@@ -426,7 +453,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// health assessment
-	if err := r.checkHealth(ctx, resourceManager, kustomization, revision, drifted, objects); err != nil {
+	if err := r.checkHealth(ctx, resourceManager, kustomization, revision, drifted, changeSet.ToObjMetadataSet()); err != nil {
 		return kustomizev1.KustomizationNotReadyInventory(
 			kustomization,
 			newInventory,
@@ -614,11 +641,11 @@ func (r *KustomizationReconciler) build(ctx context.Context, kustomization kusto
 	return resources, nil
 }
 
-func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, objects []*unstructured.Unstructured) (bool, error) {
+func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, objects []*unstructured.Unstructured) (bool, *ssa.ChangeSet, error) {
 	log := logr.FromContext(ctx)
 
 	if err := ssa.SetNativeKindsDefaults(objects); err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	// contains only CRDs and Namespaces
@@ -626,6 +653,9 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 
 	// contains all objects except for CRDs and Namespaces
 	var stageTwo []*unstructured.Unstructured
+
+	// contains the objects' metadata after apply
+	resultSet := ssa.NewChangeSet()
 
 	for _, u := range objects {
 		if ssa.IsClusterDefinition(u) {
@@ -641,8 +671,9 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	if len(stageOne) > 0 {
 		changeSet, err := manager.ApplyAll(ctx, stageOne, kustomization.Spec.Force)
 		if err != nil {
-			return false, err
+			return false, nil, err
 		}
+		resultSet.Append(changeSet.Entries)
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
 			log.Info("server-side apply completed", "output", changeSet.ToMap())
@@ -654,7 +685,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 		}
 
 		if err := manager.Wait(stageOne, 2*time.Second, kustomization.GetTimeout()); err != nil {
-			return false, err
+			return false, nil, err
 		}
 	}
 
@@ -663,8 +694,9 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	if len(stageTwo) > 0 {
 		changeSet, err := manager.ApplyAll(ctx, stageTwo, kustomization.Spec.Force)
 		if err != nil {
-			return false, fmt.Errorf("%w\n%s", err, changeSetLog.String())
+			return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String())
 		}
+		resultSet.Append(changeSet.Entries)
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
 			log.Info("server-side apply completed", "output", changeSet.ToMap())
@@ -682,10 +714,10 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 		r.event(ctx, kustomization, revision, events.EventSeverityInfo, applyLog, nil)
 	}
 
-	return applyLog != "", nil
+	return applyLog != "", resultSet, nil
 }
 
-func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, drifted bool, objects []*unstructured.Unstructured) error {
+func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, drifted bool, objects object.ObjMetadataSet) error {
 	if len(kustomization.Spec.HealthChecks) == 0 && !kustomization.Spec.Wait {
 		return nil
 	}
@@ -693,7 +725,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.
 	checkStart := time.Now()
 	var err error
 	if !kustomization.Spec.Wait {
-		objects, err = referenceToUnstructured(kustomization.Spec.HealthChecks)
+		objects, err = referenceToObjMetadataSet(kustomization.Spec.HealthChecks)
 		if err != nil {
 			return err
 		}
@@ -704,11 +736,11 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.
 	}
 
 	// guard against deadlock (waiting on itself)
-	var toCheck []*unstructured.Unstructured
+	var toCheck []object.ObjMetadata
 	for _, object := range objects {
-		if object.GetKind() == kustomizev1.KustomizationKind &&
-			object.GetName() == kustomization.GetName() &&
-			object.GetNamespace() == kustomization.GetNamespace() {
+		if object.GroupKind.Kind == kustomizev1.KustomizationKind &&
+			object.Name == kustomization.GetName() &&
+			object.Namespace == kustomization.GetNamespace() {
 			continue
 		}
 		toCheck = append(toCheck, object)
@@ -726,7 +758,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.
 	}
 
 	// check the health with a default timeout of 30sec shorter than the reconciliation interval
-	if err := manager.Wait(toCheck, time.Second, kustomization.GetTimeout()); err != nil {
+	if err := manager.WaitForSet(toCheck, time.Second, kustomization.GetTimeout()); err != nil {
 		return fmt.Errorf("Health check failed after %s, %w", time.Now().Sub(checkStart).String(), err)
 	}
 
