@@ -19,7 +19,6 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,7 +53,7 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
 
 	kfile := filepath.Join(dirPath, konfig.DefaultKustomizationFileName())
 
-	data, err := ioutil.ReadFile(kfile)
+	data, err := os.ReadFile(kfile)
 	if err != nil {
 		return err
 	}
@@ -114,7 +113,7 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(kfile, kd, os.ModePerm)
+	return os.WriteFile(kfile, kd, os.ModePerm)
 }
 
 func checkKustomizeImageExists(images []kustypes.Image, imageName string) (bool, int) {
@@ -215,7 +214,7 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(kfile, kd, os.ModePerm)
+	return os.WriteFile(kfile, kd, os.ModePerm)
 }
 
 func adaptSelector(selector *kustomize.Selector) (output *kustypes.Selector) {

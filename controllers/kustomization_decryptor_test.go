@@ -19,7 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -71,9 +71,9 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 	err = applyGitRepository(overlayRepositoryName, overlayArtifactUrl, "main/"+overlayChecksum, overlayChecksum)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	pgpKey, err := ioutil.ReadFile("testdata/sops/pgp.asc")
+	pgpKey, err := os.ReadFile("testdata/sops/pgp.asc")
 	g.Expect(err).ToNot(HaveOccurred())
-	ageKey, err := ioutil.ReadFile("testdata/sops/age.txt")
+	ageKey, err := os.ReadFile("testdata/sops/age.txt")
 	g.Expect(err).ToNot(HaveOccurred())
 
 	sopsSecretKey := types.NamespacedName{

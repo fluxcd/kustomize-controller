@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -284,7 +283,7 @@ func (r *KustomizationReconciler) reconcile(
 	revision := source.GetArtifact().Revision
 
 	// create tmp dir
-	tmpDir, err := ioutil.TempDir("", kustomization.Name)
+	tmpDir, err := os.MkdirTemp("", kustomization.Name)
 	if err != nil {
 		err = fmt.Errorf("tmp dir error: %w", err)
 		return kustomizev1.KustomizationNotReady(
