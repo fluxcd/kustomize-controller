@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -162,7 +162,7 @@ func (key *MasterKey) encryptWithCryptoOpenPGP(dataKey []byte) error {
 	if err != nil {
 		return err
 	}
-	b, err := ioutil.ReadAll(encbuf)
+	b, err := io.ReadAll(encbuf)
 	if err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func (key *MasterKey) decryptWithCryptoOpenpgp() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Reading PGP message failed: %s", err)
 	}
-	if b, err := ioutil.ReadAll(md.UnverifiedBody); err == nil {
+	if b, err := io.ReadAll(md.UnverifiedBody); err == nil {
 		return b, nil
 	}
 	return nil, fmt.Errorf("The key could not be decrypted with any of the PGP entries")
