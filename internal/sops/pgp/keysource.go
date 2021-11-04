@@ -217,11 +217,11 @@ func (key *MasterKey) decryptWithGPGBinary() ([]byte, error) {
 func (key *MasterKey) decryptWithCryptoOpenpgp() ([]byte, error) {
 	ring, err := key.secRing()
 	if err != nil {
-		return nil, fmt.Errorf("Could not load secring: %s", err)
+		return nil, fmt.Errorf("could not load secring: %s", err)
 	}
 	block, err := armor.Decode(strings.NewReader(key.EncryptedKey))
 	if err != nil {
-		return nil, fmt.Errorf("Armor decoding failed: %s", err)
+		return nil, fmt.Errorf("armor decoding failed: %s", err)
 	}
 	// No support for encrypted private keys
 	noPrompt := func(keys []openpgp.Key, symmetric bool) ([]byte, error) {
@@ -229,12 +229,12 @@ func (key *MasterKey) decryptWithCryptoOpenpgp() ([]byte, error) {
 	}
 	md, err := openpgp.ReadMessage(block.Body, ring, noPrompt, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Reading PGP message failed: %s", err)
+		return nil, fmt.Errorf("reading PGP message failed: %s", err)
 	}
 	if b, err := io.ReadAll(md.UnverifiedBody); err == nil {
 		return b, nil
 	}
-	return nil, fmt.Errorf("The key could not be decrypted with any of the PGP entries")
+	return nil, fmt.Errorf("the key could not be decrypted with any of the PGP entries")
 }
 
 // Decrypt uses PGP to obtain the data key from the EncryptedKey store
