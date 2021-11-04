@@ -26,7 +26,7 @@ require (
 	go.mozilla.org/sops/v3 v3.7.1
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
-	google.golang.org/grpc v1.38.0
+	google.golang.org/grpc v1.42.0
 	k8s.io/api v0.22.2
 	k8s.io/apiextensions-apiserver v0.22.2
 	k8s.io/apimachinery v0.22.2
