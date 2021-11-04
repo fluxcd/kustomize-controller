@@ -19,10 +19,8 @@ require (
 	github.com/go-errors/errors v1.4.0 // indirect
 	github.com/go-logr/logr v0.4.0
 	github.com/hashicorp/go-retryablehttp v0.7.0
-	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
 	github.com/onsi/gomega v1.15.0
 	github.com/spf13/pflag v1.0.5
-	go.mozilla.org/gopgagent v0.0.0-20170926210634-4d7ea76ff71a
 	go.mozilla.org/sops/v3 v3.7.1
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
