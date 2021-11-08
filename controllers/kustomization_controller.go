@@ -647,6 +647,9 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 		return false, nil, err
 	}
 
+	applyOpts := ssa.DefaultApplyOptions()
+	applyOpts.Force = kustomization.Spec.Force
+
 	// contains only CRDs and Namespaces
 	var stageOne []*unstructured.Unstructured
 
@@ -668,7 +671,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 
 	// validate, apply and wait for CRDs and Namespaces to register
 	if len(stageOne) > 0 {
-		changeSet, err := manager.ApplyAll(ctx, stageOne, kustomization.Spec.Force)
+		changeSet, err := manager.ApplyAll(ctx, stageOne, applyOpts)
 		if err != nil {
 			return false, nil, err
 		}
@@ -683,7 +686,10 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 			}
 		}
 
-		if err := manager.Wait(stageOne, 2*time.Second, kustomization.GetTimeout()); err != nil {
+		if err := manager.Wait(stageOne, ssa.WaitOptions{
+			Interval: 2 * time.Second,
+			Timeout:  kustomization.GetTimeout(),
+		}); err != nil {
 			return false, nil, err
 		}
 	}
@@ -691,7 +697,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	// sort by kind, validate and apply all the others objects
 	sort.Sort(ssa.SortableUnstructureds(stageTwo))
 	if len(stageTwo) > 0 {
-		changeSet, err := manager.ApplyAll(ctx, stageTwo, kustomization.Spec.Force)
+		changeSet, err := manager.ApplyAll(ctx, stageTwo, applyOpts)
 		if err != nil {
 			return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String())
 		}
@@ -757,7 +763,10 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.
 	}
 
 	// check the health with a default timeout of 30sec shorter than the reconciliation interval
-	if err := manager.WaitForSet(toCheck, time.Second, kustomization.GetTimeout()); err != nil {
+	if err := manager.WaitForSet(toCheck, ssa.WaitOptions{
+		Interval: 5 * time.Second,
+		Timeout:  kustomization.GetTimeout(),
+	}); err != nil {
 		return fmt.Errorf("Health check failed after %s, %w", time.Now().Sub(checkStart).String(), err)
 	}
 
@@ -776,12 +785,16 @@ func (r *KustomizationReconciler) prune(ctx context.Context, manager *ssa.Resour
 	}
 
 	log := logr.FromContext(ctx)
-	changeSet, err := manager.DeleteAll(ctx, objects,
-		manager.GetOwnerLabels(kustomization.Name, kustomization.Namespace),
-		map[string]string{
+
+	opts := ssa.DeleteOptions{
+		PropagationPolicy: metav1.DeletePropagationBackground,
+		Inclusions:        manager.GetOwnerLabels(kustomization.Name, kustomization.Namespace),
+		Exclusions: map[string]string{
 			fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
 		},
-	)
+	}
+
+	changeSet, err := manager.DeleteAll(ctx, objects, opts)
 	if err != nil {
 		return false, err
 	}
@@ -817,12 +830,15 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 				Group: kustomizev1.GroupVersion.Group,
 			})
 
-			changeSet, err := resourceManager.DeleteAll(ctx, objects,
-				resourceManager.GetOwnerLabels(kustomization.Name, kustomization.Namespace),
-				map[string]string{
+			opts := ssa.DeleteOptions{
+				PropagationPolicy: metav1.DeletePropagationBackground,
+				Inclusions:        resourceManager.GetOwnerLabels(kustomization.Name, kustomization.Namespace),
+				Exclusions: map[string]string{
 					fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
 				},
-			)
+			}
+
+			changeSet, err := resourceManager.DeleteAll(ctx, objects, opts)
 			if err != nil {
 				r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
 				// Return the error so we retry the failed garbage collection
