@@ -33,6 +33,7 @@ import (
 	"go.mozilla.org/sops/v3/cmd/sops/formats"
 	"go.mozilla.org/sops/v3/keyservice"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/api/konfig"
@@ -287,4 +288,14 @@ func isDir(path string) (bool, error) {
 	}
 
 	return fileInfo.IsDir(), nil
+}
+
+// IsEncryptedSecret checks if the given object is a Kubernetes Secret encrypted with Mozilla SOPS.
+func IsEncryptedSecret(object *unstructured.Unstructured) bool {
+	if object.GetKind() == "Secret" && object.GetAPIVersion() == "v1" {
+		if _, found, _ := unstructured.NestedFieldNoCopy(object.Object, "sops"); found {
+			return true
+		}
+	}
+	return false
 }

@@ -660,6 +660,12 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	resultSet := ssa.NewChangeSet()
 
 	for _, u := range objects {
+		if IsEncryptedSecret(u) {
+			return false, nil,
+				fmt.Errorf("%s is SOPS encryted, configuring decryption is required for this secret to be reconciled",
+					ssa.FmtUnstructured(u))
+		}
+
 		if ssa.IsClusterDefinition(u) {
 			stageOne = append(stageOne, u)
 		} else {
