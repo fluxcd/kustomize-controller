@@ -322,7 +322,7 @@ const (
 
 On-demand execution example:
 
-```bash
+```sh
 kubectl annotate --overwrite kustomization/podinfo reconcile.fluxcd.io/requestedAt="$(date +%s)"
 ```
 
@@ -333,6 +333,16 @@ kubectl get all --all-namespaces \
 -l=kustomize.toolkit.fluxcd.io/name="<Kustomization name>" \
 -l=kustomize.toolkit.fluxcd.io/namespace="<Kustomization namespace>"
 ```
+
+You can configure the controller to ignore in-cluster resources by labeling or annotating them:
+
+```sh
+kubectl annotate service/podinfo kustomize.toolkit.fluxcd.io/reconcile=disabled
+```
+
+Note that when the `kustomize.toolkit.fluxcd.io/reconcile` annotation is set to `disabled`,
+the controller will no longer apply changes from source, nor will it prune the resource.
+To resume reconciliation, set the annotation to `enabled` or remove it.
 
 ## Garbage collection
 
