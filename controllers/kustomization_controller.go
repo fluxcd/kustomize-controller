@@ -649,6 +649,9 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 
 	applyOpts := ssa.DefaultApplyOptions()
 	applyOpts.Force = kustomization.Spec.Force
+	applyOpts.Exclusions = map[string]string{
+		fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
+	}
 
 	// contains only CRDs and Namespaces
 	var stageOne []*unstructured.Unstructured
@@ -796,7 +799,8 @@ func (r *KustomizationReconciler) prune(ctx context.Context, manager *ssa.Resour
 		PropagationPolicy: metav1.DeletePropagationBackground,
 		Inclusions:        manager.GetOwnerLabels(kustomization.Name, kustomization.Namespace),
 		Exclusions: map[string]string{
-			fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
+			fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group):     kustomizev1.DisabledValue,
+			fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
 		},
 	}
 
@@ -840,7 +844,8 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 				PropagationPolicy: metav1.DeletePropagationBackground,
 				Inclusions:        resourceManager.GetOwnerLabels(kustomization.Name, kustomization.Namespace),
 				Exclusions: map[string]string{
-					fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
+					fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group):     kustomizev1.DisabledValue,
+					fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
 				},
 			}
 
