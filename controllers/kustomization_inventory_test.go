@@ -75,14 +75,12 @@ stringData:
 	artifact, err := testServer.ArtifactFromFiles(manifests(id, id))
 	g.Expect(err).NotTo(HaveOccurred())
 
-	url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
-
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("inv-%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
-	err = applyGitRepository(repositoryName, url, revision, "")
+	err = applyGitRepository(repositoryName, artifact, revision)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kustomizationKey := types.NamespacedName{
@@ -180,7 +178,7 @@ stringData:
 		})
 		g.Expect(k8sClient.Update(context.Background(), configMapClone)).To(Succeed())
 
-		err = applyGitRepository(repositoryName, url, testRev, "")
+		err = applyGitRepository(repositoryName, artifact, testRev)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() bool {
@@ -203,7 +201,7 @@ stringData:
 		})
 		g.Expect(k8sClient.Update(context.Background(), configMapClone)).To(Succeed())
 
-		err = applyGitRepository(repositoryName, url, testRev, "")
+		err = applyGitRepository(repositoryName, artifact, testRev)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() bool {
@@ -229,8 +227,8 @@ stringData:
 
 		artifact, err := testServer.ArtifactFromFiles(manifests(testId, id))
 		g.Expect(err).NotTo(HaveOccurred())
-		url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
-		err = applyGitRepository(repositoryName, url, testRev, "")
+
+		err = applyGitRepository(repositoryName, artifact, testRev)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() bool {

@@ -19,7 +19,10 @@ package controllers
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -296,7 +299,7 @@ func (r *KustomizationReconciler) reconcile(
 	defer os.RemoveAll(tmpDir)
 
 	// download artifact and extract files
-	err = r.download(source.GetArtifact().URL, tmpDir)
+	err = r.download(source.GetArtifact(), tmpDir)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -495,7 +498,8 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 	return nil
 }
 
-func (r *KustomizationReconciler) download(artifactURL string, tmpDir string) error {
+func (r *KustomizationReconciler) download(artifact *sourcev1.Artifact, tmpDir string) error {
+	artifactURL := artifact.URL
 	if hostname := os.Getenv("SOURCE_CONTROLLER_LOCALHOST"); hostname != "" {
 		u, err := url.Parse(artifactURL)
 		if err != nil {
@@ -521,9 +525,38 @@ func (r *KustomizationReconciler) download(artifactURL string, tmpDir string) er
 		return fmt.Errorf("failed to download artifact from %s, status: %s", artifactURL, resp.Status)
 	}
 
+	var buf bytes.Buffer
+
+	// verify checksum matches origin
+	if err := r.verifyArtifact(artifact, &buf, resp.Body); err != nil {
+		return err
+	}
+
 	// extract
-	if _, err = untar.Untar(resp.Body, tmpDir); err != nil {
+	if _, err = untar.Untar(&buf, tmpDir); err != nil {
 		return fmt.Errorf("failed to untar artifact, error: %w", err)
+	}
+
+	return nil
+}
+
+func (r *KustomizationReconciler) verifyArtifact(artifact *sourcev1.Artifact, buf *bytes.Buffer, reader io.Reader) error {
+	hasher := sha256.New()
+
+	// for backwards compatibility with source-controller v0.17.2 and older
+	if len(artifact.Checksum) == 40 {
+		hasher = sha1.New()
+	}
+
+	// compute checksum
+	mw := io.MultiWriter(hasher, buf)
+	if _, err := io.Copy(mw, reader); err != nil {
+		return err
+	}
+
+	if checksum := fmt.Sprintf("%x", hasher.Sum(nil)); checksum != artifact.Checksum {
+		return fmt.Errorf("failed to verify artifact: computed checksum '%s' doesn't match advertised '%s'",
+			checksum, artifact.Checksum)
 	}
 
 	return nil

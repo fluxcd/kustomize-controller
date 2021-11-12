@@ -21,6 +21,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"math/rand"
@@ -205,7 +206,7 @@ func createKubeConfigSecret(namespace string) error {
 	return k8sClient.Create(context.Background(), secret)
 }
 
-func applyGitRepository(objKey client.ObjectKey, artifactURL, artifactRevision, artifactChecksum string) error {
+func applyGitRepository(objKey client.ObjectKey, artifactName string, revision string) error {
 	repo := &sourcev1.GitRepository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       sourcev1.GitRepositoryKind,
@@ -221,6 +222,11 @@ func applyGitRepository(objKey client.ObjectKey, artifactURL, artifactRevision, 
 		},
 	}
 
+	b, _ := os.ReadFile(filepath.Join(testServer.Root(), artifactName))
+	checksum := fmt.Sprintf("%x", sha256.Sum256(b))
+
+	url := fmt.Sprintf("%s/%s", testServer.URL(), artifactName)
+
 	status := sourcev1.GitRepositoryStatus{
 		Conditions: []metav1.Condition{
 			{
@@ -231,10 +237,10 @@ func applyGitRepository(objKey client.ObjectKey, artifactURL, artifactRevision, 
 			},
 		},
 		Artifact: &sourcev1.Artifact{
-			Path:           artifactURL,
-			URL:            artifactURL,
-			Revision:       artifactRevision,
-			Checksum:       artifactChecksum,
+			Path:           url,
+			URL:            url,
+			Revision:       revision,
+			Checksum:       checksum,
 			LastUpdateTime: metav1.Now(),
 		},
 	}

@@ -66,14 +66,12 @@ metadata:
 	artifact, err := testServer.ArtifactFromFiles(manifests(id))
 	g.Expect(err).NotTo(HaveOccurred())
 
-	url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
-
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
-	err = applyGitRepository(repositoryName, url, revision, "")
+	err = applyGitRepository(repositoryName, artifact, revision)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	configName := types.NamespacedName{

@@ -126,8 +126,6 @@ spec:
 	artifact, err := testServer.ArtifactFromFiles(manifests(id, id))
 	g.Expect(err).NotTo(HaveOccurred())
 
-	url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
-
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("dep-%s", randStringRunes(5)),
 		Namespace: id,
@@ -178,7 +176,7 @@ spec:
 	})
 
 	t.Run("reconciles when source is found", func(t *testing.T) {
-		err = applyGitRepository(repositoryName, url, revision, "")
+		err = applyGitRepository(repositoryName, artifact, revision)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() bool {
