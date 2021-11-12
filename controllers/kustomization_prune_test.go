@@ -77,14 +77,12 @@ data:
 	artifact, err := testServer.ArtifactFromFiles(manifests(id, id))
 	g.Expect(err).NotTo(HaveOccurred())
 
-	url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
-
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
-	err = applyGitRepository(repositoryName, url, revision, "")
+	err = applyGitRepository(repositoryName, artifact, revision)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kustomizationKey := types.NamespacedName{
@@ -134,9 +132,8 @@ data:
 		newID := randStringRunes(5)
 		artifact, err := testServer.ArtifactFromFiles(manifests(newID, newID))
 		g.Expect(err).NotTo(HaveOccurred())
-		url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
 		revision := "v2.0.0"
-		err = applyGitRepository(repositoryName, url, revision, "")
+		err = applyGitRepository(repositoryName, artifact, revision)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() bool {
@@ -208,14 +205,12 @@ data:
 	artifact, err := testServer.ArtifactFromFiles(manifests(id, id))
 	g.Expect(err).NotTo(HaveOccurred())
 
-	url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
-
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
-	err = applyGitRepository(repositoryName, url, revision, "")
+	err = applyGitRepository(repositoryName, artifact, revision)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kustomizationKey := types.NamespacedName{
@@ -260,9 +255,9 @@ data:
 	t.Run("deletes stale objects", func(t *testing.T) {
 		artifact, err := testServer.ArtifactFromFiles([]testserver.File{})
 		g.Expect(err).NotTo(HaveOccurred())
-		url = fmt.Sprintf("%s/%s", testServer.URL(), artifact)
+
 		revision = "v2.0.0"
-		err = applyGitRepository(repositoryName, url, revision, "")
+		err = applyGitRepository(repositoryName, artifact, revision)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() bool {
@@ -285,9 +280,8 @@ kind: Kustomization
 		}
 		artifact, err := testServer.ArtifactFromFiles(empty)
 		g.Expect(err).NotTo(HaveOccurred())
-		url = fmt.Sprintf("%s/%s", testServer.URL(), artifact)
 		revision = "v3.0.0"
-		err = applyGitRepository(repositoryName, url, revision, "")
+		err = applyGitRepository(repositoryName, artifact, revision)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() bool {
@@ -301,9 +295,8 @@ kind: Kustomization
 	t.Run("restores objects", func(t *testing.T) {
 		artifact, err := testServer.ArtifactFromFiles(manifests(id, id))
 		g.Expect(err).NotTo(HaveOccurred())
-		url = fmt.Sprintf("%s/%s", testServer.URL(), artifact)
 		revision = "v4.0.0"
-		err = applyGitRepository(repositoryName, url, revision, "")
+		err = applyGitRepository(repositoryName, artifact, revision)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() bool {
@@ -356,14 +349,12 @@ data:
 	artifact, err := testServer.ArtifactFromFiles(manifests(id, id))
 	g.Expect(err).NotTo(HaveOccurred())
 
-	url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
-
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
-	err = applyGitRepository(repositoryName, url, revision, "")
+	err = applyGitRepository(repositoryName, artifact, revision)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kustomizationKey := types.NamespacedName{

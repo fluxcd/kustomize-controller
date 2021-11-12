@@ -43,16 +43,12 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 	err = createKubeConfigSecret(id)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
 
-	artifactFile := "sops-" + randStringRunes(5)
-	artifactChecksum, err := createArtifact(testServer, "testdata/sops", artifactFile)
-	g.Expect(err).ToNot(HaveOccurred())
-	artifactURL, err := testServer.URLForFile(artifactFile)
+	artifactName := "sops-" + randStringRunes(5)
+	artifactChecksum, err := createArtifact(testServer, "testdata/sops", artifactName)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	overlayArtifactFile := "sops-" + randStringRunes(5)
-	overlayChecksum, err := createArtifact(testServer, "testdata/test-dotenv", overlayArtifactFile)
-	g.Expect(err).ToNot(HaveOccurred())
-	overlayArtifactUrl, err := testServer.URLForFile(overlayArtifactFile)
+	overlayArtifactName := "sops-" + randStringRunes(5)
+	overlayChecksum, err := createArtifact(testServer, "testdata/test-dotenv", overlayArtifactName)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
@@ -65,10 +61,10 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		Namespace: id,
 	}
 
-	err = applyGitRepository(repositoryName, artifactURL, "main/"+artifactChecksum, artifactChecksum)
+	err = applyGitRepository(repositoryName, artifactName, "main/"+artifactChecksum)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	err = applyGitRepository(overlayRepositoryName, overlayArtifactUrl, "main/"+overlayChecksum, overlayChecksum)
+	err = applyGitRepository(overlayRepositoryName, overlayArtifactName, "main/"+overlayChecksum)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	pgpKey, err := os.ReadFile("testdata/sops/pgp.asc")
@@ -180,7 +176,7 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 	t.Run("does not emit change events for identical secrets", func(t *testing.T) {
 		resultK := &kustomizev1.Kustomization{}
 		revision := "v2.0.0"
-		err = applyGitRepository(repositoryName, artifactURL, revision, artifactChecksum+"v2")
+		err = applyGitRepository(repositoryName, artifactName, revision)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() bool {

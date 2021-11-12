@@ -63,16 +63,13 @@ stringData:
 	}
 
 	artifact, err := testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
-	g.Expect(err).NotTo(HaveOccurred())
-
-	url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
 
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("force-%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
-	err = applyGitRepository(repositoryName, url, revision, "")
+	err = applyGitRepository(repositoryName, artifact, revision)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kustomizationKey := types.NamespacedName{
@@ -127,9 +124,8 @@ stringData:
 	t.Run("fails to update immutable secret", func(t *testing.T) {
 		artifact, err := testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
 		g.Expect(err).NotTo(HaveOccurred())
-		url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
 		revision := "v2.0.0"
-		err = applyGitRepository(repositoryName, url, revision, "")
+		err = applyGitRepository(repositoryName, artifact, revision)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() bool {
@@ -150,9 +146,8 @@ stringData:
 	t.Run("recreates immutable secret", func(t *testing.T) {
 		artifact, err := testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
 		g.Expect(err).NotTo(HaveOccurred())
-		url := fmt.Sprintf("%s/%s", testServer.URL(), artifact)
 		revision := "v3.0.0"
-		err = applyGitRepository(repositoryName, url, revision, "")
+		err = applyGitRepository(repositoryName, artifact, revision)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() error {

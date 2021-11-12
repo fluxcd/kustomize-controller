@@ -53,15 +53,13 @@ func TestKustomizationReconciler_KustomizeTransformer(t *testing.T) {
 	artifactFile := "patch-" + randStringRunes(5)
 	artifactChecksum, err := createArtifact(testServer, "testdata/transformers", artifactFile)
 	g.Expect(err).ToNot(HaveOccurred())
-	artifactURL, err := testServer.URLForFile(artifactFile)
-	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
-	err = applyGitRepository(repositoryName, artifactURL, "main/"+artifactChecksum, artifactChecksum)
+	err = applyGitRepository(repositoryName, artifactFile, "main/"+artifactChecksum)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kustomizationKey := types.NamespacedName{
@@ -178,15 +176,13 @@ func TestKustomizationReconciler_KustomizeTransformerFiles(t *testing.T) {
 	artifactFile := "patch-" + randStringRunes(5)
 	artifactChecksum, err := createArtifact(testServer, "testdata/file-transformer", artifactFile)
 	g.Expect(err).ToNot(HaveOccurred())
-	artifactURL, err := testServer.URLForFile(artifactFile)
-	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
-	err = applyGitRepository(repositoryName, artifactURL, "main/"+artifactChecksum, artifactChecksum)
+	err = applyGitRepository(repositoryName, artifactFile, "main/"+artifactChecksum)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kustomizationKey := types.NamespacedName{
@@ -299,15 +295,13 @@ func TestKustomizationReconciler_FluxTransformers(t *testing.T) {
 	artifactFile := "patch-" + randStringRunes(5)
 	artifactChecksum, err := createArtifact(testServer, "testdata/patch", artifactFile)
 	g.Expect(err).ToNot(HaveOccurred())
-	artifactURL, err := testServer.URLForFile(artifactFile)
-	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("%s", randStringRunes(5)),
 		Namespace: id,
 	}
 
-	err = applyGitRepository(repositoryName, artifactURL, "main/"+artifactChecksum, artifactChecksum)
+	err = applyGitRepository(repositoryName, artifactFile, "main/"+artifactChecksum)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kustomizationKey := types.NamespacedName{
