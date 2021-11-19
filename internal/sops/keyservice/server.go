@@ -6,6 +6,8 @@ package keyservice
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
@@ -13,8 +15,14 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
+	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
+)
+
+const (
+	// SOPSCredentialsFileAzureKeyvault is the expected filename for a JSON file containing an Azure Key Vault authentication file.
+	SOPSCredentialsFileAzureKeyvault = "azure_kv.json"
 )
 
 // Server is a key service server that uses SOPS MasterKeys to fulfill
@@ -103,6 +111,41 @@ func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) 
 	return []byte(plaintext), err
 }
 
+func (ks *Server) encryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
+	azureKey := azkv.Key{
+		VaultUrl: key.VaultUrl,
+		Name:     key.Name,
+		Version:  key.Version,
+	}
+	err := azureKey.LoadCredentialsFromFile(filepath.Join(ks.HomeDir, SOPSCredentialsFileAzureKeyvault))
+	if err != nil {
+		return nil, fmt.Errorf("azure credentials file missing: %w", err)
+	}
+	ciphertext, err := azureKey.Encrypt(plaintext)
+	if err != nil {
+		return nil, err
+	}
+	return ciphertext, nil
+}
+
+func (ks *Server) decryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
+	azureKey := azkv.Key{
+		VaultUrl: key.VaultUrl,
+		Name:     key.Name,
+		Version:  key.Version,
+	}
+	err := azureKey.LoadCredentialsFromFile(filepath.Join(ks.HomeDir, SOPSCredentialsFileAzureKeyvault))
+	if err != nil {
+		return nil, fmt.Errorf("azure credentials file missing: %w", err)
+	}
+
+	plaintext, err := azureKey.Decrypt(ciphertext)
+	if err != nil {
+		return nil, err
+	}
+	return plaintext, nil
+}
+
 // Encrypt takes an encrypt request and encrypts the provided plaintext with the provided key,
 // returning the encrypted result.
 func (ks Server) Encrypt(ctx context.Context,
@@ -125,6 +168,18 @@ func (ks Server) Encrypt(ctx context.Context,
 		}
 		response = &keyservice.EncryptResponse{
 			Ciphertext: ciphertext,
+		}
+	case *keyservice.Key_AzureKeyvaultKey:
+		if _, err := os.Stat(filepath.Join(ks.HomeDir, SOPSCredentialsFileAzureKeyvault)); os.IsNotExist(err) {
+			return ks.Encrypt(ctx, req)
+		} else {
+			ciphertext, err := ks.encryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Plaintext)
+			if err != nil {
+				return nil, err
+			}
+			response = &keyservice.EncryptResponse{
+				Ciphertext: ciphertext,
+			}
 		}
 	default:
 		return ks.DefaultServer.Encrypt(ctx, req)
@@ -199,6 +254,19 @@ func (ks Server) Decrypt(ctx context.Context,
 		}
 		response = &keyservice.DecryptResponse{
 			Plaintext: plaintext,
+		}
+	case *keyservice.Key_AzureKeyvaultKey:
+		if _, err := os.Stat(filepath.Join(ks.HomeDir, SOPSCredentialsFileAzureKeyvault)); os.IsNotExist(err) {
+			return ks.DefaultServer.Decrypt(ctx, req)
+		} else {
+			plaintext, err := ks.decryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Ciphertext)
+			if err != nil {
+				return nil, err
+			}
+
+			response = &keyservice.DecryptResponse{
+				Plaintext: plaintext,
+			}
 		}
 	default:
 		return ks.DefaultServer.Decrypt(ctx, req)

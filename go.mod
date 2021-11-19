@@ -6,8 +6,12 @@ replace github.com/fluxcd/kustomize-controller/api => ./api
 
 require (
 	filippo.io/age v1.0.0
+	github.com/Azure/azure-sdk-for-go v57.2.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.22
+	github.com/Azure/go-autorest/autorest/azure/auth v0.5.9
 	github.com/ProtonMail/go-crypto v0.0.0-20211112122917-428f8eabeeb3
 	github.com/cyphar/filepath-securejoin v0.2.2
+	github.com/dimchansky/utfbom v1.1.1
 	github.com/drone/envsubst v1.0.3-0.20200804185402-58bc65f69603
 	github.com/fluxcd/kustomize-controller/api v0.21.1
 	github.com/fluxcd/pkg/apis/acl v0.0.3
@@ -39,12 +43,9 @@ require (
 
 require (
 	cloud.google.com/go v0.99.0 // indirect
-	github.com/Azure/azure-sdk-for-go v31.2.0+incompatible // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
-	github.com/Azure/go-autorest/autorest v0.11.21 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.14 // indirect
-	github.com/Azure/go-autorest/autorest/azure/auth v0.5.8 // indirect
 	github.com/Azure/go-autorest/autorest/azure/cli v0.4.2 // indirect
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
@@ -67,7 +68,6 @@ require (
 	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
 	github.com/containerd/continuity v0.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
@@ -159,7 +159,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.19.1 // indirect
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect

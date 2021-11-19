@@ -155,6 +155,13 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 		var ageIdentities []string
 		var vaultToken string
 		for name, value := range secret.Data {
+			if name == intkeyservice.SOPSCredentialsFileAzureKeyvault {
+				keyPath := filepath.Join(kd.homeDir, name)
+				if err := os.WriteFile(keyPath, file, os.ModePerm); err != nil {
+					return fmt.Errorf("unable to write key to storage: %w", err)
+				}
+				continue
+			}
 			switch filepath.Ext(name) {
 			case ".asc":
 				keyPath, err := securejoin.SecureJoin(tmpDir, name)
