@@ -41,4 +41,7 @@ replace (
 )
 
 // fix CVE-2021-30465
-replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.0-rc95
+replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.2
+
+// fix CVE-2021-41190
+replace github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
