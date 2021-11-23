@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.18.1
+
+**Release date:** 2021-11-23
+
+This prerelease replaces deprecated dependencies, most notably being the OpenPGP
+package where `golang.org/x/crypto/openpgp` was replaced with
+`github.com/ProtonMail/go-crypto/openpgp`.
+
+Improvements:
+* Update `source-controller/api` to v0.19.0
+  [#499](https://github.com/fluxcd/kustomize-controller/pull/499)
+* Replace deprecated dependencies
+  [#498](https://github.com/fluxcd/kustomize-controller/pull/498)
+* Update `opencontainers/{image-spec, runc}`
+  [#497](https://github.com/fluxcd/kustomize-controller/pull/497)
+
 ## 0.18.0
 
 **Release date:** 2021-11-12
