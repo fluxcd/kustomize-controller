@@ -6,6 +6,7 @@ replace github.com/fluxcd/kustomize-controller/api => ./api
 
 require (
 	filippo.io/age v1.0.0
+	github.com/ProtonMail/go-crypto v0.0.0-20211112122917-428f8eabeeb3
 	github.com/cyphar/filepath-securejoin v0.2.2
 	github.com/drone/envsubst v1.0.3-0.20200804185402-58bc65f69603
 	github.com/fluxcd/kustomize-controller/api v0.18.0
@@ -21,7 +22,6 @@ require (
 	github.com/onsi/gomega v1.15.0
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.1
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
 	google.golang.org/grpc v1.42.0
 	k8s.io/api v0.22.2
@@ -31,6 +31,7 @@ require (
 	sigs.k8s.io/cli-utils v0.26.0
 	sigs.k8s.io/controller-runtime v0.10.2
 	sigs.k8s.io/kustomize/api v0.10.1
+	sigs.k8s.io/kustomize/kyaml v0.13.0
 	sigs.k8s.io/yaml v1.3.0
 )
 

@@ -67,7 +67,7 @@ metadata:
 	g.Expect(err).NotTo(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
-		Name:      fmt.Sprintf("%s", randStringRunes(5)),
+		Name:      randStringRunes(5),
 		Namespace: id,
 	}
 
@@ -75,7 +75,7 @@ metadata:
 	g.Expect(err).NotTo(HaveOccurred())
 
 	configName := types.NamespacedName{
-		Name:      fmt.Sprintf("%s", randStringRunes(5)),
+		Name:      randStringRunes(5),
 		Namespace: id,
 	}
 	config := &corev1.ConfigMap{
@@ -88,7 +88,7 @@ metadata:
 	g.Expect(k8sClient.Create(context.Background(), config)).Should(Succeed())
 
 	secretName := types.NamespacedName{
-		Name:      fmt.Sprintf("%s", randStringRunes(5)),
+		Name:      randStringRunes(5),
 		Namespace: id,
 	}
 	secret := &corev1.Secret{

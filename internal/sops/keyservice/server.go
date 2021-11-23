@@ -9,8 +9,8 @@ import (
 
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -126,7 +126,7 @@ func keyToString(key *keyservice.Key) string {
 	case *keyservice.Key_PgpKey:
 		return fmt.Sprintf("PGP key with fingerprint %s", k.PgpKey.Fingerprint)
 	default:
-		return fmt.Sprintf("Unknown key type")
+		return "Unknown key type"
 	}
 }
 
@@ -141,7 +141,7 @@ func (ks Server) prompt(key *keyservice.Key, requestType string) error {
 		}
 	}
 	if response == "n" {
-		return grpc.Errorf(codes.PermissionDenied, "Request rejected by user")
+		return status.Errorf(codes.PermissionDenied, "Request rejected by user")
 	}
 	return nil
 }

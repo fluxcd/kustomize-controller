@@ -52,7 +52,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sigs.k8s.io/kustomize/api/filesys"
+	"sigs.k8s.io/kustomize/kyaml/filesys"
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/events"
@@ -252,7 +252,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// broadcast the reconciliation failure and requeue at the specified retry interval
 	if reconcileErr != nil {
 		log.Error(reconcileErr, fmt.Sprintf("Reconciliation failed after %s, next try in %s",
-			time.Now().Sub(reconcileStart).String(),
+			time.Since(reconcileStart).String(),
 			kustomization.GetRetryInterval().String()),
 			"revision",
 			source.GetArtifact().Revision)
@@ -263,12 +263,9 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// broadcast the reconciliation result and requeue at the specified interval
 	msg := fmt.Sprintf("Reconciliation finished in %s, next run in %s",
-		time.Now().Sub(reconcileStart).String(),
+		time.Since(reconcileStart).String(),
 		kustomization.Spec.Interval.Duration.String())
-	log.Info(fmt.Sprintf(msg),
-		"revision",
-		source.GetArtifact().Revision,
-	)
+	log.Info(msg, "revision", source.GetArtifact().Revision)
 	r.event(ctx, reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityInfo,
 		msg, map[string]string{"commit_status": "update"})
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
@@ -606,10 +603,6 @@ func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomizati
 }
 
 func (r *KustomizationReconciler) build(ctx context.Context, kustomization kustomizev1.Kustomization, dirPath string) ([]byte, error) {
-	timeout := kustomization.GetTimeout()
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
 	dec, cleanup, err := NewTempDecryptor(r.Client, kustomization)
 	if err != nil {
 		return nil, err
@@ -809,13 +802,13 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.
 		Interval: 5 * time.Second,
 		Timeout:  kustomization.GetTimeout(),
 	}); err != nil {
-		return fmt.Errorf("Health check failed after %s, %w", time.Now().Sub(checkStart).String(), err)
+		return fmt.Errorf("Health check failed after %s, %w", time.Since(checkStart).String(), err)
 	}
 
 	// emit event if the previous health check failed
 	if !wasHealthy || (kustomization.Status.LastAppliedRevision != revision && drifted) {
 		r.event(ctx, kustomization, revision, events.EventSeverityInfo,
-			fmt.Sprintf("Health check passed in %s", time.Now().Sub(checkStart).String()), nil)
+			fmt.Sprintf("Health check passed in %s", time.Since(checkStart).String()), nil)
 	}
 
 	return nil
@@ -858,7 +851,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 		!kustomization.Spec.Suspend &&
 		kustomization.Status.Inventory != nil &&
 		kustomization.Status.Inventory.Entries != nil {
-		objects, err := ListObjectsInInventory(kustomization.Status.Inventory)
+		objects, _ := ListObjectsInInventory(kustomization.Status.Inventory)
 
 		impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, "")
 		kubeClient, _, err := impersonation.GetClient(ctx)
