@@ -173,7 +173,7 @@ func (ki *KustomizeImpersonation) getKubeConfig(ctx context.Context) ([]byte, er
 	}
 
 	var kubeConfig []byte
-	for k, _ := range secret.Data {
+	for k := range secret.Data {
 		if k == "value" || k == "value.yaml" {
 			kubeConfig = secret.Data[k]
 			break

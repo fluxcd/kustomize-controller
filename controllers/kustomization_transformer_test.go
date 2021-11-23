@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +54,7 @@ func TestKustomizationReconciler_KustomizeTransformer(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
-		Name:      fmt.Sprintf("%s", randStringRunes(5)),
+		Name:      randStringRunes(5),
 		Namespace: id,
 	}
 
@@ -178,7 +177,7 @@ func TestKustomizationReconciler_KustomizeTransformerFiles(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
-		Name:      fmt.Sprintf("%s", randStringRunes(5)),
+		Name:      randStringRunes(5),
 		Namespace: id,
 	}
 
@@ -297,7 +296,7 @@ func TestKustomizationReconciler_FluxTransformers(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
-		Name:      fmt.Sprintf("%s", randStringRunes(5)),
+		Name:      randStringRunes(5),
 		Namespace: id,
 	}
 

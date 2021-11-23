@@ -63,6 +63,7 @@ stringData:
 	}
 
 	artifact, err := testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create artifact from files")
 
 	repositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("force-%s", randStringRunes(5)),

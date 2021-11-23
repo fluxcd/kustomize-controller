@@ -272,10 +272,10 @@ data:
 		empty := []testserver.File{
 			{
 				Name: "kustomization.yaml",
-				Body: fmt.Sprintf(`---
+				Body: `---
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-`),
+`,
 			},
 		}
 		artifact, err := testServer.ArtifactFromFiles(empty)
@@ -400,10 +400,10 @@ data:
 		g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultSecret)).Should(Succeed())
 		g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultConfig)).Should(Succeed())
 
-		name, _ := resultConfig.GetLabels()["kustomize.toolkit.fluxcd.io/name"]
+		name := resultConfig.GetLabels()["kustomize.toolkit.fluxcd.io/name"]
 		g.Expect(name).Should(BeIdenticalTo(kustomizationKey.Name))
 
-		namespace, _ := resultConfig.GetLabels()["kustomize.toolkit.fluxcd.io/namespace"]
+		namespace := resultConfig.GetLabels()["kustomize.toolkit.fluxcd.io/namespace"]
 		g.Expect(namespace).Should(BeIdenticalTo(kustomizationKey.Namespace))
 	})
 

@@ -61,7 +61,7 @@ func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) f
 		if err != nil {
 			return nil
 		}
-		reqs := make([]reconcile.Request, len(sorted), len(sorted))
+		reqs := make([]reconcile.Request, len(sorted))
 		for i := range sorted {
 			reqs[i].NamespacedName.Name = sorted[i].Name
 			reqs[i].NamespacedName.Namespace = sorted[i].Namespace
