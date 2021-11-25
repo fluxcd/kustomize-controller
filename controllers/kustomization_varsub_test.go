@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"testing"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
@@ -31,6 +30,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
 
 func TestKustomizationReconciler_Varsub(t *testing.T) {
@@ -58,6 +59,18 @@ metadata:
     environment: ${env:=dev}
     region: "${_Region}" 
     zone: "${zone}"
+`, name),
+			},
+			{
+				Name: "secret.yaml",
+				Body: fmt.Sprintf(`---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: %[1]s
+  namespace: %[1]s
+stringData:
+  zone: ${zone}
 `, name),
 			},
 		}
@@ -145,6 +158,7 @@ metadata:
 
 	resultK := &kustomizev1.Kustomization{}
 	resultSA := &corev1.ServiceAccount{}
+	resultSecret := &corev1.Secret{}
 
 	t.Run("reconciles successfully", func(t *testing.T) {
 		g.Eventually(func() bool {
@@ -158,6 +172,7 @@ metadata:
 		}, timeout, interval).Should(BeTrue())
 
 		g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultSA)).Should(Succeed())
+		g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultSecret)).Should(Succeed())
 	})
 
 	t.Run("sets status", func(t *testing.T) {
@@ -170,6 +185,7 @@ metadata:
 		g.Expect(resultSA.Labels["environment"]).To(Equal("dev"))
 		g.Expect(resultSA.Labels["region"]).To(Equal("eu-central-1"))
 		g.Expect(resultSA.Labels["zone"]).To(Equal("az-1b"))
+		g.Expect(string(resultSecret.Data["zone"])).To(Equal("az-1b"))
 	})
 
 	t.Run("sets owner labels", func(t *testing.T) {

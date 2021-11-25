@@ -756,6 +756,18 @@ spec:
         name: cluster-secret-vars
 ```
 
+Note that for substituting variables in a secret, `spec.stringData` field must be used i.e
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret
+  namespace: flux-system
+type: Opaque
+stringData:
+  token: ${token}
+```
+
 The var values which are specified in-line with `substitute`
 take precedence over the ones in `substituteFrom`.
 
