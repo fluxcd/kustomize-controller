@@ -757,6 +757,7 @@ spec:
 ```
 
 Note that for substituting variables in a secret, `spec.stringData` field must be used i.e
+
 ```yaml
 apiVersion: v1
 kind: Secret
