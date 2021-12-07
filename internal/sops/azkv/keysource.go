@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 package azkv
 
 import (
@@ -12,131 +16,119 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/keyvault/keyvault"
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/dimchansky/utfbom"
 )
 
-type Key struct {
-	VaultUrl string
+// MasterKey is an Azure Key Vault key used to encrypt and decrypt SOPS' data key.
+// The underlying authentication token can be configured using AADSettings.
+type MasterKey struct {
+	VaultURL string
 	Name     string
 	Version  string
 
-	keyvaultAuthorizer autorest.Authorizer
+	EncryptedKey string
+
+	token *adal.ServicePrincipalToken
 }
 
-func (key *Key) LoadCredentialsFromFile(fileLocation string) error {
-	s := auth.FileSettings{}
-	s.Values = map[string]string{}
+// LoadAADSettingsFromBytes attempts to load the given bytes into the given AADSettings.
+// By first decoding it if UTF-16, and then unmarshalling it into the given struct.
+// It returns an error for any failure.
+func LoadAADSettingsFromBytes(b []byte, s *AADSettings) error {
+	b, err := decode(b)
+	if err != nil {
+		return fmt.Errorf("failed to decode Azure authentication file bytes: %w", err)
+	}
+	if err = json.Unmarshal(b, s); err != nil {
+		err = fmt.Errorf("failed to unmarshal Azure authentication file: %w", err)
+	}
+	return err
+}
 
-	contents, err := ioutil.ReadFile(fileLocation)
+// AADSettings contains the selection of fields from an Azure authentication file
+// required for Active Directory authentication.
+//
+// It is based on the unpublished contract in
+// https://github.com/Azure/go-autorest/blob/c7f947c0610de1bc279f76e6d453353f95cd1bfa/autorest/azure/auth/auth.go#L331-L342,
+// which seems to be due to an assumption of configuration through environment
+// variables over file based configuration.
+type AADSettings struct {
+	ClientID                string `json:"clientId"`
+	ClientSecret            string `json:"clientSecret"`
+	TenantID                string `json:"tenantId"`
+	ActiveDirectoryEndpoint string `json:"activeDirectoryEndpointUrl"`
+}
+
+// SetToken configures the token on the given MasterKey using the AADSettings.
+func (s *AADSettings) SetToken(key *MasterKey) error {
+	if s == nil {
+		return nil
+	}
+	config, err := adal.NewOAuthConfig(s.GetAADEndpoint(), s.TenantID)
 	if err != nil {
 		return err
 	}
-
-	// Auth file might be encoded
-	var decoded []byte
-	reader, enc := utfbom.Skip(bytes.NewReader(contents))
-	switch enc {
-	case utfbom.UTF16LittleEndian:
-		u16 := make([]uint16, (len(contents)/2)-1)
-		err := binary.Read(reader, binary.LittleEndian, &u16)
-		if err != nil {
-			return err
-		}
-		decoded = []byte(string(utf16.Decode(u16)))
-	case utfbom.UTF16BigEndian:
-		u16 := make([]uint16, (len(contents)/2)-1)
-		err := binary.Read(reader, binary.BigEndian, &u16)
-		if err != nil {
-			return err
-		}
-		decoded = []byte(string(utf16.Decode(u16)))
-	default:
-		decoded, err = ioutil.ReadAll(reader)
-		if err != nil {
-			return err
-		}
-	}
-
-	// unmarshal file
-	authFile := map[string]interface{}{}
-	err = json.Unmarshal(decoded, &authFile)
-	if err != nil {
+	if key.token, err = adal.NewServicePrincipalToken(*config, s.ClientID, s.ClientSecret,
+		azure.PublicCloud.ResourceIdentifiers.KeyVault); err != nil {
 		return err
 	}
-
-	if val, ok := authFile["clientId"]; ok {
-		s.Values["AZURE_CLIENT_ID"] = val.(string)
-	}
-	if val, ok := authFile["clientSecret"]; ok {
-		s.Values["AZURE_CLIENT_SECRET"] = val.(string)
-	}
-	if val, ok := authFile["clientCertificate"]; ok {
-		s.Values["AZURE_CERTIFICATE_PATH"] = val.(string)
-	}
-	if val, ok := authFile["clientCertificatePassword"]; ok {
-		s.Values["AZURE_CERTIFICATE_PASSWORD"] = val.(string)
-	}
-	if val, ok := authFile["subscriptionId"]; ok {
-		s.Values["AZURE_SUBSCRIPTION_ID"] = val.(string)
-	}
-	if val, ok := authFile["tenantId"]; ok {
-		s.Values["AZURE_TENANT_ID"] = val.(string)
-	}
-	if val, ok := authFile["activeDirectoryEndpointUrl"]; ok {
-		s.Values["ActiveDirectoryEndpoint"] = val.(string)
-	}
-	if val, ok := authFile["resourceManagerEndpointUrl"]; ok {
-		s.Values["ResourceManagerEndpoint"] = val.(string)
-	}
-	if val, ok := authFile["activeDirectoryGraphResourceId"]; ok {
-		s.Values["GraphResourceID"] = val.(string)
-	}
-	if val, ok := authFile["sqlManagementEndpointUrl"]; ok {
-		s.Values["SQLManagementEndpoint"] = val.(string)
-	}
-	if val, ok := authFile["galleryEndpointUrl"]; ok {
-		s.Values["GalleryEndpoint"] = val.(string)
-	}
-	if val, ok := authFile["managementEndpointUrl"]; ok {
-		s.Values["ManagementEndpoint"] = val.(string)
-	}
-
-	key.keyvaultAuthorizer, err = s.ClientCredentialsAuthorizerWithResource(azure.PublicCloud.ResourceIdentifiers.KeyVault)
-	if err != nil {
-		return fmt.Errorf("failed to load azure credentials file: %w", err)
-	}
-
 	return nil
 }
 
-func (key *Key) Encrypt(plaintext []byte) ([]byte, error) {
-	plainstring := string(plaintext)
-
-	kv := keyvault.New()
-	kv.Authorizer = key.keyvaultAuthorizer
-
-	result, err := kv.Encrypt(context.Background(), key.VaultUrl, key.Name, "", keyvault.KeyOperationsParameters{Algorithm: keyvault.RSAOAEP256, Value: &plainstring})
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt data: %w", err)
+// GetAADEndpoint returns the ActiveDirectoryEndpoint, or the Azure Public Cloud
+// default.
+func (s *AADSettings) GetAADEndpoint() string {
+	if s.ActiveDirectoryEndpoint != "" {
+		return s.ActiveDirectoryEndpoint
 	}
-
-	ciphertext, err := base64.RawURLEncoding.DecodeString(*result.Result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt data: %w", err)
-	}
-
-	return ciphertext, nil
+	return azure.PublicCloud.ActiveDirectoryEndpoint
 }
 
-func (key *Key) Decrypt(ciphertext []byte) ([]byte, error) {
-	cipherstring := string(ciphertext)
+// EncryptedDataKey returns the encrypted data key this master key holds.
+func (key *MasterKey) EncryptedDataKey() []byte {
+	return []byte(key.EncryptedKey)
+}
 
-	kv := keyvault.New()
-	kv.Authorizer = key.keyvaultAuthorizer
+// SetEncryptedDataKey sets the encrypted data key for this master key.
+func (key *MasterKey) SetEncryptedDataKey(enc []byte) {
+	key.EncryptedKey = string(enc)
+}
 
-	result, err := kv.Decrypt(context.Background(), key.VaultUrl, key.Name, key.Version, keyvault.KeyOperationsParameters{Algorithm: keyvault.RSAOAEP256, Value: &cipherstring})
+// Encrypt takes a SOPS data key, encrypts it with Key Vault and stores the result in the EncryptedKey field.
+func (key *MasterKey) Encrypt(plaintext []byte) error {
+	c := newKeyvaultClient(key.authorizer())
+
+	data := base64.RawURLEncoding.EncodeToString(plaintext)
+	p := keyvault.KeyOperationsParameters{Value: &data, Algorithm: keyvault.RSAOAEP256}
+	res, err := c.Encrypt(context.Background(), key.VaultURL, key.Name, key.Version, p)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt data: %w", err)
+	}
+
+	key.EncryptedKey = *res.Result
+	if err != nil {
+		return fmt.Errorf("failed to encrypt data: %w", err)
+	}
+	return nil
+}
+
+// EncryptIfNeeded encrypts the provided SOPS' data key and encrypts it if it hasn't been encrypted yet.
+func (key *MasterKey) EncryptIfNeeded(dataKey []byte) error {
+	if key.EncryptedKey == "" {
+		return key.Encrypt(dataKey)
+	}
+	return nil
+}
+
+// Decrypt decrypts the EncryptedKey field with Azure Key Vault and returns the result.
+func (key *MasterKey) Decrypt() ([]byte, error) {
+	c := newKeyvaultClient(key.authorizer())
+
+	result, err := c.Decrypt(context.Background(), key.VaultURL, key.Name, key.Version, keyvault.KeyOperationsParameters{
+		Algorithm: keyvault.RSAOAEP256, Value: &key.EncryptedKey,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt data: %w", err)
 	}
@@ -145,6 +137,59 @@ func (key *Key) Decrypt(ciphertext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt data: %w", err)
 	}
-
 	return plaintext, nil
+}
+
+// NeedsRotation returns whether the data key needs to be rotated or not.
+func (key *MasterKey) NeedsRotation() bool {
+	return key.token.Token().IsExpired()
+}
+
+// ToString converts the key to a string representation.
+func (key *MasterKey) ToString() string {
+	return fmt.Sprintf("%s/keys/%s/%s", key.VaultURL, key.Name, key.Version)
+}
+
+// ToMap converts the MasterKey to a map for serialization purposes.
+func (key MasterKey) ToMap() map[string]interface{} {
+	out := make(map[string]interface{})
+	out["vaultUrl"] = key.VaultURL
+	out["key"] = key.Name
+	out["version"] = key.Version
+	out["enc"] = key.EncryptedKey
+	return out
+}
+
+func (key *MasterKey) authorizer() autorest.Authorizer {
+	if key.token == nil {
+		return &autorest.NullAuthorizer{}
+	}
+	return autorest.NewBearerAuthorizer(key.token)
+}
+
+func newKeyvaultClient(authorizer autorest.Authorizer) keyvault.BaseClient {
+	c := keyvault.New()
+	c.Authorizer = authorizer
+	return c
+}
+
+func decode(b []byte) ([]byte, error) {
+	reader, enc := utfbom.Skip(bytes.NewReader(b))
+	switch enc {
+	case utfbom.UTF16LittleEndian:
+		u16 := make([]uint16, (len(b)/2)-1)
+		err := binary.Read(reader, binary.LittleEndian, &u16)
+		if err != nil {
+			return nil, err
+		}
+		return []byte(string(utf16.Decode(u16))), nil
+	case utfbom.UTF16BigEndian:
+		u16 := make([]uint16, (len(b)/2)-1)
+		err := binary.Read(reader, binary.BigEndian, &u16)
+		if err != nil {
+			return nil, err
+		}
+		return []byte(string(utf16.Decode(u16))), nil
+	}
+	return ioutil.ReadAll(reader)
 }

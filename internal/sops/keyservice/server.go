@@ -6,8 +6,6 @@ package keyservice
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
@@ -18,11 +16,6 @@ import (
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
-)
-
-const (
-	// SOPSCredentialsFileAzureKeyvault is the expected filename for a JSON file containing an Azure Key Vault authentication file.
-	SOPSCredentialsFileAzureKeyvault = "azure_kv.json"
 )
 
 // Server is a key service server that uses SOPS MasterKeys to fulfill
@@ -45,17 +38,22 @@ type Server struct {
 	// VaultToken configures the Vault token used by the server.
 	VaultToken string
 
+	// AzureAADConfig configures the Azure Active Directory settings used
+	// by the server.
+	AzureAADConfig *azkv.AADSettings
+
 	// DefaultServer is the server used for any other request than a PGP
 	// or age encryption/decryption.
 	DefaultServer keyservice.KeyServiceServer
 }
 
-func NewServer(prompt bool, homeDir, vaultToken string, agePrivateKeys []string) keyservice.KeyServiceServer {
+func NewServer(prompt bool, homeDir, vaultToken string, agePrivateKeys []string, azureCfg *azkv.AADSettings) keyservice.KeyServiceServer {
 	server := &Server{
 		Prompt:         prompt,
 		HomeDir:        homeDir,
 		AgePrivateKeys: agePrivateKeys,
 		VaultToken:     vaultToken,
+		AzureAADConfig: azureCfg,
 		DefaultServer: &keyservice.Server{
 			Prompt: prompt,
 		},
@@ -112,38 +110,32 @@ func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) 
 }
 
 func (ks *Server) encryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
-	azureKey := azkv.Key{
-		VaultUrl: key.VaultUrl,
+	azureKey := azkv.MasterKey{
+		VaultURL: key.VaultUrl,
 		Name:     key.Name,
 		Version:  key.Version,
 	}
-	err := azureKey.LoadCredentialsFromFile(filepath.Join(ks.HomeDir, SOPSCredentialsFileAzureKeyvault))
-	if err != nil {
-		return nil, fmt.Errorf("azure credentials file missing: %w", err)
+	if err := ks.AzureAADConfig.SetToken(&azureKey); err != nil {
+		return nil, fmt.Errorf("failed to set token for Azure encryption request: %w", err)
 	}
-	ciphertext, err := azureKey.Encrypt(plaintext)
-	if err != nil {
+	if err := azureKey.Encrypt(plaintext); err != nil {
 		return nil, err
 	}
-	return ciphertext, nil
+	return []byte(azureKey.EncryptedKey), nil
 }
 
 func (ks *Server) decryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
-	azureKey := azkv.Key{
-		VaultUrl: key.VaultUrl,
+	azureKey := azkv.MasterKey{
+		VaultURL: key.VaultUrl,
 		Name:     key.Name,
 		Version:  key.Version,
 	}
-	err := azureKey.LoadCredentialsFromFile(filepath.Join(ks.HomeDir, SOPSCredentialsFileAzureKeyvault))
-	if err != nil {
-		return nil, fmt.Errorf("azure credentials file missing: %w", err)
+	if err := ks.AzureAADConfig.SetToken(&azureKey); err != nil {
+		return nil, fmt.Errorf("failed to set token for Azure decryption request: %w", err)
 	}
-
-	plaintext, err := azureKey.Decrypt(ciphertext)
-	if err != nil {
-		return nil, err
-	}
-	return plaintext, nil
+	azureKey.EncryptedKey = string(ciphertext)
+	plaintext, err := azureKey.Decrypt()
+	return plaintext, err
 }
 
 // Encrypt takes an encrypt request and encrypts the provided plaintext with the provided key,
@@ -170,16 +162,17 @@ func (ks Server) Encrypt(ctx context.Context,
 			Ciphertext: ciphertext,
 		}
 	case *keyservice.Key_AzureKeyvaultKey:
-		if _, err := os.Stat(filepath.Join(ks.HomeDir, SOPSCredentialsFileAzureKeyvault)); os.IsNotExist(err) {
+		// Fallback to default server if no custom settings are configured
+		// to ensure backwards compatibility with global configurations
+		if ks.AzureAADConfig == nil {
 			return ks.Encrypt(ctx, req)
-		} else {
-			ciphertext, err := ks.encryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Plaintext)
-			if err != nil {
-				return nil, err
-			}
-			response = &keyservice.EncryptResponse{
-				Ciphertext: ciphertext,
-			}
+		}
+		ciphertext, err := ks.encryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Plaintext)
+		if err != nil {
+			return nil, err
+		}
+		response = &keyservice.EncryptResponse{
+			Ciphertext: ciphertext,
 		}
 	default:
 		return ks.DefaultServer.Encrypt(ctx, req)
@@ -256,17 +249,17 @@ func (ks Server) Decrypt(ctx context.Context,
 			Plaintext: plaintext,
 		}
 	case *keyservice.Key_AzureKeyvaultKey:
-		if _, err := os.Stat(filepath.Join(ks.HomeDir, SOPSCredentialsFileAzureKeyvault)); os.IsNotExist(err) {
-			return ks.DefaultServer.Decrypt(ctx, req)
-		} else {
-			plaintext, err := ks.decryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Ciphertext)
-			if err != nil {
-				return nil, err
-			}
-
-			response = &keyservice.DecryptResponse{
-				Plaintext: plaintext,
-			}
+		// Fallback to default server if no custom settings are configured
+		// to ensure backwards compatibility with global configurations
+		if ks.AzureAADConfig == nil {
+			return ks.Decrypt(ctx, req)
+		}
+		plaintext, err := ks.decryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Ciphertext)
+		if err != nil {
+			return nil, err
+		}
+		response = &keyservice.DecryptResponse{
+			Plaintext: plaintext,
 		}
 	default:
 		return ks.DefaultServer.Decrypt(ctx, req)
