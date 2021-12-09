@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.18.2
+
+**Release date:** 2021-12-09
+
+This prerelease comes with improvements to force applying objects with immutable fields changes. 
+
+Improvements:
+* Update dependencies (fix CVE-2021-43784)
+  [#509](https://github.com/fluxcd/kustomize-controller/pull/509)
+* Update golang.org/x/text to v0.3.7 (fix CVE-2021-38561)
+  [#512](https://github.com/fluxcd/kustomize-controller/pull/512)
+* Add test for replacing variables in secrets
+  [#505](https://github.com/fluxcd/kustomize-controller/pull/505)
+* Document behaviour when changes are made to fields not stored in git
+  [#501](https://github.com/fluxcd/kustomize-controller/pull/501)
+* SOPS: ensure proper wiring to default server
+  [#513](https://github.com/fluxcd/kustomize-controller/pull/513)
+
 ## 0.18.1
 
 **Release date:** 2021-11-23
