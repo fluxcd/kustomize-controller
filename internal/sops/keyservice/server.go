@@ -110,7 +110,7 @@ func (ks Server) Encrypt(ctx context.Context,
 			Ciphertext: ciphertext,
 		}
 	default:
-		return ks.Encrypt(ctx, req)
+		return ks.DefaultServer.Encrypt(ctx, req)
 	}
 	if ks.Prompt {
 		err := ks.prompt(key, "encrypt")
