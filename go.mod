@@ -23,6 +23,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.1
 	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
+	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/grpc v1.42.0
 	k8s.io/api v0.22.2
 	k8s.io/apiextensions-apiserver v0.22.2
