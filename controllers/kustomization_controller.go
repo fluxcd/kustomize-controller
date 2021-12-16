@@ -31,7 +31,6 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-retryablehttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -140,7 +139,7 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 }
 
 func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := logr.FromContext(ctx)
+	log := ctrl.LoggerFrom(ctx)
 	reconcileStart := time.Now()
 
 	var kustomization kustomizev1.Kustomization
@@ -667,7 +666,7 @@ func (r *KustomizationReconciler) build(ctx context.Context, kustomization kusto
 }
 
 func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, objects []*unstructured.Unstructured) (bool, *ssa.ChangeSet, error) {
-	log := logr.FromContext(ctx)
+	log := ctrl.LoggerFrom(ctx)
 
 	if err := ssa.SetNativeKindsDefaults(objects); err != nil {
 		return false, nil, err
@@ -819,7 +818,7 @@ func (r *KustomizationReconciler) prune(ctx context.Context, manager *ssa.Resour
 		return false, nil
 	}
 
-	log := logr.FromContext(ctx)
+	log := ctrl.LoggerFrom(ctx)
 
 	opts := ssa.DeleteOptions{
 		PropagationPolicy: metav1.DeletePropagationBackground,
@@ -846,7 +845,7 @@ func (r *KustomizationReconciler) prune(ctx context.Context, manager *ssa.Resour
 }
 
 func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization kustomizev1.Kustomization) (ctrl.Result, error) {
-	log := logr.FromContext(ctx)
+	log := ctrl.LoggerFrom(ctx)
 	if kustomization.Spec.Prune &&
 		!kustomization.Spec.Suspend &&
 		kustomization.Status.Inventory != nil &&
@@ -902,7 +901,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 }
 
 func (r *KustomizationReconciler) event(ctx context.Context, kustomization kustomizev1.Kustomization, revision, severity, msg string, metadata map[string]string) {
-	log := logr.FromContext(ctx)
+	log := ctrl.LoggerFrom(ctx)
 
 	annotations := map[string]string{
 		kustomizev1.GroupVersion.Group + "/revision": revision,
@@ -944,7 +943,7 @@ func (r *KustomizationReconciler) recordReadiness(ctx context.Context, kustomiza
 	if r.MetricsRecorder == nil {
 		return
 	}
-	log := logr.FromContext(ctx)
+	log := ctrl.LoggerFrom(ctx)
 
 	objRef, err := reference.GetReference(r.Scheme, &kustomization)
 	if err != nil {
@@ -965,7 +964,7 @@ func (r *KustomizationReconciler) recordSuspension(ctx context.Context, kustomiz
 	if r.MetricsRecorder == nil {
 		return
 	}
-	log := logr.FromContext(ctx)
+	log := ctrl.LoggerFrom(ctx)
 
 	objRef, err := reference.GetReference(r.Scheme, &kustomization)
 	if err != nil {
