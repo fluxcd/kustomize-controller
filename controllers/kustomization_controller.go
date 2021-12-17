@@ -205,7 +205,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// check dependencies
 	if len(kustomization.Spec.DependsOn) > 0 {
-		if err := r.checkDependencies(kustomization); err != nil {
+		if err := r.checkDependencies(source, kustomization); err != nil {
 			kustomization = kustomizev1.KustomizationNotReady(
 				kustomization, source.GetArtifact().Revision, meta.DependencyNotReadyReason, err.Error())
 			if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
@@ -470,7 +470,7 @@ func (r *KustomizationReconciler) reconcile(
 	), nil
 }
 
-func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Kustomization) error {
+func (r *KustomizationReconciler) checkDependencies(source sourcev1.Source, kustomization kustomizev1.Kustomization) error {
 	for _, d := range kustomization.Spec.DependsOn {
 		if d.Namespace == "" {
 			d.Namespace = kustomization.GetNamespace()
@@ -488,6 +488,10 @@ func (r *KustomizationReconciler) checkDependencies(kustomization kustomizev1.Ku
 
 		if !apimeta.IsStatusConditionTrue(k.Status.Conditions, meta.ReadyCondition) {
 			return fmt.Errorf("dependency '%s' is not ready", dName)
+		}
+
+		if k.Spec.SourceRef.Name == kustomization.Spec.SourceRef.Name && k.Spec.SourceRef.Namespace == kustomization.Spec.SourceRef.Namespace && k.Spec.SourceRef.Kind == kustomization.Spec.SourceRef.Kind && source.GetArtifact().Revision != k.Status.LastAppliedRevision {
+			return fmt.Errorf("dependency '%s' is not updated yet", dName)
 		}
 	}
 
