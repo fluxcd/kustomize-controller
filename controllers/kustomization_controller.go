@@ -904,16 +904,18 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 func (r *KustomizationReconciler) event(ctx context.Context, kustomization kustomizev1.Kustomization, revision, severity, msg string, metadata map[string]string) {
 	log := logr.FromContext(ctx)
 
-	annotations := map[string]string{
-		kustomizev1.GroupVersion.Group + "/revision": revision,
-	}
+	if r.EventRecorder != nil {
+		annotations := map[string]string{
+			kustomizev1.GroupVersion.Group + "/revision": revision,
+		}
 
-	eventtype := "Normal"
-	if severity == events.EventSeverityError {
-		eventtype = "Warning"
-	}
+		eventtype := "Normal"
+		if severity == events.EventSeverityError {
+			eventtype = "Warning"
+		}
 
-	r.EventRecorder.AnnotatedEventf(&kustomization, annotations, eventtype, severity, msg)
+		r.EventRecorder.AnnotatedEventf(&kustomization, annotations, eventtype, severity, msg)
+	}
 
 	if r.ExternalEventRecorder != nil {
 		objRef, err := reference.GetReference(r.Scheme, &kustomization)
