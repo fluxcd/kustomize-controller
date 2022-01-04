@@ -295,7 +295,12 @@ func (key *MasterKey) loadRing(path string) (openpgp.EntityList, error) {
 	if err != nil {
 		return openpgp.EntityList{}, err
 	}
-	defer f.Close()
+	defer func() {
+		cerr := f.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
 	keyring, err := openpgp.ReadKeyRing(f)
 	if err != nil {
 		return keyring, err
