@@ -526,7 +526,7 @@ For example, a service mesh proxy injector should be running before deploying ap
 ## Role-based access control
 
 By default, a Kustomization apply runs under the cluster admin account and can create, modify, delete
-cluster level objects (namespaces, CRDs, etc) and namespeced objects (deployments, ingresses, etc).
+cluster level objects (namespaces, CRDs, etc) and namespaced objects (deployments, ingresses, etc).
 For certain Kustomizations a cluster admin may wish to control what types of Kubernetes objects can
 be reconciled and under which namespaces.
 To restrict a Kustomization, one can assign a service account under which the reconciliation is performed.
