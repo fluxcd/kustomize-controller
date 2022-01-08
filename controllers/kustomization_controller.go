@@ -32,6 +32,7 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/hashicorp/go-retryablehttp"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -709,6 +710,41 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	applyOpts.Exclusions = map[string]string{
 		fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
 	}
+	applyOpts.Cleanup = ssa.ApplyCleanupOptions{
+		Annotations: []string{
+			// remove the kubectl annotation
+			corev1.LastAppliedConfigAnnotation,
+			// remove deprecated fluxcd.io annotations
+			"kustomize.toolkit.fluxcd.io/checksum",
+			"fluxcd.io/sync-checksum",
+		},
+		Labels: []string{
+			// remove deprecated fluxcd.io labels
+			"fluxcd.io/sync-gc-mark",
+		},
+		FieldManagers: []ssa.FieldManager{
+			{
+				// to undo changes made with 'kubectl apply --server-side --force-conflicts'
+				Name:          "kubectl",
+				OperationType: metav1.ManagedFieldsOperationApply,
+			},
+			{
+				// to undo changes made with 'kubectl apply'
+				Name:          "kubectl",
+				OperationType: metav1.ManagedFieldsOperationUpdate,
+			},
+			{
+				// to undo changes made with 'kubectl apply'
+				Name:          "before-first-apply",
+				OperationType: metav1.ManagedFieldsOperationUpdate,
+			},
+			{
+				// to undo changes made by the controller before SSA
+				Name:          r.ControllerName,
+				OperationType: metav1.ManagedFieldsOperationUpdate,
+			},
+		},
+	}
 
 	// contains only CRDs and Namespaces
 	var stageOne []*unstructured.Unstructured
@@ -924,7 +960,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 
 	// Remove our finalizer from the list and update it
 	controllerutil.RemoveFinalizer(&kustomization, kustomizev1.KustomizationFinalizer)
-	if err := r.Update(ctx, &kustomization); err != nil {
+	if err := r.Update(ctx, &kustomization, client.FieldOwner(r.ControllerName)); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -1022,5 +1058,5 @@ func (r *KustomizationReconciler) patchStatus(ctx context.Context, req ctrl.Requ
 	patch := client.MergeFrom(kustomization.DeepCopy())
 	kustomization.Status = newStatus
 
-	return r.Status().Patch(ctx, &kustomization, patch)
+	return r.Status().Patch(ctx, &kustomization, patch, client.FieldOwner(r.ControllerName))
 }

@@ -22,8 +22,6 @@ jobs:
       - name: Setup Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v1
-        with:
-          buildkitd-flags: "--debug"
       - name: Restore Go cache
         uses: actions/cache@v1
         with:
@@ -97,6 +95,27 @@ jobs:
           make dev-deploy IMG=test/kustomize-controller:latest
           kubectl -n kustomize-system rollout status deploy/source-controller --timeout=1m
           kubectl -n kustomize-system rollout status deploy/kustomize-controller --timeout=1m
+      - name: Run tests for removing kubectl managed fields
+        run: |
+          kubectl create ns managed-fields
+          kustomize build github.com/stefanprodan/podinfo//kustomize?ref=6.0.0 > /tmp/podinfo.yaml
+          kubectl -n managed-fields apply -f /tmp/podinfo.yaml
+          kubectl -n managed-fields apply -f ./config/testdata/managed-fields
+          kubectl -n managed-fields wait kustomization/podinfo --for=condition=ready --timeout=4m
+          OUTDATA=$(kubectl -n managed-fields get deploy podinfo --show-managed-fields -oyaml)
+          if echo "$OUTDATA" | grep -q "kubectl";then
+            echo "kubectl client-side manager not removed"
+            exit 1
+          fi
+          kubectl -n managed-fields apply --server-side --force-conflicts -f /tmp/podinfo.yaml
+          kubectl -n managed-fields annotate --overwrite kustomization/podinfo reconcile.fluxcd.io/requestedAt="$(date +%s)"
+          kubectl -n managed-fields wait kustomization/podinfo --for=condition=ready --timeout=4m
+          OUTDATA=$(kubectl -n managed-fields get deploy podinfo --show-managed-fields -oyaml)
+          if echo "$OUTDATA" | grep -q "kubectl";then
+            echo "kubectl server-side manager not removed"
+            exit 1
+          fi
+          kubectl delete ns managed-fields
       - name: Run overlays tests
         run: |
           kubectl -n kustomize-system apply -k ./config/testdata/overlays
