@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.19.0
+
+**Release date:** 2022-01-10
+
+This prerelease comes with an update to the Kubernetes and controller-runtime dependencies
+to align them with the Kubernetes 1.23 release.
+
+In addition, the controller is now built with Go 1.17 and Alpine 3.15.
+
+Improvements:
+* Update Go to v1.17 and controller-runtime to v0.11
+  [#478](https://github.com/fluxcd/kustomize-controller/pull/478)
+* Add condition to checkDependencies when SourceRef is the same
+  [#521](https://github.com/fluxcd/kustomize-controller/pull/521)
+
+Fixes:
+* Fix HPA diff (upstream bug)
+  [#526](https://github.com/fluxcd/kustomize-controller/pull/526)
+* Fix inconsistent code-style raised at security audit
+  [#522](https://github.com/fluxcd/kustomize-controller/pull/522)
+
 ## 0.18.2
 
 **Release date:** 2021-12-09
