@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"time"
 	"unicode/utf16"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/keyvault/keyvault"
@@ -98,7 +99,7 @@ func (key *MasterKey) SetEncryptedDataKey(enc []byte) {
 
 // Encrypt takes a SOPS data key, encrypts it with Key Vault and stores the result in the EncryptedKey field.
 func (key *MasterKey) Encrypt(plaintext []byte) error {
-	c := newKeyvaultClient(key.authorizer())
+	c := newThrottledKeyvaultClient(key.authorizer())
 
 	data := base64.RawURLEncoding.EncodeToString(plaintext)
 	p := keyvault.KeyOperationsParameters{Value: &data, Algorithm: keyvault.RSAOAEP256}
@@ -124,7 +125,7 @@ func (key *MasterKey) EncryptIfNeeded(dataKey []byte) error {
 
 // Decrypt decrypts the EncryptedKey field with Azure Key Vault and returns the result.
 func (key *MasterKey) Decrypt() ([]byte, error) {
-	c := newKeyvaultClient(key.authorizer())
+	c := newThrottledKeyvaultClient(key.authorizer())
 
 	result, err := c.Decrypt(context.Background(), key.VaultURL, key.Name, key.Version, keyvault.KeyOperationsParameters{
 		Algorithm: keyvault.RSAOAEP256, Value: &key.EncryptedKey,
@@ -167,9 +168,21 @@ func (key *MasterKey) authorizer() autorest.Authorizer {
 	return autorest.NewBearerAuthorizer(key.token)
 }
 
-func newKeyvaultClient(authorizer autorest.Authorizer) keyvault.BaseClient {
+// newThrottledKeyvaultClient returns a client configured to retry requests.
+//
+// Ref: https://docs.microsoft.com/en-us/azure/key-vault/general/overview-throttling
+func newThrottledKeyvaultClient(authorizer autorest.Authorizer) keyvault.BaseClient {
+	const (
+		// Number of times the client will attempt to make an HTTP request
+		retryAttempts = 6
+		// Duration between HTTP request retries
+		retryDuration = 5 * time.Second
+	)
+
 	c := keyvault.New()
 	c.Authorizer = authorizer
+	c.RetryAttempts = retryAttempts
+	c.RetryDuration = retryDuration
 	return c
 }
 
