@@ -130,7 +130,7 @@ func (ki *KustomizeImpersonation) clientForServiceAccount(ctx context.Context) (
 		return nil, nil, err
 	}
 
-	statusPoller := polling.NewStatusPoller(client, restMapper)
+	statusPoller := polling.NewStatusPoller(client, restMapper, nil)
 	return client, statusPoller, err
 
 }
@@ -156,7 +156,7 @@ func (ki *KustomizeImpersonation) clientForKubeConfig(ctx context.Context) (clie
 		return nil, nil, err
 	}
 
-	statusPoller := polling.NewStatusPoller(client, restMapper)
+	statusPoller := polling.NewStatusPoller(client, restMapper, nil)
 
 	return client, statusPoller, err
 }
