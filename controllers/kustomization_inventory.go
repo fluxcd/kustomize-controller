@@ -161,11 +161,7 @@ func referenceToObjMetadataSet(cr []meta.NamespacedObjectKindReference) (object.
 			u.SetNamespace(c.Namespace)
 		}
 
-		om, err := object.UnstructuredToObjMeta(u)
-		if err != nil {
-			return nil, err
-		}
-		objects = append(objects, om)
+		objects = append(objects, object.UnstructuredToObjMetadata(u))
 
 	}
 
