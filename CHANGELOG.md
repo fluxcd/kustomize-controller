@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.19.1
+
+**Release date:** 2022-01-13
+
+This prerelease fixes a regression bug introduced in v0.19.0 that prevented `StatefulSets`
+from being reconciled on Kubernetes <= 1.21.
+
+Fixes:
+* Update `fluxcd/pkg/ssa` to exclude the status field from apply
+  [#533](https://github.com/fluxcd/kustomize-controller/pull/533)
+
 ## 0.19.0
 
 **Release date:** 2022-01-10
