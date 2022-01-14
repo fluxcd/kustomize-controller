@@ -153,8 +153,9 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Add our finalizer if it does not exist
 	if !controllerutil.ContainsFinalizer(&kustomization, kustomizev1.KustomizationFinalizer) {
+		patch := client.MergeFrom(kustomization.DeepCopy())
 		controllerutil.AddFinalizer(&kustomization, kustomizev1.KustomizationFinalizer)
-		if err := r.Update(ctx, &kustomization); err != nil {
+		if err := r.Patch(ctx, &kustomization, patch); err != nil {
 			log.Error(err, "unable to register finalizer")
 			return ctrl.Result{}, err
 		}
