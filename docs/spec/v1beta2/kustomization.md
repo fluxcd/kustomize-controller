@@ -778,8 +778,11 @@ The var values which are specified in-line with `substitute`
 take precedence over the ones in `substituteFrom`.
 
 Note that if you want to avoid var substitutions in scripts embedded in ConfigMaps or container commands,
-you must use the format `$var` instead of `${var}`. All the undefined variables in the format `${var}`
-will be substituted with string empty, unless a default is provided e.g. `${var:=default}`.
+you must use the format `$var` instead of `${var}`. If you want to keep the curly braces you can use `$${var}`
+which will print out `${var}`. 
+
+All the undefined variables in the format `${var}` will be substituted with string empty, unless a default 
+is provided e.g. `${var:=default}`.
 
 You can disable the variable substitution for certain resources by either
 labeling or annotating them with:
