@@ -69,7 +69,7 @@ var (
 	debugMode    = os.Getenv("DEBUG_TEST") != ""
 )
 
-func TestMain(m *testing.M) {
+func runInContext(registerControllers func(*testenv.Environment), run func() error, crdPath string) error {
 	var err error
 	utilruntime.Must(sourcev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(kustomizev1.AddToScheme(scheme.Scheme))
@@ -78,9 +78,7 @@ func TestMain(m *testing.M) {
 		controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))
 	}
 
-	testEnv = testenv.New(testenv.WithCRDPath(
-		filepath.Join("..", "config", "crd", "bases"),
-	))
+	testEnv = testenv.New(testenv.WithCRDPath(crdPath))
 
 	testServer, err = testserver.NewTempArtifactServer()
 	if err != nil {
@@ -89,18 +87,7 @@ func TestMain(m *testing.M) {
 	fmt.Println("Starting the test storage server")
 	testServer.Start()
 
-	controllerName := "kustomize-controller"
-	testEventsH = controller.MakeEvents(testEnv, controllerName, nil)
-	testMetricsH = controller.MustMakeMetrics(testEnv)
-	reconciler := &KustomizationReconciler{
-		ControllerName:  controllerName,
-		Client:          testEnv,
-		EventRecorder:   testEventsH.EventRecorder,
-		MetricsRecorder: testMetricsH.MetricsRecorder,
-	}
-	if err := (reconciler).SetupWithManager(testEnv, KustomizationReconcilerOptions{MaxConcurrentReconciles: 4}); err != nil {
-		panic(fmt.Sprintf("Failed to start GitRepositoryReconciler: %v", err))
-	}
+	registerControllers(testEnv)
 
 	go func() {
 		fmt.Println("Starting the test environment")
@@ -129,7 +116,7 @@ func TestMain(m *testing.M) {
 		panic(fmt.Sprintf("Failed to create k8s client: %v", err))
 	}
 
-	code := m.Run()
+	runErr := run()
 
 	if debugMode {
 		events := &corev1.EventList{}
@@ -151,6 +138,30 @@ func TestMain(m *testing.M) {
 	if err := os.RemoveAll(testServer.Root()); err != nil {
 		panic(fmt.Sprintf("Failed to remove storage server dir: %v", err))
 	}
+
+	return runErr
+}
+
+func TestMain(m *testing.M) {
+	code := 0
+
+	runInContext(func(testEnv *testenv.Environment) {
+		controllerName := "kustomize-controller"
+		testEventsH = controller.MakeEvents(testEnv, controllerName, nil)
+		testMetricsH = controller.MustMakeMetrics(testEnv)
+		reconciler := &KustomizationReconciler{
+			ControllerName:  controllerName,
+			Client:          testEnv,
+			EventRecorder:   testEventsH.EventRecorder,
+			MetricsRecorder: testMetricsH.MetricsRecorder,
+		}
+		if err := (reconciler).SetupWithManager(testEnv, KustomizationReconcilerOptions{MaxConcurrentReconciles: 4}); err != nil {
+			panic(fmt.Sprintf("Failed to start KustomizationReconciler: %v", err))
+		}
+	}, func() error {
+		code = m.Run()
+		return nil
+	}, filepath.Join("..", "config", "crd", "bases"))
 
 	os.Exit(code)
 }
