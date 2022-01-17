@@ -37,6 +37,8 @@ import (
 	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	"github.com/hashicorp/vault/api"
+	"github.com/ory/dockertest"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -57,6 +59,8 @@ const (
 	interval               = time.Second * 1
 	reconciliationInterval = time.Second * 5
 )
+
+const vaultVersion = "1.2.2"
 
 var (
 	k8sClient    client.Client
@@ -115,6 +119,12 @@ func runInContext(registerControllers func(*testenv.Environment), run func() err
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create k8s client: %v", err))
 	}
+
+	// Create a vault test instance
+	pool, resource, err := createVaultTestInstance()
+	defer func() {
+		pool.Purge(resource)
+	}()
 
 	runErr := run()
 
@@ -360,4 +370,46 @@ func createArtifact(artifactServer *testserver.ArtifactServer, fixture, path str
 	}
 
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+func createVaultTestInstance() (*dockertest.Pool, *dockertest.Resource, error) {
+	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
+	pool, err := dockertest.NewPool("")
+	if err != nil {
+		return nil, nil, fmt.Errorf("Could not connect to docker: %s", err)
+	}
+
+	// pulls an image, creates a container based on it and runs it
+	resource, err := pool.Run("vault", vaultVersion, []string{"VAULT_DEV_ROOT_TOKEN_ID=secret"})
+	if err != nil {
+		return nil, nil, fmt.Errorf("Could not start resource: %s", err)
+	}
+
+	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1:%v", resource.GetPort("8200/tcp")))
+	os.Setenv("VAULT_TOKEN", "secret")
+	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
+	if err := pool.Retry(func() error {
+		cli, err := api.NewClient(api.DefaultConfig())
+		if err != nil {
+			return fmt.Errorf("Cannot create Vault Client: %w", err)
+		}
+		status, err := cli.Sys().InitStatus()
+		if err != nil {
+			return err
+		}
+		if status != true {
+			return fmt.Errorf("Vault not ready yet")
+		}
+		if err := cli.Sys().Mount("sops", &api.MountInput{
+			Type: "transit",
+		}); err != nil {
+			return fmt.Errorf("Cannot create Vault Transit Engine: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, nil, fmt.Errorf("Could not connect to docker: %w", err)
+	}
+
+	return pool, resource, nil
 }

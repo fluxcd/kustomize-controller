@@ -51,6 +51,8 @@ jobs:
         uses: fluxcd/pkg/actions/kubectl@main
         with:
           version: 1.21.2
+      - name: Setup SOPS
+        uses: fluxcd/pkg/actions/sops@main
       - name: Run controller tests
         run: make test
       - name: Check if working tree is dirty
