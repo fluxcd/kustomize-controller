@@ -43,9 +43,7 @@ COPY --from=builder /workspace/kustomize-controller /usr/local/bin/
 # https://github.com/gliderlabs/docker-alpine/issues/367#issuecomment-354316460
 RUN [ ! -e /etc/nsswitch.conf ] && echo 'hosts: files dns' > /etc/nsswitch.conf
 
-RUN addgroup -S controller && adduser -S controller -G controller
-
-USER controller
+USER 65534:65534
 
 ENV GNUPGHOME=/tmp
 
