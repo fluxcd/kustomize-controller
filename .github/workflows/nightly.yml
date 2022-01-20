@@ -7,6 +7,9 @@ on:
 env:
   REPOSITORY: ${{ github.repository }}
 
+permissions:
+  contents: read # for actions/checkout to fetch code
+  
 jobs:
   build:
     runs-on: ubuntu-latest
