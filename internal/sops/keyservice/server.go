@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
+	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
 
@@ -33,16 +34,20 @@ type Server struct {
 	// AgePrivateKeys configures the age private keys known by the server.
 	AgePrivateKeys []string
 
+	// VaultToken configures the Vault token used by the server.
+	VaultToken string
+
 	// DefaultServer is the server used for any other request than a PGP
 	// or age encryption/decryption.
 	DefaultServer keyservice.KeyServiceServer
 }
 
-func NewServer(prompt bool, homeDir string, agePrivateKeys []string) keyservice.KeyServiceServer {
+func NewServer(prompt bool, homeDir, vaultToken string, agePrivateKeys []string) keyservice.KeyServiceServer {
 	server := &Server{
 		Prompt:         prompt,
 		HomeDir:        homeDir,
 		AgePrivateKeys: agePrivateKeys,
+		VaultToken:     vaultToken,
 		DefaultServer: &keyservice.Server{
 			Prompt: prompt,
 		},
@@ -84,6 +89,18 @@ func (ks *Server) decryptWithAge(key *keyservice.AgeKey, ciphertext []byte) ([]b
 	ageKey.EncryptedKey = string(ciphertext)
 	plaintext, err := ageKey.Decrypt()
 	return plaintext, err
+}
+
+func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) ([]byte, error) {
+	vaultKey := hcvault.MasterKey{
+		VaultAddress: key.VaultAddress,
+		EnginePath:   key.EnginePath,
+		KeyName:      key.KeyName,
+		VaultToken:   ks.VaultToken,
+	}
+	vaultKey.EncryptedKey = string(ciphertext)
+	plaintext, err := vaultKey.Decrypt()
+	return []byte(plaintext), err
 }
 
 // Encrypt takes an encrypt request and encrypts the provided plaintext with the provided key,
@@ -163,6 +180,20 @@ func (ks Server) Decrypt(ctx context.Context,
 		}
 	case *keyservice.Key_AgeKey:
 		plaintext, err := ks.decryptWithAge(k.AgeKey, req.Ciphertext)
+		if err != nil {
+			return nil, err
+		}
+		response = &keyservice.DecryptResponse{
+			Plaintext: plaintext,
+		}
+	case *keyservice.Key_VaultKey:
+		// FallBack to DefaultServer if vaulToken is not present
+		// to ensure backward compatibility (VAULT_TOKEN env var is set)
+		if ks.VaultToken == "" {
+			return ks.DefaultServer.Decrypt(ctx, req)
+		}
+
+		plaintext, err := ks.decryptWithVault(k.VaultKey, req.Ciphertext)
 		if err != nil {
 			return nil, err
 		}

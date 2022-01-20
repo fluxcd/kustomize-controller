@@ -20,12 +20,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"testing"
 	"time"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/apis/meta"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	"github.com/hashicorp/vault/api"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,9 +37,29 @@ import (
 
 func TestKustomizationReconciler_Decryptor(t *testing.T) {
 	g := NewWithT(t)
+
+	cli, err := api.NewClient(api.DefaultConfig())
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create vault client")
+
+	// create a master key on the vault transit engine
+	path, data := "sops/keys/firstkey", map[string]interface{}{"type": "rsa-4096"}
+	_, err = cli.Logical().Write(path, data)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to write key")
+
+	// encrypt the testdata vault secret
+	cmd := exec.Command("sops", "--hc-vault-transit", cli.Address()+"/v1/sops/keys/firstkey", "--encrypt", "--encrypted-regex", "^(data|stringData)$", "--in-place", "./testdata/sops/secret.vault.yaml")
+	err = cmd.Run()
+	g.Expect(err).NotTo(HaveOccurred(), "failed to encrypt file")
+
+	// defer the testdata vault secret decryption, to leave a clean testdata vault secret
+	defer func() {
+		cmd := exec.Command("sops", "--hc-vault-transit", cli.Address()+"/v1/sops/keys/firstkey", "--decrypt", "--encrypted-regex", "^(data|stringData)$", "--in-place", "./testdata/sops/secret.vault.yaml")
+		err = cmd.Run()
+	}()
+
 	id := "sops-" + randStringRunes(5)
 
-	err := createNamespace(id)
+	err = createNamespace(id)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
 
 	err = createKubeConfigSecret(id)
@@ -83,8 +105,9 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 			Namespace: sopsSecretKey.Namespace,
 		},
 		StringData: map[string]string{
-			"pgp.asc":    string(pgpKey),
-			"age.agekey": string(ageKey),
+			"pgp.asc":          string(pgpKey),
+			"age.agekey":       string(ageKey),
+			"sops.vault-token": "secret",
 		},
 	}
 
@@ -171,6 +194,10 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		var encodedSecret corev1.Secret
 		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-month", Namespace: id}, &encodedSecret)).To(Succeed())
 		g.Expect(string(encodedSecret.Data["month.yaml"])).To(Equal("month: May\n"))
+
+		var hcvaultSecret corev1.Secret
+		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-hcvault", Namespace: id}, &hcvaultSecret)).To(Succeed())
+		g.Expect(string(hcvaultSecret.Data["secret"])).To(Equal("my-sops-vault-secret\n"))
 	})
 
 	t.Run("does not emit change events for identical secrets", func(t *testing.T) {

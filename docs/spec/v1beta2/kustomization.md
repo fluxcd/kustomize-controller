@@ -1001,6 +1001,54 @@ spec:
       name: sops-age
 ```
 
+### HashiCorp Vault
+
+Export the `VAULT_ADDR`  and `VAULT_TOKEN` enviromnet variables to your shell,
+then use `sops` to encrypt a kubernetes secret (see [HashiCorp Vault](https://www.vaultproject.io/docs/secrets/transit)
+for more details on enabling the transit backend and [sops](https://github.com/mozilla/sops#encrypting-using-hashicorp-vault)).
+
+Then use `sops` to encrypt a kubernetes secret:
+
+```console
+$ export VAULT_ADDR=https://vault.example.com:8200
+$ export VAULT_TOKEN=my-token
+$ sops --hc-vault-transit $VAULT_ADDR/v1/sops/keys/my-encryption-key --encrypt \
+--encrypted-regex '^(data|stringData)$' --in-place my-secret.yaml
+```
+
+Commit and push the encrypted file to Git.
+
+> **Note** that you should encrypt only the `data` section, encrypting the Kubernetes
+> secret metadata, kind or apiVersion is not supported by kustomize-controller.
+
+Create a secret in the `default` namespace with the vault token,
+the key name must be `sops.vault-token` to be detected as a vault token:
+
+```sh
+echo $VAULT_TOKEN |
+kubectl -n default create secret generic sops-hcvault \
+--from-file=sops.vault-token=/dev/stdin
+```
+
+Configure decryption by referring the private key secret:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: my-secrets
+  namespace: default
+spec:
+  interval: 5m
+  path: "./"
+  sourceRef:
+    kind: GitRepository
+    name: my-secrets
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-hcvault
+```
 ### Kustomize secretGenerator
 
 SOPS encrypted data can be stored as a base64 encoded Secret,

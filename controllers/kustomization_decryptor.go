@@ -45,13 +45,19 @@ import (
 	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
 )
 
-const DecryptionProviderSOPS = "sops"
+const (
+	// DecryptionProviderSOPS is the SOPS provider name
+	DecryptionProviderSOPS = "sops"
+	// DecryptionVaultTokenFileName is the name of the file containing the Vault token
+	DecryptionVaultTokenFileName = "sops.vault-token"
+)
 
 type KustomizeDecryptor struct {
 	client.Client
 	kustomization kustomizev1.Kustomization
 	homeDir       string
 	ageIdentities []string
+	vaultToken    string
 }
 
 func NewDecryptor(kubeClient client.Client,
@@ -147,24 +153,34 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 		defer os.RemoveAll(tmpDir)
 
 		var ageIdentities []string
-		for name, file := range secret.Data {
+		var vaultToken string
+		for name, value := range secret.Data {
 			switch filepath.Ext(name) {
 			case ".asc":
 				keyPath, err := securejoin.SecureJoin(tmpDir, name)
 				if err != nil {
 					return err
 				}
-				if err := os.WriteFile(keyPath, file, os.ModePerm); err != nil {
+				if err := os.WriteFile(keyPath, value, os.ModePerm); err != nil {
 					return fmt.Errorf("unable to write key to storage: %w", err)
 				}
 				if err := kd.gpgImport(keyPath); err != nil {
 					return err
 				}
 			case ".agekey":
-				ageIdentities = append(ageIdentities, string(file))
+				ageIdentities = append(ageIdentities, string(value))
+			case ".vault-token":
+				// Make sure we have the absolute file name
+				if name == DecryptionVaultTokenFileName {
+					token := string(value)
+					token = strings.Trim(strings.TrimSpace(token), "\n")
+					vaultToken = token
+				}
 			}
 		}
+
 		kd.ageIdentities = ageIdentities
+		kd.vaultToken = vaultToken
 	}
 
 	return nil
@@ -256,7 +272,7 @@ func (kd KustomizeDecryptor) DataWithFormat(data []byte, inputFormat, outputForm
 
 	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(
 		[]keyservice.KeyServiceClient{
-			intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.ageIdentities)),
+			intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.vaultToken, kd.ageIdentities)),
 		},
 	)
 	if err != nil {
