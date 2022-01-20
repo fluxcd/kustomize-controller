@@ -33,8 +33,6 @@ RUN xx-go build -a -o kustomize-controller main.go
 
 FROM alpine:3.15
 
-LABEL org.opencontainers.image.source="https://github.com/fluxcd/kustomize-controller"
-
 RUN apk add --no-cache ca-certificates tini git openssh-client gnupg
 
 COPY --from=builder /workspace/kustomize-controller /usr/local/bin/
