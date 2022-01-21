@@ -123,7 +123,7 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 			Namespace: kustomizationKey.Namespace,
 		},
 		Spec: kustomizev1.KustomizationSpec{
-			Interval: metav1.Duration{Duration: reconciliationInterval},
+			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
 			KubeConfig: &kustomizev1.KubeConfig{
 				SecretRef: meta.LocalObjectReference{
@@ -146,6 +146,12 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 	}
 	g.Expect(k8sClient.Create(context.TODO(), kustomization)).To(Succeed())
 
+	g.Eventually(func() bool {
+		var obj kustomizev1.Kustomization
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
+		return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
+	}, timeout, time.Second).Should(BeTrue())
+
 	overlayKustomizationName := fmt.Sprintf("sops-%s", randStringRunes(5))
 	overlayKs := kustomization.DeepCopy()
 	overlayKs.ResourceVersion = ""
@@ -158,8 +164,8 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 
 	g.Eventually(func() bool {
 		var obj kustomizev1.Kustomization
-		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
-		return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(overlayKs), &obj)
+		return obj.Status.LastAppliedRevision == "main/"+overlayChecksum
 	}, timeout, time.Second).Should(BeTrue())
 
 	t.Run("decrypts SOPS secrets", func(t *testing.T) {

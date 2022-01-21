@@ -631,6 +631,11 @@ func (r *KustomizationReconciler) build(ctx context.Context, kustomization kusto
 	}
 
 	for _, res := range m.Resources() {
+		// check if resources conform to the Kubernetes API conventions
+		if res.GetName() == "" || res.GetKind() == "" || res.GetApiVersion() == "" {
+			return nil, fmt.Errorf("failed to decode Kubernetes apiVersion, kind and name from: %v", res.String())
+		}
+
 		// check if resources are encrypted and decrypt them before generating the final YAML
 		if kustomization.Spec.Decryption != nil {
 			outRes, err := dec.Decrypt(res)
