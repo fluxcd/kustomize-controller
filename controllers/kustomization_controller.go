@@ -86,6 +86,7 @@ type KustomizationReconciler struct {
 	MetricsRecorder       *metrics.Recorder
 	StatusPoller          *polling.StatusPoller
 	ControllerName        string
+	statusManager         string
 	NoCrossNamespaceRefs  bool
 	DefaultServiceAccount string
 }
@@ -116,6 +117,7 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 	}
 
 	r.requeueDependency = opts.DependencyRequeueInterval
+	r.statusManager = fmt.Sprintf("gotk-%s", r.ControllerName)
 
 	// Configure the retryable http client used for fetching artifacts.
 	// By default it retries 10 times within a 3.5 minutes window.
@@ -160,7 +162,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if !controllerutil.ContainsFinalizer(&kustomization, kustomizev1.KustomizationFinalizer) {
 		patch := client.MergeFrom(kustomization.DeepCopy())
 		controllerutil.AddFinalizer(&kustomization, kustomizev1.KustomizationFinalizer)
-		if err := r.Patch(ctx, &kustomization, patch); err != nil {
+		if err := r.Patch(ctx, &kustomization, patch, client.FieldOwner(r.statusManager)); err != nil {
 			log.Error(err, "unable to register finalizer")
 			return ctrl.Result{}, err
 		}
@@ -584,7 +586,6 @@ func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization k
 	if kustomization.Spec.SourceRef.Namespace != "" {
 		sourceNamespace = kustomization.Spec.SourceRef.Namespace
 	}
-
 	namespacedName := types.NamespacedName{
 		Namespace: sourceNamespace,
 		Name:      kustomization.Spec.SourceRef.Name,
@@ -960,7 +961,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 
 	// Remove our finalizer from the list and update it
 	controllerutil.RemoveFinalizer(&kustomization, kustomizev1.KustomizationFinalizer)
-	if err := r.Update(ctx, &kustomization, client.FieldOwner(r.ControllerName)); err != nil {
+	if err := r.Update(ctx, &kustomization, client.FieldOwner(r.statusManager)); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -1057,6 +1058,5 @@ func (r *KustomizationReconciler) patchStatus(ctx context.Context, req ctrl.Requ
 
 	patch := client.MergeFrom(kustomization.DeepCopy())
 	kustomization.Status = newStatus
-
-	return r.Status().Patch(ctx, &kustomization, patch, client.FieldOwner(r.ControllerName))
+	return r.Status().Patch(ctx, &kustomization, patch, client.FieldOwner(r.statusManager))
 }
