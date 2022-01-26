@@ -10,9 +10,10 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.2
 	github.com/drone/envsubst v1.0.3-0.20200804185402-58bc65f69603
 	github.com/fluxcd/kustomize-controller/api v0.19.1
+	github.com/fluxcd/pkg/apis/acl v0.0.3
 	github.com/fluxcd/pkg/apis/kustomize v0.3.1
 	github.com/fluxcd/pkg/apis/meta v0.10.2
-	github.com/fluxcd/pkg/runtime v0.12.3
+	github.com/fluxcd/pkg/runtime v0.12.4
 	github.com/fluxcd/pkg/ssa v0.11.1
 	github.com/fluxcd/pkg/testserver v0.2.0
 	github.com/fluxcd/pkg/untar v0.1.0
@@ -71,7 +72,6 @@ require (
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/color v1.7.0 // indirect
-	github.com/fluxcd/pkg/apis/acl v0.0.3 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/go-errors/errors v1.4.1 // indirect

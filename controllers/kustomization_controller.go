@@ -53,7 +53,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 
+	apiacl "github.com/fluxcd/pkg/apis/acl"
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/acl"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/predicates"
@@ -83,6 +85,7 @@ type KustomizationReconciler struct {
 	MetricsRecorder       *metrics.Recorder
 	StatusPoller          *polling.StatusPoller
 	ControllerName        string
+	NoCrossNamespaceRefs  bool
 }
 
 type KustomizationReconcilerOptions struct {
@@ -178,17 +181,28 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			msg := fmt.Sprintf("Source '%s' not found", kustomization.Spec.SourceRef.String())
 			kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
 			if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
-				log.Error(err, "unable to update status for source not found")
 				return ctrl.Result{Requeue: true}, err
 			}
 			r.recordReadiness(ctx, kustomization)
 			log.Info(msg)
 			// do not requeue immediately, when the source is created the watcher should trigger a reconciliation
 			return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, nil
-		} else {
-			// retry on transient errors
-			return ctrl.Result{Requeue: true}, err
 		}
+
+		if acl.IsAccessDenied(err) {
+			kustomization = kustomizev1.KustomizationNotReady(kustomization, "", apiacl.AccessDeniedReason, err.Error())
+			if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
+				return ctrl.Result{Requeue: true}, err
+			}
+			log.Error(err, "access denied to cross-namespace source")
+			r.recordReadiness(ctx, kustomization)
+			r.event(ctx, kustomization, "unknown", events.EventSeverityError, err.Error(), nil)
+			return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, nil
+		}
+
+		// retry on transient errors
+		return ctrl.Result{Requeue: true}, err
+
 	}
 
 	if source.GetArtifact() == nil {
@@ -236,7 +250,6 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// set the reconciliation status to progressing
 	kustomization = kustomizev1.KustomizationProgressing(kustomization, "reconciliation in progress")
 	if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
-		log.Error(err, "unable to update status to progressing")
 		return ctrl.Result{Requeue: true}, err
 	}
 	r.recordReadiness(ctx, kustomization)
@@ -244,7 +257,6 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// reconcile kustomization by applying the latest revision
 	reconciledKustomization, reconcileErr := r.reconcile(ctx, *kustomization.DeepCopy(), source)
 	if err := r.patchStatus(ctx, req, reconciledKustomization.Status); err != nil {
-		log.Error(err, "unable to update status after reconciliation")
 		return ctrl.Result{Requeue: true}, err
 	}
 	r.recordReadiness(ctx, reconciledKustomization)
@@ -569,10 +581,18 @@ func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization k
 	if kustomization.Spec.SourceRef.Namespace != "" {
 		sourceNamespace = kustomization.Spec.SourceRef.Namespace
 	}
+
 	namespacedName := types.NamespacedName{
 		Namespace: sourceNamespace,
 		Name:      kustomization.Spec.SourceRef.Name,
 	}
+
+	if r.NoCrossNamespaceRefs && sourceNamespace != kustomization.GetNamespace() {
+		return source, acl.AccessDeniedError(
+			fmt.Sprintf("can't access '%s/%s', cross-namespace references have been blocked",
+				kustomization.Spec.SourceRef.Kind, namespacedName))
+	}
+
 	switch kustomization.Spec.SourceRef.Kind {
 	case sourcev1.GitRepositoryKind:
 		var repository sourcev1.GitRepository

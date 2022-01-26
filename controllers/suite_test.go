@@ -63,6 +63,7 @@ const (
 const vaultVersion = "1.2.2"
 
 var (
+	reconciler   *KustomizationReconciler
 	k8sClient    client.Client
 	testEnv      *testenv.Environment
 	testServer   *testserver.ArtifactServer
@@ -159,7 +160,7 @@ func TestMain(m *testing.M) {
 		controllerName := "kustomize-controller"
 		testEventsH = controller.MakeEvents(testEnv, controllerName, nil)
 		testMetricsH = controller.MustMakeMetrics(testEnv)
-		reconciler := &KustomizationReconciler{
+		reconciler = &KustomizationReconciler{
 			ControllerName:  controllerName,
 			Client:          testEnv,
 			EventRecorder:   testEventsH.EventRecorder,
