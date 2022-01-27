@@ -259,6 +259,28 @@ Source supported types:
 > If your Git repository or S3 bucket contains only plain manifests,
 > then a kustomization.yaml will be automatically generated.
 
+### Cross-namespace references
+
+A Kustomization can refer to a source from a different namespace with `spec.sourceRef.namespace` e.g.:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: webapp
+  namespace: apps
+spec:
+  interval: 5m
+  path: "./deploy"
+  sourceRef:
+    kind: GitRepository
+    name: webapp
+    namespace: shared
+```
+
+On multi-tenant clusters, platform admins can disable cross-namespace references with the
+`--no-cross-namespace-refs=true` flag.
+
 ## Generate kustomization.yaml
 
 If your repository contains plain Kubernetes manifests, the `kustomization.yaml`
