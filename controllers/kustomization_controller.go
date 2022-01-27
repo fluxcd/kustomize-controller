@@ -86,8 +86,10 @@ type KustomizationReconciler struct {
 	StatusPoller          *polling.StatusPoller
 	ControllerName        string
 	NoCrossNamespaceRefs  bool
+	DefaultServiceAccount string
 }
 
+// KustomizationReconcilerOptions contains options for the KustomizationReconciler.
 type KustomizationReconcilerOptions struct {
 	MaxConcurrentReconciles   int
 	HTTPRetry                 int
@@ -339,7 +341,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// setup the Kubernetes client for impersonation
-	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, dirPath)
+	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount)
 	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
@@ -882,7 +884,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 		kustomization.Status.Inventory.Entries != nil {
 		objects, _ := ListObjectsInInventory(kustomization.Status.Inventory)
 
-		impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, "")
+		impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount)
 		kubeClient, _, err := impersonation.GetClient(ctx)
 		if err != nil {
 			// when impersonation fails, log the stale objects and continue with the finalization
