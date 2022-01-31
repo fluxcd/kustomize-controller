@@ -19,7 +19,9 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -67,6 +69,33 @@ func (ki *KustomizeImpersonation) GetClient(ctx context.Context) (client.Client,
 	default:
 		return ki.Client, ki.statusPoller, nil
 	}
+}
+
+// CanFinalize asserts if the given Kustomization can be finalized using impersonation.
+func (ki *KustomizeImpersonation) CanFinalize(ctx context.Context) bool {
+	name := ki.defaultServiceAccount
+	if sa := ki.kustomization.Spec.ServiceAccountName; sa != "" {
+		name = sa
+	}
+	if name == "" {
+		return true
+	}
+
+	sa := &corev1.ServiceAccount{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ServiceAccount",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ki.kustomization.Namespace,
+		},
+	}
+	if err := ki.Client.Get(ctx, client.ObjectKeyFromObject(sa), sa); err != nil {
+		return false
+	}
+
+	return true
 }
 
 func (ki *KustomizeImpersonation) setImpersonationConfig(restConfig *rest.Config) {

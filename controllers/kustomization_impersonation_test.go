@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -101,6 +102,7 @@ data:
 				Kind:      sourcev1.GitRepositoryKind,
 			},
 			TargetNamespace: id,
+			Prune:           true,
 		},
 	}
 
@@ -186,5 +188,23 @@ data:
 		}, timeout, time.Second).Should(BeTrue())
 
 		g.Expect(readyCondition.Reason).To(Equal(meta.ReconciliationSucceededReason))
+	})
+
+	t.Run("can finalize impersonating service account", func(t *testing.T) {
+		saK := &kustomizev1.Kustomization{}
+		err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), saK)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		err = k8sClient.Delete(context.Background(), saK)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return apierrors.IsNotFound(err)
+		}, timeout, time.Second).Should(BeTrue())
+
+		resultConfig := &corev1.ConfigMap{}
+		err := k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultConfig)
+		g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 	})
 }
