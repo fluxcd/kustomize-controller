@@ -565,7 +565,7 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: webapp-reconciler
+  name: flux
   namespace: webapp
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -589,7 +589,7 @@ roleRef:
   name: webapp-reconciler
 subjects:
 - kind: ServiceAccount
-  name: webapp-reconciler
+  name: flux
   namespace: webapp
 ```
 
@@ -606,7 +606,7 @@ metadata:
   name: backend
   namespace: webapp
 spec:
-  serviceAccountName: webapp-reconciler
+  serviceAccountName: flux
   dependsOn:
     - name: common
   interval: 5m
@@ -617,10 +617,19 @@ spec:
     name: webapp
 ```
 
-When the controller reconciles the `frontend-webapp` Kustomization, it will impersonate the `webapp-reconciler`
+When the controller reconciles the `frontend-webapp` Kustomization, it will impersonate the `flux`
 account. If the Kustomization contains cluster level objects like CRDs or objects belonging to a different
 namespace, the reconciliation will fail since the account it runs under has no permissions to alter objects
 outside of the `webapp` namespace.
+
+### Enforce impersonation
+
+On multi-tenant clusters, platform admins can enforce impersonation with the
+`--default-service-account` flag.
+
+When the flag is set, all Kustomizations which don't have `spec.serviceAccountName` specified
+will use the service account name provided by `--default-service-account=<SA Name>`
+in the namespace of the object.
 
 ## Override kustomize config
 
@@ -925,6 +934,9 @@ kubectl create secret generic prod-kubeconfig \
 > This matches the constraints of KubeConfigs from current Cluster API providers.
 > KubeConfigs with `cmd-path` in them likely won't work without a custom,
 > per-provider installation of kustomize-controller.
+
+When both `spec.kubeConfig` and `spec.ServiceAccountName` are specified,
+the controller will impersonate the service account on the target cluster.
 
 ## Secrets decryption
 
