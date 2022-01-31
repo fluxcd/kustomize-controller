@@ -922,13 +922,12 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 		objects, _ := ListObjectsInInventory(kustomization.Status.Inventory)
 
 		impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount)
-		kubeClient, _, err := impersonation.GetClient(ctx)
-		if err != nil {
-			// when impersonation fails, log the stale objects and continue with the finalization
-			msg := fmt.Sprintf("unable to prune objects: \n%s", ssa.FmtUnstructuredList(objects))
-			log.Error(fmt.Errorf("failed to build kube client: %w", err), msg)
-			r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, msg, nil)
-		} else {
+		if impersonation.CanFinalize(ctx) {
+			kubeClient, _, err := impersonation.GetClient(ctx)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
 			resourceManager := ssa.NewResourceManager(kubeClient, nil, ssa.Owner{
 				Field: r.ControllerName,
 				Group: kustomizev1.GroupVersion.Group,
@@ -953,6 +952,11 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 			if changeSet != nil && len(changeSet.Entries) > 0 {
 				r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityInfo, changeSet.String(), nil)
 			}
+		} else {
+			// when the account to impersonate is gone, log the stale objects and continue with the finalization
+			msg := fmt.Sprintf("unable to prune objects: \n%s", ssa.FmtUnstructuredList(objects))
+			log.Error(fmt.Errorf("skiping pruning, failed to find account to impersonate"), msg)
+			r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, msg, nil)
 		}
 	}
 
