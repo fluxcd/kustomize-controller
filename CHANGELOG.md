@@ -2,6 +2,69 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.20.0
+
+**Release date:** 2022-02-01
+
+This prerelease comes with security improvements for multi-tenant clusters:
+- Platform admins can enforce impersonation across the cluster using the `--default-service-account` flag.
+  When the flag is set, all `Kustomizations`, which don't have `spec.serviceAccountName` specified,
+  use the service account name provided by `--default-service-account=<SA Name>` in the namespace of the object.
+- Platform admins can disable cross-namespace references with the `--no-cross-namespace-refs=true` flag.
+  When this flag is set, `Kustomizations` can only refer to sources (`GitRepositories` and `Buckets`)
+  in the same namespace as the `Kustomization` object, preventing tenants from accessing another tenant's repositories.
+
+The controller container images are signed with
+[Cosign and GitHub OIDC](https://github.com/sigstore/cosign/blob/22007e56aee419ae361c9f021869a30e9ae7be03/KEYLESS.md),
+and a Software Bill of Materials in [SPDX format](https://spdx.dev) has been published on the release page.
+
+Starting with this version, the controller deployment conforms to the
+Kubernetes [restricted pod security standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted):
+- all Linux capabilities were dropped
+- the root filesystem was set to read-only
+- the seccomp profile was set to the runtime default
+- run as non-root was enabled
+- the user and group ID was set to 65534
+
+**Breaking changes**:
+- The use of new seccomp API requires Kubernetes 1.19.
+- The controller container is now executed under 65534:65534 (userid:groupid).
+  This change may break deployments that hard-coded the user ID of 'controller' in their PodSecurityPolicy.
+- When both `spec.kubeConfig` and `spec.ServiceAccountName` are specified, the controller will impersonate
+  the service account on the target cluster, previously the controller ignored the service account.
+
+Features:
+- Allow setting a default service account for impersonation
+  [#550](https://github.com/fluxcd/kustomize-controller/pull/550)
+- Allow disabling cross-namespace references
+  [#549](https://github.com/fluxcd/kustomize-controller/pull/549)
+- SOPS: Add support for HashiCorp Vault token-based authentication
+  [#538](https://github.com/fluxcd/kustomize-controller/pull/538)
+
+Improvements:
+- Publish SBOM and sign release artifacts
+  [#541](https://github.com/fluxcd/kustomize-controller/pull/541)
+- Drop capabilities, enable seccomp and enforce runAsNonRoot
+  [#539](https://github.com/fluxcd/kustomize-controller/pull/539)
+- docs: Add var substitution operator escape syntax
+  [#537](https://github.com/fluxcd/kustomize-controller/pull/537)
+- Update development documentation
+  [#540](https://github.com/fluxcd/kustomize-controller/pull/540)
+- Refactor Fuzz implementation
+  [#536](https://github.com/fluxcd/kustomize-controller/pull/536)
+
+Fixes:
+* Revoke kubectl managed fields ownership
+  [#527](https://github.com/fluxcd/kustomize-controller/pull/527)
+* Ensure object are finalized under impersonation
+  [#552](https://github.com/fluxcd/kustomize-controller/pull/552)
+* Use patch instead of update when adding finalizers
+  [#535](https://github.com/fluxcd/kustomize-controller/pull/535)
+* Fix preflight validation
+  [#544](https://github.com/fluxcd/kustomize-controller/pull/544)
+* Fix the missing protocol for the first port in manager config
+  [#547](https://github.com/fluxcd/kustomize-controller/pull/547)
+
 ## 0.19.1
 
 **Release date:** 2022-01-13
