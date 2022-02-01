@@ -9,7 +9,7 @@ require (
 	github.com/ProtonMail/go-crypto v0.0.0-20211112122917-428f8eabeeb3
 	github.com/cyphar/filepath-securejoin v0.2.2
 	github.com/drone/envsubst v1.0.3-0.20200804185402-58bc65f69603
-	github.com/fluxcd/kustomize-controller/api v0.19.1
+	github.com/fluxcd/kustomize-controller/api v0.20.0
 	github.com/fluxcd/pkg/apis/acl v0.0.3
 	github.com/fluxcd/pkg/apis/kustomize v0.3.1
 	github.com/fluxcd/pkg/apis/meta v0.10.2
