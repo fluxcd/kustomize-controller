@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.20.1
+
+**Release date:** 2022-02-07
+
+This prerelease comes with an update to the `sigs.k8s.io/kustomize` packages, bringing 
+the controller on par with the Kustomize v4.5.1 release.
+
+Improvements:
+- Update controller to kustomize v4.5.1
+  [#559](https://github.com/fluxcd/kustomize-controller/pull/559)
+
+Fixes:
+* Transfer ownership of the kubectl managed fields
+  [#562](https://github.com/fluxcd/kustomize-controller/pull/562)
+
 ## 0.20.0
 
 **Release date:** 2022-02-01
