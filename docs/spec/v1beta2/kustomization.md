@@ -1037,7 +1037,7 @@ spec:
 
 ### HashiCorp Vault
 
-Export the `VAULT_ADDR`  and `VAULT_TOKEN` enviromnet variables to your shell,
+Export the `VAULT_ADDR`  and `VAULT_TOKEN` environment variables to your shell,
 then use `sops` to encrypt a kubernetes secret (see [HashiCorp Vault](https://www.vaultproject.io/docs/secrets/transit)
 for more details on enabling the transit backend and [sops](https://github.com/mozilla/sops#encrypting-using-hashicorp-vault)).
 
