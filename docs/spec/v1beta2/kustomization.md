@@ -283,10 +283,12 @@ On multi-tenant clusters, platform admins can disable cross-namespace references
 
 ## Generate kustomization.yaml
 
-If your repository contains plain Kubernetes manifests, the `kustomization.yaml`
-file is automatically generated for all the Kubernetes manifests
-in the `spec.path` and sub-directories. This expects all YAML files present under that path to be valid kubernetes manifests
-and needs non-kubernetes ones to be excluded using `.sourceignore` file or `spec.ignore` on `GitRepository` object.
+If your repository contains plain Kubernetes manifests, the
+`kustomization.yaml` file is automatically generated for all the Kubernetes
+manifests in the `spec.path` of the Flux `Kustomization` and sub-directories.
+This expects all YAML files present under that path to be valid kubernetes
+manifests and needs non-kubernetes ones to be excluded using `.sourceignore`
+file or `spec.ignore` on `GitRepository` object.
 
 Example of excluding CI workflows and SOPS config files:
 
