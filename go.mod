@@ -32,7 +32,7 @@ require (
 	k8s.io/client-go v0.23.1
 	sigs.k8s.io/cli-utils v0.27.0
 	sigs.k8s.io/controller-runtime v0.11.0
-	sigs.k8s.io/kustomize/api v0.11.1
+	sigs.k8s.io/kustomize/api v0.11.2
 	sigs.k8s.io/kustomize/kyaml v0.13.3
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -185,9 +185,9 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.0 // indirect
 )
 
-// pin kustomize to v4.5.1
+// pin kustomize to v4.5.2
 replace (
-	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.11.1
+	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.11.2
 	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.13.3
 )
 
