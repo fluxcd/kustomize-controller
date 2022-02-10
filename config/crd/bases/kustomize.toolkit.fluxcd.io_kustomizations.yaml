@@ -894,6 +894,14 @@ spec:
                           maxLength: 253
                           minLength: 1
                           type: string
+                        optional:
+                          default: false
+                          description: Optional indicates whether the referenced resource
+                            must exist, or whether to tolerate its absence. If true
+                            and the referenced resource is absent, proceed as if the
+                            resource was present but empty, without any variables
+                            defined.
+                          type: boolean
                       required:
                       - kind
                       - name

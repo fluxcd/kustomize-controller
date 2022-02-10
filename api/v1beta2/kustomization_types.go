@@ -17,10 +17,10 @@ limitations under the License.
 package v1beta2
 
 import (
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -207,6 +207,13 @@ type SubstituteReference struct {
 	// +kubebuilder:validation:MaxLength=253
 	// +required
 	Name string `json:"name"`
+
+	// Optional indicates whether the referenced resource must exist, or whether to
+	// tolerate its absence. If true and the referenced resource is absent, proceed
+	// as if the resource was present but empty, without any variables defined.
+	// +kubebuilder:default:=false
+	// +optional
+	Optional bool `json:"optional,omitempty"`
 }
 
 // KustomizationStatus defines the observed state of a kustomization.

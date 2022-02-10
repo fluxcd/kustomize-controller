@@ -8,6 +8,7 @@ import (
 
 	"github.com/drone/envsubst"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/api/resource"
@@ -48,6 +49,9 @@ func substituteVariables(
 		case "ConfigMap":
 			resource := &corev1.ConfigMap{}
 			if err := kubeClient.Get(ctx, namespacedName, resource); err != nil {
+				if reference.Optional && apierrors.IsNotFound(err) {
+					continue
+				}
 				return nil, fmt.Errorf("substitute from 'ConfigMap/%s' error: %w", reference.Name, err)
 			}
 			for k, v := range resource.Data {
@@ -56,6 +60,9 @@ func substituteVariables(
 		case "Secret":
 			resource := &corev1.Secret{}
 			if err := kubeClient.Get(ctx, namespacedName, resource); err != nil {
+				if reference.Optional && apierrors.IsNotFound(err) {
+					continue
+				}
 				return nil, fmt.Errorf("substitute from 'Secret/%s' error: %w", reference.Name, err)
 			}
 			for k, v := range resource.Data {
