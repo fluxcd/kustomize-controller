@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.20.2
+
+**Release date:** 2022-02-10
+
+This prerelease comes with an update to the `sigs.k8s.io/kustomize/api` package,
+bringing the controller on par with the Kustomize v4.5.2 release.
+
+Kustomize v4.5.2 contains a regression bug fix for
+[pseudo git HTTP URLs](https://github.com/kubernetes-sigs/kustomize/pull/4453).
+
+Improvements:
+- Update controller to kustomize v4.5.2
+  [#567](https://github.com/fluxcd/kustomize-controller/pull/567)
+- Clarify `spec.path` in API docs
+  [#566](https://github.com/fluxcd/kustomize-controller/pull/566)
+- Fix typo in API docs
+  [#564](https://github.com/fluxcd/kustomize-controller/pull/564)
+
 ## 0.20.1
 
 **Release date:** 2022-02-07
