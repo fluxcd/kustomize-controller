@@ -51,7 +51,7 @@ func substituteVariables(
 				return nil, fmt.Errorf("substitute from 'ConfigMap/%s' error: %w", reference.Name, err)
 			}
 			for k, v := range resource.Data {
-				vars[k] = strings.Replace(v, "\n", "", -1)
+				vars[k] = strings.ReplaceAll(v, "\n", "")
 			}
 		case "Secret":
 			resource := &corev1.Secret{}
@@ -59,7 +59,7 @@ func substituteVariables(
 				return nil, fmt.Errorf("substitute from 'Secret/%s' error: %w", reference.Name, err)
 			}
 			for k, v := range resource.Data {
-				vars[k] = strings.Replace(string(v), "\n", "", -1)
+				vars[k] = strings.ReplaceAll(string(v), "\n", "")
 			}
 		}
 	}
@@ -67,7 +67,7 @@ func substituteVariables(
 	// load in-line vars (overrides the ones from resources)
 	if kustomization.Spec.PostBuild.Substitute != nil {
 		for k, v := range kustomization.Spec.PostBuild.Substitute {
-			vars[k] = strings.Replace(v, "\n", "", -1)
+			vars[k] = strings.ReplaceAll(v, "\n", "")
 		}
 	}
 
