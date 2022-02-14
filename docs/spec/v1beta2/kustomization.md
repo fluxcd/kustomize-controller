@@ -285,10 +285,10 @@ On multi-tenant clusters, platform admins can disable cross-namespace references
 
 If your repository contains plain Kubernetes manifests, the
 `kustomization.yaml` file is automatically generated for all the Kubernetes
-manifests in the `spec.path` of the Flux `Kustomization` and sub-directories.
-This expects all YAML files present under that path to be valid kubernetes
-manifests and needs non-kubernetes ones to be excluded using `.sourceignore`
-file or `spec.ignore` on `GitRepository` object.
+manifests in the directory tree specified in the `spec.path` field of the Flux `Kustomization`.
+All YAML files present under that path must be valid Kubernetes
+manifests, unless they're excluded either by way of the `.sourceignore`
+file or the `spec.ignore` field on the corresponding `GitRepository` object.
 
 Example of excluding CI workflows and SOPS config files:
 
@@ -1053,10 +1053,10 @@ spec:
 ### HashiCorp Vault
 
 Export the `VAULT_ADDR`  and `VAULT_TOKEN` environment variables to your shell,
-then use `sops` to encrypt a kubernetes secret (see [HashiCorp Vault](https://www.vaultproject.io/docs/secrets/transit)
+then use `sops` to encrypt a Kubernetes Secret (see [HashiCorp Vault](https://www.vaultproject.io/docs/secrets/transit)
 for more details on enabling the transit backend and [sops](https://github.com/mozilla/sops#encrypting-using-hashicorp-vault)).
 
-Then use `sops` to encrypt a kubernetes secret:
+Then use `sops` to encrypt a Kubernetes Secret:
 
 ```console
 $ export VAULT_ADDR=https://vault.example.com:8200
