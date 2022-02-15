@@ -121,8 +121,11 @@ func runInContext(registerControllers func(*testenv.Environment), run func() err
 		panic(fmt.Sprintf("Failed to create k8s client: %v", err))
 	}
 
-	// Create a vault test instance
+	// Create a Vault test instance.
 	pool, resource, err := createVaultTestInstance()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create Vault instance: %v", err))
+	}
 	defer func() {
 		pool.Purge(resource)
 	}()

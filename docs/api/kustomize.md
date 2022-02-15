@@ -1126,6 +1126,20 @@ string
 referring resource.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>optional</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Optional indicates whether the referenced resource must exist, or whether to
+tolerate its absence. If true and the referenced resource is absent, proceed
+as if the resource was present but empty, without any variables defined.</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>
