@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.21.0
+
+**Release date:** 2022-02-16
+
+This prerelease comes with support for making the Kubernetes Secrets and ConfigMaps
+referenced in `postBuild.substituteFrom` optional.
+When `substituteFrom.optional` is set to `true`, the controller will ignore
+not found errors, and will substitute the variables with their default values.
+
+Features:
+- Tolerate absence of resources in post-build substitution
+  [#570](https://github.com/fluxcd/kustomize-controller/pull/570)
+
 ## 0.20.2
 
 **Release date:** 2022-02-10
