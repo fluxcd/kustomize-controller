@@ -27,7 +27,6 @@ import (
 
 	"github.com/fluxcd/pkg/apis/kustomize"
 	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/dependency"
 )
 
 const (
@@ -39,11 +38,11 @@ const (
 
 // KustomizationSpec defines the desired state of a kustomization.
 type KustomizationSpec struct {
-	// DependsOn may contain a dependency.CrossNamespaceDependencyReference slice
+	// DependsOn may contain a meta.NamespacedObjectReference slice
 	// with references to Kustomization resources that must be ready before this
 	// Kustomization can be reconciled.
 	// +optional
-	DependsOn []dependency.CrossNamespaceDependencyReference `json:"dependsOn,omitempty"`
+	DependsOn []meta.NamespacedObjectReference `json:"dependsOn,omitempty"`
 
 	// Decrypt Kubernetes secrets before applying them on the cluster.
 	// +optional
@@ -235,7 +234,13 @@ type KustomizationStatus struct {
 // KustomizationProgressing resets the conditions of the given Kustomization to a single
 // ReadyCondition with status ConditionUnknown.
 func KustomizationProgressing(k Kustomization) Kustomization {
-	meta.SetResourceCondition(&k, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
+	newCondition := metav1.Condition{
+		Type:    meta.ReadyCondition,
+		Status:  metav1.ConditionUnknown,
+		Reason:  meta.ProgressingReason,
+		Message: "reconciliation in progress",
+	}
+	apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
 	return k
 }
 
@@ -245,14 +250,27 @@ func SetKustomizationHealthiness(k *Kustomization, status metav1.ConditionStatus
 	case 0:
 		apimeta.RemoveStatusCondition(k.GetStatusConditions(), HealthyCondition)
 	default:
-		meta.SetResourceCondition(k, HealthyCondition, status, reason, trimString(message, MaxConditionMessageLength))
+		newCondition := metav1.Condition{
+			Type:    HealthyCondition,
+			Status:  status,
+			Reason:  reason,
+			Message: trimString(message, MaxConditionMessageLength),
+		}
+		apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
 	}
 }
 
 // SetKustomizeReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision,
 // on the Kustomization.
 func SetKustomizationReadiness(k *Kustomization, status metav1.ConditionStatus, reason, message string, revision string) {
-	meta.SetResourceCondition(k, meta.ReadyCondition, status, reason, trimString(message, MaxConditionMessageLength))
+	newCondition := metav1.Condition{
+		Type:    meta.ReadyCondition,
+		Status:  status,
+		Reason:  reason,
+		Message: trimString(message, MaxConditionMessageLength),
+	}
+	apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
+
 	k.Status.ObservedGeneration = k.Generation
 	k.Status.LastAttemptedRevision = revision
 }
@@ -305,7 +323,7 @@ func (in Kustomization) GetRetryInterval() time.Duration {
 	return in.Spec.Interval.Duration
 }
 
-func (in Kustomization) GetDependsOn() (types.NamespacedName, []dependency.CrossNamespaceDependencyReference) {
+func (in Kustomization) GetDependsOn() (types.NamespacedName, []meta.NamespacedObjectReference) {
 	return types.NamespacedName{
 		Namespace: in.Namespace,
 		Name:      in.Name,

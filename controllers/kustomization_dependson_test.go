@@ -23,9 +23,8 @@ import (
 	"time"
 
 	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/dependency"
 	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	. "github.com/onsi/gomega"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -182,14 +181,14 @@ spec:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
-			return ready.Reason == meta.ReconciliationSucceededReason
+			return ready.Reason == kustomizev1.ReconciliationSucceededReason
 		}, timeout, time.Second).Should(BeTrue())
 	})
 
 	t.Run("fails due to dependency not found", func(t *testing.T) {
 		g.Eventually(func() error {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			resultK.Spec.DependsOn = []dependency.CrossNamespaceDependencyReference{
+			resultK.Spec.DependsOn = []meta.NamespacedObjectReference{
 				{
 					Namespace: id,
 					Name:      "root",
@@ -201,7 +200,7 @@ spec:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
-			return ready.Reason == meta.DependencyNotReadyReason
+			return ready.Reason == kustomizev1.DependencyNotReadyReason
 		}, timeout, time.Second).Should(BeTrue())
 	})
 }

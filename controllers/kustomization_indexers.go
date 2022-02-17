@@ -25,7 +25,7 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/runtime/dependency"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 )
 
 func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) func(obj client.Object) []reconcile.Request {
@@ -55,7 +55,7 @@ func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) f
 			if repo.GetArtifact().Revision == d.Status.LastAttemptedRevision {
 				continue
 			}
-			dd = append(dd, d)
+			dd = append(dd, d.DeepCopy())
 		}
 		sorted, err := dependency.Sort(dd)
 		if err != nil {

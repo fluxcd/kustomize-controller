@@ -72,14 +72,14 @@ KustomizationSpec
 <td>
 <code>dependsOn</code><br>
 <em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/runtime/dependency#CrossNamespaceDependencyReference">
-[]Runtime dependency.CrossNamespaceDependencyReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectReference">
+[]github.com/fluxcd/pkg/apis/meta.NamespacedObjectReference
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>DependsOn may contain a dependency.CrossNamespaceDependencyReference slice
+<p>DependsOn may contain a meta.NamespacedObjectReference slice
 with references to Kustomization resources that must be ready before this
 Kustomization can be reconciled.</p>
 </td>
@@ -557,14 +557,14 @@ the Kustomization.</p>
 <td>
 <code>dependsOn</code><br>
 <em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/runtime/dependency#CrossNamespaceDependencyReference">
-[]Runtime dependency.CrossNamespaceDependencyReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectReference">
+[]github.com/fluxcd/pkg/apis/meta.NamespacedObjectReference
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>DependsOn may contain a dependency.CrossNamespaceDependencyReference slice
+<p>DependsOn may contain a meta.NamespacedObjectReference slice
 with references to Kustomization resources that must be ready before this
 Kustomization can be reconciled.</p>
 </td>

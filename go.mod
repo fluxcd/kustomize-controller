@@ -16,24 +16,23 @@ require (
 	github.com/fluxcd/kustomize-controller/api v0.21.1
 	github.com/fluxcd/pkg/apis/acl v0.0.3
 	github.com/fluxcd/pkg/apis/kustomize v0.3.1
-	github.com/fluxcd/pkg/apis/meta v0.10.2
-	github.com/fluxcd/pkg/runtime v0.12.5
+	github.com/fluxcd/pkg/apis/meta v0.12.1
+	github.com/fluxcd/pkg/runtime v0.13.2
 	github.com/fluxcd/pkg/ssa v0.15.0
 	github.com/fluxcd/pkg/testserver v0.2.0
 	github.com/fluxcd/pkg/untar v0.1.0
-	github.com/fluxcd/source-controller/api v0.21.2
-	github.com/hashicorp/go-retryablehttp v0.7.0
+	github.com/fluxcd/source-controller/api v0.22.0
 	github.com/hashicorp/vault/api v1.3.0
-	github.com/onsi/gomega v1.17.0
+	github.com/onsi/gomega v1.18.1
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.1
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 	google.golang.org/grpc v1.42.0
-	k8s.io/api v0.23.2
+	k8s.io/api v0.23.4
 	k8s.io/apiextensions-apiserver v0.23.2
-	k8s.io/apimachinery v0.23.2
-	k8s.io/client-go v0.23.2
+	k8s.io/apimachinery v0.23.4
+	k8s.io/client-go v0.23.4
 	sigs.k8s.io/cli-utils v0.29.2
 	sigs.k8s.io/controller-runtime v0.11.1
 	sigs.k8s.io/kustomize/api v0.11.2
@@ -93,7 +92,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.0.1 // indirect
-	github.com/google/go-cmp v0.5.6 // indirect
+	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.0 // indirect
@@ -107,6 +106,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.4.3 // indirect
+	github.com/hashicorp/go-retryablehttp v0.7.0 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/mlock v0.1.1 // indirect
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.1 // indirect
@@ -159,14 +159,14 @@ require (
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/cobra v1.3.0 // indirect
-	github.com/stretchr/testify v1.7.0 // indirect
+	github.com/stretchr/testify v1.7.1 // indirect
 	github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca // indirect
 	go.mozilla.org/gopgagent v0.0.0-20170926210634-4d7ea76ff71a // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.19.1 // indirect
+	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
@@ -186,10 +186,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	k8s.io/cli-runtime v0.23.2 // indirect
 	k8s.io/component-base v0.23.2 // indirect
-	k8s.io/klog/v2 v2.30.0 // indirect
+	k8s.io/klog/v2 v2.50.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect
 	k8s.io/kubectl v0.23.2 // indirect
-	k8s.io/utils v0.0.0-20211208161948-7d6a63dca704 // indirect
+	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
 	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )

@@ -2,7 +2,7 @@
 IMG ?= fluxcd/kustomize-controller:latest
 # Produce CRDs that work back to Kubernetes 1.16
 CRD_OPTIONS ?= crd:crdVersions=v1
-SOURCE_VER ?= v0.21.2
+SOURCE_VER ?= v0.22.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -84,8 +84,8 @@ api-docs: gen-crd-api-reference-docs
 
 # Run go mod tidy
 tidy:
-	cd api; rm -f go.sum; go mod tidy
-	rm -f go.sum; go mod tidy
+	cd api; rm -f go.sum; go mod tidy -compat=1.17
+	rm -f go.sum; go mod tidy -compat=1.17
 
 # Run go fmt against code
 fmt:
