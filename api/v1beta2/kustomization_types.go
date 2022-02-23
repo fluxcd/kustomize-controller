@@ -333,9 +333,9 @@ func (in *Kustomization) GetStatusConditions() *[]metav1.Condition {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=ks
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
 
 // Kustomization is the Schema for the kustomizations API.
 type Kustomization struct {
