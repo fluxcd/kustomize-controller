@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.21.1
+
+**Release date:** 2022-02-23
+
+This prerelease comes with a workaround for an
+[upstream bug in Kubernetes](https://github.com/kubernetes/kubernetes/issues/108008),
+where the keys set in a Secret with `stringData` are not removed from the cluster
+when the keys are deleted from the manifest.
+
+Improvements:
+- Convert `stringData` to `data` before applying Secrets
+  [#576](https://github.com/fluxcd/kustomize-controller/pull/576)
+- Update dependencies
+  [#574](https://github.com/fluxcd/kustomize-controller/pull/574)
+
 ## 0.21.0
 
 **Release date:** 2022-02-16

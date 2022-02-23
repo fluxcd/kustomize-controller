@@ -368,10 +368,18 @@ Note that when the `kustomize.toolkit.fluxcd.io/reconcile` annotation is set to 
 the controller will no longer apply changes from source, nor will it prune the resource.
 To resume reconciliation, set the annotation to `enabled` or remove it.
 
-Note that due to the way [Kubernetes server-side apply](https://kubernetes.io/docs/reference/using-api/server-side-apply/)
-works, the kustomize-controller can only revert
-changes made to fields it manages. This means that `kubectl edit` changes will only be reverted if
-those fields are present in git.
+If you use kubectl to edit an object managed by Flux,
+all changes will be undone when kustomize-controller reconciles a
+Flux Kustomization containing that object.
+n order for kustomize-controller to preserve fields added with kubectl,
+you have to specify a field manager named `flux-client-side-apply` e.g.:
+
+```sh
+kubectl apply --field-manager=flux-client-side-apply
+```
+
+Note that the fields defined in manifests will always be overridden,
+the above procedure works only for adding new fields that don’t overlap with the desired state.
 
 ## Garbage collection
 
