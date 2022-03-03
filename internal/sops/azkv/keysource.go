@@ -7,7 +7,6 @@ package azkv
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -15,29 +14,29 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/keyvault/keyvault"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/adal"
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys/crypto"
 	"github.com/dimchansky/utfbom"
 )
 
 // MasterKey is an Azure Key Vault key used to encrypt and decrypt SOPS' data key.
-// The underlying authentication token can be configured using AADSettings.
+// The underlying authentication token can be configured using AADConfig.
 type MasterKey struct {
 	VaultURL string
 	Name     string
 	Version  string
 
 	EncryptedKey string
+	CreationDate time.Time
 
-	token *adal.ServicePrincipalToken
+	token azcore.TokenCredential
 }
 
-// LoadAADSettingsFromBytes attempts to load the given bytes into the given AADSettings.
+// LoadAADConfigFromBytes attempts to load the given bytes into the given AADConfig.
 // By first decoding it if UTF-16, and then unmarshalling it into the given struct.
 // It returns an error for any failure.
-func LoadAADSettingsFromBytes(b []byte, s *AADSettings) error {
+func LoadAADConfigFromBytes(b []byte, s *AADConfig) error {
 	b, err := decode(b)
 	if err != nil {
 		return fmt.Errorf("failed to decode Azure authentication file bytes: %w", err)
@@ -48,31 +47,63 @@ func LoadAADSettingsFromBytes(b []byte, s *AADSettings) error {
 	return err
 }
 
-// AADSettings contains the selection of fields from an Azure authentication file
+// AADConfig contains the selection of fields from an Azure authentication file
 // required for Active Directory authentication.
-//
-// It is based on the unpublished contract in
-// https://github.com/Azure/go-autorest/blob/c7f947c0610de1bc279f76e6d453353f95cd1bfa/autorest/azure/auth/auth.go#L331-L342,
-// which seems to be due to an assumption of configuration through environment
-// variables over file based configuration.
-type AADSettings struct {
-	ClientID                string `json:"clientId"`
-	ClientSecret            string `json:"clientSecret"`
-	TenantID                string `json:"tenantId"`
-	ActiveDirectoryEndpoint string `json:"activeDirectoryEndpointUrl"`
+type AADConfig struct {
+	TenantID                  string `json:"tenantId,omitempty"`
+	ClientID                  string `json:"clientId,omitempty"`
+	ClientSecret              string `json:"clientSecret,omitempty"`
+	ClientCertificate         string `json:"clientCertificate,omitempty"`
+	ClientCertificatePassword string `json:"clientCertificatePassword,omitempty"`
+	ResourceID                string `json:"resourceId,omitempty"`
+	ActiveDirectoryEndpoint   string `json:"activeDirectoryEndpointUrl,omitempty"`
 }
 
-// SetToken configures the token on the given MasterKey using the AADSettings.
-func (s *AADSettings) SetToken(key *MasterKey) error {
+// SetToken attempts to configure the token on the MasterKey using the
+// AADConfig values.
+func (s *AADConfig) SetToken(key *MasterKey) error {
 	if s == nil {
 		return nil
 	}
-	config, err := adal.NewOAuthConfig(s.GetAADEndpoint(), s.TenantID)
-	if err != nil {
-		return err
+
+	var err error
+	if s.TenantID != "" && s.ClientID != "" {
+		if s.ClientSecret != "" {
+			if key.token, err = azidentity.NewClientSecretCredential(s.TenantID, s.ClientID, s.ClientSecret, &azidentity.ClientSecretCredentialOptions{
+				AuthorityHost: s.GetAADEndpoint(),
+			}); err != nil {
+				return err
+			}
+			return nil
+		}
+		if s.ClientCertificate != "" {
+			certs, pk, err := azidentity.ParseCertificates([]byte(s.ClientCertificate), []byte(s.ClientCertificatePassword))
+			if key.token, err = azidentity.NewClientCertificateCredential(s.TenantID, s.ClientID, certs, pk, &azidentity.ClientCertificateCredentialOptions{
+				AuthorityHost: s.GetAADEndpoint(),
+			}); err != nil {
+				return err
+			}
+			return nil
+		}
 	}
-	if key.token, err = adal.NewServicePrincipalToken(*config, s.ClientID, s.ClientSecret,
-		azure.PublicCloud.ResourceIdentifiers.KeyVault); err != nil {
+	if s.ClientID != "" {
+		if key.token, err = azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
+			ID: azidentity.ClientID(s.ClientID),
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
+	if s.ResourceID != "" {
+		if key.token, err = azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
+			ID: azidentity.ResourceID(s.ResourceID),
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if key.token, err = azidentity.NewEnvironmentCredential(nil); err != nil {
 		return err
 	}
 	return nil
@@ -80,11 +111,11 @@ func (s *AADSettings) SetToken(key *MasterKey) error {
 
 // GetAADEndpoint returns the ActiveDirectoryEndpoint, or the Azure Public Cloud
 // default.
-func (s *AADSettings) GetAADEndpoint() string {
+func (s *AADConfig) GetAADEndpoint() azidentity.AuthorityHost {
 	if s.ActiveDirectoryEndpoint != "" {
-		return s.ActiveDirectoryEndpoint
+		return azidentity.AuthorityHost(s.ActiveDirectoryEndpoint)
 	}
-	return azure.PublicCloud.ActiveDirectoryEndpoint
+	return azidentity.AzurePublicCloud
 }
 
 // EncryptedDataKey returns the encrypted data key this master key holds.
@@ -98,20 +129,16 @@ func (key *MasterKey) SetEncryptedDataKey(enc []byte) {
 }
 
 // Encrypt takes a SOPS data key, encrypts it with Key Vault and stores the result in the EncryptedKey field.
-func (key *MasterKey) Encrypt(plaintext []byte) error {
-	c := newThrottledKeyvaultClient(key.authorizer())
-
-	data := base64.RawURLEncoding.EncodeToString(plaintext)
-	p := keyvault.KeyOperationsParameters{Value: &data, Algorithm: keyvault.RSAOAEP256}
-	res, err := c.Encrypt(context.Background(), key.VaultURL, key.Name, key.Version, p)
+func (key *MasterKey) Encrypt(dataKey []byte) error {
+	c, err := crypto.NewClient(key.ToString(), key.token, nil)
+	if err != nil {
+		return fmt.Errorf("failed to construct client to encrypt data: %w", err)
+	}
+	resp, err := c.Encrypt(context.Background(), crypto.AlgorithmRSAOAEP256, dataKey, nil)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt data: %w", err)
 	}
-
-	key.EncryptedKey = *res.Result
-	if err != nil {
-		return fmt.Errorf("failed to encrypt data: %w", err)
-	}
+	key.EncryptedKey = string(resp.Result)
 	return nil
 }
 
@@ -125,25 +152,20 @@ func (key *MasterKey) EncryptIfNeeded(dataKey []byte) error {
 
 // Decrypt decrypts the EncryptedKey field with Azure Key Vault and returns the result.
 func (key *MasterKey) Decrypt() ([]byte, error) {
-	c := newThrottledKeyvaultClient(key.authorizer())
-
-	result, err := c.Decrypt(context.Background(), key.VaultURL, key.Name, key.Version, keyvault.KeyOperationsParameters{
-		Algorithm: keyvault.RSAOAEP256, Value: &key.EncryptedKey,
-	})
+	c, err := crypto.NewClient(key.ToString(), key.token, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct client to decrypt data: %w", err)
+	}
+	resp, err := c.Decrypt(context.Background(), crypto.AlgorithmRSAOAEP256, []byte(key.EncryptedKey), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt data: %w", err)
 	}
-
-	plaintext, err := base64.RawURLEncoding.DecodeString(*result.Result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt data: %w", err)
-	}
-	return plaintext, nil
+	return resp.Result, nil
 }
 
 // NeedsRotation returns whether the data key needs to be rotated or not.
 func (key *MasterKey) NeedsRotation() bool {
-	return key.token.Token().IsExpired()
+	return time.Since(key.CreationDate) > (time.Hour * 24 * 30 * 6)
 }
 
 // ToString converts the key to a string representation.
@@ -157,33 +179,9 @@ func (key MasterKey) ToMap() map[string]interface{} {
 	out["vaultUrl"] = key.VaultURL
 	out["key"] = key.Name
 	out["version"] = key.Version
+	out["created_at"] = key.CreationDate.UTC().Format(time.RFC3339)
 	out["enc"] = key.EncryptedKey
 	return out
-}
-
-func (key *MasterKey) authorizer() autorest.Authorizer {
-	if key.token == nil {
-		return &autorest.NullAuthorizer{}
-	}
-	return autorest.NewBearerAuthorizer(key.token)
-}
-
-// newThrottledKeyvaultClient returns a client configured to retry requests.
-//
-// Ref: https://docs.microsoft.com/en-us/azure/key-vault/general/overview-throttling
-func newThrottledKeyvaultClient(authorizer autorest.Authorizer) keyvault.BaseClient {
-	const (
-		// Number of times the client will attempt to make an HTTP request
-		retryAttempts = 6
-		// Duration between HTTP request retries
-		retryDuration = 5 * time.Second
-	)
-
-	c := keyvault.New()
-	c.Authorizer = authorizer
-	c.RetryAttempts = retryAttempts
-	c.RetryDuration = retryDuration
-	return c
 }
 
 func decode(b []byte) ([]byte, error) {

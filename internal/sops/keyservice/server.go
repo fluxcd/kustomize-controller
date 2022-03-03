@@ -40,14 +40,14 @@ type Server struct {
 
 	// AzureAADConfig configures the Azure Active Directory settings used
 	// by the server.
-	AzureAADConfig *azkv.AADSettings
+	AzureAADConfig *azkv.AADConfig
 
 	// DefaultServer is the server used for any other request than a PGP
 	// or age encryption/decryption.
 	DefaultServer keyservice.KeyServiceServer
 }
 
-func NewServer(prompt bool, homeDir, vaultToken string, agePrivateKeys []string, azureCfg *azkv.AADSettings) keyservice.KeyServiceServer {
+func NewServer(prompt bool, homeDir, vaultToken string, agePrivateKeys []string, azureCfg *azkv.AADConfig) keyservice.KeyServiceServer {
 	server := &Server{
 		Prompt:         prompt,
 		HomeDir:        homeDir,
@@ -106,7 +106,7 @@ func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) 
 	}
 	vaultKey.EncryptedKey = string(ciphertext)
 	plaintext, err := vaultKey.Decrypt()
-	return []byte(plaintext), err
+	return plaintext, err
 }
 
 func (ks *Server) encryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {

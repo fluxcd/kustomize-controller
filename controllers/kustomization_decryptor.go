@@ -62,7 +62,7 @@ type KustomizeDecryptor struct {
 	homeDir        string
 	ageIdentities  []string
 	vaultToken     string
-	azureAADConfig *azkv.AADSettings
+	azureAADConfig *azkv.AADConfig
 }
 
 func NewDecryptor(kubeClient client.Client,
@@ -161,8 +161,8 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 		var vaultToken string
 		for name, value := range secret.Data {
 			if name == DecryptionAzureAuthFile {
-				azureConf := azkv.AADSettings{}
-				if err = azkv.LoadAADSettingsFromBytes(value, &azureConf); err != nil {
+				azureConf := azkv.AADConfig{}
+				if err = azkv.LoadAADConfigFromBytes(value, &azureConf); err != nil {
 					return err
 				}
 				kd.azureAADConfig = &azureConf
