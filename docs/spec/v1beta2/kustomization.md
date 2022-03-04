@@ -336,18 +336,15 @@ patching fails due to immutable fields changes.
 The controller can be told to reconcile the Kustomization outside of the specified interval
 by annotating the Kustomization object with:
 
-```go
-const (
-	// ReconcileAtAnnotation is the annotation used for triggering a
-	// reconciliation outside of the defined schedule.
-	ReconcileAtAnnotation string = "reconcile.fluxcd.io/requestedAt"
-)
+```yaml
+reconcile.fluxcd.io/requestedAt: "2022-03-02T13:59:52.758922834Z"
 ```
 
 On-demand execution example:
 
 ```sh
-kubectl annotate --overwrite kustomization/podinfo reconcile.fluxcd.io/requestedAt="$(date +%s)"
+kubectl annotate --field-manager=flux-client-side-apply --overwrite \
+kustomization/podinfo reconcile.fluxcd.io/requestedAt="$(date +%s)"
 ```
 
 List all Kubernetes objects reconciled from a Kustomization:
@@ -360,22 +357,27 @@ kubectl get all --all-namespaces \
 
 You can configure the controller to ignore in-cluster resources by labeling or annotating them:
 
-```sh
-kubectl annotate service/podinfo kustomize.toolkit.fluxcd.io/reconcile=disabled
+```yaml
+kustomize.toolkit.fluxcd.io/reconcile: disabled
 ```
 
 Note that when the `kustomize.toolkit.fluxcd.io/reconcile` annotation is set to `disabled`,
 the controller will no longer apply changes from source, nor will it prune the resource.
 To resume reconciliation, set the annotation to `enabled` or remove it.
 
-If you use kubectl to edit an object managed by Flux,
-all changes will be undone when kustomize-controller reconciles a
-Flux Kustomization containing that object.
-n order for kustomize-controller to preserve fields added with kubectl,
-you have to specify a field manager named `flux-client-side-apply` e.g.:
+If you use kubectl to edit an object managed by Flux, all changes will be undone when
+the controller reconciles a Flux Kustomization containing that object.
+In order to preserve fields added with kubectl, you have to specify a field manager
+named `flux-client-side-apply` e.g.:
 
 ```sh
 kubectl apply --field-manager=flux-client-side-apply
+```
+
+Another option is to annotate or label objects with:
+
+```yaml
+kustomize.toolkit.fluxcd.io/ssa: merge
 ```
 
 Note that the fields defined in manifests will always be overridden,

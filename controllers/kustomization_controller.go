@@ -745,6 +745,9 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 				OperationType: metav1.ManagedFieldsOperationUpdate,
 			},
 		},
+		Exclusions: map[string]string{
+			fmt.Sprintf("%s/ssa", kustomizev1.GroupVersion.Group): kustomizev1.MergeValue,
+		},
 	}
 
 	// contains only CRDs and Namespaces
