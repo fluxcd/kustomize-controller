@@ -50,6 +50,7 @@ func LoadAADConfigFromBytes(b []byte, s *AADConfig) error {
 // AADConfig contains the selection of fields from an Azure authentication file
 // required for Active Directory authentication.
 type AADConfig struct {
+	AZConfig
 	TenantID                  string `json:"tenantId,omitempty"`
 	ClientID                  string `json:"clientId,omitempty"`
 	ClientSecret              string `json:"clientSecret,omitempty"`
@@ -57,6 +58,13 @@ type AADConfig struct {
 	ClientCertificatePassword string `json:"clientCertificatePassword,omitempty"`
 	ResourceID                string `json:"resourceId,omitempty"`
 	ActiveDirectoryEndpoint   string `json:"activeDirectoryEndpointUrl,omitempty"`
+}
+
+// Ref: https://docs.microsoft.com/en-us/azure/aks/kubernetes-service-principal?tabs=azure-cli#manually-create-a-service-principal
+type AZConfig struct {
+	AppID    string `json:"appId,omitempty"`
+	Tenant   string `json:"tenant,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 // SetToken attempts to configure the token on the MasterKey using the
@@ -85,6 +93,14 @@ func (s *AADConfig) SetToken(key *MasterKey) error {
 			}
 			return nil
 		}
+	}
+	if s.Tenant != "" && s.AppID != "" && s.Password != "" {
+		if key.token, err = azidentity.NewClientSecretCredential(s.Tenant, s.AppID, s.Password, &azidentity.ClientSecretCredentialOptions{
+			AuthorityHost: s.GetAADEndpoint(),
+		}); err != nil {
+			return err
+		}
+		return nil
 	}
 	if s.ClientID != "" {
 		if key.token, err = azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
