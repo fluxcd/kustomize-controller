@@ -319,7 +319,7 @@ cd clusters/my-cluster
 kustomize create --autodetect --recursive
 
 # validate kustomization
-kustomize build | kubeval --ignore-missing-schemas
+kustomize build | kubeconform -ignore-missing-schemas
 ```
 
 ## Reconciliation
