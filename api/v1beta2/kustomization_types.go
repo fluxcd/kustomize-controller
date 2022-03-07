@@ -34,6 +34,7 @@ const (
 	KustomizationFinalizer    = "finalizers.fluxcd.io"
 	MaxConditionMessageLength = 20000
 	DisabledValue             = "disabled"
+	MergeValue                = "merge"
 )
 
 // KustomizationSpec defines the configuration to calculate the desired state from a Source using Kustomize.
