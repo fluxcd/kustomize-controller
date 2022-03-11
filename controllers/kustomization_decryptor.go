@@ -52,7 +52,7 @@ const (
 	// DecryptionVaultTokenFileName is the name of the file containing the Vault token
 	DecryptionVaultTokenFileName = "sops.vault-token"
 	// DecryptionAzureAuthFile is the Azure authentication file
-	DecryptionAzureAuthFile = "azure_kv.json"
+	DecryptionAzureAuthFile = "sops.azure-kv"
 )
 
 type KustomizeDecryptor struct {

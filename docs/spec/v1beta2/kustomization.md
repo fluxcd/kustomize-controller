@@ -967,147 +967,326 @@ the controller will impersonate the service account on the target cluster.
 
 In order to store secrets safely in a public or private Git repository,
 you can use [Mozilla SOPS](https://github.com/mozilla/sops)
-and encrypt your Kubernetes Secrets data with [OpenPGP](https://www.openpgp.org)
-and [age](https://age-encryption.org/v1/) keys.
+and encrypt your Kubernetes Secrets data with [age](https://age-encryption.org/v1/)
+and [OpenPGP](https://www.openpgp.org) keys, or using provider
+implementations like Azure Key Vault, GCP KMS or Hashicorp Vault.
 
-### OpenPGP
+> **Note:** You should encrypt only the `data` section of the Kubernetes
+> Secret, encrypting the `metadata`, `kind` or `apiVersion` fields is not
+> supported. An easy way to do this is by appending
+> `--encrypted-regex '^(data|stringData)$'` to your `sops --encrypt` command.
 
-Generate a GPG key **without passphrase** using [gnupg](https://www.gnupg.org/),
-then use `sops` to encrypt a Kubernetes secret:
+### Decryption Secret reference
 
-```sh
-sops --pgp=FBC7B9E2A4F9289AC0C1D4843D16CEE4A27381B4 \
---encrypt --encrypted-regex '^(data|stringData)$' --in-place my-secret.yaml
-```
-
-Commit and push the encrypted file to Git.
-
-> **Note** that you should encrypt only the `data` section, encrypting the Kubernetes
-> secret metadata, kind or apiVersion is not supported by kustomize-controller.
-
-Create a secret in the `default` namespace with the OpenPGP private key,
-the key name must end with `.asc` to be detected as an OpenPGP key:
-
-```sh
-gpg --export-secret-keys --armor FBC7B9E2A4F9289AC0C1D4843D16CEE4A27381B4 |
-kubectl -n default create secret generic sops-gpg \
---from-file=sops.asc=/dev/stdin
-```
-
-Configure decryption by referring the private key secret:
+To configure what keys must be used for decryption, a `.decryption.secretRef`
+can be specified with a reference to a Secret in the same namespace as the
+Kustomization.
 
 ```yaml
+---
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
-  name: my-secrets
+  name: sops-encrypted
   namespace: default
 spec:
   interval: 5m
   path: "./"
   sourceRef:
     kind: GitRepository
-    name: my-secrets
+    name: repository-with-secrets
   decryption:
     provider: sops
     secretRef:
-      name: sops-pgp
+      name: sops-keys
 ```
 
-### Age
-
-Generate an age key with [age](https://age-encryption.org) using `age-keygen`,
-then use `sops` to encrypt a Kubernetes secret:
-
-```console
-$ age-keygen -o age.agekey
-Public key: age1helqcqsh9464r8chnwc2fzj8uv7vr5ntnsft0tn45v2xtz0hpfwq98cmsg
-$ sops --age=age1helqcqsh9464r8chnwc2fzj8uv7vr5ntnsft0tn45v2xtz0hpfwq98cmsg \
---encrypt --encrypted-regex '^(data|stringData)$' --in-place my-secret.yaml
-```
-
-Commit and push the encrypted file to Git.
-
-> **Note** that you should encrypt only the `data` section, encrypting the Kubernetes
-> secret metadata, kind or apiVersion is not supported by kustomize-controller.
-
-Create a secret in the `default` namespace with the age private key,
-the key name must end with `.agekey` to be detected as an age key:
-
-```sh
-cat age.agekey |
-kubectl -n default create secret generic sops-age \
---from-file=age.agekey=/dev/stdin
-```
-
-Configure decryption by referring the private key secret:
+The Secret's `.data` section is expected to contain entries with decryption
+keys (for age and OpenPGP), or credentials (for any of the supported provider
+implementations). The controller identifies the type of the entry by the suffix
+of the key (e.g. `.agekey`), or a fixed key (e.g. `sops.vault-token`).
 
 ```yaml
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
-kind: Kustomization
+---
+apiVersion: v1
+kind: Secret
 metadata:
-  name: my-secrets
+  name: sops-keys
   namespace: default
-spec:
-  interval: 5m
-  path: "./"
-  sourceRef:
-    kind: GitRepository
-    name: my-secrets
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
+data:
+  # Exemplary age private key 
+  identity.agekey: <BASE64>
+  # Examplary Hashicorp Vault token
+  sops.vault-token: <BASE64>
 ```
 
-### HashiCorp Vault
+#### age Secret entry
 
-Export the `VAULT_ADDR`  and `VAULT_TOKEN` environment variables to your shell,
-then use `sops` to encrypt a Kubernetes Secret (see [HashiCorp Vault](https://www.vaultproject.io/docs/secrets/transit)
-for more details on enabling the transit backend and [sops](https://github.com/mozilla/sops#encrypting-using-hashicorp-vault)).
-
-Then use `sops` to encrypt a Kubernetes Secret:
-
-```console
-$ export VAULT_ADDR=https://vault.example.com:8200
-$ export VAULT_TOKEN=my-token
-$ sops --hc-vault-transit $VAULT_ADDR/v1/sops/keys/my-encryption-key --encrypt \
---encrypted-regex '^(data|stringData)$' --in-place my-secret.yaml
-```
-
-Commit and push the encrypted file to Git.
-
-> **Note** that you should encrypt only the `data` section, encrypting the Kubernetes
-> secret metadata, kind or apiVersion is not supported by kustomize-controller.
-
-Create a secret in the `default` namespace with the vault token,
-the key name must be `sops.vault-token` to be detected as a vault token:
-
-```sh
-echo $VAULT_TOKEN |
-kubectl -n default create secret generic sops-hcvault \
---from-file=sops.vault-token=/dev/stdin
-```
-
-Configure decryption by referring the private key secret:
+To specify an age private key in a Kubernetes Secret, suffix the key of the
+`.data` entry with `.agekey`.
 
 ```yaml
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
-kind: Kustomization
+---
+apiVersion: v1
+kind: Secret
 metadata:
-  name: my-secrets
+  name: sops-keys
   namespace: default
-spec:
-  interval: 5m
-  path: "./"
-  sourceRef:
-    kind: GitRepository
-    name: my-secrets
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-hcvault
+data:
+  # Exemplary age private key 
+  identity.agekey: <BASE64>
 ```
+
+#### OpenPGP Secret entry
+
+To specify an OpenPGP (passwordless) keyring in armor format in a Kubernetes
+Secret, suffix the key of the `.data` entry with `.asc`.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sops-keys
+  namespace: default
+data:
+  # Exemplary OpenPGP keyring
+  identity.asc: <BASE64>
+```
+
+#### Azure Key Vault Secret entry
+
+To specify credentials for Azure Key Vault in a Secret, append a `.data` entry
+with a fixed `sops.azure-kv` key. The value can contain a variety of JSON or
+YAML formats depending on the authentication method you want to utilize.
+
+##### Service Principal with Secret
+
+To configure a Service Principal with Secret credentials to access the Azure
+Key Vault, a JSON or YAML object with `tenantId`, `clientId` and `clientSecret`
+fields must be configured as the `sops.azure-kv` value. It
+optionally supports `authorityHost` to configure an authority host other than
+the Azure Public Cloud endpoint.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sops-keys
+  namespace: default
+stringData:
+  # Exemplary Azure Service Principal with Secret
+  sops.azure-kv: |
+    tenantId: some-tenant-id
+    clientId: some-client-id
+    clientSecret: some-client-secret
+```
+
+##### Service Principal with Certificate
+
+To configure a Service Principal with Certificate credentials to access the
+Azure Key Vault, a JSON or YAML object with `tenantId`, `clientId` and
+`clientCertificate` fields must be configured as the `sops.azure-kv` value.
+It optionally supports `clientCertificateSendChain` and `authorityHost` to
+control the sending of the certificate chain, or to specify an authority host
+other than the Azure Public Cloud endpoint.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sops-keys
+  namespace: default
+stringData:
+  # Exemplary Azure Service Principal with Certificate
+  sops.azure-kv: |
+    tenantId: some-tenant-id
+    clientId: some-client-id
+    clientCertificate: <certificate PEM>
+```
+
+##### `az` generated Service Principal
+
+To configure a Service Principal [generated using
+`az`](https://docs.microsoft.com/en-us/azure/aks/kubernetes-service-principal?tabs=azure-cli#manually-create-a-service-principal),
+the output of the command can be directly used as a `sops.azure-kv` value.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sops-keys
+  namespace: default
+stringData:
+  # Exemplary Azure Service Principal generated with `az`
+  sops.azure-kv: |
+    {
+      "appId": "559513bd-0c19-4c1a-87cd-851a26afd5fc",
+      "displayName": "myAKSClusterServicePrincipal",
+      "name": "http://myAKSClusterServicePrincipal",
+      "password": "e763725a-5eee-40e8-a466-dc88d980f415",
+      "tenant": "72f988bf-86f1-41af-91ab-2d7cd011db48"
+    }
+```
+
+##### Managed Identity with Client ID
+
+To configure a Managed Identity making use of a Client ID, a JSON or YAML
+object with a `clientId` must be configured as the `sops.azure-kv` value. It
+optionally supports `authorityHost` to configure an authority host other than
+the Azure Public Cloud endpoint.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sops-keys
+  namespace: default
+stringData:
+  # Exemplary Azure Managed Identity with Client ID
+  sops.azure-kv: |
+    clientId: some-client-id
+```
+
+#### Hashicorp Vault Secret entry
+
+To specify credentials for Hashicorp Vault in a Kubernetes Secret, append a
+`.data` entry with a fixed `sops.vault-token` key and the token as value.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sops-keys
+  namespace: default
+data:
+  # Exemplary Hashicorp Vault Secret token
+  sops.vault-token: <BASE64>
+```
+
+### Controller global decryption
+
+Other than [authentication using a Secret reference](#decryption-secret-reference),
+it is possible to specify global decryption settings on the
+kustomize-controller Pod. When the controller fails to find credentials on the
+Kustomization object itself, it will fall back to these defaults.
+
+#### AWS
+
+While making use of the [IAM OIDC provider](https://eksctl.io/usage/iamserviceaccounts/)
+on your EKS cluster, you can create an IAM Role and Service Account with access
+to AWS KMS (using at least `kms:Decrypt` and `kms:DescribeKey`). Once these are
+created, you can annotate the kustomize-controller Service Account with the
+Role ARN, granting the controller permissions to decrypt the Secrets.
+
+```sh
+kubectl -n flux-system annotate serviceaccount kustomize-controller \
+  --field-manager=flux-client-side-apply \
+  eks.amazonaws.com/role-arn='arn:aws:iam::<ACCOUNT_ID>:role/<KMS-ROLE-NAME>'
+```
+
+In addition to this, the
+[general SOPS documentation around KMS AWS applies](https://github.com/mozilla/sops#27kms-aws-profiles),
+allowing you to specify e.g. a `SOPS_KMS_ARN` environment variable.
+
+#### Azure Key Vault
+
+While making use of [AAD Pod Identity](https://github.com/Azure/aad-pod-identity),
+you can bind a Managed Identity to Flux's kustomize-controller. Once the
+`AzureIdentity` and `AzureIdentityBinding` for this are created, you can patch
+the controller's Deployment with the `aadpodidbinding` label set to the
+selector of the binding, and the `AZURE_AUTH_METHOD` environment variable set
+to `msi`.
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kustomize-controller
+  namespace: flux-system
+spec:
+  template:
+    metadata:
+      labels:
+        aadpodidbinding: sops-akv-decryptor  # match the AzureIdentityBinding selector
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: AZURE_AUTH_METHOD
+          value: msi
+```
+
+In addition to this, the [default SOPS Azure Key Vault flow is
+followed](https://github.com/mozilla/sops#encrypting-using-azure-key-vault),
+allowing you to specify a variety of other environment variables.
+
+#### GCP KMS
+
+While making use of Google Cloud Platform, the [`GOOGLE_APPLICATION_CREDENTIALS`
+environment variable](https://cloud.google.com/docs/authentication/production)
+is automatically taken into account.
+[Granting permissions](https://cloud.google.com/kms/docs/reference/permissions-and-roles)
+to the Service Account attached to this will therefore be sufficient to decrypt
+data. When running outside GCP, it is possible to manually patch the
+kustomize-controller Deployment with a valid set of (mounted) credentials.
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kustomize-controller
+  namespace: flux-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /var/gcp/credentials.json
+        volumeMounts:
+        - name: gcp-credentials
+          mountPath: /var/gcp/
+          readOnly: true
+      volumes:
+      - name: gcp-credentials
+        secret:
+          secretName: mysecret
+          items:
+          - key: credentials
+            path: credentials.json
+```
+
+#### Hashicorp Vault
+
+To configure a global default for Hashicorp Vault, patch the controller's
+Deployment with a `VAULT_TOKEN` environment variable.
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kustomize-controller
+  namespace: flux-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: VAULT_TOKEN
+          value: <token>
+```
+
 ### Kustomize secretGenerator
 
 SOPS encrypted data can be stored as a base64 encoded Secret,
