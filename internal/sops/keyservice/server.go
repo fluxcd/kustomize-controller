@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
+	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
@@ -37,17 +38,22 @@ type Server struct {
 	// VaultToken configures the Vault token used by the server.
 	VaultToken string
 
+	// AzureAADConfig configures the Azure Active Directory settings used
+	// by the server.
+	AzureAADConfig *azkv.AADConfig
+
 	// DefaultServer is the server used for any other request than a PGP
 	// or age encryption/decryption.
 	DefaultServer keyservice.KeyServiceServer
 }
 
-func NewServer(prompt bool, homeDir, vaultToken string, agePrivateKeys []string) keyservice.KeyServiceServer {
+func NewServer(prompt bool, homeDir, vaultToken string, agePrivateKeys []string, azureCfg *azkv.AADConfig) keyservice.KeyServiceServer {
 	server := &Server{
 		Prompt:         prompt,
 		HomeDir:        homeDir,
 		AgePrivateKeys: agePrivateKeys,
 		VaultToken:     vaultToken,
+		AzureAADConfig: azureCfg,
 		DefaultServer: &keyservice.Server{
 			Prompt: prompt,
 		},
@@ -100,7 +106,36 @@ func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) 
 	}
 	vaultKey.EncryptedKey = string(ciphertext)
 	plaintext, err := vaultKey.Decrypt()
-	return []byte(plaintext), err
+	return plaintext, err
+}
+
+func (ks *Server) encryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
+	azureKey := azkv.MasterKey{
+		VaultURL: key.VaultUrl,
+		Name:     key.Name,
+		Version:  key.Version,
+	}
+	if err := ks.AzureAADConfig.SetToken(&azureKey); err != nil {
+		return nil, fmt.Errorf("failed to set token for Azure encryption request: %w", err)
+	}
+	if err := azureKey.Encrypt(plaintext); err != nil {
+		return nil, err
+	}
+	return []byte(azureKey.EncryptedKey), nil
+}
+
+func (ks *Server) decryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
+	azureKey := azkv.MasterKey{
+		VaultURL: key.VaultUrl,
+		Name:     key.Name,
+		Version:  key.Version,
+	}
+	if err := ks.AzureAADConfig.SetToken(&azureKey); err != nil {
+		return nil, fmt.Errorf("failed to set token for Azure decryption request: %w", err)
+	}
+	azureKey.EncryptedKey = string(ciphertext)
+	plaintext, err := azureKey.Decrypt()
+	return plaintext, err
 }
 
 // Encrypt takes an encrypt request and encrypts the provided plaintext with the provided key,
@@ -120,6 +155,19 @@ func (ks Server) Encrypt(ctx context.Context,
 		}
 	case *keyservice.Key_AgeKey:
 		ciphertext, err := ks.encryptWithAge(k.AgeKey, req.Plaintext)
+		if err != nil {
+			return nil, err
+		}
+		response = &keyservice.EncryptResponse{
+			Ciphertext: ciphertext,
+		}
+	case *keyservice.Key_AzureKeyvaultKey:
+		// Fallback to default server if no custom settings are configured
+		// to ensure backwards compatibility with global configurations
+		if ks.AzureAADConfig == nil {
+			return ks.Encrypt(ctx, req)
+		}
+		ciphertext, err := ks.encryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Plaintext)
 		if err != nil {
 			return nil, err
 		}
@@ -194,6 +242,19 @@ func (ks Server) Decrypt(ctx context.Context,
 		}
 
 		plaintext, err := ks.decryptWithVault(k.VaultKey, req.Ciphertext)
+		if err != nil {
+			return nil, err
+		}
+		response = &keyservice.DecryptResponse{
+			Plaintext: plaintext,
+		}
+	case *keyservice.Key_AzureKeyvaultKey:
+		// Fallback to default server if no custom settings are configured
+		// to ensure backwards compatibility with global configurations
+		if ks.AzureAADConfig == nil {
+			return ks.Decrypt(ctx, req)
+		}
+		plaintext, err := ks.decryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Ciphertext)
 		if err != nil {
 			return nil, err
 		}

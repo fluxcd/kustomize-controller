@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
 )
 
@@ -50,14 +51,18 @@ const (
 	DecryptionProviderSOPS = "sops"
 	// DecryptionVaultTokenFileName is the name of the file containing the Vault token
 	DecryptionVaultTokenFileName = "sops.vault-token"
+	// DecryptionAzureAuthFile is the Azure authentication file
+	DecryptionAzureAuthFile = "sops.azure-kv"
 )
 
 type KustomizeDecryptor struct {
 	client.Client
-	kustomization kustomizev1.Kustomization
-	homeDir       string
-	ageIdentities []string
-	vaultToken    string
+
+	kustomization  kustomizev1.Kustomization
+	homeDir        string
+	ageIdentities  []string
+	vaultToken     string
+	azureAADConfig *azkv.AADConfig
 }
 
 func NewDecryptor(kubeClient client.Client,
@@ -155,6 +160,14 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 		var ageIdentities []string
 		var vaultToken string
 		for name, value := range secret.Data {
+			if name == DecryptionAzureAuthFile {
+				azureConf := azkv.AADConfig{}
+				if err = azkv.LoadAADConfigFromBytes(value, &azureConf); err != nil {
+					return err
+				}
+				kd.azureAADConfig = &azureConf
+				continue
+			}
 			switch filepath.Ext(name) {
 			case ".asc":
 				keyPath, err := securejoin.SecureJoin(tmpDir, name)
@@ -272,7 +285,7 @@ func (kd KustomizeDecryptor) DataWithFormat(data []byte, inputFormat, outputForm
 
 	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(
 		[]keyservice.KeyServiceClient{
-			intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.vaultToken, kd.ageIdentities)),
+			intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.vaultToken, kd.ageIdentities, kd.azureAADConfig)),
 		},
 	)
 	if err != nil {
