@@ -25,7 +25,7 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -118,7 +118,7 @@ data:
 			return resultK.Status.LastAppliedRevision == revision
 		}, timeout, time.Second).Should(BeTrue())
 
-		g.Expect(readyCondition.Reason).To(Equal(meta.ReconciliationSucceededReason))
+		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationSucceededReason))
 	})
 
 	t.Run("fails to reconcile impersonating the default service account", func(t *testing.T) {
@@ -133,7 +133,7 @@ data:
 			return apimeta.IsStatusConditionFalse(resultK.Status.Conditions, meta.ReadyCondition)
 		}, timeout, time.Second).Should(BeTrue())
 
-		g.Expect(readyCondition.Reason).To(Equal(meta.ReconciliationFailedReason))
+		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationFailedReason))
 		g.Expect(readyCondition.Message).To(ContainSubstring("system:serviceaccount:%s:default", id))
 	})
 
@@ -187,7 +187,7 @@ data:
 			return resultK.Status.LastAppliedRevision == revision
 		}, timeout, time.Second).Should(BeTrue())
 
-		g.Expect(readyCondition.Reason).To(Equal(meta.ReconciliationSucceededReason))
+		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationSucceededReason))
 	})
 
 	t.Run("can finalize impersonating service account", func(t *testing.T) {

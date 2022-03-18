@@ -24,7 +24,6 @@ package v1beta2
 import (
 	"github.com/fluxcd/pkg/apis/kustomize"
 	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/dependency"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -145,7 +144,7 @@ func (in *KustomizationSpec) DeepCopyInto(out *KustomizationSpec) {
 	*out = *in
 	if in.DependsOn != nil {
 		in, out := &in.DependsOn, &out.DependsOn
-		*out = make([]dependency.CrossNamespaceDependencyReference, len(*in))
+		*out = make([]meta.NamespacedObjectReference, len(*in))
 		copy(*out, *in)
 	}
 	if in.Decryption != nil {

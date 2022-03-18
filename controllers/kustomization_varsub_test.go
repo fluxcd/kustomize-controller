@@ -23,7 +23,7 @@ import (
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -164,7 +164,7 @@ stringData:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(inputK), resultK)
 			for _, c := range resultK.Status.Conditions {
-				if c.Reason == meta.ReconciliationSucceededReason {
+				if c.Reason == kustomizev1.ReconciliationSucceededReason {
 					return true
 				}
 			}
@@ -315,7 +315,7 @@ metadata:
 				resultK := &kustomizev1.Kustomization{}
 				_ = k8sClient.Get(ctx, client.ObjectKeyFromObject(inputK), resultK)
 				for _, c := range resultK.Status.Conditions {
-					if c.Reason == meta.ReconciliationSucceededReason {
+					if c.Reason == kustomizev1.ReconciliationSucceededReason {
 						return true
 					}
 				}

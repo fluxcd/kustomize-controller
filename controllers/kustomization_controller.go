@@ -62,7 +62,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/predicates"
 	"github.com/fluxcd/pkg/ssa"
 	"github.com/fluxcd/pkg/untar"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
@@ -82,7 +82,6 @@ type KustomizationReconciler struct {
 	requeueDependency     time.Duration
 	Scheme                *runtime.Scheme
 	EventRecorder         kuberecorder.EventRecorder
-	ExternalEventRecorder *events.Recorder
 	MetricsRecorder       *metrics.Recorder
 	StatusPoller          *polling.StatusPoller
 	ControllerName        string
@@ -227,7 +226,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if len(kustomization.Spec.DependsOn) > 0 {
 		if err := r.checkDependencies(source, kustomization); err != nil {
 			kustomization = kustomizev1.KustomizationNotReady(
-				kustomization, source.GetArtifact().Revision, meta.DependencyNotReadyReason, err.Error())
+				kustomization, source.GetArtifact().Revision, kustomizev1.DependencyNotReadyReason, err.Error())
 			if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
 				log.Error(err, "unable to update status for dependency not ready")
 				return ctrl.Result{Requeue: true}, err
@@ -306,7 +305,7 @@ func (r *KustomizationReconciler) reconcile(
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			revision,
-			sourcev1.StorageOperationFailedReason,
+			sourcev1.DirCreationFailedReason,
 			err.Error(),
 		), err
 	}
@@ -350,7 +349,7 @@ func (r *KustomizationReconciler) reconcile(
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			revision,
-			meta.ReconciliationFailedReason,
+			kustomizev1.ReconciliationFailedReason,
 			err.Error(),
 		), fmt.Errorf("failed to build kube client: %w", err)
 	}
@@ -404,7 +403,7 @@ func (r *KustomizationReconciler) reconcile(
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			revision,
-			meta.ReconciliationFailedReason,
+			kustomizev1.ReconciliationFailedReason,
 			err.Error(),
 		), err
 	}
@@ -416,7 +415,7 @@ func (r *KustomizationReconciler) reconcile(
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
 			revision,
-			meta.ReconciliationFailedReason,
+			kustomizev1.ReconciliationFailedReason,
 			err.Error(),
 		), err
 	}
@@ -429,7 +428,7 @@ func (r *KustomizationReconciler) reconcile(
 			return kustomizev1.KustomizationNotReady(
 				kustomization,
 				revision,
-				meta.ReconciliationFailedReason,
+				kustomizev1.ReconciliationFailedReason,
 				err.Error(),
 			), err
 		}
@@ -483,7 +482,7 @@ func (r *KustomizationReconciler) reconcile(
 		kustomization,
 		newInventory,
 		revision,
-		meta.ReconciliationSucceededReason,
+		kustomizev1.ReconciliationSucceededReason,
 		fmt.Sprintf("Applied revision: %s", revision),
 	), nil
 }
@@ -493,7 +492,10 @@ func (r *KustomizationReconciler) checkDependencies(source sourcev1.Source, kust
 		if d.Namespace == "" {
 			d.Namespace = kustomization.GetNamespace()
 		}
-		dName := types.NamespacedName(d)
+		dName := types.NamespacedName{
+			Namespace: d.Namespace,
+			Name:      d.Name,
+		}
 		var k kustomizev1.Kustomization
 		err := r.Get(context.Background(), dName, &k)
 		if err != nil {
@@ -977,44 +979,24 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 }
 
 func (r *KustomizationReconciler) event(ctx context.Context, kustomization kustomizev1.Kustomization, revision, severity, msg string, metadata map[string]string) {
-	log := ctrl.LoggerFrom(ctx)
-
-	if r.EventRecorder != nil {
-		annotations := map[string]string{
-			kustomizev1.GroupVersion.Group + "/revision": revision,
-		}
-
-		eventtype := "Normal"
-		if severity == events.EventSeverityError {
-			eventtype = "Warning"
-		}
-
-		r.EventRecorder.AnnotatedEventf(&kustomization, annotations, eventtype, severity, msg)
+	if metadata == nil {
+		metadata = map[string]string{}
+	}
+	if revision != "" {
+		metadata[kustomizev1.GroupVersion.Group+"/revision"] = revision
 	}
 
-	if r.ExternalEventRecorder != nil {
-		objRef, err := reference.GetReference(r.Scheme, &kustomization)
-		if err != nil {
-			log.Error(err, "unable to send event")
-			return
-		}
-		if metadata == nil {
-			metadata = map[string]string{}
-		}
-		if revision != "" {
-			metadata["revision"] = revision
-		}
-
-		reason := severity
-		if c := apimeta.FindStatusCondition(kustomization.Status.Conditions, meta.ReadyCondition); c != nil {
-			reason = c.Reason
-		}
-
-		if err := r.ExternalEventRecorder.Eventf(*objRef, metadata, severity, reason, msg); err != nil {
-			log.Error(err, "unable to send event")
-			return
-		}
+	reason := severity
+	if c := apimeta.FindStatusCondition(kustomization.Status.Conditions, meta.ReadyCondition); c != nil {
+		reason = c.Reason
 	}
+
+	eventtype := "Normal"
+	if severity == events.EventSeverityError {
+		eventtype = "Warning"
+	}
+
+	r.EventRecorder.AnnotatedEventf(&kustomization, metadata, eventtype, reason, msg)
 }
 
 func (r *KustomizationReconciler) recordReadiness(ctx context.Context, kustomization kustomizev1.Kustomization) {
