@@ -146,7 +146,7 @@ func (key *MasterKey) Encrypt(dataKey []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to construct client to encrypt data: %w", err)
 	}
-	resp, err := c.Encrypt(context.Background(), crypto.AlgorithmRSAOAEP256, dataKey, nil)
+	resp, err := c.Encrypt(context.Background(), crypto.EncryptionAlgorithmRSAOAEP256, dataKey, nil)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt data: %w", err)
 	}
@@ -168,7 +168,7 @@ func (key *MasterKey) Decrypt() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct client to decrypt data: %w", err)
 	}
-	resp, err := c.Decrypt(context.Background(), crypto.AlgorithmRSAOAEP256, []byte(key.EncryptedKey), nil)
+	resp, err := c.Decrypt(context.Background(), crypto.EncryptionAlgorithmRSAOAEP256, []byte(key.EncryptedKey), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt data: %w", err)
 	}
