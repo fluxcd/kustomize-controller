@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.22.0
+
+**Release date:** 2022-03-21
+
+This prerelease introduces a new annotation `kustomize.toolkit.fluxcd.io/ssa: merge`
+for allowing kustomize-controller to patch cluster addons such as CoreDNS without removing
+the kubectl managed fields.
+
+In addition, various dependencies where updated to their latest versions, and
+the code base was refactored to align with `fluxcd/pkg/runtime` v0.13 release.
+
+Improvements:
+- Allow shared ownership of in-cluster objects applied with kubectl
+  [#581](https://github.com/fluxcd/kustomize-controller/pull/581)
+- Update `pkg/runtime` and `apis/meta`
+  [#575](https://github.com/fluxcd/kustomize-controller/pull/575)
+- Update dependencies
+  [#584](https://github.com/fluxcd/kustomize-controller/pull/584)
+
 ## 0.21.1
 
 **Release date:** 2022-02-23
