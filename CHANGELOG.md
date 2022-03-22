@@ -10,6 +10,9 @@ This prerelease introduces a new annotation `kustomize.toolkit.fluxcd.io/ssa: me
 for allowing kustomize-controller to patch cluster addons such as CoreDNS without removing
 the kubectl managed fields.
 
+The source-controller dependency was updated to version `v0.22` which 
+introduces API `v1beta2` and deprecates `v1beta1`.
+
 In addition, various dependencies where updated to their latest versions, and
 the code base was refactored to align with `fluxcd/pkg/runtime` v0.13 release.
 
