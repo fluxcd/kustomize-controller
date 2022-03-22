@@ -20,6 +20,8 @@ Improvements:
   [#575](https://github.com/fluxcd/kustomize-controller/pull/575)
 - Update dependencies
   [#584](https://github.com/fluxcd/kustomize-controller/pull/584)
+- SOPS: Add support for Azure Key Vault credentials
+  [#495](https://github.com/fluxcd/kustomize-controller/pull/495)
 
 ## 0.21.1
 
