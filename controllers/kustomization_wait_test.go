@@ -167,7 +167,7 @@ data:
 	})
 
 	t.Run("emits unhealthy event", func(t *testing.T) {
-		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+		events := getEvents(resultK.GetName(), map[string]string{"revision": revision})
 		g.Expect(len(events) > 0).To(BeTrue())
 		g.Expect(events[len(events)-1].Type).To(BeIdenticalTo("Warning"))
 		g.Expect(events[len(events)-1].Message).To(ContainSubstring("does-not-exists"))
@@ -190,7 +190,7 @@ data:
 
 	t.Run("emits recovery event", func(t *testing.T) {
 		expectedMessage := "Health check passed"
-		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+		events := getEvents(resultK.GetName(), map[string]string{"revision": revision})
 		g.Expect(len(events) > 1).To(BeTrue())
 		g.Expect(events[len(events)-2].Type).To(BeIdenticalTo("Normal"))
 		g.Expect(events[len(events)-2].Message).To(ContainSubstring(expectedMessage))

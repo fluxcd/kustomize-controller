@@ -217,7 +217,7 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 			return resultK.Status.LastAttemptedRevision == revision
 		}, timeout, time.Second).Should(BeTrue())
 
-		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+		events := getEvents(resultK.GetName(), map[string]string{"revision": revision})
 		g.Expect(len(events)).To(BeIdenticalTo(1))
 		g.Expect(events[0].Message).Should(ContainSubstring("Reconciliation finished"))
 		g.Expect(events[0].Message).ShouldNot(ContainSubstring("configured"))

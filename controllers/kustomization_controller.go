@@ -983,7 +983,7 @@ func (r *KustomizationReconciler) event(ctx context.Context, kustomization kusto
 		metadata = map[string]string{}
 	}
 	if revision != "" {
-		metadata[kustomizev1.GroupVersion.Group+"/revision"] = revision
+		metadata["revision"] = revision
 	}
 
 	reason := severity

@@ -137,7 +137,7 @@ stringData:
 		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.ReadyCondition)).To(BeFalse())
 
 		t.Run("emits validation error event", func(t *testing.T) {
-			events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+			events := getEvents(resultK.GetName(), map[string]string{"revision": revision})
 			g.Expect(len(events) > 0).To(BeTrue())
 			g.Expect(events[0].Type).To(BeIdenticalTo("Warning"))
 			g.Expect(events[0].Message).To(ContainSubstring("invalid, error: secret is immutable"))
