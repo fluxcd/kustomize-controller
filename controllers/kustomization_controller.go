@@ -283,7 +283,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		kustomization.Spec.Interval.Duration.String())
 	log.Info(msg, "revision", source.GetArtifact().Revision)
 	r.event(ctx, reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityInfo,
-		msg, map[string]string{"commit_status": "update"})
+		msg, map[string]string{kustomizev1.GroupVersion.Group + "/commit_status": "update"})
 	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
 }
 
