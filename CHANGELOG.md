@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.22.1
+
+**Release date:** 2022-03-24
+
+This prerelease fixes a regression bug where alerts are sent for every reconciliation run.
+
+Fixes:
+- Ensure event annotations are prefixed with Group FQDN
+  [#591](https://github.com/fluxcd/kustomize-controller/pull/591)
+
 ## 0.22.0
 
 **Release date:** 2022-03-21

@@ -13,7 +13,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/drone/envsubst v1.0.3
-	github.com/fluxcd/kustomize-controller/api v0.22.0
+	github.com/fluxcd/kustomize-controller/api v0.22.1
 	github.com/fluxcd/pkg/apis/acl v0.0.3
 	github.com/fluxcd/pkg/apis/kustomize v0.3.2
 	github.com/fluxcd/pkg/apis/meta v0.12.1
