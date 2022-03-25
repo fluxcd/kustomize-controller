@@ -2,11 +2,33 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.22.2
+
+**Release date:** 2022-03-25
+
+This prerelease fixes a regression bug where the SOPS keyservice would not
+properly fall back to the default server for Azure Key Vault decryption
+requests.
+
+In addition, Kustomize has been updated to `v4.5.3` to address an issue with
+YAML anchors.
+
+Improvements:
+- Update Kustomize to v4.5.3
+  [#594](https://github.com/fluxcd/kustomize-controller/pull/597)
+- Update source-controller API to v0.22.3
+  [#596](https://github.com/fluxcd/kustomize-controller/pull/596)
+
+Fixes:
+- sops/keyservice: properly fallback to default
+  [#597](https://github.com/fluxcd/kustomize-controller/pull/597)
+
 ## 0.22.1
 
 **Release date:** 2022-03-24
 
-This prerelease fixes a regression bug where alerts are sent for every reconciliation run.
+This prerelease fixes a regression bug where alerts are sent for every
+reconciliation run.
 
 Fixes:
 - Ensure event annotations are prefixed with Group FQDN
