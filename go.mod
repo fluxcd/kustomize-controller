@@ -21,7 +21,7 @@ require (
 	github.com/fluxcd/pkg/ssa v0.15.1
 	github.com/fluxcd/pkg/testserver v0.2.0
 	github.com/fluxcd/pkg/untar v0.1.0
-	github.com/fluxcd/source-controller/api v0.22.0
+	github.com/fluxcd/source-controller/api v0.22.3
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/hashicorp/vault/api v1.4.1
 	github.com/onsi/gomega v1.18.1
