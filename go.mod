@@ -36,10 +36,25 @@ require (
 	k8s.io/client-go v0.23.4
 	sigs.k8s.io/cli-utils v0.29.3
 	sigs.k8s.io/controller-runtime v0.11.1
-	sigs.k8s.io/kustomize/api v0.11.2
-	sigs.k8s.io/kustomize/kyaml v0.13.3
+	sigs.k8s.io/kustomize/api v0.11.3
+	sigs.k8s.io/kustomize/kyaml v0.13.4
 	sigs.k8s.io/yaml v1.3.0
 )
+
+// Pin kustomize to v4.5.3
+replace (
+	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.11.3
+	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.13.4
+)
+
+// Fix CVE-2021-30465
+// Fix CVE-2021-43784
+// Fix GO-2021-0085
+// Fix GO-2021-0087
+replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.3
+
+// Fix CVE-2021-41190
+replace github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
 
 require (
 	cloud.google.com/go v0.99.0 // indirect
@@ -193,18 +208,3 @@ require (
 	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )
-
-// pin kustomize to v4.5.2
-replace (
-	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.10.1
-	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.13.0
-)
-
-// Fix CVE-2021-30465
-// Fix CVE-2021-43784
-// Fix GO-2021-0085
-// Fix GO-2021-0087
-replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.3
-
-// Fix CVE-2021-41190
-replace github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
