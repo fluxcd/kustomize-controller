@@ -165,8 +165,9 @@ func (ks Server) Encrypt(ctx context.Context,
 		// Fallback to default server if no custom settings are configured
 		// to ensure backwards compatibility with global configurations
 		if ks.AzureAADConfig == nil {
-			return ks.Encrypt(ctx, req)
+			return ks.DefaultServer.Encrypt(ctx, req)
 		}
+
 		ciphertext, err := ks.encryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Plaintext)
 		if err != nil {
 			return nil, err
@@ -252,8 +253,9 @@ func (ks Server) Decrypt(ctx context.Context,
 		// Fallback to default server if no custom settings are configured
 		// to ensure backwards compatibility with global configurations
 		if ks.AzureAADConfig == nil {
-			return ks.Decrypt(ctx, req)
+			return ks.DefaultServer.Decrypt(ctx, req)
 		}
+
 		plaintext, err := ks.decryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Ciphertext)
 		if err != nil {
 			return nil, err

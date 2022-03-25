@@ -12,7 +12,7 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 # Allows for defining additional Docker buildx arguments, e.g. '--push'.
-BUILD_ARGS ?=
+BUILD_ARGS ?= --load
 # Architectures to build images for.
 BUILD_PLATFORMS ?= linux/amd64
 
@@ -106,7 +106,6 @@ docker-build:
 	docker buildx build \
 	--platform=$(BUILD_PLATFORMS) \
 	-t ${IMG} \
-	--load \
 	${BUILD_ARGS} .
 
 # Push the docker image

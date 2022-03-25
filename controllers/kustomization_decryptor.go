@@ -160,14 +160,6 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 		var ageIdentities []string
 		var vaultToken string
 		for name, value := range secret.Data {
-			if name == DecryptionAzureAuthFile {
-				azureConf := azkv.AADConfig{}
-				if err = azkv.LoadAADConfigFromBytes(value, &azureConf); err != nil {
-					return err
-				}
-				kd.azureAADConfig = &azureConf
-				continue
-			}
 			switch filepath.Ext(name) {
 			case ".asc":
 				keyPath, err := securejoin.SecureJoin(tmpDir, name)
@@ -182,12 +174,21 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 				}
 			case ".agekey":
 				ageIdentities = append(ageIdentities, string(value))
-			case ".vault-token":
-				// Make sure we have the absolute file name
+			case filepath.Ext(DecryptionVaultTokenFileName):
+				// Make sure we have the absolute name
 				if name == DecryptionVaultTokenFileName {
 					token := string(value)
 					token = strings.Trim(strings.TrimSpace(token), "\n")
 					vaultToken = token
+				}
+			case filepath.Ext(DecryptionAzureAuthFile):
+				// Make sure we have the absolute name
+				if name == DecryptionAzureAuthFile {
+					azureConf := azkv.AADConfig{}
+					if err = azkv.LoadAADConfigFromBytes(value, &azureConf); err != nil {
+						return err
+					}
+					kd.azureAADConfig = &azureConf
 				}
 			}
 		}
