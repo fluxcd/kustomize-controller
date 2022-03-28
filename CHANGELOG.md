@@ -15,7 +15,7 @@ YAML anchors.
 
 Improvements:
 - Update Kustomize to v4.5.3
-  [#594](https://github.com/fluxcd/kustomize-controller/pull/597)
+  [#594](https://github.com/fluxcd/kustomize-controller/pull/594)
 - Update source-controller API to v0.22.3
   [#596](https://github.com/fluxcd/kustomize-controller/pull/596)
 
