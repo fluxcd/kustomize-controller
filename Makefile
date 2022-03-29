@@ -4,12 +4,17 @@ IMG ?= fluxcd/kustomize-controller:latest
 CRD_OPTIONS ?= crd:crdVersions=v1
 SOURCE_VER ?= v0.22.3
 
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+# Repository root based on Git metadata
+REPOSITORY_ROOT := $(shell git rev-parse --show-toplevel)
+BUILD_DIR := $(REPOSITORY_ROOT)/build
+
+# If gobin not set, create one on ./build and add to path.
 ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
+GOBIN=$(BUILD_DIR)/gobin
 else
 GOBIN=$(shell go env GOBIN)
 endif
+export PATH:=${GOBIN}:${PATH}
 
 # Allows for defining additional Go test args, e.g. '-tags integration'.
 GO_TEST_ARGS ?=
@@ -25,7 +30,7 @@ ENVTEST_ARCH ?= amd64
 all: manager
 
 # Download the envtest binaries to testbin
-ENVTEST_ASSETS_DIR=$(shell pwd)/build/testbin
+ENVTEST_ASSETS_DIR=$(BUILD_DIR)/testbin
 ENVTEST_KUBERNETES_VERSION?=latest
 install-envtest: setup-envtest
 	mkdir -p ${ENVTEST_ASSETS_DIR}
@@ -38,7 +43,7 @@ test: tidy generate fmt vet manifests api-docs download-crd-deps install-envtest
 
 # Build manager binary
 manager: generate fmt vet
-	go build -o bin/manager main.go
+	go build -o $(BUILD_DIR)/bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
@@ -120,18 +125,18 @@ docker-deploy:
 	kubectl -n flux-system set image deployment/kustomize-controller manager=${IMG}
 
 # Find or download controller-gen
-CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
+CONTROLLER_GEN = $(GOBIN)/controller-gen
 .PHONY: controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.7.0)
 
 # Find or download gen-crd-api-reference-docs
-GEN_CRD_API_REFERENCE_DOCS = $(shell pwd)/bin/gen-crd-api-reference-docs
+GEN_CRD_API_REFERENCE_DOCS = $(GOBIN)/gen-crd-api-reference-docs
 .PHONY: gen-crd-api-reference-docs
 gen-crd-api-reference-docs:
 	$(call go-install-tool,$(GEN_CRD_API_REFERENCE_DOCS),github.com/ahmetb/gen-crd-api-reference-docs@v0.3.0)
 
-ENVTEST = $(shell pwd)/bin/setup-envtest
+ENVTEST = $(GOBIN)/setup-envtest
 .PHONY: envtest
 setup-envtest: ## Download envtest-setup locally if necessary.
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
@@ -145,26 +150,26 @@ TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
+GOBIN=$(GOBIN) go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
 
 # Build fuzzers
 fuzz-build:
-	rm -rf $(shell pwd)/build/fuzz/
-	mkdir -p $(shell pwd)/build/fuzz/out/
+	rm -rf $(BUILD_DIR)/fuzz/
+	mkdir -p $(BUILD_DIR)/fuzz/out/
 
 	docker build . --tag local-fuzzing:latest -f tests/fuzz/Dockerfile.builder
 	docker run --rm \
 		-e FUZZING_LANGUAGE=go -e SANITIZER=address \
 		-e CIFUZZ_DEBUG='True' -e OSS_FUZZ_PROJECT_NAME=fluxcd \
-		-v "$(shell pwd)/build/fuzz/out":/out \
+		-v "$(BUILD_DIR)/fuzz/out":/out \
 		local-fuzzing:latest
 
 fuzz-smoketest: fuzz-build
 	docker run --rm \
-		-v "$(shell pwd)/build/fuzz/out":/out \
+		-v "$(BUILD_DIR)/fuzz/out":/out \
 		-v "$(shell pwd)/tests/fuzz/oss_fuzz_run.sh":/runner.sh \
 		local-fuzzing:latest \
 		bash -c "/runner.sh"
