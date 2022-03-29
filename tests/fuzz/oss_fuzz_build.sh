@@ -22,7 +22,7 @@ PROJECT_PATH="github.com/fluxcd/kustomize-controller"
 
 cd "${GO_SRC}"
 
-# Move fuzzer to their respective directories. 
+# Move fuzzer to their respective directories.
 # This removes dependency noises from the modules' go.mod and go.sum files.
 mv "${PROJECT_PATH}/tests/fuzz/age_fuzzer.go" "${PROJECT_PATH}/internal/sops/age/"
 mv "${PROJECT_PATH}/tests/fuzz/pgp_fuzzer.go" "${PROJECT_PATH}/internal/sops/pgp/"
@@ -38,7 +38,7 @@ sed -i 's;import (;import(\n	abc "github.com/fluxcd/kustomize-controller/control
 
 pushd "${PROJECT_PATH}"
 
-go mod tidy
+go get -d github.com/AdaLogics/go-fuzz-headers
 
 compile_go_fuzzer "${PROJECT_PATH}/internal/sops/age/" FuzzAge fuzz_age
 compile_go_fuzzer "${PROJECT_PATH}/internal/sops/pgp/" FuzzPgp fuzz_pgp
