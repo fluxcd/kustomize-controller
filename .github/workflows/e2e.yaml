@@ -54,7 +54,19 @@ jobs:
           version: 1.21.2
       - name: Setup SOPS
         uses: fluxcd/pkg/actions/sops@main
+      - name: Enable integration tests
+        # Only run integration tests for main branch
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo 'GO_TEST_ARGS=-tags integration' >> $GITHUB_ENV
       - name: Run controller tests
+        env:
+          TEST_AZURE_CLIENT_ID: ${{ secrets.TEST_AZURE_CLIENT_ID }}
+          TEST_AZURE_TENANT_ID: ${{ secrets.TEST_AZURE_TENANT_ID }}
+          TEST_AZURE_CLIENT_SECRET: ${{ secrets.TEST_AZURE_CLIENT_SECRET }}
+          TEST_AZURE_VAULT_URL: ${{ secrets.TEST_AZURE_VAULT_URL }}
+          TEST_AZURE_VAULT_KEY_NAME: ${{ secrets.TEST_AZURE_VAULT_KEY_NAME }}
+          TEST_AZURE_VAULT_KEY_VERSION: ${{ secrets.TEST_AZURE_VAULT_KEY_VERSION }}
         run: make test
       - name: Check if working tree is dirty
         run: |
