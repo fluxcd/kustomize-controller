@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.22.3
+
+**Release date:** 2022-03-29
+
+This prerelease fixes a compatability issue between SOPS' Azure Key Vault
+integration, and the controller's. In addition, Kustomize has been updated
+to [`v4.5.4`](https://github.com/kubernetes-sigs/kustomize/releases/tag/kustomize%2Fv4.5.4)
+to address an issue with ConfigMap and Secret generators.
+
+Fixes:
+- sops/azkv: ensure compatibility with upstream
+  [#604](https://github.com/fluxcd/kustomize-controller/pull/604)
+- Update Kustomize to v4.5.4
+  [#606](https://github.com/fluxcd/kustomize-controller/pull/606)
+
 ## 0.22.2
 
 **Release date:** 2022-03-25
