@@ -1,4 +1,5 @@
-// +tag integration
+//go:build integration
+// +build integration
 
 /*
 Copyright 2022 The Flux authors
