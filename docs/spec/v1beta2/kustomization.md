@@ -242,6 +242,51 @@ const (
 )
 ```
 
+## Recommended settings
+
+When deploying applications to production environments,
+it is recommended to configure the following fields,
+while adjusting them to your desires for responsiveness:
+
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: webapp
+  namespace: apps
+spec:
+  interval: 1m0s # check for new commits every minute and apply changes
+  url: https://github.com/org/webapp # clone over HTTPS 
+  secretRef: # use token auth 
+    name: webapp-git-token # Flux user PAT (read-only access)
+  ref:
+    branch: main
+  ignore: |
+    # exclude all
+    /*
+    # include deploy dir
+    !/deploy
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: webapp
+  namespace: apps
+spec:
+  interval: 60m0s # detect drift and undo kubectl edits every hour
+  wait: true # wait for all applied resources to become ready
+  timeout: 3m0s # give up waiting after three minutes
+  retryInterval: 2m0s # retry every two minutes on apply or waiting failures
+  prune: true # remove stale resources from cluster
+  force: true # recreate resources on immutable fields changes
+  targetNamespace: apps # set the namespace for all resources
+  sourceRef:
+    kind: GitRepository
+    name: webapp
+    namspace: apps
+  path: "./deploy/production"
+```
+
 ## Source reference
 
 The Kustomization `spec.sourceRef` is a reference to an object managed by
