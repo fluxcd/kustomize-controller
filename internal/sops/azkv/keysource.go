@@ -7,6 +7,7 @@ package azkv
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
@@ -150,7 +151,11 @@ func (key *MasterKey) Encrypt(dataKey []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to encrypt data: %w", err)
 	}
-	key.EncryptedKey = string(resp.Result)
+	// This is for compatibility between the SOPS upstream which uses
+	// a much older Azure SDK, and our implementation which is up-to-date
+	// with the latest.
+	encodedEncryptedKey := base64.RawURLEncoding.EncodeToString(resp.Result)
+	key.SetEncryptedDataKey([]byte(encodedEncryptedKey))
 	return nil
 }
 
@@ -168,7 +173,14 @@ func (key *MasterKey) Decrypt() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct client to decrypt data: %w", err)
 	}
-	resp, err := c.Decrypt(context.Background(), crypto.EncryptionAlgorithmRSAOAEP256, []byte(key.EncryptedKey), nil)
+	// This is for compatibility between the SOPS upstream which uses
+	// a much older Azure SDK, and our implementation which is up-to-date
+	// with the latest.
+	rawEncryptedKey, err := base64.RawURLEncoding.DecodeString(key.EncryptedKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode encrypted key: %w", err)
+	}
+	resp, err := c.Decrypt(context.Background(), crypto.EncryptionAlgorithmRSAOAEP256, rawEncryptedKey, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt data: %w", err)
 	}
