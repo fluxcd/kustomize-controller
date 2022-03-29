@@ -36,15 +36,15 @@ require (
 	k8s.io/client-go v0.23.4
 	sigs.k8s.io/cli-utils v0.29.3
 	sigs.k8s.io/controller-runtime v0.11.1
-	sigs.k8s.io/kustomize/api v0.11.3
-	sigs.k8s.io/kustomize/kyaml v0.13.4
+	sigs.k8s.io/kustomize/api v0.11.4
+	sigs.k8s.io/kustomize/kyaml v0.13.6
 	sigs.k8s.io/yaml v1.3.0
 )
 
-// Pin kustomize to v4.5.3
+// Pin kustomize to v4.5.4
 replace (
-	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.11.3
-	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.13.4
+	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.11.4
+	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.13.6
 )
 
 // Fix CVE-2021-30465
