@@ -286,7 +286,7 @@ func (kd KustomizeDecryptor) DataWithFormat(data []byte, inputFormat, outputForm
 
 	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(
 		[]keyservice.KeyServiceClient{
-			intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.vaultToken, kd.ageIdentities, kd.azureAADConfig)),
+			intkeyservice.NewLocalClient(intkeyservice.NewServer(kd.homeDir, kd.vaultToken, kd.ageIdentities, kd.azureAADConfig)),
 		},
 	)
 	if err != nil {

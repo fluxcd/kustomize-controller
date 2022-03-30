@@ -9,8 +9,6 @@ import (
 
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
@@ -25,10 +23,6 @@ import (
 // environmental variables. Any other request is forwarded to
 // the embedded DefaultServer.
 type Server struct {
-	// Prompt indicates whether the server should prompt before decrypting
-	// or encrypting data.
-	Prompt bool
-
 	// HomeDir configures the home directory used for PGP operations.
 	HomeDir string
 
@@ -47,15 +41,14 @@ type Server struct {
 	DefaultServer keyservice.KeyServiceServer
 }
 
-func NewServer(prompt bool, homeDir, vaultToken string, agePrivateKeys []string, azureCfg *azkv.AADConfig) keyservice.KeyServiceServer {
+func NewServer(homeDir, vaultToken string, agePrivateKeys []string, azureCfg *azkv.AADConfig) keyservice.KeyServiceServer {
 	server := &Server{
-		Prompt:         prompt,
 		HomeDir:        homeDir,
 		AgePrivateKeys: agePrivateKeys,
 		VaultToken:     vaultToken,
 		AzureAADConfig: azureCfg,
 		DefaultServer: &keyservice.Server{
-			Prompt: prompt,
+			Prompt: false,
 		},
 	}
 	return server
@@ -178,38 +171,7 @@ func (ks Server) Encrypt(ctx context.Context,
 	default:
 		return ks.DefaultServer.Encrypt(ctx, req)
 	}
-	if ks.Prompt {
-		err := ks.prompt(key, "encrypt")
-		if err != nil {
-			return nil, err
-		}
-	}
 	return response, nil
-}
-
-func keyToString(key *keyservice.Key) string {
-	switch k := key.KeyType.(type) {
-	case *keyservice.Key_PgpKey:
-		return fmt.Sprintf("PGP key with fingerprint %s", k.PgpKey.Fingerprint)
-	default:
-		return "Unknown key type"
-	}
-}
-
-func (ks Server) prompt(key *keyservice.Key, requestType string) error {
-	keyString := keyToString(key)
-	var response string
-	for response != "y" && response != "n" {
-		fmt.Printf("\nReceived %s request using %s. Respond to request? (y/n): ", requestType, keyString)
-		_, err := fmt.Scanln(&response)
-		if err != nil {
-			return err
-		}
-	}
-	if response == "n" {
-		return status.Errorf(codes.PermissionDenied, "Request rejected by user")
-	}
-	return nil
 }
 
 // Decrypt takes a decrypt request and decrypts the provided ciphertext with the provided key,
@@ -265,12 +227,6 @@ func (ks Server) Decrypt(ctx context.Context,
 		}
 	default:
 		return ks.DefaultServer.Decrypt(ctx, req)
-	}
-	if ks.Prompt {
-		err := ks.prompt(key, "decrypt")
-		if err != nil {
-			return nil, err
-		}
 	}
 	return response, nil
 }
