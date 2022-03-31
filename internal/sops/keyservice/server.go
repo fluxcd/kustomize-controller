@@ -46,17 +46,21 @@ type Server struct {
 	defaultServer keyservice.KeyServiceServer
 }
 
-func NewServer(homeDir, vaultToken string, agePrivateKeys []string, azureCfg *azkv.AADConfig) keyservice.KeyServiceServer {
-	server := &Server{
-		homeDir:        homeDir,
-		agePrivateKeys: agePrivateKeys,
-		vaultToken:     vaultToken,
-		azureAADConfig: azureCfg,
-		defaultServer: &keyservice.Server{
-			Prompt: false,
-		},
+// NewServer constructs a new Server, configuring it with the provided options
+// before returning the result.
+// When WithDefaultServer is not provided as an option, the SOPS server
+// implementation is configured as default.
+func NewServer(options ...ServerOption) keyservice.KeyServiceServer {
+	s := &Server{}
+	for _, opt := range options {
+		opt.ApplyToServer(s)
 	}
-	return server
+	if s.defaultServer == nil {
+		s.defaultServer = &keyservice.Server{
+			Prompt: false,
+		}
+	}
+	return s
 }
 
 // Encrypt takes an encrypt request and encrypts the provided plaintext with

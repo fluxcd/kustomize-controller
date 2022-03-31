@@ -284,9 +284,18 @@ func (kd KustomizeDecryptor) DataWithFormat(data []byte, inputFormat, outputForm
 		return nil, fmt.Errorf("LoadEncryptedFile: %w", err)
 	}
 
+	serverOpts := []intkeyservice.ServerOption{
+		intkeyservice.WithHomeDir(kd.homeDir),
+		intkeyservice.WithVaultToken(kd.vaultToken),
+		intkeyservice.WithAgePrivateKeys(kd.ageIdentities),
+	}
+	if kd.azureAADConfig != nil {
+		serverOpts = append(serverOpts, intkeyservice.WithAzureAADConfig(*kd.azureAADConfig))
+	}
+
 	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(
 		[]keyservice.KeyServiceClient{
-			intkeyservice.NewLocalClient(intkeyservice.NewServer(kd.homeDir, kd.vaultToken, kd.ageIdentities, kd.azureAADConfig)),
+			intkeyservice.NewLocalClient(intkeyservice.NewServer(serverOpts...)),
 		},
 	)
 	if err != nil {
