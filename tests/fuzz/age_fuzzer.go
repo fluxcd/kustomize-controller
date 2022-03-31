@@ -35,13 +35,17 @@ func FuzzAge(data []byte) int {
 	_ = masterKey.Encrypt(data)
 	_ = masterKey.EncryptIfNeeded(data)
 
-	receipts, err := f.GetString()
+	receipt, err := f.GetString()
 	if err != nil {
 		return 0
 	}
+	_, _ = MasterKeyFromRecipient(receipt)
 
-	_, _ = MasterKeysFromRecipients(receipts)
-	_, _ = MasterKeyFromRecipient(receipts)
+	identities, err := f.GetString()
+	if err != nil {
+		return 0
+	}
+	_, _ = MasterKeyFromIdentities(identities)
 
 	return 1
 }
