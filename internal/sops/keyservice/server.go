@@ -54,6 +54,88 @@ func NewServer(homeDir, vaultToken string, agePrivateKeys []string, azureCfg *az
 	return server
 }
 
+// Encrypt takes an encrypt request and encrypts the provided plaintext with
+// the provided key, returning the encrypted result.
+func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*keyservice.EncryptResponse, error) {
+	key := req.Key
+	switch k := key.KeyType.(type) {
+	case *keyservice.Key_PgpKey:
+		ciphertext, err := ks.encryptWithPgp(k.PgpKey, req.Plaintext)
+		if err != nil {
+			return nil, err
+		}
+		return &keyservice.EncryptResponse{
+			Ciphertext: ciphertext,
+		}, nil
+	case *keyservice.Key_AgeKey:
+		ciphertext, err := ks.encryptWithAge(k.AgeKey, req.Plaintext)
+		if err != nil {
+			return nil, err
+		}
+		return &keyservice.EncryptResponse{
+			Ciphertext: ciphertext,
+		}, nil
+	case *keyservice.Key_AzureKeyvaultKey:
+		if ks.AzureAADConfig != nil {
+			ciphertext, err := ks.encryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Plaintext)
+			if err != nil {
+				return nil, err
+			}
+			return &keyservice.EncryptResponse{
+				Ciphertext: ciphertext,
+			}, nil
+		}
+	}
+	// Fallback to default server for any other request.
+	return ks.DefaultServer.Encrypt(ctx, req)
+}
+
+// Decrypt takes a decrypt request and decrypts the provided ciphertext with
+// the provided key, returning the decrypted result.
+func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*keyservice.DecryptResponse, error) {
+	key := req.Key
+	switch k := key.KeyType.(type) {
+	case *keyservice.Key_PgpKey:
+		plaintext, err := ks.decryptWithPgp(k.PgpKey, req.Ciphertext)
+		if err != nil {
+			return nil, err
+		}
+		return &keyservice.DecryptResponse{
+			Plaintext: plaintext,
+		}, nil
+	case *keyservice.Key_AgeKey:
+		plaintext, err := ks.decryptWithAge(k.AgeKey, req.Ciphertext)
+		if err != nil {
+			return nil, err
+		}
+		return &keyservice.DecryptResponse{
+			Plaintext: plaintext,
+		}, nil
+	case *keyservice.Key_VaultKey:
+		if ks.VaultToken != "" {
+			plaintext, err := ks.decryptWithVault(k.VaultKey, req.Ciphertext)
+			if err != nil {
+				return nil, err
+			}
+			return &keyservice.DecryptResponse{
+				Plaintext: plaintext,
+			}, nil
+		}
+	case *keyservice.Key_AzureKeyvaultKey:
+		if ks.AzureAADConfig != nil {
+			plaintext, err := ks.decryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Ciphertext)
+			if err != nil {
+				return nil, err
+			}
+			return &keyservice.DecryptResponse{
+				Plaintext: plaintext,
+			}, nil
+		}
+	}
+	// Fallback to default server for any other request.
+	return ks.DefaultServer.Decrypt(ctx, req)
+}
+
 func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]byte, error) {
 	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint, ks.HomeDir)
 	err := pgpKey.Encrypt(plaintext)
@@ -129,104 +211,4 @@ func (ks *Server) decryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, cip
 	azureKey.EncryptedKey = string(ciphertext)
 	plaintext, err := azureKey.Decrypt()
 	return plaintext, err
-}
-
-// Encrypt takes an encrypt request and encrypts the provided plaintext with the provided key,
-// returning the encrypted result.
-func (ks Server) Encrypt(ctx context.Context,
-	req *keyservice.EncryptRequest) (*keyservice.EncryptResponse, error) {
-	key := req.Key
-	var response *keyservice.EncryptResponse
-	switch k := key.KeyType.(type) {
-	case *keyservice.Key_PgpKey:
-		ciphertext, err := ks.encryptWithPgp(k.PgpKey, req.Plaintext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.EncryptResponse{
-			Ciphertext: ciphertext,
-		}
-	case *keyservice.Key_AgeKey:
-		ciphertext, err := ks.encryptWithAge(k.AgeKey, req.Plaintext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.EncryptResponse{
-			Ciphertext: ciphertext,
-		}
-	case *keyservice.Key_AzureKeyvaultKey:
-		// Fallback to default server if no custom settings are configured
-		// to ensure backwards compatibility with global configurations
-		if ks.AzureAADConfig == nil {
-			return ks.DefaultServer.Encrypt(ctx, req)
-		}
-
-		ciphertext, err := ks.encryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Plaintext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.EncryptResponse{
-			Ciphertext: ciphertext,
-		}
-	default:
-		return ks.DefaultServer.Encrypt(ctx, req)
-	}
-	return response, nil
-}
-
-// Decrypt takes a decrypt request and decrypts the provided ciphertext with the provided key,
-// returning the decrypted result.
-func (ks Server) Decrypt(ctx context.Context,
-	req *keyservice.DecryptRequest) (*keyservice.DecryptResponse, error) {
-	key := req.Key
-	var response *keyservice.DecryptResponse
-	switch k := key.KeyType.(type) {
-	case *keyservice.Key_PgpKey:
-		plaintext, err := ks.decryptWithPgp(k.PgpKey, req.Ciphertext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.DecryptResponse{
-			Plaintext: plaintext,
-		}
-	case *keyservice.Key_AgeKey:
-		plaintext, err := ks.decryptWithAge(k.AgeKey, req.Ciphertext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.DecryptResponse{
-			Plaintext: plaintext,
-		}
-	case *keyservice.Key_VaultKey:
-		// FallBack to DefaultServer if vaulToken is not present
-		// to ensure backward compatibility (VAULT_TOKEN env var is set)
-		if ks.VaultToken == "" {
-			return ks.DefaultServer.Decrypt(ctx, req)
-		}
-
-		plaintext, err := ks.decryptWithVault(k.VaultKey, req.Ciphertext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.DecryptResponse{
-			Plaintext: plaintext,
-		}
-	case *keyservice.Key_AzureKeyvaultKey:
-		// Fallback to default server if no custom settings are configured
-		// to ensure backwards compatibility with global configurations
-		if ks.AzureAADConfig == nil {
-			return ks.DefaultServer.Decrypt(ctx, req)
-		}
-
-		plaintext, err := ks.decryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Ciphertext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.DecryptResponse{
-			Plaintext: plaintext,
-		}
-	default:
-		return ks.DefaultServer.Decrypt(ctx, req)
-	}
-	return response, nil
 }
