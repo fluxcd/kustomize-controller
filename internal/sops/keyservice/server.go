@@ -9,6 +9,8 @@ import (
 
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
@@ -94,6 +96,8 @@ func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*
 				Ciphertext: ciphertext,
 			}, nil
 		}
+	case nil:
+		return nil, status.Errorf(codes.NotFound, "must provide a key")
 	}
 	// Fallback to default server for any other request.
 	return ks.defaultServer.Encrypt(ctx, req)
@@ -140,6 +144,8 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 				Plaintext: plaintext,
 			}, nil
 		}
+	case nil:
+		return nil, status.Errorf(codes.NotFound, "must provide a key")
 	}
 	// Fallback to default server for any other request.
 	return ks.defaultServer.Decrypt(ctx, req)
