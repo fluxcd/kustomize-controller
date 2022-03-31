@@ -152,6 +152,10 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 }
 
 func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]byte, error) {
+	if ks.homeDir == "" {
+		return nil, status.Errorf(codes.Unimplemented, "PGP encrypt service unavailable: missing home dir configuration")
+	}
+
 	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint, ks.homeDir)
 	err := pgpKey.Encrypt(plaintext)
 	if err != nil {
@@ -161,6 +165,10 @@ func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]by
 }
 
 func (ks *Server) decryptWithPgp(key *keyservice.PgpKey, ciphertext []byte) ([]byte, error) {
+	if ks.homeDir == "" {
+		return nil, status.Errorf(codes.Unimplemented, "PGP decrypt service unavailable: missing home dir configuration")
+	}
+
 	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint, ks.homeDir)
 	pgpKey.EncryptedKey = string(ciphertext)
 	plaintext, err := pgpKey.Decrypt()
@@ -168,6 +176,10 @@ func (ks *Server) decryptWithPgp(key *keyservice.PgpKey, ciphertext []byte) ([]b
 }
 
 func (ks *Server) encryptWithAge(key *keyservice.AgeKey, plaintext []byte) ([]byte, error) {
+	// Unlike the other encrypt and decrypt methods, validation of configuration
+	// is not required here. As the encryption happens purely based on the
+	// Recipient from the key.
+
 	ageKey := age.MasterKey{
 		Recipient: key.Recipient,
 	}
@@ -178,6 +190,10 @@ func (ks *Server) encryptWithAge(key *keyservice.AgeKey, plaintext []byte) ([]by
 }
 
 func (ks *Server) decryptWithAge(key *keyservice.AgeKey, ciphertext []byte) ([]byte, error) {
+	if len(ks.agePrivateKeys) == 0 {
+		return nil, status.Errorf(codes.Unimplemented, "age decrypt service unavailable: no private keys present")
+	}
+
 	ageKey := age.MasterKey{
 		Recipient:  key.Recipient,
 		Identities: ks.agePrivateKeys,
@@ -188,6 +204,10 @@ func (ks *Server) decryptWithAge(key *keyservice.AgeKey, ciphertext []byte) ([]b
 }
 
 func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) ([]byte, error) {
+	if ks.vaultToken == "" {
+		return nil, status.Errorf(codes.Unimplemented, "Hashicorp Vault decrypt service unavailable: no token found")
+	}
+
 	vaultKey := hcvault.MasterKey{
 		VaultAddress: key.VaultAddress,
 		EnginePath:   key.EnginePath,
@@ -200,6 +220,10 @@ func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) 
 }
 
 func (ks *Server) encryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
+	if ks.azureAADConfig == nil {
+		return nil, status.Errorf(codes.Unimplemented, "Azure Key Vault encrypt service unavailable: no authentication config present")
+	}
+
 	azureKey := azkv.MasterKey{
 		VaultURL: key.VaultUrl,
 		Name:     key.Name,
@@ -215,6 +239,10 @@ func (ks *Server) encryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, pla
 }
 
 func (ks *Server) decryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
+	if ks.azureAADConfig == nil {
+		return nil, status.Errorf(codes.Unimplemented, "Azure Key Vault decrypt service unavailable: no authentication config present")
+	}
+
 	azureKey := azkv.MasterKey{
 		VaultURL: key.VaultUrl,
 		Name:     key.Name,
