@@ -31,6 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+
+	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 )
 
 // KustomizeImpersonation holds the state for impersonating a service account.
@@ -39,6 +41,7 @@ type KustomizeImpersonation struct {
 	kustomization         kustomizev1.Kustomization
 	statusPoller          *polling.StatusPoller
 	defaultServiceAccount string
+	kubeConfigOpts        runtimeClient.KubeConfigOptions
 }
 
 // NewKustomizeImpersonation creates a new KustomizeImpersonation.
@@ -46,12 +49,14 @@ func NewKustomizeImpersonation(
 	kustomization kustomizev1.Kustomization,
 	kubeClient client.Client,
 	statusPoller *polling.StatusPoller,
-	defaultServiceAccount string) *KustomizeImpersonation {
+	defaultServiceAccount string,
+	kubeConfigOpts runtimeClient.KubeConfigOptions) *KustomizeImpersonation {
 	return &KustomizeImpersonation{
 		defaultServiceAccount: defaultServiceAccount,
 		kustomization:         kustomization,
 		statusPoller:          statusPoller,
 		Client:                kubeClient,
+		kubeConfigOpts:        kubeConfigOpts,
 	}
 }
 
@@ -141,6 +146,8 @@ func (ki *KustomizeImpersonation) clientForKubeConfig(ctx context.Context) (clie
 	if err != nil {
 		return nil, nil, err
 	}
+
+	restConfig = runtimeClient.KubeConfig(restConfig, ki.kubeConfigOpts)
 	ki.setImpersonationConfig(restConfig)
 
 	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)

@@ -57,6 +57,7 @@ import (
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/acl"
+	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/predicates"
@@ -88,6 +89,7 @@ type KustomizationReconciler struct {
 	statusManager         string
 	NoCrossNamespaceRefs  bool
 	DefaultServiceAccount string
+	KubeConfigOpts        runtimeClient.KubeConfigOptions
 }
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
@@ -343,7 +345,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// setup the Kubernetes client for impersonation
-	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount)
+	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount, r.KubeConfigOpts)
 	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
@@ -926,7 +928,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 		kustomization.Status.Inventory.Entries != nil {
 		objects, _ := ListObjectsInInventory(kustomization.Status.Inventory)
 
-		impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount)
+		impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount, r.KubeConfigOpts)
 		if impersonation.CanFinalize(ctx) {
 			kubeClient, _, err := impersonation.GetClient(ctx)
 			if err != nil {

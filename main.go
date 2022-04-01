@@ -68,6 +68,7 @@ func main() {
 		concurrent            int
 		requeueDependency     time.Duration
 		clientOptions         client.Options
+		kubeConfigOpts        client.KubeConfigOptions
 		logOptions            logger.Options
 		leaderElectionOptions leaderelection.Options
 		aclOptions            acl.Options
@@ -89,6 +90,7 @@ func main() {
 	logOptions.BindFlags(flag.CommandLine)
 	leaderElectionOptions.BindFlags(flag.CommandLine)
 	aclOptions.BindFlags(flag.CommandLine)
+	kubeConfigOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
 	ctrl.SetLogger(logger.NewLogger(logOptions))
@@ -139,6 +141,7 @@ func main() {
 		MetricsRecorder:       metricsRecorder,
 		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), polling.Options{}),
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
+		KubeConfigOpts:        kubeConfigOpts,
 	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
