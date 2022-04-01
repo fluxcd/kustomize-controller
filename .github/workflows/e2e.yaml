@@ -52,8 +52,6 @@ jobs:
         uses: fluxcd/pkg/actions/kubectl@main
         with:
           version: 1.21.2
-      - name: Setup SOPS
-        uses: fluxcd/pkg/actions/sops@main
       - name: Enable integration tests
         # Only run integration tests for main branch
         if: github.ref == 'refs/heads/main'
