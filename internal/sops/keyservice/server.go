@@ -88,7 +88,7 @@ func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*
 		}, nil
 	case *keyservice.Key_AzureKeyvaultKey:
 		if ks.azureAADConfig != nil {
-			ciphertext, err := ks.encryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Plaintext)
+			ciphertext, err := ks.encryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Plaintext)
 			if err != nil {
 				return nil, err
 			}
@@ -136,7 +136,7 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 		}
 	case *keyservice.Key_AzureKeyvaultKey:
 		if ks.azureAADConfig != nil {
-			plaintext, err := ks.decryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Ciphertext)
+			plaintext, err := ks.decryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Ciphertext)
 			if err != nil {
 				return nil, err
 			}
@@ -156,7 +156,7 @@ func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]by
 		return nil, status.Errorf(codes.Unimplemented, "PGP encrypt service unavailable: missing home dir configuration")
 	}
 
-	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint, ks.homeDir)
+	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint, ks.homeDir)
 	err := pgpKey.Encrypt(plaintext)
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func (ks *Server) decryptWithPgp(key *keyservice.PgpKey, ciphertext []byte) ([]b
 		return nil, status.Errorf(codes.Unimplemented, "PGP decrypt service unavailable: missing home dir configuration")
 	}
 
-	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint, ks.homeDir)
+	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint, ks.homeDir)
 	pgpKey.EncryptedKey = string(ciphertext)
 	plaintext, err := pgpKey.Decrypt()
 	return plaintext, err
@@ -193,7 +193,6 @@ func (ks *Server) decryptWithAge(key *keyservice.AgeKey, ciphertext []byte) ([]b
 	if len(ks.agePrivateKeys) == 0 {
 		return nil, status.Errorf(codes.Unimplemented, "age decrypt service unavailable: no private keys present")
 	}
-
 	ageKey := age.MasterKey{
 		Recipient:  key.Recipient,
 		Identities: ks.agePrivateKeys,
@@ -219,7 +218,7 @@ func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) 
 	return plaintext, err
 }
 
-func (ks *Server) encryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
+func (ks *Server) encryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
 	if ks.azureAADConfig == nil {
 		return nil, status.Errorf(codes.Unimplemented, "Azure Key Vault encrypt service unavailable: no authentication config present")
 	}
@@ -238,7 +237,7 @@ func (ks *Server) encryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, pla
 	return []byte(azureKey.EncryptedKey), nil
 }
 
-func (ks *Server) decryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
+func (ks *Server) decryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
 	if ks.azureAADConfig == nil {
 		return nil, status.Errorf(codes.Unimplemented, "Azure Key Vault decrypt service unavailable: no authentication config present")
 	}
