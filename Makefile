@@ -4,6 +4,9 @@ IMG ?= fluxcd/kustomize-controller:latest
 CRD_OPTIONS ?= crd:crdVersions=v1
 SOURCE_VER ?= v0.22.3
 
+# Use the same version of SOPS already referenced on go.mod
+SOPS_VER := $(shell go list -m all | grep go.mozilla.org/sops | awk '{print $$2}')
+
 # Repository root based on Git metadata
 REPOSITORY_ROOT := $(shell git rev-parse --show-toplevel)
 BUILD_DIR := $(REPOSITORY_ROOT)/build
@@ -14,7 +17,7 @@ GOBIN=$(BUILD_DIR)/gobin
 else
 GOBIN=$(shell go env GOBIN)
 endif
-export PATH:=${GOBIN}:${PATH}
+export PATH:=$(GOBIN):${PATH}
 
 # Allows for defining additional Go test args, e.g. '-tags integration'.
 GO_TEST_ARGS ?=
@@ -36,9 +39,13 @@ install-envtest: setup-envtest
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	$(ENVTEST) use $(ENVTEST_KUBERNETES_VERSION) --arch=$(ENVTEST_ARCH) --bin-dir=$(ENVTEST_ASSETS_DIR)
 
+SOPS = $(GOBIN)/sops
+$(SOPS): ## Download latest sops binary if none is found.
+	$(call go-install-tool,$(SOPS),go.mozilla.org/sops/v3/cmd/sops@$(SOPS_VER))
+
 # Run controller tests
 KUBEBUILDER_ASSETS?="$(shell $(ENVTEST) --arch=$(ENVTEST_ARCH) use -i $(ENVTEST_KUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR) -p path)"
-test: tidy generate fmt vet manifests api-docs download-crd-deps install-envtest
+test: tidy generate fmt vet manifests api-docs download-crd-deps install-envtest $(SOPS)
 	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./... $(GO_TEST_ARGS) -v -coverprofile cover.out
 
 # Build manager binary

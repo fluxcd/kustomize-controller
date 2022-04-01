@@ -18,6 +18,7 @@ In addition to the above, the following dependencies are also used by some of th
 - `controller-gen` (v0.7.0)
 - `gen-crd-api-reference-docs` (v0.3.0)
 - `setup-envtest` (latest)
+- `sops` (v3.7.2)
 
 If any of the above dependencies are not present on your system, the first invocation of a `make` target that requires them will install them.
 
