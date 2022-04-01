@@ -27,6 +27,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/engine"
 	ctrl "sigs.k8s.io/controller-runtime"
 	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
@@ -42,6 +43,7 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/kustomize-controller/controllers"
+	"github.com/fluxcd/kustomize-controller/internal/statusreaders"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -132,6 +134,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	jobStatusReader := statusreaders.NewCustomJobStatusReader(mgr.GetRESTMapper())
 	if err = (&controllers.KustomizationReconciler{
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,
@@ -139,9 +142,11 @@ func main() {
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         eventRecorder,
 		MetricsRecorder:       metricsRecorder,
-		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), polling.Options{}),
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
 		KubeConfigOpts:        kubeConfigOpts,
+		StatusPoller: polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), polling.Options{
+			CustomStatusReaders: []engine.StatusReader{jobStatusReader},
+		}),
 	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
