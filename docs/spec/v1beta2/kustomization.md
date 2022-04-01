@@ -283,7 +283,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: webapp
-    namspace: apps
+    namespace: apps
   path: "./deploy/production"
 ```
 
