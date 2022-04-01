@@ -18,6 +18,7 @@ package keyservice
 
 import (
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
+	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 
 	"go.mozilla.org/sops/v3/keyservice"
 )
@@ -41,7 +42,7 @@ type WithVaultToken string
 
 // ApplyToServer applies this configuration to the given Server.
 func (o WithVaultToken) ApplyToServer(s *Server) {
-	s.vaultToken = string(o)
+	s.vaultToken = hcvault.VaultToken(o)
 }
 
 // WithAgePrivateKey configures an age private key on the Server.

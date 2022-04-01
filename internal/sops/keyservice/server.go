@@ -36,7 +36,7 @@ type Server struct {
 	// vaultToken is the token used for Encrypt and Decrypt operations of
 	// Hashicorp Vault requests.
 	// When empty, the request will be handled by defaultServer.
-	vaultToken string
+	vaultToken hcvault.VaultToken
 
 	// azureAADConfig is the configuration used for Encrypt and Decrypt
 	// operations of Azure Key Vault requests.
@@ -211,9 +211,9 @@ func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) 
 		VaultAddress: key.VaultAddress,
 		EnginePath:   key.EnginePath,
 		KeyName:      key.KeyName,
-		VaultToken:   ks.vaultToken,
 	}
 	vaultKey.EncryptedKey = string(ciphertext)
+	ks.vaultToken.ApplyToMasterKey(&vaultKey)
 	plaintext, err := vaultKey.Decrypt()
 	return plaintext, err
 }
