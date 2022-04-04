@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -59,7 +60,7 @@ type KustomizeDecryptor struct {
 
 	kustomization  kustomizev1.Kustomization
 	gnuPGHome      pgp.GnuPGHome
-	ageIdentities  []string
+	ageIdentities  age.ParsedIdentities
 	vaultToken     string
 	azureAADConfig *azkv.AADConfig
 }
@@ -150,8 +151,6 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 			return fmt.Errorf("decryption secret error: %w", err)
 		}
 
-		var ageIdentities []string
-		var vaultToken string
 		for name, value := range secret.Data {
 			switch filepath.Ext(name) {
 			case ".asc":
@@ -159,13 +158,15 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 					return fmt.Errorf("failed to import '%s' Secret data: %w", name, err)
 				}
 			case ".agekey":
-				ageIdentities = append(ageIdentities, string(value))
+				if err := kd.ageIdentities.Import(string(value)); err != nil {
+					return fmt.Errorf("failed to import '%s' Secret data: %w", name, err)
+				}
 			case filepath.Ext(DecryptionVaultTokenFileName):
 				// Make sure we have the absolute name
 				if name == DecryptionVaultTokenFileName {
 					token := string(value)
 					token = strings.Trim(strings.TrimSpace(token), "\n")
-					vaultToken = token
+					kd.vaultToken = token
 				}
 			case filepath.Ext(DecryptionAzureAuthFile):
 				// Make sure we have the absolute name
@@ -178,9 +179,6 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 				}
 			}
 		}
-
-		kd.ageIdentities = ageIdentities
-		kd.vaultToken = vaultToken
 	}
 
 	return nil
@@ -260,7 +258,7 @@ func (kd KustomizeDecryptor) DataWithFormat(data []byte, inputFormat, outputForm
 	serverOpts := []intkeyservice.ServerOption{
 		intkeyservice.WithGnuPGHome(kd.gnuPGHome),
 		intkeyservice.WithVaultToken(kd.vaultToken),
-		intkeyservice.WithAgePrivateKeys(kd.ageIdentities),
+		intkeyservice.WithAgeIdentities(kd.ageIdentities),
 	}
 	if kd.azureAADConfig != nil {
 		serverOpts = append(serverOpts, intkeyservice.WithAzureAADConfig(*kd.azureAADConfig))

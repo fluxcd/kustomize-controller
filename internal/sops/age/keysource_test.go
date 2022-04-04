@@ -78,6 +78,28 @@ func TestMasterKeyFromIdentities(t *testing.T) {
 	g.Expect(got).To(BeNil())
 }
 
+func TestParsedIdentities_Import(t *testing.T) {
+	g := NewWithT(t)
+
+	i := make(ParsedIdentities, 0)
+	g.Expect(i.Import(mockIdentities...)).To(Succeed())
+	g.Expect(i).To(HaveLen(2))
+
+	g.Expect(i.Import("invalid")).To(HaveOccurred())
+	g.Expect(i).To(HaveLen(2))
+}
+
+func TestParsedIdentities_ApplyToMasterKey(t *testing.T) {
+	g := NewWithT(t)
+
+	i := make(ParsedIdentities, 0)
+	g.Expect(i.Import(mockIdentities...)).To(Succeed())
+
+	key := &MasterKey{}
+	i.ApplyToMasterKey(key)
+	g.Expect(key.parsedIdentities).To(BeEquivalentTo(i))
+}
+
 func TestMasterKey_Encrypt(t *testing.T) {
 	mockParsedRecipient, _ := parseRecipient(mockRecipient)
 

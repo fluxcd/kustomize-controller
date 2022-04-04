@@ -31,9 +31,9 @@ type Server struct {
 	// keyring.
 	gnuPGHome pgp.GnuPGHome
 
-	// agePrivateKeys holds the private keys used for Encrypt and Decrypt
-	// operations of age requests.
-	agePrivateKeys []string
+	// ageIdentities holds the parsed age identities used for Decrypt
+	// operations for age key types.
+	ageIdentities age.ParsedIdentities
 
 	// vaultToken is the token used for Encrypt and Decrypt operations of
 	// Hashicorp Vault requests.
@@ -190,13 +190,10 @@ func (ks *Server) encryptWithAge(key *keyservice.AgeKey, plaintext []byte) ([]by
 }
 
 func (ks *Server) decryptWithAge(key *keyservice.AgeKey, ciphertext []byte) ([]byte, error) {
-	if len(ks.agePrivateKeys) == 0 {
-		return nil, status.Errorf(codes.Unimplemented, "age decrypt service unavailable: no private keys present")
-	}
 	ageKey := age.MasterKey{
-		Recipient:  key.Recipient,
-		Identities: ks.agePrivateKeys,
+		Recipient: key.Recipient,
 	}
+	ks.ageIdentities.ApplyToMasterKey(&ageKey)
 	ageKey.EncryptedKey = string(ciphertext)
 	plaintext, err := ageKey.Decrypt()
 	return plaintext, err

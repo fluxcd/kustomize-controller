@@ -17,11 +17,13 @@ limitations under the License.
 package keyservice
 
 import (
+	extage "filippo.io/age"
+	"go.mozilla.org/sops/v3/keyservice"
+
+	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
-
-	"go.mozilla.org/sops/v3/keyservice"
 )
 
 // ServerOption is some configuration that modifies the Server.
@@ -46,26 +48,12 @@ func (o WithVaultToken) ApplyToServer(s *Server) {
 	s.vaultToken = hcvault.VaultToken(o)
 }
 
-// WithAgePrivateKey configures an age private key on the Server.
-// It can be used multiple times, as the value is appended to the set
-// of keys already configured on the Server.
-type WithAgePrivateKey string
+// WithAgeIdentities configures the parsed age identities on the Server.
+type WithAgeIdentities []extage.Identity
 
 // ApplyToServer applies this configuration to the given Server.
-func (o WithAgePrivateKey) ApplyToServer(s *Server) {
-	s.agePrivateKeys = append(s.agePrivateKeys, string(o))
-}
-
-// WithAgePrivateKeys configures a set of age private keys on the Server.
-// It can be used multiple times, as the set is appended to the set
-// of keys already configured on the Server.
-type WithAgePrivateKeys []string
-
-// ApplyToServer applies this configuration to the given Server.
-func (o WithAgePrivateKeys) ApplyToServer(s *Server) {
-	for _, k := range o {
-		s.agePrivateKeys = append(s.agePrivateKeys, k)
-	}
+func (o WithAgeIdentities) ApplyToServer(s *Server) {
+	s.ageIdentities = age.ParsedIdentities(o)
 }
 
 // WithAzureAADConfig configures the Azure AAD config on the Server.

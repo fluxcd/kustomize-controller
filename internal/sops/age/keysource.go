@@ -22,6 +22,10 @@ import (
 type MasterKey struct {
 	// Identities contains the set of Bench32-encoded age identities used to
 	// Decrypt.
+	// They are lazy-loaded using MasterKeyFromIdentities, or on first
+	// Decrypt().
+	// In addition to using this field, ParsedIdentities.ApplyToMasterKey() can
+	// be used to parse and lazy-load identities.
 	Identities []string
 	// Recipient contains the Bench32-encoded age public key used to Encrypt.
 	Recipient string
@@ -29,10 +33,12 @@ type MasterKey struct {
 	EncryptedKey string
 
 	// parsedIdentities contains a slice of parsed age identities.
-	// It is used to lazy-load the Identities once.
+	// It is used to lazy-load the Identities at-most once.
+	// It can also be injected by a (local) keyservice.KeyServiceServer using
+	// ParsedIdentities.ApplyToMasterKey().
 	parsedIdentities []age.Identity
 	// parsedRecipient contains a parsed age public key.
-	// It is used to lazy-load the Recipient once.
+	// It is used to lazy-load the Recipient at-most once.
 	parsedRecipient *age.X25519Recipient
 }
 
@@ -60,6 +66,33 @@ func MasterKeyFromIdentities(identities ...string) (*MasterKey, error) {
 		Identities:       identities,
 		parsedIdentities: parsedIdentities,
 	}, nil
+}
+
+// ParsedIdentities contains a set of parsed age identities.
+// It allows for creating a (local) keyservice.KeyServiceServer which parses
+// identities only once, to then inject them using ApplyToMasterKey() for all
+// requests.
+type ParsedIdentities []age.Identity
+
+// Import attempts to parse the given identities, to then add them to itself.
+// It returns any parsing error.
+// A single identity argument is allowed to be a multiline string containing
+// multiple identities. Empty lines and lines starting with "#" are ignored.
+// It is not thread safe, and parallel importing would better be done by
+// parsing (using age.ParseIdentities) and appending to the slice yourself, in
+// combination with e.g. a sync.Mutex.
+func (i *ParsedIdentities) Import(identity ...string) error {
+	identities, err := parseIdentities(identity...)
+	if err != nil {
+		return fmt.Errorf("failed to parse and add to age identities: %w", err)
+	}
+	*i = append(*i, identities...)
+	return nil
+}
+
+// ApplyToMasterKey configures the ParsedIdentities on the provided key.
+func (i ParsedIdentities) ApplyToMasterKey(key *MasterKey) {
+	key.parsedIdentities = i
 }
 
 // Encrypt takes a SOPS data key, encrypts it with the Recipient, and stores
@@ -93,7 +126,7 @@ func (key *MasterKey) Encrypt(dataKey []byte) error {
 	return nil
 }
 
-// EncryptIfNeeded encrypts the provided SOPS' data key, if it has not been
+// EncryptIfNeeded encrypts the provided SOPS data key, if it has not been
 // encrypted yet.
 func (key *MasterKey) EncryptIfNeeded(dataKey []byte) error {
 	if key.EncryptedKey == "" {
@@ -102,17 +135,18 @@ func (key *MasterKey) EncryptIfNeeded(dataKey []byte) error {
 	return nil
 }
 
-// EncryptedDataKey returns the encrypted SOPS' data key this master key holds.
+// EncryptedDataKey returns the encrypted SOPS data key this master key holds.
 func (key *MasterKey) EncryptedDataKey() []byte {
 	return []byte(key.EncryptedKey)
 }
 
-// SetEncryptedDataKey sets the encrypted SOPS' data key for this master key.
+// SetEncryptedDataKey sets the encrypted SOPS data key for this master key.
 func (key *MasterKey) SetEncryptedDataKey(enc []byte) {
 	key.EncryptedKey = string(enc)
 }
 
-// Decrypt decrypts the EncryptedKey with the Identities and returns the result.
+// Decrypt decrypts the EncryptedKey with the (parsed) Identities and returns
+// the result.
 func (key *MasterKey) Decrypt() ([]byte, error) {
 	if len(key.parsedIdentities) == 0 && len(key.Identities) > 0 {
 		parsedIdentities, err := parseIdentities(key.Identities...)
@@ -165,6 +199,8 @@ func parseRecipient(recipient string) (*age.X25519Recipient, error) {
 }
 
 // parseIdentities attempts to parse the string set of encoded age identities.
+// A single identity argument is allowed to be a multiline string containing
+// multiple identities. Empty lines and lines starting with "#" are ignored.
 func parseIdentities(identity ...string) ([]age.Identity, error) {
 	var identities []age.Identity
 	for _, i := range identity {
