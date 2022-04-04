@@ -58,11 +58,11 @@ const (
 type KustomizeDecryptor struct {
 	client.Client
 
-	kustomization  kustomizev1.Kustomization
-	gnuPGHome      pgp.GnuPGHome
-	ageIdentities  age.ParsedIdentities
-	vaultToken     string
-	azureAADConfig *azkv.AADConfig
+	kustomization kustomizev1.Kustomization
+	gnuPGHome     pgp.GnuPGHome
+	ageIdentities age.ParsedIdentities
+	vaultToken    string
+	azureToken    *azkv.Token
 }
 
 func NewDecryptor(kubeClient client.Client,
@@ -151,14 +151,15 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 			return fmt.Errorf("decryption secret error: %w", err)
 		}
 
+		var err error
 		for name, value := range secret.Data {
 			switch filepath.Ext(name) {
 			case ".asc":
-				if err := kd.gnuPGHome.Import(value); err != nil {
+				if err = kd.gnuPGHome.Import(value); err != nil {
 					return fmt.Errorf("failed to import '%s' Secret data: %w", name, err)
 				}
 			case ".agekey":
-				if err := kd.ageIdentities.Import(string(value)); err != nil {
+				if err = kd.ageIdentities.Import(string(value)); err != nil {
 					return fmt.Errorf("failed to import '%s' Secret data: %w", name, err)
 				}
 			case filepath.Ext(DecryptionVaultTokenFileName):
@@ -171,11 +172,13 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 			case filepath.Ext(DecryptionAzureAuthFile):
 				// Make sure we have the absolute name
 				if name == DecryptionAzureAuthFile {
-					azureConf := azkv.AADConfig{}
-					if err := azkv.LoadAADConfigFromBytes(value, &azureConf); err != nil {
-						return err
+					conf := azkv.AADConfig{}
+					if err = azkv.LoadAADConfigFromBytes(value, &conf); err != nil {
+						return fmt.Errorf("failed to import '%s' Secret data: %w", name, err)
 					}
-					kd.azureAADConfig = &azureConf
+					if kd.azureToken, err = azkv.TokenFromAADConfig(conf); err != nil {
+						return fmt.Errorf("failed to import '%s' Secret data: %w", name, err)
+					}
 				}
 			}
 		}
@@ -260,8 +263,8 @@ func (kd KustomizeDecryptor) DataWithFormat(data []byte, inputFormat, outputForm
 		intkeyservice.WithVaultToken(kd.vaultToken),
 		intkeyservice.WithAgeIdentities(kd.ageIdentities),
 	}
-	if kd.azureAADConfig != nil {
-		serverOpts = append(serverOpts, intkeyservice.WithAzureAADConfig(*kd.azureAADConfig))
+	if kd.azureToken != nil {
+		serverOpts = append(serverOpts, intkeyservice.WithAzureToken{Token: kd.azureToken})
 	}
 
 	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(

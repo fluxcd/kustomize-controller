@@ -56,12 +56,14 @@ func (o WithAgeIdentities) ApplyToServer(s *Server) {
 	s.ageIdentities = age.ParsedIdentities(o)
 }
 
-// WithAzureAADConfig configures the Azure AAD config on the Server.
-type WithAzureAADConfig azkv.AADConfig
+// WithAzureToken configures the Azure credential token on the Server.
+type WithAzureToken struct {
+	Token *azkv.Token
+}
 
 // ApplyToServer applies this configuration to the given Server.
-func (o WithAzureAADConfig) ApplyToServer(s *Server) {
-	s.azureAADConfig = (*azkv.AADConfig)(&o)
+func (o WithAzureToken) ApplyToServer(s *Server) {
+	s.azureToken = o.Token
 }
 
 // WithDefaultServer configures the fallback default server on the Server.

@@ -5,8 +5,6 @@
 package keyservice
 
 import (
-	"fmt"
-
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
@@ -40,10 +38,10 @@ type Server struct {
 	// When empty, the request will be handled by defaultServer.
 	vaultToken hcvault.VaultToken
 
-	// azureAADConfig is the configuration used for Encrypt and Decrypt
+	// azureToken is the credential token used for Encrypt and Decrypt
 	// operations of Azure Key Vault requests.
 	// When nil, the request will be handled by defaultServer.
-	azureAADConfig *azkv.AADConfig
+	azureToken *azkv.Token
 
 	// defaultServer is the fallback server, used to handle any request that
 	// is not eligible to be handled by this Server.
@@ -89,7 +87,7 @@ func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*
 			Ciphertext: ciphertext,
 		}, nil
 	case *keyservice.Key_AzureKeyvaultKey:
-		if ks.azureAADConfig != nil {
+		if ks.azureToken != nil {
 			ciphertext, err := ks.encryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Plaintext)
 			if err != nil {
 				return nil, err
@@ -137,7 +135,7 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 			}, nil
 		}
 	case *keyservice.Key_AzureKeyvaultKey:
-		if ks.azureAADConfig != nil {
+		if ks.azureToken != nil {
 			plaintext, err := ks.decryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Ciphertext)
 			if err != nil {
 				return nil, err
@@ -175,7 +173,7 @@ func (ks *Server) decryptWithPgp(key *keyservice.PgpKey, ciphertext []byte) ([]b
 	return plaintext, err
 }
 
-func (ks *Server) encryptWithAge(key *keyservice.AgeKey, plaintext []byte) ([]byte, error) {
+func (ks Server) encryptWithAge(key *keyservice.AgeKey, plaintext []byte) ([]byte, error) {
 	// Unlike the other encrypt and decrypt methods, validation of configuration
 	// is not required here. As the encryption happens purely based on the
 	// Recipient from the key.
@@ -216,7 +214,7 @@ func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) 
 }
 
 func (ks *Server) encryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
-	if ks.azureAADConfig == nil {
+	if ks.azureToken == nil {
 		return nil, status.Errorf(codes.Unimplemented, "Azure Key Vault encrypt service unavailable: no authentication config present")
 	}
 
@@ -225,9 +223,7 @@ func (ks *Server) encryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, pla
 		Name:     key.Name,
 		Version:  key.Version,
 	}
-	if err := ks.azureAADConfig.SetToken(&azureKey); err != nil {
-		return nil, fmt.Errorf("failed to set token for Azure encryption request: %w", err)
-	}
+	ks.azureToken.ApplyToMasterKey(&azureKey)
 	if err := azureKey.Encrypt(plaintext); err != nil {
 		return nil, err
 	}
@@ -235,7 +231,7 @@ func (ks *Server) encryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, pla
 }
 
 func (ks *Server) decryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
-	if ks.azureAADConfig == nil {
+	if ks.azureToken == nil {
 		return nil, status.Errorf(codes.Unimplemented, "Azure Key Vault decrypt service unavailable: no authentication config present")
 	}
 
@@ -244,9 +240,7 @@ func (ks *Server) decryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, cip
 		Name:     key.Name,
 		Version:  key.Version,
 	}
-	if err := ks.azureAADConfig.SetToken(&azureKey); err != nil {
-		return nil, fmt.Errorf("failed to set token for Azure decryption request: %w", err)
-	}
+	ks.azureToken.ApplyToMasterKey(&azureKey)
 	azureKey.EncryptedKey = string(ciphertext)
 	plaintext, err := azureKey.Decrypt()
 	return plaintext, err

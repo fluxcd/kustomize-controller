@@ -199,7 +199,7 @@ func TestMasterKey_Encrypt(t *testing.T) {
 	key.Fingerprint = "invalid"
 	err = key.Encrypt([]byte("invalid"))
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(Equal("gpg: 'invalid' is not a valid long keyID"))
+	g.Expect(err.Error()).To(Equal("failed to encrypt sops data key with pgp: gpg: 'invalid' is not a valid long keyID"))
 }
 
 func TestMasterKey_Encrypt_SOPS_Compat(t *testing.T) {

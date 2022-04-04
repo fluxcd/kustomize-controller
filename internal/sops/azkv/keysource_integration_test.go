@@ -19,10 +19,13 @@ limitations under the License.
 package azkv
 
 import (
+	"context"
+	"encoding/base64"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys/crypto"
 	. "github.com/onsi/gomega"
 	"go.mozilla.org/sops/v3/azkv"
 )
@@ -43,14 +46,10 @@ var (
 func TestMasterKey_Encrypt(t *testing.T) {
 	g := NewWithT(t)
 
-	key := &MasterKey{
-		VaultURL:     testVaultURL,
-		Name:         testVaultKeyName,
-		Version:      testVaultKeyVersion,
-		CreationDate: time.Now(),
-	}
-
-	g.Expect(testAADConfig.SetToken(key)).To(Succeed())
+	key := MasterKeyFromURL(testVaultURL, testVaultKeyName, testVaultKeyVersion)
+	token, err := TokenFromAADConfig(testAADConfig)
+	g.Expect(err).ToNot(HaveOccurred())
+	token.ApplyToMasterKey(key)
 
 	g.Expect(key.Encrypt([]byte("foo"))).To(Succeed())
 	g.Expect(key.EncryptedDataKey()).ToNot(BeEmpty())
@@ -59,33 +58,32 @@ func TestMasterKey_Encrypt(t *testing.T) {
 func TestMasterKey_Decrypt(t *testing.T) {
 	g := NewWithT(t)
 
-	key := &MasterKey{
-		VaultURL: testVaultURL,
-		Name:     testVaultKeyName,
-		Version:  testVaultKeyVersion,
-		// EncryptedKey equals "foo" in bytes
-		EncryptedKey: "AdvS9HGJG7thHiUAisVJ8XqZiKfTjjbMETl5pIUBcOiHhMS6nLJpqeHcoKFUX6T4HFNT5o9tUXJsVprkkXzaL0Fyd01gef-eF4lTKsKl3EAn2hPAbfT-HTiuOnXzm4Zmvb4S-Ef3loOgLuoIH8Ks7SzSGhy6U9qvRk4Y4IZjzHCtUHaGE5utuTTy9lff8h4HCzgCp92ots2PPXD4dGHN_yXs-EpARXGPR2RbWWnj4P3Pu8xeMBk7hDCa51ZweJ_xQBRvXHmSy0PkauDUbr4dlUf6QQa8RxSPsOSaVT8dtVIURZ9YP1p69ajSo98aHXqSBAouZGWkrWgmQsleNrSGcg",
-		CreationDate: time.Now(),
-	}
+	key := MasterKeyFromURL(testVaultURL, testVaultKeyName, testVaultKeyVersion)
+	token, err := TokenFromAADConfig(testAADConfig)
+	g.Expect(err).ToNot(HaveOccurred())
+	token.ApplyToMasterKey(key)
 
-	g.Expect(testAADConfig.SetToken(key)).To(Succeed())
+	dataKey := []byte("this is super secret data")
+	c, err := crypto.NewClient(key.ToString(), key.token, nil)
+	g.Expect(err).ToNot(HaveOccurred())
+	resp, err := c.Encrypt(context.Background(), crypto.EncryptionAlgorithmRSAOAEP256, dataKey, nil)
+	g.Expect(err).ToNot(HaveOccurred())
+	key.EncryptedKey = base64.RawURLEncoding.EncodeToString(resp.Result)
+	g.Expect(key.EncryptedKey).ToNot(BeEmpty())
+	g.Expect(key.EncryptedKey).ToNot(Equal(dataKey))
 
 	got, err := key.Decrypt()
 	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(got).To(Equal([]byte("foo")))
+	g.Expect(got).To(Equal(dataKey))
 }
 
 func TestMasterKey_EncryptDecrypt_RoundTrip(t *testing.T) {
 	g := NewWithT(t)
 
-	key := &MasterKey{
-		VaultURL:     testVaultURL,
-		Name:         testVaultKeyName,
-		Version:      testVaultKeyVersion,
-		CreationDate: time.Now(),
-	}
-
-	g.Expect(testAADConfig.SetToken(key)).To(Succeed())
+	key := MasterKeyFromURL(testVaultURL, testVaultKeyName, testVaultKeyVersion)
+	token, err := TokenFromAADConfig(testAADConfig)
+	g.Expect(err).ToNot(HaveOccurred())
+	token.ApplyToMasterKey(key)
 
 	dataKey := []byte("some-data-that-should-be-secret")
 
@@ -100,13 +98,10 @@ func TestMasterKey_EncryptDecrypt_RoundTrip(t *testing.T) {
 func TestMasterKey_Encrypt_SOPS_Compat(t *testing.T) {
 	g := NewWithT(t)
 
-	encryptKey := &MasterKey{
-		VaultURL:     testVaultURL,
-		Name:         testVaultKeyName,
-		Version:      testVaultKeyVersion,
-		CreationDate: time.Now(),
-	}
-	g.Expect(testAADConfig.SetToken(encryptKey)).To(Succeed())
+	encryptKey := MasterKeyFromURL(testVaultURL, testVaultKeyName, testVaultKeyVersion)
+	token, err := TokenFromAADConfig(testAADConfig)
+	g.Expect(err).ToNot(HaveOccurred())
+	token.ApplyToMasterKey(encryptKey)
 
 	dataKey := []byte("foo")
 	g.Expect(encryptKey.Encrypt(dataKey)).To(Succeed())
@@ -145,15 +140,12 @@ func TestMasterKey_Decrypt_SOPS_Compat(t *testing.T) {
 	}
 	g.Expect(encryptKey.Encrypt(dataKey)).To(Succeed())
 
-	decryptKey := &MasterKey{
-		VaultURL:     testVaultURL,
-		Name:         testVaultKeyName,
-		Version:      testVaultKeyVersion,
-		EncryptedKey: encryptKey.EncryptedKey,
-		CreationDate: time.Now(),
-	}
-	g.Expect(testAADConfig.SetToken(decryptKey)).To(Succeed())
+	decryptKey := MasterKeyFromURL(testVaultURL, testVaultKeyName, testVaultKeyVersion)
+	token, err := TokenFromAADConfig(testAADConfig)
+	g.Expect(err).ToNot(HaveOccurred())
+	token.ApplyToMasterKey(decryptKey)
 
+	decryptKey.EncryptedKey = encryptKey.EncryptedKey
 	dec, err := decryptKey.Decrypt()
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(dec).To(Equal(dataKey))
