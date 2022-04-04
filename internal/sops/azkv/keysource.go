@@ -118,7 +118,7 @@ func (key *MasterKey) Decrypt() ([]byte, error) {
 	// with the latest.
 	rawEncryptedKey, err := base64.RawURLEncoding.DecodeString(key.EncryptedKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode encrypted key: %w", err)
+		return nil, fmt.Errorf("failed to base64 decode Azure Key Vault encrypted key: %w", err)
 	}
 	resp, err := c.Decrypt(context.Background(), crypto.EncryptionAlgorithmRSAOAEP256, rawEncryptedKey, nil)
 	if err != nil {

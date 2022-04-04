@@ -5,10 +5,10 @@
 package keyservice
 
 import (
+	"fmt"
+
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
@@ -29,7 +29,7 @@ type Server struct {
 	// keyring.
 	gnuPGHome pgp.GnuPGHome
 
-	// ageIdentities holds the parsed age identities used for Decrypt
+	// ageIdentities are the parsed age identities used for Decrypt
 	// operations for age key types.
 	ageIdentities age.ParsedIdentities
 
@@ -86,6 +86,16 @@ func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*
 		return &keyservice.EncryptResponse{
 			Ciphertext: ciphertext,
 		}, nil
+	case *keyservice.Key_VaultKey:
+		if ks.vaultToken != "" {
+			ciphertext, err := ks.encryptWithHCVault(k.VaultKey, req.Plaintext)
+			if err != nil {
+				return nil, err
+			}
+			return &keyservice.EncryptResponse{
+				Ciphertext: ciphertext,
+			}, nil
+		}
 	case *keyservice.Key_AzureKeyvaultKey:
 		if ks.azureToken != nil {
 			ciphertext, err := ks.encryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Plaintext)
@@ -97,7 +107,7 @@ func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*
 			}, nil
 		}
 	case nil:
-		return nil, status.Errorf(codes.NotFound, "must provide a key")
+		return nil, fmt.Errorf("must provide a key")
 	}
 	// Fallback to default server for any other request.
 	return ks.defaultServer.Encrypt(ctx, req)
@@ -126,7 +136,7 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 		}, nil
 	case *keyservice.Key_VaultKey:
 		if ks.vaultToken != "" {
-			plaintext, err := ks.decryptWithVault(k.VaultKey, req.Ciphertext)
+			plaintext, err := ks.decryptWithHCVault(k.VaultKey, req.Ciphertext)
 			if err != nil {
 				return nil, err
 			}
@@ -145,7 +155,7 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 			}, nil
 		}
 	case nil:
-		return nil, status.Errorf(codes.NotFound, "must provide a key")
+		return nil, fmt.Errorf("must provide a key")
 	}
 	// Fallback to default server for any other request.
 	return ks.defaultServer.Decrypt(ctx, req)
@@ -197,11 +207,20 @@ func (ks *Server) decryptWithAge(key *keyservice.AgeKey, ciphertext []byte) ([]b
 	return plaintext, err
 }
 
-func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) ([]byte, error) {
-	if ks.vaultToken == "" {
-		return nil, status.Errorf(codes.Unimplemented, "Hashicorp Vault decrypt service unavailable: no token found")
+func (ks *Server) encryptWithHCVault(key *keyservice.VaultKey, plaintext []byte) ([]byte, error) {
+	vaultKey := hcvault.MasterKey{
+		VaultAddress: key.VaultAddress,
+		EnginePath:   key.EnginePath,
+		KeyName:      key.KeyName,
 	}
+	ks.vaultToken.ApplyToMasterKey(&vaultKey)
+	if err := vaultKey.Encrypt(plaintext); err != nil {
+		return nil, err
+	}
+	return []byte(vaultKey.EncryptedKey), nil
+}
 
+func (ks *Server) decryptWithHCVault(key *keyservice.VaultKey, ciphertext []byte) ([]byte, error) {
 	vaultKey := hcvault.MasterKey{
 		VaultAddress: key.VaultAddress,
 		EnginePath:   key.EnginePath,
@@ -214,10 +233,6 @@ func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) 
 }
 
 func (ks *Server) encryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
-	if ks.azureToken == nil {
-		return nil, status.Errorf(codes.Unimplemented, "Azure Key Vault encrypt service unavailable: no authentication config present")
-	}
-
 	azureKey := azkv.MasterKey{
 		VaultURL: key.VaultUrl,
 		Name:     key.Name,
@@ -231,10 +246,6 @@ func (ks *Server) encryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, pla
 }
 
 func (ks *Server) decryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
-	if ks.azureToken == nil {
-		return nil, status.Errorf(codes.Unimplemented, "Azure Key Vault decrypt service unavailable: no authentication config present")
-	}
-
 	azureKey := azkv.MasterKey{
 		VaultURL: key.VaultUrl,
 		Name:     key.Name,
