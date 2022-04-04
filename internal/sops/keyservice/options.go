@@ -19,6 +19,7 @@ package keyservice
 import (
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
+	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 
 	"go.mozilla.org/sops/v3/keyservice"
 )
@@ -29,12 +30,12 @@ type ServerOption interface {
 	ApplyToServer(s *Server)
 }
 
-// WithHomeDir configures the contained "home directory" on the Server.
-type WithHomeDir string
+// WithGnuPGHome configures the GnuPG home directory on the Server.
+type WithGnuPGHome string
 
 // ApplyToServer applies this configuration to the given Server.
-func (o WithHomeDir) ApplyToServer(s *Server) {
-	s.homeDir = string(o)
+func (o WithGnuPGHome) ApplyToServer(s *Server) {
+	s.gnuPGHome = pgp.GnuPGHome(o)
 }
 
 // WithVaultToken configures the Hashicorp Vault token on the Server.

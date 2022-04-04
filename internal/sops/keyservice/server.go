@@ -25,9 +25,11 @@ import (
 // environment. Any request not handled by the Server is forwarded to the
 // embedded default server.
 type Server struct {
-	// homeDir is the contained "home directory" used for the Encrypt and
-	// Decrypt operations for certain key types, e.g. PGP.
-	homeDir string
+	// gnuPGHome is the GnuPG home directory used for the Encrypt and Decrypt
+	// operations for PGP key types.
+	// When empty, the requests will be handled using the systems' runtime
+	// keyring.
+	gnuPGHome pgp.GnuPGHome
 
 	// agePrivateKeys holds the private keys used for Encrypt and Decrypt
 	// operations of age requests.
@@ -50,7 +52,7 @@ type Server struct {
 
 // NewServer constructs a new Server, configuring it with the provided options
 // before returning the result.
-// When WithDefaultServer is not provided as an option, the SOPS server
+// When WithDefaultServer() is not provided as an option, the SOPS server
 // implementation is configured as default.
 func NewServer(options ...ServerOption) keyservice.KeyServiceServer {
 	s := &Server{}
@@ -152,11 +154,10 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 }
 
 func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]byte, error) {
-	if ks.homeDir == "" {
-		return nil, status.Errorf(codes.Unimplemented, "PGP encrypt service unavailable: missing home dir configuration")
+	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint)
+	if ks.gnuPGHome != "" {
+		ks.gnuPGHome.ApplyToMasterKey(pgpKey)
 	}
-
-	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint, ks.homeDir)
 	err := pgpKey.Encrypt(plaintext)
 	if err != nil {
 		return nil, err
@@ -165,11 +166,10 @@ func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]by
 }
 
 func (ks *Server) decryptWithPgp(key *keyservice.PgpKey, ciphertext []byte) ([]byte, error) {
-	if ks.homeDir == "" {
-		return nil, status.Errorf(codes.Unimplemented, "PGP decrypt service unavailable: missing home dir configuration")
+	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint)
+	if ks.gnuPGHome != "" {
+		ks.gnuPGHome.ApplyToMasterKey(pgpKey)
 	}
-
-	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint, ks.homeDir)
 	pgpKey.EncryptedKey = string(ciphertext)
 	plaintext, err := pgpKey.Decrypt()
 	return plaintext, err

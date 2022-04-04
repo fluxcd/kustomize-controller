@@ -18,7 +18,6 @@ package pgp
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -39,39 +38,161 @@ var (
 func TestMasterKeyFromFingerprint(t *testing.T) {
 	g := NewWithT(t)
 
-	key := MasterKeyFromFingerprint(mockFingerprint, "")
+	key := MasterKeyFromFingerprint(mockFingerprint)
 	g.Expect(key.Fingerprint).To(Equal(mockFingerprint))
 	g.Expect(key.CreationDate).Should(BeTemporally("~", time.Now(), time.Second))
-	g.Expect(key.homeDir).To(BeEmpty())
 
-	key = MasterKeyFromFingerprint("B59DAF 469E8C94813 8901A 649732075E A221A7EA", "")
+	key = MasterKeyFromFingerprint("B59DAF 469E8C94813 8901A 649732075E A221A7EA")
 	g.Expect(key.Fingerprint).To(Equal(mockFingerprint))
+}
 
-	key = MasterKeyFromFingerprint(mockFingerprint, "/some/path")
-	g.Expect(key.homeDir).To(Equal("/some/path"))
+func TestNewGnuPGHome(t *testing.T) {
+	g := NewWithT(t)
+
+	gnuPGHome, err := NewGnuPGHome()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	g.Expect(gnuPGHome.String()).To(BeADirectory())
+	t.Cleanup(func() {
+		_ = os.RemoveAll(gnuPGHome.String())
+	})
+	g.Expect(gnuPGHome.Validate()).ToNot(HaveOccurred())
+}
+
+func TestGnuPGHome_Import(t *testing.T) {
+	g := NewWithT(t)
+
+	gnuPGHome, err := NewGnuPGHome()
+	g.Expect(err).NotTo(HaveOccurred())
+	t.Cleanup(func() {
+		_ = os.RemoveAll(gnuPGHome.String())
+	})
+
+	b, err := os.ReadFile(mockPublicKey)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(gnuPGHome.Import(b)).To(Succeed())
+
+	err, _, stderr := gpgExec(gnuPGHome.String(), []string{"--list-keys", mockFingerprint}, nil)
+	g.Expect(err).ToNot(HaveOccurred(), stderr.String())
+
+	b, err = os.ReadFile(mockPrivateKey)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(gnuPGHome.Import(b)).To(Succeed())
+
+	err, _, stderr = gpgExec(gnuPGHome.String(), []string{"--list-secret-keys", mockFingerprint}, nil)
+	g.Expect(err).ToNot(HaveOccurred(), stderr.String())
+
+	g.Expect(gnuPGHome.Import([]byte("invalid armored data"))).To(HaveOccurred())
+
+	g.Expect(GnuPGHome("").Import(b)).To(HaveOccurred())
+}
+
+func TestGnuPGHome_ImportFile(t *testing.T) {
+	g := NewWithT(t)
+
+	gnuPGHome, err := NewGnuPGHome()
+	g.Expect(err).NotTo(HaveOccurred())
+	t.Cleanup(func() {
+		_ = os.RemoveAll(gnuPGHome.String())
+	})
+
+	g.Expect(gnuPGHome.ImportFile(mockPublicKey)).To(Succeed())
+	g.Expect(gnuPGHome.ImportFile("invalid")).To(HaveOccurred())
+}
+
+func TestGnuPGHome_Validate(t *testing.T) {
+	t.Run("empty path", func(t *testing.T) {
+		g := NewWithT(t)
+
+		g.Expect(GnuPGHome("").Validate()).To(HaveOccurred())
+	})
+
+	t.Run("relative path", func(t *testing.T) {
+		g := NewWithT(t)
+
+		g.Expect(GnuPGHome("../../.gnupghome").Validate()).To(HaveOccurred())
+	})
+
+	t.Run("file path", func(t *testing.T) {
+		g := NewWithT(t)
+
+		tmpDir := t.TempDir()
+		f, err := os.CreateTemp(tmpDir, "file")
+		g.Expect(err).ToNot(HaveOccurred())
+		defer f.Close()
+
+		g.Expect(GnuPGHome(f.Name()).Validate()).To(HaveOccurred())
+	})
+
+	t.Run("wrong permissions", func(t *testing.T) {
+		g := NewWithT(t)
+
+		// Is created with 0755
+		tmpDir := t.TempDir()
+		g.Expect(GnuPGHome(tmpDir).Validate()).To(HaveOccurred())
+	})
+
+	t.Run("valid", func(t *testing.T) {
+		g := NewWithT(t)
+
+		gnupgHome, err := NewGnuPGHome()
+		g.Expect(err).ToNot(HaveOccurred())
+		t.Cleanup(func() {
+			_ = os.RemoveAll(gnupgHome.String())
+		})
+		g.Expect(gnupgHome.Validate()).To(Succeed())
+	})
+}
+
+func TestGnuPGHome_String(t *testing.T) {
+	g := NewWithT(t)
+
+	gnuPGHome := GnuPGHome("/some/absolute/path")
+	g.Expect(gnuPGHome.String()).To(Equal("/some/absolute/path"))
+}
+
+func TestGnuPGHome_ApplyToMasterKey(t *testing.T) {
+	g := NewWithT(t)
+
+	gnuPGHome, err := NewGnuPGHome()
+	g.Expect(err).ToNot(HaveOccurred())
+	t.Cleanup(func() {
+		_ = os.RemoveAll(gnuPGHome.String())
+	})
+
+	key := MasterKeyFromFingerprint(mockFingerprint)
+	gnuPGHome.ApplyToMasterKey(key)
+	g.Expect(key.gnuPGHomeDir).To(Equal(gnuPGHome.String()))
+
+	gnuPGHome = "/non/existing/absolute/path/fails/validate"
+	gnuPGHome.ApplyToMasterKey(key)
+	g.Expect(key.gnuPGHomeDir).ToNot(Equal(gnuPGHome.String()))
 }
 
 func TestMasterKey_Encrypt(t *testing.T) {
 	g := NewWithT(t)
-	tmpDir := t.TempDir()
 
-	gpgHome, err := mockGpgHome(tmpDir, mockPublicKey)
-	g.Expect(err).NotTo(HaveOccurred())
+	gnuPGHome, err := NewGnuPGHome()
+	g.Expect(err).ToNot(HaveOccurred())
+	t.Cleanup(func() {
+		_ = os.RemoveAll(gnuPGHome.String())
+	})
+	g.Expect(gnuPGHome.ImportFile(mockPublicKey)).To(Succeed())
 
-	key := MasterKeyFromFingerprint(mockFingerprint, gpgHome)
+	key := MasterKeyFromFingerprint(mockFingerprint)
+	gnuPGHome.ApplyToMasterKey(key)
 	data := []byte("oh no, my darkest secret")
 	g.Expect(key.Encrypt(data)).To(Succeed())
 
 	g.Expect(key.EncryptedKey).ToNot(BeEmpty())
 	g.Expect(key.EncryptedKey).ToNot(Equal(data))
 
-	err, _, _ = gpgExec(gpgHome, []string{"--import", mockPrivateKey}, nil)
-	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(gnuPGHome.ImportFile(mockPrivateKey)).To(Succeed())
 
 	args := []string{
 		"-d",
 	}
-	err, stdout, stderr := gpgExec(key.gpgHome(), args, strings.NewReader(key.EncryptedKey))
+	err, stdout, stderr := gpgExec(key.gnuPGHome(), args, strings.NewReader(key.EncryptedKey))
 	g.Expect(err).ToNot(HaveOccurred(), stderr.String())
 	g.Expect(stdout.Bytes()).To(Equal(data))
 
@@ -83,17 +204,21 @@ func TestMasterKey_Encrypt(t *testing.T) {
 
 func TestMasterKey_Encrypt_SOPS_Compat(t *testing.T) {
 	g := NewWithT(t)
-	tmpDir := t.TempDir()
 
-	gpgHome, err := mockGpgHome(tmpDir, mockPrivateKey)
-	g.Expect(err).NotTo(HaveOccurred())
+	gnuPGHome, err := NewGnuPGHome()
+	g.Expect(err).ToNot(HaveOccurred())
+	t.Cleanup(func() {
+		_ = os.RemoveAll(gnuPGHome.String())
+	})
+	g.Expect(gnuPGHome.ImportFile(mockPrivateKey)).To(Succeed())
 
 	dataKey := []byte("foo")
 
-	encryptKey := MasterKeyFromFingerprint(mockFingerprint, gpgHome)
+	encryptKey := MasterKeyFromFingerprint(mockFingerprint)
+	gnuPGHome.ApplyToMasterKey(encryptKey)
 	g.Expect(encryptKey.Encrypt(dataKey)).To(Succeed())
 
-	t.Setenv("GNUPGHOME", gpgHome)
+	t.Setenv("GNUPGHOME", gnuPGHome.String())
 	decryptKey := pgp.NewMasterKeyFromFingerprint(mockFingerprint)
 	decryptKey.EncryptedKey = encryptKey.EncryptedKey
 	dec, err := decryptKey.Decrypt()
@@ -103,12 +228,16 @@ func TestMasterKey_Encrypt_SOPS_Compat(t *testing.T) {
 
 func TestMasterKey_EncryptIfNeeded(t *testing.T) {
 	g := NewWithT(t)
-	tmpDir := t.TempDir()
 
-	gpgHome, err := mockGpgHome(tmpDir, mockPrivateKey)
-	g.Expect(err).NotTo(HaveOccurred())
+	gnuPGHome, err := NewGnuPGHome()
+	g.Expect(err).ToNot(HaveOccurred())
+	t.Cleanup(func() {
+		_ = os.RemoveAll(gnuPGHome.String())
+	})
+	g.Expect(gnuPGHome.ImportFile(mockPrivateKey)).To(Succeed())
 
-	key := MasterKeyFromFingerprint(mockFingerprint, gpgHome)
+	key := MasterKeyFromFingerprint(mockFingerprint)
+	gnuPGHome.ApplyToMasterKey(key)
 	g.Expect(key.EncryptIfNeeded([]byte("data"))).To(Succeed())
 
 	encryptedKey := key.EncryptedKey
@@ -127,15 +256,18 @@ func TestMasterKey_EncryptedDataKey(t *testing.T) {
 
 func TestMasterKey_Decrypt(t *testing.T) {
 	g := NewWithT(t)
-	tmpDir := t.TempDir()
 
-	gpgHome, err := mockGpgHome(tmpDir, mockPrivateKey)
-	g.Expect(err).NotTo(HaveOccurred())
+	gnuPGHome, err := NewGnuPGHome()
+	g.Expect(err).ToNot(HaveOccurred())
+	t.Cleanup(func() {
+		_ = os.RemoveAll(gnuPGHome.String())
+	})
+	g.Expect(gnuPGHome.ImportFile(mockPrivateKey)).To(Succeed())
 
 	fingerprint := shortenFingerprint(mockFingerprint)
 
 	data := []byte("this data is absolutely top secret")
-	err, stdout, stderr := gpgExec(gpgHome, []string{
+	err, stdout, stderr := gpgExec(gnuPGHome.String(), []string{
 		"--no-default-recipient",
 		"--yes",
 		"--encrypt",
@@ -151,7 +283,8 @@ func TestMasterKey_Decrypt(t *testing.T) {
 	encryptedData := stdout.String()
 	g.Expect(encryptedData).ToNot(BeEquivalentTo(data))
 
-	key := MasterKeyFromFingerprint(mockFingerprint, gpgHome)
+	key := MasterKeyFromFingerprint(mockFingerprint)
+	gnuPGHome.ApplyToMasterKey(key)
 	key.EncryptedKey = encryptedData
 
 	got, err := key.Decrypt()
@@ -167,19 +300,24 @@ func TestMasterKey_Decrypt(t *testing.T) {
 
 func TestMasterKey_Decrypt_SOPS_Compat(t *testing.T) {
 	g := NewWithT(t)
-	tmpDir := t.TempDir()
 
-	gpgHome, err := mockGpgHome(tmpDir, mockPrivateKey)
-	g.Expect(err).NotTo(HaveOccurred())
+	gnuPGHome, err := NewGnuPGHome()
+	g.Expect(err).ToNot(HaveOccurred())
+	t.Cleanup(func() {
+		_ = os.RemoveAll(gnuPGHome.String())
+	})
+	g.Expect(gnuPGHome.ImportFile(mockPrivateKey)).To(Succeed())
 
 	dataKey := []byte("foo")
 
-	t.Setenv("GNUPGHOME", gpgHome)
+	t.Setenv("GNUPGHOME", gnuPGHome.String())
 	encryptKey := pgp.NewMasterKeyFromFingerprint(mockFingerprint)
 	g.Expect(encryptKey.Encrypt(dataKey)).To(Succeed())
 
-	decryptKey := MasterKeyFromFingerprint(mockFingerprint, gpgHome)
+	decryptKey := MasterKeyFromFingerprint(mockFingerprint)
+	gnuPGHome.ApplyToMasterKey(decryptKey)
 	decryptKey.EncryptedKey = encryptKey.EncryptedKey
+
 	dec, err := decryptKey.Decrypt()
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(dec).To(Equal(dataKey))
@@ -187,12 +325,16 @@ func TestMasterKey_Decrypt_SOPS_Compat(t *testing.T) {
 
 func TestMasterKey_EncryptDecrypt_RoundTrip(t *testing.T) {
 	g := NewWithT(t)
-	tmpDir := t.TempDir()
 
-	gpgHome, err := mockGpgHome(tmpDir, mockPrivateKey)
+	gnuPGHome, err := NewGnuPGHome()
 	g.Expect(err).ToNot(HaveOccurred())
+	t.Cleanup(func() {
+		_ = os.RemoveAll(gnuPGHome.String())
+	})
+	g.Expect(gnuPGHome.ImportFile(mockPrivateKey)).To(Succeed())
 
-	key := MasterKeyFromFingerprint(mockFingerprint, gpgHome)
+	key := MasterKeyFromFingerprint(mockFingerprint)
+	gnuPGHome.ApplyToMasterKey(key)
 
 	data := []byte("some secret data")
 	g.Expect(key.Encrypt(data)).To(Succeed())
@@ -206,7 +348,7 @@ func TestMasterKey_EncryptDecrypt_RoundTrip(t *testing.T) {
 func TestMasterKey_NeedsRotation(t *testing.T) {
 	g := NewWithT(t)
 
-	key := MasterKeyFromFingerprint("", "")
+	key := MasterKeyFromFingerprint("")
 	g.Expect(key.NeedsRotation()).To(BeFalse())
 
 	key.CreationDate = key.CreationDate.Add(-(pgpTTL + time.Second))
@@ -216,14 +358,14 @@ func TestMasterKey_NeedsRotation(t *testing.T) {
 func TestMasterKey_ToString(t *testing.T) {
 	g := NewWithT(t)
 
-	key := MasterKeyFromFingerprint(mockFingerprint, "")
+	key := MasterKeyFromFingerprint(mockFingerprint)
 	g.Expect(key.ToString()).To(Equal(mockFingerprint))
 }
 
 func TestMasterKey_ToMap(t *testing.T) {
 	g := NewWithT(t)
 
-	key := MasterKeyFromFingerprint(mockFingerprint, "")
+	key := MasterKeyFromFingerprint(mockFingerprint)
 	key.EncryptedKey = "data"
 	g.Expect(key.ToMap()).To(Equal(map[string]interface{}{
 		"fp":         mockFingerprint,
@@ -232,24 +374,24 @@ func TestMasterKey_ToMap(t *testing.T) {
 	}))
 }
 
-func TestMasterKey_gpgHome(t *testing.T) {
+func TestMasterKey_gnuPGHome(t *testing.T) {
 	g := NewWithT(t)
 
 	key := &MasterKey{}
 
 	usr, err := user.Current()
 	if err == nil {
-		g.Expect(key.gpgHome()).To(Equal(filepath.Join(usr.HomeDir, ".gnupg")))
+		g.Expect(key.gnuPGHome()).To(Equal(filepath.Join(usr.HomeDir, ".gnupg")))
 	} else {
-		g.Expect(key.gpgHome()).To(Equal(filepath.Join(os.Getenv("HOME"), ".gnupg")))
+		g.Expect(key.gnuPGHome()).To(Equal(filepath.Join(os.Getenv("HOME"), ".gnupg")))
 	}
 
 	gnupgHome := "/overwrite/home"
 	t.Setenv("GNUPGHOME", gnupgHome)
-	g.Expect(key.gpgHome()).To(Equal(gnupgHome))
+	g.Expect(key.gnuPGHome()).To(Equal(gnupgHome))
 
-	key.homeDir = "/home/dir/overwrite"
-	g.Expect(key.gpgHome()).To(Equal(key.homeDir))
+	key.gnuPGHomeDir = "/home/dir/overwrite"
+	g.Expect(key.gnuPGHome()).To(Equal(key.gnuPGHomeDir))
 }
 
 func Test_gpgBinary(t *testing.T) {
@@ -269,20 +411,4 @@ func Test_shortenFingerprint(t *testing.T) {
 	g.Expect(shortId).To(Equal("9732075EA221A7EA"))
 
 	g.Expect(shortenFingerprint(shortId)).To(Equal(shortId))
-}
-
-func mockGpgHome(dir string, key string) (string, error) {
-	gpgHome := filepath.Join(dir, "gpghome")
-	// This is required as otherwise GPG complains about the permissions
-	// of the directory.
-	if err := os.Mkdir(gpgHome, 0700); err != nil {
-		return "", err
-	}
-	if key != "" {
-		err, _, stderr := gpgExec(gpgHome, []string{"--import", key}, nil)
-		if err != nil {
-			return "", fmt.Errorf(stderr.String())
-		}
-	}
-	return gpgHome, nil
 }

@@ -49,16 +49,100 @@ type MasterKey struct {
 	// needs rotation.
 	CreationDate time.Time
 
-	homeDir string
+	// gnuPGHomeDir contains the absolute path to a GnuPG home directory.
+	// It can be injected by a (local) keyservice.KeyServiceServer using
+	// GnuPGHome.ApplyToMasterKey().
+	gnuPGHomeDir string
 }
 
 // MasterKeyFromFingerprint takes a PGP fingerprint and returns a
 // new MasterKey with that fingerprint.
-func MasterKeyFromFingerprint(fingerprint, homeDir string) *MasterKey {
+func MasterKeyFromFingerprint(fingerprint string) *MasterKey {
 	return &MasterKey{
 		Fingerprint:  strings.Replace(fingerprint, " ", "", -1),
 		CreationDate: time.Now().UTC(),
-		homeDir:      homeDir,
+	}
+}
+
+// GnuPGHome is the absolute path to a GnuPG home directory.
+// A new keyring can be constructed by combining the use of NewGnuPGHome() and
+// Import() or ImportFile().
+type GnuPGHome string
+
+// NewGnuPGHome initializes a new GnuPGHome in a temporary directory.
+// The caller is expected to handle the garbage collection of the created
+// directory.
+func NewGnuPGHome() (GnuPGHome, error) {
+	tmpDir, err := os.MkdirTemp("", "sops-gnupghome-")
+	if err != nil {
+		return "", fmt.Errorf("failed to create new GnuPG home: %w", err)
+	}
+	return GnuPGHome(tmpDir), nil
+}
+
+// Import attempts to import the armored key bytes into the GnuPGHome keyring.
+// It returns an error if the GnuPGHome does not pass Validate, or if the
+// import failed.
+func (d GnuPGHome) Import(armoredKey []byte) error {
+	if err := d.Validate(); err != nil {
+		return fmt.Errorf("cannot import armored key data into GnuPG keyring: %w", err)
+	}
+
+	args := []string{"--batch", "--import"}
+	err, _, stderr := gpgExec(d.String(), args, bytes.NewReader(armoredKey))
+	if err != nil {
+		return fmt.Errorf("failed to import armored key data into GnuPG keyring: %s", strings.TrimSpace(stderr.String()))
+	}
+	return nil
+}
+
+// ImportFile attempts to import the armored key file into the GnuPGHome
+// keyring.
+// It returns an error if the GnuPGHome does not pass Validate, or if the
+// import failed.
+func (d GnuPGHome) ImportFile(path string) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("cannot read armored key data from file: %w", err)
+	}
+	return d.Import(b)
+}
+
+// Validate ensures the GnuPGHome is a valid GnuPG home directory path.
+// When validation fails, it returns a descriptive reason as error.
+func (d GnuPGHome) Validate() error {
+	if d == "" {
+		return fmt.Errorf("empty GNUPGHOME path")
+	}
+	if !filepath.IsAbs(d.String()) {
+		return fmt.Errorf("GNUPGHOME must be an absolute path")
+	}
+	fi, err := os.Lstat(d.String())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("GNUPGHOME does not exist")
+		}
+		return fmt.Errorf("cannot stat GNUPGHOME: %w", err)
+	}
+	if !fi.IsDir() {
+		return fmt.Errorf("GNUGPHOME is not a directory")
+	}
+	if perm := fi.Mode().Perm(); perm != 0o700 {
+		return fmt.Errorf("GNUPGHOME has invalid permissions: got %#o wanted %#o", perm, 0o700)
+	}
+	return nil
+}
+
+// String returns the GnuPGHome as a string. It does not Validate.
+func (d GnuPGHome) String() string {
+	return string(d)
+}
+
+// ApplyToMasterKey configures the GnuPGHome on the provided key if it passes
+// Validate.
+func (d GnuPGHome) ApplyToMasterKey(key *MasterKey) {
+	if err := d.Validate(); err == nil {
+		key.gnuPGHomeDir = d.String()
 	}
 }
 
@@ -78,9 +162,9 @@ func (key *MasterKey) Encrypt(dataKey []byte) error {
 		fingerprint,
 		"--no-encrypt-to",
 	}
-	err, stdout, stderr := gpgExec(key.gpgHome(), args, bytes.NewReader(dataKey))
+	err, stdout, stderr := gpgExec(key.gnuPGHome(), args, bytes.NewReader(dataKey))
 	if err != nil {
-		return fmt.Errorf("%s", strings.TrimSpace(stderr.String()))
+		return fmt.Errorf("failed to encrypt sops data key with pgp: %s", strings.TrimSpace(stderr.String()))
 	}
 
 	key.SetEncryptedDataKey(bytes.TrimSpace(stdout.Bytes()))
@@ -112,9 +196,9 @@ func (key *MasterKey) Decrypt() ([]byte, error) {
 	args := []string{
 		"-d",
 	}
-	err, stdout, stderr := gpgExec(key.gpgHome(), args, strings.NewReader(key.EncryptedKey))
+	err, stdout, stderr := gpgExec(key.gnuPGHome(), args, strings.NewReader(key.EncryptedKey))
 	if err != nil {
-		return nil, fmt.Errorf("%s", strings.TrimSpace(stderr.String()))
+		return nil, fmt.Errorf("failed to decrypt sops data key with pgp: %s", strings.TrimSpace(stderr.String()))
 	}
 	return stdout.Bytes(), nil
 }
@@ -140,14 +224,14 @@ func (key MasterKey) ToMap() map[string]interface{} {
 	return out
 }
 
-// gpgHome determines the GnuPG home directory for the MasterKey, and returns
+// gnuPGHome determines the GnuPG home directory for the MasterKey, and returns
 // its path. In order of preference:
-// 1. MasterKey.homeDir
+// 1. MasterKey.gnuPGHomeDir
 // 2. $GNUPGHOME
 // 3. user.Current().HomeDir/.gnupg
 // 4. $HOME/.gnupg
-func (key *MasterKey) gpgHome() string {
-	if key.homeDir == "" {
+func (key *MasterKey) gnuPGHome() string {
+	if key.gnuPGHomeDir == "" {
 		dir := os.Getenv("GNUPGHOME")
 		if dir == "" {
 			usr, err := user.Current()
@@ -158,15 +242,15 @@ func (key *MasterKey) gpgHome() string {
 		}
 		return dir
 	}
-	return key.homeDir
+	return key.gnuPGHomeDir
 }
 
 // gpgExec runs the provided args with the gpgBinary, while restricting it to
-// gpgHome. Stdout and stderr can be read from the returned buffers.
+// gnuPGHome. Stdout and stderr can be read from the returned buffers.
 // When the command fails, an error is returned.
-func gpgExec(gpgHome string, args []string, stdin io.Reader) (err error, stdout bytes.Buffer, stderr bytes.Buffer) {
-	if gpgHome != "" {
-		args = append([]string{"--no-default-keyring", "--homedir", gpgHome}, args...)
+func gpgExec(gnuPGHome string, args []string, stdin io.Reader) (err error, stdout bytes.Buffer, stderr bytes.Buffer) {
+	if gnuPGHome != "" {
+		args = append([]string{"--no-default-keyring", "--homedir", gnuPGHome}, args...)
 	}
 
 	cmd := exec.Command(gpgBinary(), args...)
@@ -177,7 +261,7 @@ func gpgExec(gpgHome string, args []string, stdin io.Reader) (err error, stdout 
 	return
 }
 
-// gpgBinary returns the GNuPG binary which must be used.
+// gpgBinary returns the GnuPG binary which must be used.
 // It allows for runtime modifications by setting the environment variable
 // SopsGpgExecEnv to the absolute path of the replacement binary.
 func gpgBinary() string {
