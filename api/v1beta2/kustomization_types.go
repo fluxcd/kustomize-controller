@@ -57,7 +57,12 @@ type KustomizationSpec struct {
 	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
 
 	// The KubeConfig for reconciling the Kustomization on a remote cluster.
-	// When specified, KubeConfig takes precedence over ServiceAccountName.
+	// When used in combination with KustomizationSpec.ServiceAccountName,
+	// forces the controller to act on behalf of that Service Account at the
+	// target cluster.
+	// If the --default-service-account flag is set, its value will be used as
+	// a controller level fallback for when KustomizationSpec.ServiceAccountName
+	// is empty.
 	// +optional
 	KubeConfig *KubeConfig `json:"kubeConfig,omitempty"`
 
