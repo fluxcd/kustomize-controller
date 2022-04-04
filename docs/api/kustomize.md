@@ -139,7 +139,12 @@ KubeConfig
 <td>
 <em>(Optional)</em>
 <p>The KubeConfig for reconciling the Kustomization on a remote cluster.
-When specified, KubeConfig takes precedence over ServiceAccountName.</p>
+When used in combination with KustomizationSpec.ServiceAccountName,
+forces the controller to act on behalf of that Service Account at the
+target cluster.
+If the &ndash;default-service-account flag is set, its value will be used as
+a controller level fallback for when KustomizationSpec.ServiceAccountName
+is empty.</p>
 </td>
 </tr>
 <tr>
@@ -624,7 +629,12 @@ KubeConfig
 <td>
 <em>(Optional)</em>
 <p>The KubeConfig for reconciling the Kustomization on a remote cluster.
-When specified, KubeConfig takes precedence over ServiceAccountName.</p>
+When used in combination with KustomizationSpec.ServiceAccountName,
+forces the controller to act on behalf of that Service Account at the
+target cluster.
+If the &ndash;default-service-account flag is set, its value will be used as
+a controller level fallback for when KustomizationSpec.ServiceAccountName
+is empty.</p>
 </td>
 </tr>
 <tr>
