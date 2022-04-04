@@ -156,11 +156,11 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 			switch filepath.Ext(name) {
 			case ".asc":
 				if err = kd.gnuPGHome.Import(value); err != nil {
-					return fmt.Errorf("failed to import '%s' Secret data: %w", name, err)
+					return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
 				}
 			case ".agekey":
 				if err = kd.ageIdentities.Import(string(value)); err != nil {
-					return fmt.Errorf("failed to import '%s' Secret data: %w", name, err)
+					return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
 				}
 			case filepath.Ext(DecryptionVaultTokenFileName):
 				// Make sure we have the absolute name
@@ -174,10 +174,10 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 				if name == DecryptionAzureAuthFile {
 					conf := azkv.AADConfig{}
 					if err = azkv.LoadAADConfigFromBytes(value, &conf); err != nil {
-						return fmt.Errorf("failed to import '%s' Secret data: %w", name, err)
+						return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
 					}
 					if kd.azureToken, err = azkv.TokenFromAADConfig(conf); err != nil {
-						return fmt.Errorf("failed to import '%s' Secret data: %w", name, err)
+						return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
 					}
 				}
 			}
