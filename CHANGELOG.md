@@ -2,6 +2,41 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.23.0
+
+**Release date:** 2022-04-05
+
+This prerelease adds some breaking changes around the use and handling of kubeconfigs 
+files for remote reconciliations. Implements health checks for kubernetes jobs and 
+updates documentation.
+
+SOPS implementation was refactored to include various improvements and extended code
+coverage. Age identities are now imported once and reused multiple times, optimising
+CPU and memory usage between decryption operations.
+
+**Breaking changes**:
+
+- Use of file-based KubeConfig options are now permanently disabled (e.g. 
+`TLSClientConfig.CAFile`, `TLSClientConfig.KeyFile`, `TLSClientConfig.CertFile`
+and `BearerTokenFile`). The drive behind the change was to discourage
+insecure practices of mounting Kubernetes tokens inside the controller's container file system.
+- Use of `TLSClientConfig.Insecure` in KubeConfig file is disabled by default,
+but can enabled at controller level with the flag `--insecure-kubeconfig-tls`.
+- Use of `ExecProvider` in KubeConfig file is now disabled by default,
+but can enabled at controller level with the flag `--insecure-kubeconfig-exec`.
+
+Improvements:
+- Add kubeconfig flags
+  [#593](https://github.com/fluxcd/kustomize-controller/pull/593)
+- sops: various improvements and tests
+  [#607](https://github.com/fluxcd/kustomize-controller/pull/607)
+- docs/spec/v1beta2: fix recommended settings typo
+  [#609](https://github.com/fluxcd/kustomize-controller/pull/609)
+- Implement health check for Kubernetes jobs
+  [#608](https://github.com/fluxcd/kustomize-controller/pull/608)
+- Update KubeConfig documentation
+  [#611](https://github.com/fluxcd/kustomize-controller/pull/611)
+
 ## 0.22.3
 
 **Release date:** 2022-03-29
