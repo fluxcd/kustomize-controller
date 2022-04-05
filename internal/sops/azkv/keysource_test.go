@@ -17,211 +17,68 @@ limitations under the License.
 package azkv
 
 import (
-	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
-	"math/big"
 	"testing"
+	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	. "github.com/onsi/gomega"
 )
 
-func TestLoadAADConfigFromBytes(t *testing.T) {
-	tests := []struct {
-		name    string
-		b       []byte
-		want    AADConfig
-		wantErr bool
-	}{
-		{
-			name: "Service Principal with Secret",
-			b: []byte(`tenantId: "some-tenant-id"
-clientId: "some-client-id"
-clientSecret: "some-client-secret"`),
-			want: AADConfig{
-				TenantID:     "some-tenant-id",
-				ClientID:     "some-client-id",
-				ClientSecret: "some-client-secret",
-			},
-		},
-		{
-			name: "Service Principal with Certificate",
-			b: []byte(`tenantId: "some-tenant-id"
-clientId: "some-client-id"
-clientCertificate: "some-client-certificate"`),
-			want: AADConfig{
-				TenantID:          "some-tenant-id",
-				ClientID:          "some-client-id",
-				ClientCertificate: "some-client-certificate",
-			},
-		},
-		{
-			name: "Managed Identity with Client ID",
-			b:    []byte(`clientId: "some-client-id"`),
-			want: AADConfig{
-				ClientID: "some-client-id",
-			},
-		},
-		{
-			name: "Service Principal with Secret from az CLI",
-			b:    []byte(`{"appId": "some-app-id", "tenant": "some-tenant", "password": "some-password"}`),
-			want: AADConfig{
-				AZConfig: AZConfig{
-					AppID:    "some-app-id",
-					Tenant:   "some-tenant",
-					Password: "some-password",
-				},
-			},
-		},
-		{
-			name: "Authority host",
-			b:    []byte(`{"authorityHost": "https://example.com"}`),
-			want: AADConfig{
-				AuthorityHost: "https://example.com",
-			},
-		},
-		{
-			name:    "invalid",
-			b:       []byte("some string"),
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewWithT(t)
-
-			got := AADConfig{}
-			err := LoadAADConfigFromBytes(tt.b, &got)
-			if tt.wantErr {
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(got).To(Equal(tt.want))
-				return
-			}
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(got).To(Equal(tt.want))
-		})
-	}
-}
-
-func TestAADConfig_SetToken(t *testing.T) {
-	tlsMock := validTls(t)
-
-	tests := []struct {
-		name    string
-		config  AADConfig
-		want    azcore.TokenCredential
-		wantErr bool
-	}{
-		{
-			name: "Service Principal with Secret",
-			config: AADConfig{
-				TenantID:     "some-tenant-id",
-				ClientID:     "some-client-id",
-				ClientSecret: "some-client-secret",
-			},
-			want: &azidentity.ClientSecretCredential{},
-		},
-		{
-			name: "Service Principal with Certificate",
-			config: AADConfig{
-				TenantID:          "some-tenant-id",
-				ClientID:          "some-client-id",
-				ClientCertificate: string(tlsMock),
-			},
-			want: &azidentity.ClientCertificateCredential{},
-		},
-		{
-			name: "Service Principal with az CLI format",
-			config: AADConfig{
-				AZConfig: AZConfig{
-					AppID:    "some-app-id",
-					Tenant:   "some-tenant",
-					Password: "some-password",
-				},
-			},
-			want: &azidentity.ClientSecretCredential{},
-		},
-		{
-			name: "Managed Identity with Client ID",
-			config: AADConfig{
-				ClientID: "some-client-id",
-			},
-			want: &azidentity.ManagedIdentityCredential{},
-		},
-		{
-			name:    "empty config",
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewWithT(t)
-
-			key := MasterKey{}
-			got := tt.config.SetToken(&key)
-
-			if tt.wantErr {
-				g.Expect(got).To(HaveOccurred())
-				g.Expect(key.token).To(BeNil())
-				return
-			}
-
-			g.Expect(got).ToNot(HaveOccurred())
-			g.Expect(key.token).ToNot(BeNil())
-			g.Expect(key.token).To(BeAssignableToTypeOf(tt.want))
-		})
-	}
-}
-
-func TestAADConfig_SetToken_Nil(t *testing.T) {
+func TestToken_ApplyToMasterKey(t *testing.T) {
 	g := NewWithT(t)
 
-	var c *AADConfig
-	g.Expect(c.SetToken(&MasterKey{})).To(Succeed())
-	g.Expect((&AADConfig{}).SetToken(nil)).To(Succeed())
+	token, err := TokenFromAADConfig(
+		AADConfig{TenantID: "tenant", ClientID: "client", ClientSecret: "secret"},
+	)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	key := &MasterKey{}
+	token.ApplyToMasterKey(key)
+	g.Expect(key.token).To(Equal(token.token))
 }
 
-func TestAADConfig_GetAuthorityHost(t *testing.T) {
+func TestMasterKey_EncryptedDataKey(t *testing.T) {
 	g := NewWithT(t)
 
-	g.Expect((&AADConfig{}).GetAuthorityHost()).To(Equal(azidentity.AzurePublicCloud))
-	g.Expect((&AADConfig{AuthorityHost: "https://example.com"}).GetAuthorityHost()).To(Equal(azidentity.AuthorityHost("https://example.com")))
+	key := &MasterKey{EncryptedKey: "some key"}
+	g.Expect(key.EncryptedDataKey()).To(BeEquivalentTo(key.EncryptedKey))
 }
 
-func validTls(t *testing.T) []byte {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal("Private key cannot be created.", err.Error())
-	}
+func TestMasterKey_SetEncryptedDataKey(t *testing.T) {
+	g := NewWithT(t)
 
-	out := bytes.NewBuffer(nil)
+	encryptedKey := []byte("encrypted")
+	key := &MasterKey{}
+	key.SetEncryptedDataKey(encryptedKey)
+	g.Expect(key.EncryptedKey).To(BeEquivalentTo(encryptedKey))
+}
 
-	var privateKey = &pem.Block{
-		Type:  "PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(key),
-	}
-	if err = pem.Encode(out, privateKey); err != nil {
-		t.Fatal("Private key cannot be PEM encoded.", err.Error())
-	}
+func TestMasterKey_NeedsRotation(t *testing.T) {
+	g := NewWithT(t)
 
-	certTemplate := x509.Certificate{
-		SerialNumber: big.NewInt(1337),
-	}
-	cert, err := x509.CreateCertificate(rand.Reader, &certTemplate, &certTemplate, &key.PublicKey, key)
-	if err != nil {
-		t.Fatal("Certificate cannot be created.", err.Error())
-	}
-	var certificate = &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: cert,
-	}
-	if err = pem.Encode(out, certificate); err != nil {
-		t.Fatal("Certificate cannot be PEM encoded.", err.Error())
-	}
+	key := MasterKeyFromURL("", "", "")
+	g.Expect(key.NeedsRotation()).To(BeFalse())
 
-	return out.Bytes()
+	key.CreationDate = key.CreationDate.Add(-(azkvTTL + time.Second))
+	g.Expect(key.NeedsRotation()).To(BeTrue())
+}
+
+func TestMasterKey_ToString(t *testing.T) {
+	g := NewWithT(t)
+
+	key := MasterKeyFromURL("https://myvault.vault.azure.net", "key-name", "key-version")
+	g.Expect(key.ToString()).To(Equal("https://myvault.vault.azure.net/keys/key-name/key-version"))
+}
+
+func TestMasterKey_ToMap(t *testing.T) {
+	g := NewWithT(t)
+
+	key := MasterKeyFromURL("https://myvault.vault.azure.net", "key-name", "key-version")
+	key.EncryptedKey = "data"
+	g.Expect(key.ToMap()).To(Equal(map[string]interface{}{
+		"vaultUrl":   key.VaultURL,
+		"key":        key.Name,
+		"version":    key.Version,
+		"created_at": key.CreationDate.UTC().Format(time.RFC3339),
+		"enc":        key.EncryptedKey,
+	}))
 }

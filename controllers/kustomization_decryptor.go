@@ -22,11 +22,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
-	securejoin "github.com/cyphar/filepath-securejoin"
 	"go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/aes"
 	"go.mozilla.org/sops/v3/cmd/sops/common"
@@ -42,8 +40,10 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
+	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
 
 const (
@@ -58,30 +58,30 @@ const (
 type KustomizeDecryptor struct {
 	client.Client
 
-	kustomization  kustomizev1.Kustomization
-	homeDir        string
-	ageIdentities  []string
-	vaultToken     string
-	azureAADConfig *azkv.AADConfig
+	kustomization kustomizev1.Kustomization
+	gnuPGHome     pgp.GnuPGHome
+	ageIdentities age.ParsedIdentities
+	vaultToken    string
+	azureToken    *azkv.Token
 }
 
 func NewDecryptor(kubeClient client.Client,
-	kustomization kustomizev1.Kustomization, homeDir string) *KustomizeDecryptor {
+	kustomization kustomizev1.Kustomization, gnuPGHome string) *KustomizeDecryptor {
 	return &KustomizeDecryptor{
 		Client:        kubeClient,
 		kustomization: kustomization,
-		homeDir:       homeDir,
+		gnuPGHome:     pgp.GnuPGHome(gnuPGHome),
 	}
 }
 
 func NewTempDecryptor(kubeClient client.Client,
 	kustomization kustomizev1.Kustomization) (*KustomizeDecryptor, func(), error) {
-	tmpDir, err := os.MkdirTemp("", fmt.Sprintf("decryptor-%s-", kustomization.Name))
+	gnuPGHome, err := pgp.NewGnuPGHome()
 	if err != nil {
-		return nil, nil, fmt.Errorf("tmp dir error: %w", err)
+		return nil, nil, fmt.Errorf("cannot create decryptor: %w", err)
 	}
-	cleanup := func() { os.RemoveAll(tmpDir) }
-	return NewDecryptor(kubeClient, kustomization, tmpDir), cleanup, nil
+	cleanup := func() { os.RemoveAll(gnuPGHome.String()) }
+	return NewDecryptor(kubeClient, kustomization, gnuPGHome.String()), cleanup, nil
 }
 
 func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resource, error) {
@@ -116,7 +116,7 @@ func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resourc
 
 				data, err := base64.StdEncoding.DecodeString(value)
 				if err != nil {
-					fmt.Println("Base64 Decode: %w", err)
+					return nil, fmt.Errorf("Base64 Decode: %w", err)
 				}
 
 				if bytes.Contains(data, []byte("sops")) && bytes.Contains(data, []byte("ENC[")) {
@@ -151,65 +151,39 @@ func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 			return fmt.Errorf("decryption secret error: %w", err)
 		}
 
-		tmpDir, err := os.MkdirTemp("", kd.kustomization.Name)
-		if err != nil {
-			return fmt.Errorf("tmp dir error: %w", err)
-		}
-		defer os.RemoveAll(tmpDir)
-
-		var ageIdentities []string
-		var vaultToken string
+		var err error
 		for name, value := range secret.Data {
 			switch filepath.Ext(name) {
 			case ".asc":
-				keyPath, err := securejoin.SecureJoin(tmpDir, name)
-				if err != nil {
-					return err
-				}
-				if err := os.WriteFile(keyPath, value, os.ModePerm); err != nil {
-					return fmt.Errorf("unable to write key to storage: %w", err)
-				}
-				if err := kd.gpgImport(keyPath); err != nil {
-					return err
+				if err = kd.gnuPGHome.Import(value); err != nil {
+					return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
 				}
 			case ".agekey":
-				ageIdentities = append(ageIdentities, string(value))
+				if err = kd.ageIdentities.Import(string(value)); err != nil {
+					return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
+				}
 			case filepath.Ext(DecryptionVaultTokenFileName):
 				// Make sure we have the absolute name
 				if name == DecryptionVaultTokenFileName {
 					token := string(value)
 					token = strings.Trim(strings.TrimSpace(token), "\n")
-					vaultToken = token
+					kd.vaultToken = token
 				}
 			case filepath.Ext(DecryptionAzureAuthFile):
 				// Make sure we have the absolute name
 				if name == DecryptionAzureAuthFile {
-					azureConf := azkv.AADConfig{}
-					if err = azkv.LoadAADConfigFromBytes(value, &azureConf); err != nil {
-						return err
+					conf := azkv.AADConfig{}
+					if err = azkv.LoadAADConfigFromBytes(value, &conf); err != nil {
+						return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
 					}
-					kd.azureAADConfig = &azureConf
+					if kd.azureToken, err = azkv.TokenFromAADConfig(conf); err != nil {
+						return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
+					}
 				}
 			}
 		}
-
-		kd.ageIdentities = ageIdentities
-		kd.vaultToken = vaultToken
 	}
 
-	return nil
-}
-
-func (kd *KustomizeDecryptor) gpgImport(path string) error {
-	args := []string{"--batch", "--import", path}
-	if kd.homeDir != "" {
-		args = append([]string{"--homedir", kd.homeDir}, args...)
-	}
-	cmd := exec.Command("gpg", args...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("gpg import error: %s", string(out))
-	}
 	return nil
 }
 
@@ -284,9 +258,18 @@ func (kd KustomizeDecryptor) DataWithFormat(data []byte, inputFormat, outputForm
 		return nil, fmt.Errorf("LoadEncryptedFile: %w", err)
 	}
 
+	serverOpts := []intkeyservice.ServerOption{
+		intkeyservice.WithGnuPGHome(kd.gnuPGHome),
+		intkeyservice.WithVaultToken(kd.vaultToken),
+		intkeyservice.WithAgeIdentities(kd.ageIdentities),
+	}
+	if kd.azureToken != nil {
+		serverOpts = append(serverOpts, intkeyservice.WithAzureToken{Token: kd.azureToken})
+	}
+
 	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(
 		[]keyservice.KeyServiceClient{
-			intkeyservice.NewLocalClient(intkeyservice.NewServer(false, kd.homeDir, kd.vaultToken, kd.ageIdentities, kd.azureAADConfig)),
+			intkeyservice.NewLocalClient(intkeyservice.NewServer(serverOpts...)),
 		},
 	)
 	if err != nil {

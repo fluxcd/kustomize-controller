@@ -9,8 +9,6 @@ import (
 
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
@@ -19,50 +17,155 @@ import (
 )
 
 // Server is a key service server that uses SOPS MasterKeys to fulfill
-// requests. It intercepts encryption and decryption requests made for
-// PGP and Age keys, so that they can be run in a contained environment
-// instead of the default implementation which heavily utilizes
-// environmental variables. Any other request is forwarded to
-// the embedded DefaultServer.
+// requests. It intercepts Encrypt and Decrypt requests made for key types
+// that need to run in a contained environment, instead of the default
+// implementation which heavily utilizes environment variables or the runtime
+// environment. Any request not handled by the Server is forwarded to the
+// embedded default server.
 type Server struct {
-	// Prompt indicates whether the server should prompt before decrypting
-	// or encrypting data.
-	Prompt bool
+	// gnuPGHome is the GnuPG home directory used for the Encrypt and Decrypt
+	// operations for PGP key types.
+	// When empty, the requests will be handled using the systems' runtime
+	// keyring.
+	gnuPGHome pgp.GnuPGHome
 
-	// HomeDir configures the home directory used for PGP operations.
-	HomeDir string
+	// ageIdentities are the parsed age identities used for Decrypt
+	// operations for age key types.
+	ageIdentities age.ParsedIdentities
 
-	// AgePrivateKeys configures the age private keys known by the server.
-	AgePrivateKeys []string
+	// vaultToken is the token used for Encrypt and Decrypt operations of
+	// Hashicorp Vault requests.
+	// When empty, the request will be handled by defaultServer.
+	vaultToken hcvault.VaultToken
 
-	// VaultToken configures the Vault token used by the server.
-	VaultToken string
+	// azureToken is the credential token used for Encrypt and Decrypt
+	// operations of Azure Key Vault requests.
+	// When nil, the request will be handled by defaultServer.
+	azureToken *azkv.Token
 
-	// AzureAADConfig configures the Azure Active Directory settings used
-	// by the server.
-	AzureAADConfig *azkv.AADConfig
-
-	// DefaultServer is the server used for any other request than a PGP
-	// or age encryption/decryption.
-	DefaultServer keyservice.KeyServiceServer
+	// defaultServer is the fallback server, used to handle any request that
+	// is not eligible to be handled by this Server.
+	defaultServer keyservice.KeyServiceServer
 }
 
-func NewServer(prompt bool, homeDir, vaultToken string, agePrivateKeys []string, azureCfg *azkv.AADConfig) keyservice.KeyServiceServer {
-	server := &Server{
-		Prompt:         prompt,
-		HomeDir:        homeDir,
-		AgePrivateKeys: agePrivateKeys,
-		VaultToken:     vaultToken,
-		AzureAADConfig: azureCfg,
-		DefaultServer: &keyservice.Server{
-			Prompt: prompt,
-		},
+// NewServer constructs a new Server, configuring it with the provided options
+// before returning the result.
+// When WithDefaultServer() is not provided as an option, the SOPS server
+// implementation is configured as default.
+func NewServer(options ...ServerOption) keyservice.KeyServiceServer {
+	s := &Server{}
+	for _, opt := range options {
+		opt.ApplyToServer(s)
 	}
-	return server
+	if s.defaultServer == nil {
+		s.defaultServer = &keyservice.Server{
+			Prompt: false,
+		}
+	}
+	return s
+}
+
+// Encrypt takes an encrypt request and encrypts the provided plaintext with
+// the provided key, returning the encrypted result.
+func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*keyservice.EncryptResponse, error) {
+	key := req.Key
+	switch k := key.KeyType.(type) {
+	case *keyservice.Key_PgpKey:
+		ciphertext, err := ks.encryptWithPgp(k.PgpKey, req.Plaintext)
+		if err != nil {
+			return nil, err
+		}
+		return &keyservice.EncryptResponse{
+			Ciphertext: ciphertext,
+		}, nil
+	case *keyservice.Key_AgeKey:
+		ciphertext, err := ks.encryptWithAge(k.AgeKey, req.Plaintext)
+		if err != nil {
+			return nil, err
+		}
+		return &keyservice.EncryptResponse{
+			Ciphertext: ciphertext,
+		}, nil
+	case *keyservice.Key_VaultKey:
+		if ks.vaultToken != "" {
+			ciphertext, err := ks.encryptWithHCVault(k.VaultKey, req.Plaintext)
+			if err != nil {
+				return nil, err
+			}
+			return &keyservice.EncryptResponse{
+				Ciphertext: ciphertext,
+			}, nil
+		}
+	case *keyservice.Key_AzureKeyvaultKey:
+		if ks.azureToken != nil {
+			ciphertext, err := ks.encryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Plaintext)
+			if err != nil {
+				return nil, err
+			}
+			return &keyservice.EncryptResponse{
+				Ciphertext: ciphertext,
+			}, nil
+		}
+	case nil:
+		return nil, fmt.Errorf("must provide a key")
+	}
+	// Fallback to default server for any other request.
+	return ks.defaultServer.Encrypt(ctx, req)
+}
+
+// Decrypt takes a decrypt request and decrypts the provided ciphertext with
+// the provided key, returning the decrypted result.
+func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*keyservice.DecryptResponse, error) {
+	key := req.Key
+	switch k := key.KeyType.(type) {
+	case *keyservice.Key_PgpKey:
+		plaintext, err := ks.decryptWithPgp(k.PgpKey, req.Ciphertext)
+		if err != nil {
+			return nil, err
+		}
+		return &keyservice.DecryptResponse{
+			Plaintext: plaintext,
+		}, nil
+	case *keyservice.Key_AgeKey:
+		plaintext, err := ks.decryptWithAge(k.AgeKey, req.Ciphertext)
+		if err != nil {
+			return nil, err
+		}
+		return &keyservice.DecryptResponse{
+			Plaintext: plaintext,
+		}, nil
+	case *keyservice.Key_VaultKey:
+		if ks.vaultToken != "" {
+			plaintext, err := ks.decryptWithHCVault(k.VaultKey, req.Ciphertext)
+			if err != nil {
+				return nil, err
+			}
+			return &keyservice.DecryptResponse{
+				Plaintext: plaintext,
+			}, nil
+		}
+	case *keyservice.Key_AzureKeyvaultKey:
+		if ks.azureToken != nil {
+			plaintext, err := ks.decryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Ciphertext)
+			if err != nil {
+				return nil, err
+			}
+			return &keyservice.DecryptResponse{
+				Plaintext: plaintext,
+			}, nil
+		}
+	case nil:
+		return nil, fmt.Errorf("must provide a key")
+	}
+	// Fallback to default server for any other request.
+	return ks.defaultServer.Decrypt(ctx, req)
 }
 
 func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]byte, error) {
-	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint, ks.HomeDir)
+	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint)
+	if ks.gnuPGHome != "" {
+		ks.gnuPGHome.ApplyToMasterKey(pgpKey)
+	}
 	err := pgpKey.Encrypt(plaintext)
 	if err != nil {
 		return nil, err
@@ -71,13 +174,20 @@ func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]by
 }
 
 func (ks *Server) decryptWithPgp(key *keyservice.PgpKey, ciphertext []byte) ([]byte, error) {
-	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint, ks.HomeDir)
+	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint)
+	if ks.gnuPGHome != "" {
+		ks.gnuPGHome.ApplyToMasterKey(pgpKey)
+	}
 	pgpKey.EncryptedKey = string(ciphertext)
 	plaintext, err := pgpKey.Decrypt()
 	return plaintext, err
 }
 
-func (ks *Server) encryptWithAge(key *keyservice.AgeKey, plaintext []byte) ([]byte, error) {
+func (ks Server) encryptWithAge(key *keyservice.AgeKey, plaintext []byte) ([]byte, error) {
+	// Unlike the other encrypt and decrypt methods, validation of configuration
+	// is not required here. As the encryption happens purely based on the
+	// Recipient from the key.
+
 	ageKey := age.MasterKey{
 		Recipient: key.Recipient,
 	}
@@ -89,188 +199,60 @@ func (ks *Server) encryptWithAge(key *keyservice.AgeKey, plaintext []byte) ([]by
 
 func (ks *Server) decryptWithAge(key *keyservice.AgeKey, ciphertext []byte) ([]byte, error) {
 	ageKey := age.MasterKey{
-		Recipient:  key.Recipient,
-		Identities: ks.AgePrivateKeys,
+		Recipient: key.Recipient,
 	}
+	ks.ageIdentities.ApplyToMasterKey(&ageKey)
 	ageKey.EncryptedKey = string(ciphertext)
 	plaintext, err := ageKey.Decrypt()
 	return plaintext, err
 }
 
-func (ks *Server) decryptWithVault(key *keyservice.VaultKey, ciphertext []byte) ([]byte, error) {
+func (ks *Server) encryptWithHCVault(key *keyservice.VaultKey, plaintext []byte) ([]byte, error) {
 	vaultKey := hcvault.MasterKey{
 		VaultAddress: key.VaultAddress,
 		EnginePath:   key.EnginePath,
 		KeyName:      key.KeyName,
-		VaultToken:   ks.VaultToken,
+	}
+	ks.vaultToken.ApplyToMasterKey(&vaultKey)
+	if err := vaultKey.Encrypt(plaintext); err != nil {
+		return nil, err
+	}
+	return []byte(vaultKey.EncryptedKey), nil
+}
+
+func (ks *Server) decryptWithHCVault(key *keyservice.VaultKey, ciphertext []byte) ([]byte, error) {
+	vaultKey := hcvault.MasterKey{
+		VaultAddress: key.VaultAddress,
+		EnginePath:   key.EnginePath,
+		KeyName:      key.KeyName,
 	}
 	vaultKey.EncryptedKey = string(ciphertext)
+	ks.vaultToken.ApplyToMasterKey(&vaultKey)
 	plaintext, err := vaultKey.Decrypt()
 	return plaintext, err
 }
 
-func (ks *Server) encryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
+func (ks *Server) encryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
 	azureKey := azkv.MasterKey{
 		VaultURL: key.VaultUrl,
 		Name:     key.Name,
 		Version:  key.Version,
 	}
-	if err := ks.AzureAADConfig.SetToken(&azureKey); err != nil {
-		return nil, fmt.Errorf("failed to set token for Azure encryption request: %w", err)
-	}
+	ks.azureToken.ApplyToMasterKey(&azureKey)
 	if err := azureKey.Encrypt(plaintext); err != nil {
 		return nil, err
 	}
 	return []byte(azureKey.EncryptedKey), nil
 }
 
-func (ks *Server) decryptWithAzureKeyvault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
+func (ks *Server) decryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
 	azureKey := azkv.MasterKey{
 		VaultURL: key.VaultUrl,
 		Name:     key.Name,
 		Version:  key.Version,
 	}
-	if err := ks.AzureAADConfig.SetToken(&azureKey); err != nil {
-		return nil, fmt.Errorf("failed to set token for Azure decryption request: %w", err)
-	}
+	ks.azureToken.ApplyToMasterKey(&azureKey)
 	azureKey.EncryptedKey = string(ciphertext)
 	plaintext, err := azureKey.Decrypt()
 	return plaintext, err
-}
-
-// Encrypt takes an encrypt request and encrypts the provided plaintext with the provided key,
-// returning the encrypted result.
-func (ks Server) Encrypt(ctx context.Context,
-	req *keyservice.EncryptRequest) (*keyservice.EncryptResponse, error) {
-	key := req.Key
-	var response *keyservice.EncryptResponse
-	switch k := key.KeyType.(type) {
-	case *keyservice.Key_PgpKey:
-		ciphertext, err := ks.encryptWithPgp(k.PgpKey, req.Plaintext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.EncryptResponse{
-			Ciphertext: ciphertext,
-		}
-	case *keyservice.Key_AgeKey:
-		ciphertext, err := ks.encryptWithAge(k.AgeKey, req.Plaintext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.EncryptResponse{
-			Ciphertext: ciphertext,
-		}
-	case *keyservice.Key_AzureKeyvaultKey:
-		// Fallback to default server if no custom settings are configured
-		// to ensure backwards compatibility with global configurations
-		if ks.AzureAADConfig == nil {
-			return ks.DefaultServer.Encrypt(ctx, req)
-		}
-
-		ciphertext, err := ks.encryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Plaintext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.EncryptResponse{
-			Ciphertext: ciphertext,
-		}
-	default:
-		return ks.DefaultServer.Encrypt(ctx, req)
-	}
-	if ks.Prompt {
-		err := ks.prompt(key, "encrypt")
-		if err != nil {
-			return nil, err
-		}
-	}
-	return response, nil
-}
-
-func keyToString(key *keyservice.Key) string {
-	switch k := key.KeyType.(type) {
-	case *keyservice.Key_PgpKey:
-		return fmt.Sprintf("PGP key with fingerprint %s", k.PgpKey.Fingerprint)
-	default:
-		return "Unknown key type"
-	}
-}
-
-func (ks Server) prompt(key *keyservice.Key, requestType string) error {
-	keyString := keyToString(key)
-	var response string
-	for response != "y" && response != "n" {
-		fmt.Printf("\nReceived %s request using %s. Respond to request? (y/n): ", requestType, keyString)
-		_, err := fmt.Scanln(&response)
-		if err != nil {
-			return err
-		}
-	}
-	if response == "n" {
-		return status.Errorf(codes.PermissionDenied, "Request rejected by user")
-	}
-	return nil
-}
-
-// Decrypt takes a decrypt request and decrypts the provided ciphertext with the provided key,
-// returning the decrypted result.
-func (ks Server) Decrypt(ctx context.Context,
-	req *keyservice.DecryptRequest) (*keyservice.DecryptResponse, error) {
-	key := req.Key
-	var response *keyservice.DecryptResponse
-	switch k := key.KeyType.(type) {
-	case *keyservice.Key_PgpKey:
-		plaintext, err := ks.decryptWithPgp(k.PgpKey, req.Ciphertext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.DecryptResponse{
-			Plaintext: plaintext,
-		}
-	case *keyservice.Key_AgeKey:
-		plaintext, err := ks.decryptWithAge(k.AgeKey, req.Ciphertext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.DecryptResponse{
-			Plaintext: plaintext,
-		}
-	case *keyservice.Key_VaultKey:
-		// FallBack to DefaultServer if vaulToken is not present
-		// to ensure backward compatibility (VAULT_TOKEN env var is set)
-		if ks.VaultToken == "" {
-			return ks.DefaultServer.Decrypt(ctx, req)
-		}
-
-		plaintext, err := ks.decryptWithVault(k.VaultKey, req.Ciphertext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.DecryptResponse{
-			Plaintext: plaintext,
-		}
-	case *keyservice.Key_AzureKeyvaultKey:
-		// Fallback to default server if no custom settings are configured
-		// to ensure backwards compatibility with global configurations
-		if ks.AzureAADConfig == nil {
-			return ks.DefaultServer.Decrypt(ctx, req)
-		}
-
-		plaintext, err := ks.decryptWithAzureKeyvault(k.AzureKeyvaultKey, req.Ciphertext)
-		if err != nil {
-			return nil, err
-		}
-		response = &keyservice.DecryptResponse{
-			Plaintext: plaintext,
-		}
-	default:
-		return ks.DefaultServer.Decrypt(ctx, req)
-	}
-	if ks.Prompt {
-		err := ks.prompt(key, "decrypt")
-		if err != nil {
-			return nil, err
-		}
-	}
-	return response, nil
 }
