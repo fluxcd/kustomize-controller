@@ -1244,7 +1244,7 @@ using the [notification.fluxcd.io API](https://github.com/fluxcd/notification-co
 **Release date:** 2020-06-24
 
 This is the first prerelease ready for public testing. To get started
-testing, see the [GitOps Toolkit guide](https://toolkit.fluxcd.io/get-started/).
+testing, see the [GitOps Toolkit guide](https://fluxcd.io/docs/get-started/).
 
 ## 0.0.1-beta.2
 
