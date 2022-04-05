@@ -116,7 +116,7 @@ func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resourc
 
 				data, err := base64.StdEncoding.DecodeString(value)
 				if err != nil {
-					fmt.Println("Base64 Decode: %w", err)
+					return nil, fmt.Errorf("Base64 Decode: %w", err)
 				}
 
 				if bytes.Contains(data, []byte("sops")) && bytes.Contains(data, []byte("ENC[")) {
