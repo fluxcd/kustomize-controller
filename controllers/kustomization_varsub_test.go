@@ -120,7 +120,7 @@ stringData:
 		},
 		Spec: kustomizev1.KustomizationSpec{
 			KubeConfig: &kustomizev1.KubeConfig{
-				SecretRef: meta.LocalObjectReference{
+				SecretRef: meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
 			},
@@ -269,7 +269,7 @@ metadata:
 		},
 		Spec: kustomizev1.KustomizationSpec{
 			KubeConfig: &kustomizev1.KubeConfig{
-				SecretRef: meta.LocalObjectReference{
+				SecretRef: meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
 			},

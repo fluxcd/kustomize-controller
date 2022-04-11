@@ -92,7 +92,7 @@ data:
 			Interval: metav1.Duration{Duration: time.Minute},
 			Path:     "./",
 			KubeConfig: &kustomizev1.KubeConfig{
-				SecretRef: meta.LocalObjectReference{
+				SecretRef: meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
 			},
@@ -207,4 +207,114 @@ data:
 		err := k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultConfig)
 		g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 	})
+}
+
+func TestKustomizationReconciler_KubeConfig(t *testing.T) {
+	g := NewWithT(t)
+	id := "kc-" + randStringRunes(5)
+	revision := "v1.0.0"
+
+	err := createNamespace(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	manifests := func(name string, data string) []testserver.File {
+		return []testserver.File{
+			{
+				Name: "config.yaml",
+				Body: fmt.Sprintf(`---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %[1]s
+data:
+  key: "%[2]s"
+`, name, data),
+			},
+		}
+	}
+
+	artifact, err := testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create artifact from files")
+
+	repositoryName := types.NamespacedName{
+		Name:      randStringRunes(5),
+		Namespace: id,
+	}
+
+	err = applyGitRepository(repositoryName, artifact, revision)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	const (
+		secretName = "user-defined-name"
+		secretKey  = "user-defined-key"
+	)
+	kustomizationKey := types.NamespacedName{
+		Name:      randStringRunes(5),
+		Namespace: id,
+	}
+	kustomization := &kustomizev1.Kustomization{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kustomizationKey.Name,
+			Namespace: kustomizationKey.Namespace,
+		},
+		Spec: kustomizev1.KustomizationSpec{
+			Interval: metav1.Duration{Duration: time.Minute},
+			Path:     "./",
+			KubeConfig: &kustomizev1.KubeConfig{
+				SecretRef: meta.SecretKeyReference{
+					Name: secretName,
+					Key:  secretKey,
+				},
+			},
+			SourceRef: kustomizev1.CrossNamespaceSourceReference{
+				Name:      repositoryName.Name,
+				Namespace: repositoryName.Namespace,
+				Kind:      sourcev1.GitRepositoryKind,
+			},
+			TargetNamespace: id,
+			Prune:           true,
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+	resultK := &kustomizev1.Kustomization{}
+	readyCondition := &metav1.Condition{}
+
+	t.Run("fails to reconcile with missing kubeconfig secret", func(t *testing.T) {
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			readyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
+			return apimeta.IsStatusConditionFalse(resultK.Status.Conditions, meta.ReadyCondition)
+		}, timeout, time.Second).Should(BeTrue())
+
+		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationFailedReason))
+		g.Expect(readyCondition.Message).To(ContainSubstring(`Secret "%s" not found`, secretName))
+	})
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: id,
+		},
+		Data: map[string][]byte{
+			secretKey: kubeConfig,
+		},
+	}
+	g.Expect(k8sClient.Create(context.Background(), secret)).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	t.Run("reconciles successfully after secret is created", func(t *testing.T) {
+		revision = "v2.0.0"
+		err = applyGitRepository(repositoryName, artifact, revision)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			readyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
+			return resultK.Status.LastAppliedRevision == revision
+		}, timeout, time.Second).Should(BeTrue())
+
+		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationSucceededReason))
+	})
+
 }

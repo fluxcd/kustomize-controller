@@ -521,14 +521,15 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 <td>
 <code>secretRef</code><br>
 <em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
-github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#SecretKeyReference">
+github.com/fluxcd/pkg/apis/meta.SecretKeyReference
 </a>
 </em>
 </td>
 <td>
-<p>SecretRef holds the name to a secret that contains a &lsquo;value&rsquo; key with
-the kubeconfig file as the value. It must be in the same namespace as
+<p>SecretRef holds the name of a secret that contains a key with
+the kubeconfig file as the value. If no key is set, the key will default
+to &lsquo;value&rsquo;. The secret must be in the same namespace as
 the Kustomization.
 It is recommended that the kubeconfig is self-contained, and the secret
 is regularly updated if credentials such as a cloud-access-token expire.

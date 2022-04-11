@@ -177,15 +177,20 @@ func (ki *KustomizeImpersonation) getKubeConfig(ctx context.Context) ([]byte, er
 	}
 
 	var kubeConfig []byte
-	for k := range secret.Data {
-		if k == "value" || k == "value.yaml" {
-			kubeConfig = secret.Data[k]
-			break
+	switch {
+	case ki.kustomization.Spec.KubeConfig.SecretRef.Key != "":
+		key := ki.kustomization.Spec.KubeConfig.SecretRef.Key
+		kubeConfig = secret.Data[key]
+		if kubeConfig == nil {
+			return nil, fmt.Errorf("KubeConfig secret '%s' does not contain a '%s' key with a kubeconfig", secretName, key)
 		}
-	}
-
-	if len(kubeConfig) == 0 {
-		return nil, fmt.Errorf("KubeConfig secret '%s' doesn't contain a 'value' key ", secretName.String())
+	case secret.Data["value"] != nil:
+		kubeConfig = secret.Data["value"]
+	case secret.Data["value.yaml"] != nil:
+		kubeConfig = secret.Data["value.yaml"]
+	default:
+		// User did not specify a key, and the 'value' key was not defined.
+		return nil, fmt.Errorf("KubeConfig secret '%s' does not contain a 'value' key with a kubeconfig", secretName)
 	}
 
 	return kubeConfig, nil
