@@ -368,7 +368,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// build the kustomization
-	resources, err := r.build(ctx, kustomization, dirPath)
+	resources, err := r.build(ctx, tmpDir, kustomization, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -634,8 +634,8 @@ func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomizati
 	return gen.WriteFile(dirPath)
 }
 
-func (r *KustomizationReconciler) build(ctx context.Context, kustomization kustomizev1.Kustomization, dirPath string) ([]byte, error) {
-	dec, cleanup, err := NewTempDecryptor(r.Client, kustomization)
+func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kustomization kustomizev1.Kustomization, dirPath string) ([]byte, error) {
+	dec, cleanup, err := NewTempDecryptor(workDir, r.Client, kustomization)
 	if err != nil {
 		return nil, err
 	}
@@ -649,7 +649,7 @@ func (r *KustomizationReconciler) build(ctx context.Context, kustomization kusto
 	fs := filesys.MakeFsOnDisk()
 	// decrypt .env files before building kustomization
 	if kustomization.Spec.Decryption != nil {
-		if err = dec.decryptDotEnvFiles(dirPath); err != nil {
+		if err = dec.DecryptEnvSources(dirPath); err != nil {
 			return nil, fmt.Errorf("error decrypting .env file: %w", err)
 		}
 	}
@@ -666,7 +666,7 @@ func (r *KustomizationReconciler) build(ctx context.Context, kustomization kusto
 
 		// check if resources are encrypted and decrypt them before generating the final YAML
 		if kustomization.Spec.Decryption != nil {
-			outRes, err := dec.Decrypt(res)
+			outRes, err := dec.DecryptResource(res)
 			if err != nil {
 				return nil, fmt.Errorf("decryption failed for '%s': %w", res.GetName(), err)
 			}

@@ -20,17 +20,23 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/aes"
 	"go.mozilla.org/sops/v3/cmd/sops/common"
 	"go.mozilla.org/sops/v3/cmd/sops/formats"
 	"go.mozilla.org/sops/v3/keyservice"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,151 +53,525 @@ import (
 )
 
 const (
-	// DecryptionProviderSOPS is the SOPS provider name
+	// DecryptionProviderSOPS is the SOPS provider name.
 	DecryptionProviderSOPS = "sops"
-	// DecryptionVaultTokenFileName is the name of the file containing the Vault token
+	// DecryptionPGPExt is the extension of the file containing an armored PGP
+	//key.
+	DecryptionPGPExt = ".asc"
+	// DecryptionAgeExt is the extension of the file containing an age key
+	// file.
+	DecryptionAgeExt = ".agekey"
+	// DecryptionVaultTokenFileName is the name of the file containing the
+	// Hashicorp Vault token.
 	DecryptionVaultTokenFileName = "sops.vault-token"
-	// DecryptionAzureAuthFile is the Azure authentication file
+	// DecryptionAzureAuthFile is the name of the file containing the Azure
+	// credentials.
 	DecryptionAzureAuthFile = "sops.azure-kv"
 )
 
-type KustomizeDecryptor struct {
-	client.Client
+var (
+	// maxEncryptedFileSize is the max allowed file size in bytes of an encrypted
+	// file.
+	maxEncryptedFileSize int64 = 5 << 20
+	// sopsFormatToString is the counterpart to
+	// https://github.com/mozilla/sops/blob/v3.7.2/cmd/sops/formats/formats.go#L16
+	sopsFormatToString = map[formats.Format]string{
+		formats.Binary: "binary",
+		formats.Dotenv: "dotenv",
+		formats.Ini:    "INI",
+		formats.Json:   "JSON",
+		formats.Yaml:   "YAML",
+	}
+	// sopsFormatToMarkerBytes contains a list of formats and their byte
+	// order markers, used to detect if a Secret data field is SOPS' encrypted.
+	sopsFormatToMarkerBytes = map[formats.Format][]byte{
+		// formats.Binary is a JSON envelop at encrypted rest
+		formats.Binary: []byte("\"mac\": \"ENC["),
+		formats.Dotenv: []byte("sops_mac=ENC["),
+		formats.Ini:    []byte("[sops]"),
+		formats.Json:   []byte("\"mac\": \"ENC["),
+		formats.Yaml:   []byte("mac: ENC["),
+	}
+)
 
+// KustomizeDecryptor performs decryption operations for a
+// v1beta2.Kustomization.
+// The only supported decryption provider at present is
+// DecryptionProviderSOPS.
+type KustomizeDecryptor struct {
+	// root is the root for file system operations. Any (relative) path or
+	// symlink is not allowed to traverse outside this path.
+	root string
+	// client is the Kubernetes client used to e.g. retrieve Secrets with.
+	client client.Client
+	// kustomization is the v1beta2.Kustomization we are decrypting for.
+	// The v1beta2.Decryption of the object is used to ImportKeys().
 	kustomization kustomizev1.Kustomization
-	gnuPGHome     pgp.GnuPGHome
+	// maxFileSize is the max size in bytes a file is allowed to have to be
+	// decrypted. Defaults to maxEncryptedFileSize.
+	maxFileSize int64
+	// checkSopsMac instructs the decryptor to perform the SOPS data integrity
+	// check using the MAC. Not enabled by default, as arbitrary data gets
+	// injected into most resources, causing the integrity check to fail.
+	// Mostly kept around for feature completeness and documentation purposes.
+	checkSopsMac bool
+
+	// gnuPGHome is the absolute path of the GnuPG home directory used to
+	// decrypt PGP data. When empty, the systems' GnuPG keyring is used.
+	// When set, ImportKeys() imports found PGP keys into this keyring.
+	gnuPGHome pgp.GnuPGHome
+	// ageIdentities is the set of age identities available to the decryptor.
 	ageIdentities age.ParsedIdentities
-	vaultToken    string
-	azureToken    *azkv.Token
+	// vaultToken is the Hashicorp Vault token used to authenticate towards
+	// any Vault server.
+	vaultToken string
+	// azureToken is the Azure credential token used to authenticate towards
+	// any Azure Key Vault.
+	azureToken *azkv.Token
+
+	// keyServices are the SOPS keyservice.KeyServiceClient's available to the
+	// decryptor.
+	keyServices      []keyservice.KeyServiceClient
+	localServiceOnce sync.Once
 }
 
-func NewDecryptor(kubeClient client.Client,
-	kustomization kustomizev1.Kustomization, gnuPGHome string) *KustomizeDecryptor {
+// NewDecryptor creates a new KustomizeDecryptor for the given kustomization.
+// gnuPGHome can be empty, in which case the systems' keyring is used.
+func NewDecryptor(root string, client client.Client, kustomization kustomizev1.Kustomization, maxFileSize int64, gnuPGHome string) *KustomizeDecryptor {
 	return &KustomizeDecryptor{
-		Client:        kubeClient,
+		root:          root,
+		client:        client,
 		kustomization: kustomization,
+		maxFileSize:   maxFileSize,
 		gnuPGHome:     pgp.GnuPGHome(gnuPGHome),
 	}
 }
 
-func NewTempDecryptor(kubeClient client.Client,
-	kustomization kustomizev1.Kustomization) (*KustomizeDecryptor, func(), error) {
+// NewTempDecryptor creates a new KustomizeDecryptor, with a temporary GnuPG
+// home directory to KustomizeDecryptor.ImportKeys() into.
+func NewTempDecryptor(root string, client client.Client, kustomization kustomizev1.Kustomization) (*KustomizeDecryptor, func(), error) {
 	gnuPGHome, err := pgp.NewGnuPGHome()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot create decryptor: %w", err)
 	}
-	cleanup := func() { os.RemoveAll(gnuPGHome.String()) }
-	return NewDecryptor(kubeClient, kustomization, gnuPGHome.String()), cleanup, nil
+	cleanup := func() { _ = os.RemoveAll(gnuPGHome.String()) }
+	return NewDecryptor(root, client, kustomization, maxEncryptedFileSize, gnuPGHome.String()), cleanup, nil
 }
 
-func (kd *KustomizeDecryptor) Decrypt(res *resource.Resource) (*resource.Resource, error) {
-	out, err := res.AsYAML()
-	if err != nil {
-		return nil, err
-	}
-
-	if kd.kustomization.Spec.Decryption != nil && kd.kustomization.Spec.Decryption.Provider == DecryptionProviderSOPS {
-		if bytes.Contains(out, []byte("sops:")) && bytes.Contains(out, []byte("mac: ENC[")) {
-			data, err := kd.DataWithFormat(out, formats.Yaml, formats.Yaml)
-			if err != nil {
-				return nil, fmt.Errorf("DataWithFormat: %w", err)
-			}
-
-			jsonData, err := yaml.YAMLToJSON(data)
-			if err != nil {
-				return nil, fmt.Errorf("YAMLToJSON: %w", err)
-			}
-
-			err = res.UnmarshalJSON(jsonData)
-			if err != nil {
-				return nil, fmt.Errorf("UnmarshalJSON: %w", err)
-			}
-			return res, nil
-
-		} else if res.GetKind() == "Secret" {
-
-			dataMap := res.GetDataMap()
-
-			for key, value := range dataMap {
-
-				data, err := base64.StdEncoding.DecodeString(value)
-				if err != nil {
-					return nil, fmt.Errorf("Base64 Decode: %w", err)
-				}
-
-				if bytes.Contains(data, []byte("sops")) && bytes.Contains(data, []byte("ENC[")) {
-					outputFormat := formats.FormatForPath(key)
-					out, err := kd.DataWithFormat(data, formats.Yaml, outputFormat)
-					if err != nil {
-						return nil, fmt.Errorf("DataWithFormat: %w", err)
-					}
-
-					dataMap[key] = base64.StdEncoding.EncodeToString(out)
-				}
-			}
-
-			res.SetDataMap(dataMap)
-
-			return res, nil
-
+// IsEncryptedSecret checks if the given object is a Kubernetes Secret encrypted
+// with Mozilla SOPS.
+func IsEncryptedSecret(object *unstructured.Unstructured) bool {
+	if object.GetKind() == "Secret" && object.GetAPIVersion() == "v1" {
+		if _, found, _ := unstructured.NestedFieldNoCopy(object.Object, "sops"); found {
+			return true
 		}
 	}
-	return nil, nil
+	return false
 }
 
-func (kd *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
-	if kd.kustomization.Spec.Decryption != nil && kd.kustomization.Spec.Decryption.SecretRef != nil {
+// ImportKeys imports the DecryptionProviderSOPS keys from the data values of
+// the Secret referenced in the Kustomization's v1beta2.Decryption spec.
+// It returns an error if the Secret cannot be retrieved, or if one of the
+// imports fails.
+// Imports do not have an effect after the first call to SopsDecryptWithFormat(),
+// which initializes and caches SOPS' (local) key service server.
+// For the import of PGP keys, the KustomizeDecryptor must be configured with
+// an absolute GnuPG home directory path.
+func (d *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
+	if d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.SecretRef == nil {
+		return nil
+	}
+
+	provider := d.kustomization.Spec.Decryption.Provider
+	switch provider {
+	case DecryptionProviderSOPS:
 		secretName := types.NamespacedName{
-			Namespace: kd.kustomization.GetNamespace(),
-			Name:      kd.kustomization.Spec.Decryption.SecretRef.Name,
+			Namespace: d.kustomization.GetNamespace(),
+			Name:      d.kustomization.Spec.Decryption.SecretRef.Name,
 		}
 
 		var secret corev1.Secret
-		if err := kd.Get(ctx, secretName, &secret); err != nil {
-			return fmt.Errorf("decryption secret error: %w", err)
+		if err := d.client.Get(ctx, secretName, &secret); err != nil {
+			if apierrors.IsNotFound(err) {
+				return err
+			}
+			return fmt.Errorf("cannot get %s decryption Secret '%s': %w", provider, secretName, err)
 		}
 
 		var err error
 		for name, value := range secret.Data {
 			switch filepath.Ext(name) {
-			case ".asc":
-				if err = kd.gnuPGHome.Import(value); err != nil {
-					return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
+			case DecryptionPGPExt:
+				if err = d.gnuPGHome.Import(value); err != nil {
+					return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 				}
-			case ".agekey":
-				if err = kd.ageIdentities.Import(string(value)); err != nil {
-					return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
+			case DecryptionAgeExt:
+				if err = d.ageIdentities.Import(string(value)); err != nil {
+					return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 				}
 			case filepath.Ext(DecryptionVaultTokenFileName):
 				// Make sure we have the absolute name
 				if name == DecryptionVaultTokenFileName {
 					token := string(value)
 					token = strings.Trim(strings.TrimSpace(token), "\n")
-					kd.vaultToken = token
+					d.vaultToken = token
 				}
 			case filepath.Ext(DecryptionAzureAuthFile):
 				// Make sure we have the absolute name
 				if name == DecryptionAzureAuthFile {
 					conf := azkv.AADConfig{}
 					if err = azkv.LoadAADConfigFromBytes(value, &conf); err != nil {
-						return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
+						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 					}
-					if kd.azureToken, err = azkv.TokenFromAADConfig(conf); err != nil {
-						return fmt.Errorf("failed to import '%s' data from Secret '%s': %w", name, secretName, err)
+					if d.azureToken, err = azkv.TokenFromAADConfig(conf); err != nil {
+						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 					}
 				}
 			}
 		}
 	}
-
 	return nil
 }
 
-func (kd *KustomizeDecryptor) decryptDotEnvFiles(dirpath string) error {
-	kustomizePath := filepath.Join(dirpath, konfig.DefaultKustomizationFileName())
-	ksData, err := os.ReadFile(kustomizePath)
+// SopsDecryptWithFormat attempts to load a SOPS encrypted file using the store
+// for the input format, gathers the data key for it from the key service,
+// and then decrypts the file data with the retrieved data key.
+// It returns the decrypted bytes in the provided output format, or an error.
+func (d *KustomizeDecryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat formats.Format) ([]byte, error) {
+	store := common.StoreForFormat(inputFormat)
+
+	tree, err := store.LoadEncryptedFile(data)
 	if err != nil {
+		return nil, sopsUserErr(fmt.Sprintf("failed to load encrypted %s data", sopsFormatToString[inputFormat]), err)
+	}
+
+	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(d.keyServiceServer())
+	if err != nil {
+		return nil, sopsUserErr("cannot get sops data key", err)
+	}
+
+	cipher := aes.NewCipher()
+	mac, err := tree.Decrypt(metadataKey, cipher)
+	if err != nil {
+		return nil, sopsUserErr("error decrypting sops tree", err)
+	}
+
+	if d.checkSopsMac {
+		// Compute the hash of the cleartext tree and compare it with
+		// the one that was stored in the document. If they match,
+		// integrity was preserved
+		// Ref: go.mozilla.org/sops/v3/decrypt/decrypt.go
+		originalMac, err := cipher.Decrypt(
+			tree.Metadata.MessageAuthenticationCode,
+			metadataKey,
+			tree.Metadata.LastModified.Format(time.RFC3339),
+		)
+		if err != nil {
+			return nil, sopsUserErr("failed to verify sops data integrity", err)
+		}
+		if originalMac != mac {
+			// If the file has an empty MAC, display "no MAC"
+			if originalMac == "" {
+				originalMac = "no MAC"
+			}
+			return nil, fmt.Errorf("failed to verify sops data integrity: expected mac '%s', got '%s'", originalMac, mac)
+		}
+	}
+
+	outputStore := common.StoreForFormat(outputFormat)
+	out, err := outputStore.EmitPlainFile(tree.Branches)
+	if err != nil {
+		return nil, sopsUserErr(fmt.Sprintf("failed to emit encrypted %s file as decrypted %s",
+			sopsFormatToString[inputFormat], sopsFormatToString[outputFormat]), err)
+	}
+	return out, err
+}
+
+// DecryptResource attempts to decrypt the provided resource with the
+// decryption provider specified on the Kustomization, overwriting the resource
+// with the decrypted data.
+// It has special support for Kubernetes Secrets with encrypted data entries
+// while decrypting with DecryptionProviderSOPS, to allow individual data entries
+// injected by e.g. a Kustomize secret generator to be decrypted
+func (d *KustomizeDecryptor) DecryptResource(res *resource.Resource) (*resource.Resource, error) {
+	if res == nil || d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.Provider == "" {
+		return nil, nil
+	}
+
+	switch d.kustomization.Spec.Decryption.Provider {
+	case DecryptionProviderSOPS:
+		switch {
+		case isSOPSEncryptedResource(res):
+			// As we are expecting to decrypt right before applying, we do not
+			// care about keeping any other data (e.g. comments) around.
+			// We can therefore simply work with JSON, which saves us from e.g.
+			// JSON -> YAML -> JSON transformations.
+			out, err := res.MarshalJSON()
+			if err != nil {
+				return nil, err
+			}
+
+			data, err := d.SopsDecryptWithFormat(out, formats.Json, formats.Json)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt and format '%s/%s' %s data: %w",
+					res.GetNamespace(), res.GetName(), res.GetKind(), err)
+			}
+
+			err = res.UnmarshalJSON(data)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal decrypted '%s/%s' %s to JSON: %w",
+					res.GetNamespace(), res.GetName(), res.GetKind(), err)
+			}
+			return res, nil
+		case res.GetKind() == "Secret":
+			dataMap := res.GetDataMap()
+			for key, value := range dataMap {
+				data, err := base64.StdEncoding.DecodeString(value)
+				if err != nil {
+					// If we fail to base64 decode, it is (very) likely to be a
+					// user input error. Instead of failing here, let it bubble
+					// up during the actual build.
+					continue
+				}
+
+				if bytes.Contains(data, sopsFormatToMarkerBytes[formats.Yaml]) || bytes.Contains(data, sopsFormatToMarkerBytes[formats.Json]) {
+					outF := formats.FormatForPath(key)
+					out, err := d.SopsDecryptWithFormat(data, formats.Yaml, outF)
+					if err != nil {
+						return nil, fmt.Errorf("failed to decrypt and format '%s/%s' Secret field '%s': %w",
+							res.GetNamespace(), res.GetName(), key, err)
+					}
+					dataMap[key] = base64.StdEncoding.EncodeToString(out)
+				}
+			}
+			res.SetDataMap(dataMap)
+			return res, nil
+		}
+	}
+	return nil, nil
+}
+
+// DecryptEnvSources attempts to decrypt all types.SecretArgs FileSources and
+// EnvSources a Kustomization file in the directory at the provided path refers
+// to, before walking recursively over all other resources it refers to.
+// It ignores resource references which refer to absolute or relative paths
+// outside the working directory of the decryptor, but returns any decryption
+// error.
+func (d *KustomizeDecryptor) DecryptEnvSources(path string) error {
+	if d.kustomization.Spec.Decryption.Provider != DecryptionProviderSOPS {
 		return nil
+	}
+
+	decrypted, visited := make(map[string]struct{}, 0), make(map[string]struct{}, 0)
+	visit := d.decryptKustomizationEnvSources(decrypted)
+	return recurseKustomizationFiles(d.root, path, visit, visited)
+}
+
+// decryptKustomizationEnvSources returns a visitKustomization implementation
+// which attempts to decrypt any EnvSources entry it finds in the Kustomization
+// file it is called with.
+// After a successful decrypt, the absolute path of the file is added to the
+// given map.
+func (d *KustomizeDecryptor) decryptKustomizationEnvSources(visited map[string]struct{}) visitKustomization {
+	return func(root, path string, kus *kustypes.Kustomization) error {
+		visitRef := func(ref string, format formats.Format) error {
+			refParts := strings.Split(ref, "=")
+			if len(refParts) > 1 {
+				ref = refParts[1]
+			}
+			if !filepath.IsAbs(ref) {
+				ref = filepath.Join(path, ref)
+			}
+
+			absRef, _, err := securePaths(root, ref)
+			if err != nil {
+				return err
+			}
+			if _, ok := visited[absRef]; ok {
+				return nil
+			}
+
+			if err := d.sopsDecryptFile(absRef, format, format); err != nil {
+				return securePathErr(root, err)
+			}
+
+			// Explicitly set _after_ the decryption operation, this makes
+			// visited work as a list of actually decrypted files
+			visited[absRef] = struct{}{}
+			return nil
+		}
+
+		for _, gen := range kus.SecretGenerator {
+			for _, fileSrc := range gen.FileSources {
+				if err := visitRef(fileSrc, formats.FormatForPath(fileSrc)); err != nil {
+					return err
+				}
+			}
+			for _, envFile := range gen.EnvSources {
+				format := formats.FormatForPath(envFile)
+				if formats.FormatForPath(envFile) == formats.Binary {
+					// Default to dotenv
+					format = formats.Dotenv
+				}
+				if err := visitRef(envFile, format); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+}
+
+// sopsDecryptFile attempts to decrypt the file at the given path using SOPS'
+// store for the provided input format, and writes it back to the path using
+// the store for the output format.
+// Path must be absolute and a regular file, the file is not allowed to exceed
+// the maxFileSize.
+//
+// NB: The method only does the simple checks described above and does not
+// verify whether the path provided is inside the working directory. Boundary
+// enforcement is expected to have been done by the caller.
+func (d *KustomizeDecryptor) sopsDecryptFile(path string, inputFormat, outputFormat formats.Format) error {
+	fi, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+
+	if !fi.Mode().IsRegular() {
+		return fmt.Errorf("cannot decrypt irregular file as it has file mode type bits set")
+	}
+	if fileSize := fi.Size(); d.maxFileSize > 0 && fileSize > d.maxFileSize {
+		return fmt.Errorf("cannot decrypt file with size (%d bytes) exceeding limit (%d)", fileSize, d.maxFileSize)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Contains(data, sopsFormatToMarkerBytes[inputFormat]) {
+		return nil
+	}
+
+	out, err := d.SopsDecryptWithFormat(data, inputFormat, outputFormat)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(path, out, 0o644)
+	if err != nil {
+		return fmt.Errorf("error writing sops decrypted %s data to %s file: %w",
+			sopsFormatToString[inputFormat], sopsFormatToString[outputFormat], err)
+	}
+	return nil
+}
+
+// sopsEncryptWithFormat attempts to load a plain file using the store
+// for the input format, gathers the data key for it from the key service,
+// and then encrypt the file data with the retrieved data key.
+// It returns the encrypted bytes in the provided output format, or an error.
+func (d *KustomizeDecryptor) sopsEncryptWithFormat(metadata sops.Metadata, data []byte, inputFormat, outputFormat formats.Format) ([]byte, error) {
+	store := common.StoreForFormat(inputFormat)
+
+	branches, err := store.LoadPlainFile(data)
+	if err != nil {
+		return nil, err
+	}
+
+	tree := sops.Tree{
+		Branches: branches,
+		Metadata: metadata,
+	}
+	dataKey, errs := tree.GenerateDataKeyWithKeyServices(d.keyServiceServer())
+	if len(errs) > 0 {
+		return nil, sopsUserErr("could not generate data key", fmt.Errorf("%s", errs))
+	}
+
+	cipher := aes.NewCipher()
+	unencryptedMac, err := tree.Encrypt(dataKey, cipher)
+	if err != nil {
+		return nil, sopsUserErr("error encrypting sops tree", err)
+	}
+	tree.Metadata.LastModified = time.Now().UTC()
+	tree.Metadata.MessageAuthenticationCode, err = cipher.Encrypt(unencryptedMac, dataKey, tree.Metadata.LastModified.Format(time.RFC3339))
+	if err != nil {
+		return nil, sopsUserErr("cannot encrypt sops data tree", err)
+	}
+
+	outStore := common.StoreForFormat(outputFormat)
+	out, err := outStore.EmitEncryptedFile(tree)
+	if err != nil {
+		return nil, sopsUserErr("failed to emit sops encrypted file", err)
+	}
+	return out, nil
+}
+
+// keyServiceServer returns the SOPS (local) key service clients used to serve
+// decryption requests. loadKeyServiceServers() is only configured on the first
+// call.
+func (d *KustomizeDecryptor) keyServiceServer() []keyservice.KeyServiceClient {
+	d.localServiceOnce.Do(func() {
+		d.loadKeyServiceServers()
+	})
+	return d.keyServices
+}
+
+// loadKeyServiceServers loads the SOPS (local) key service clients used to
+// serve decryption requests for the current set of KustomizeDecryptor
+// credentials.
+func (d *KustomizeDecryptor) loadKeyServiceServers() {
+	serverOpts := []intkeyservice.ServerOption{
+		intkeyservice.WithGnuPGHome(d.gnuPGHome),
+		intkeyservice.WithVaultToken(d.vaultToken),
+		intkeyservice.WithAgeIdentities(d.ageIdentities),
+	}
+	if d.azureToken != nil {
+		serverOpts = append(serverOpts, intkeyservice.WithAzureToken{Token: d.azureToken})
+	}
+	server := intkeyservice.NewServer(serverOpts...)
+	d.keyServices = append(make([]keyservice.KeyServiceClient, 0), intkeyservice.NewLocalClient(server))
+}
+
+// secureLoadKustomizationFile tries to securely load a Kustomization file from
+// the given directory path.
+// If multiple Kustomization files are found, or the request is ambiguous, an
+// error is returned.
+func secureLoadKustomizationFile(root, path string) (*kustypes.Kustomization, error) {
+	if !filepath.IsAbs(root) {
+		return nil, fmt.Errorf("root '%s' must be absolute", root)
+	}
+	if filepath.IsAbs(path) {
+		return nil, fmt.Errorf("path '%s' must be relative", path)
+	}
+
+	var loadPath string
+	for _, fName := range konfig.RecognizedKustomizationFileNames() {
+		fPath, err := securejoin.SecureJoin(root, filepath.Join(path, fName))
+		if err != nil {
+			return nil, fmt.Errorf("failed to secure join %s: %w", fName, err)
+		}
+		fi, err := os.Lstat(fPath)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to lstat %s: %w", fName, securePathErr(root, err))
+		}
+
+		if !fi.Mode().IsRegular() {
+			return nil, fmt.Errorf("expected %s to be a regular file", fName)
+		}
+		if loadPath != "" {
+			return nil, fmt.Errorf("found multiple kustomization files")
+		}
+		loadPath = fPath
+	}
+	if loadPath == "" {
+		return nil, fmt.Errorf("no kustomization file found")
+	}
+
+	data, err := os.ReadFile(loadPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read kustomization file: %w", securePathErr(root, err))
 	}
 
 	kus := kustypes.Kustomization{
@@ -200,115 +580,151 @@ func (kd *KustomizeDecryptor) decryptDotEnvFiles(dirpath string) error {
 			Kind:       kustypes.KustomizationKind,
 		},
 	}
+	if err := yaml.Unmarshal(data, &kus); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal kustomization file: %w", err)
+	}
+	return &kus, nil
+}
 
-	if err := yaml.Unmarshal(ksData, &kus); err != nil {
+// visitKustomization is called by recurseKustomizationFiles after every
+// successful Kustomization file load.
+type visitKustomization func(root, path string, kus *kustypes.Kustomization) error
+
+// errRecurseIgnore is a wrapping error to signal to recurseKustomizationFiles
+// the error can be ignored during recursion. For example, because the
+// Kustomization file can not be loaded for a subsequent call.
+type errRecurseIgnore struct {
+	Err error
+}
+
+// Unwrap returns the actual underlying error.
+func (e *errRecurseIgnore) Unwrap() error {
+	return e.Err
+}
+
+// Error returns the error string of the underlying error.
+func (e *errRecurseIgnore) Error() string {
+	if err := e.Err; err != nil {
+		return e.Err.Error()
+	}
+	return "recurse ignore"
+}
+
+// recurseKustomizationFiles attempts to recursively load and visit
+// Kustomization files.
+// The provided path is allowed to be relative, in which case it is safely
+// joined with root. When absolute, it must be inside root.
+func recurseKustomizationFiles(root, path string, visit visitKustomization, visited map[string]struct{}) error {
+	// Resolve the secure paths
+	absPath, relPath, err := securePaths(root, path)
+	if err != nil {
 		return err
 	}
 
-	// recursively decrypt .env files in directories in
-	for _, rsrc := range kus.Resources {
-		rsrcPath := filepath.Join(dirpath, rsrc)
-		isDir, err := isDir(rsrcPath)
-		if err == nil && isDir {
-			err := kd.decryptDotEnvFiles(rsrcPath)
-			if err != nil {
-				return fmt.Errorf("error decrypting .env files in dir '%s': %w",
-					rsrcPath, err)
-			}
+	if _, ok := visited[absPath]; ok {
+		// Short-circuit
+		return nil
+	}
+	visited[absPath] = struct{}{}
+
+	// Confirm we are dealing with a directory
+	fi, err := os.Lstat(absPath)
+	if err != nil {
+		err = securePathErr(root, err)
+		if errors.Is(err, fs.ErrNotExist) {
+			err = &errRecurseIgnore{Err: err}
 		}
+		return err
+	}
+	if !fi.IsDir() {
+		return &errRecurseIgnore{Err: fmt.Errorf("not a directory")}
 	}
 
-	secretGens := kus.SecretGenerator
-	for _, gen := range secretGens {
-		for _, envFile := range gen.EnvSources {
+	// Attempt to load the Kustomization file from the directory
+	kus, err := secureLoadKustomizationFile(root, relPath)
+	if err != nil {
+		return err
+	}
 
-			envFileParts := strings.Split(envFile, "=")
-			if len(envFileParts) > 1 {
-				envFile = envFileParts[1]
-			}
+	// Visit the Kustomization
+	if err = visit(root, path, kus); err != nil {
+		return err
+	}
 
-			envPath := filepath.Join(dirpath, envFile)
-			data, err := os.ReadFile(envPath)
-			if err != nil {
+	// Recurse over other resources in Kustomization,
+	// repeating the above logic per item
+	for _, res := range kus.Resources {
+		if !filepath.IsAbs(res) {
+			res = filepath.Join(path, res)
+		}
+		if err = recurseKustomizationFiles(root, res, visit, visited); err != nil {
+			// When the resource does not exist at the compiled path, it's
+			// either an invalid reference, or a URL.
+			// If the reference is valid but does not point to a directory,
+			// we have run into a dead end as well.
+			// In all other cases, the error is of (possible) importance to
+			// the user, and we should return it.
+			if _, ok := err.(*errRecurseIgnore); !ok {
 				return err
 			}
-
-			if bytes.Contains(data, []byte("sops_mac=ENC[")) {
-				out, err := kd.DataWithFormat(data, formats.Dotenv, formats.Dotenv)
-				if err != nil {
-					return err
-				}
-
-				err = os.WriteFile(envPath, out, 0644)
-				if err != nil {
-					return fmt.Errorf("error writing to file: %w", err)
-				}
-			}
 		}
 	}
-
 	return nil
 }
 
-func (kd KustomizeDecryptor) DataWithFormat(data []byte, inputFormat, outputFormat formats.Format) ([]byte, error) {
-	store := common.StoreForFormat(inputFormat)
-
-	tree, err := store.LoadEncryptedFile(data)
-	if err != nil {
-		return nil, fmt.Errorf("LoadEncryptedFile: %w", err)
+// isSOPSEncryptedResource detects if the given resource is a SOPS' encrypted
+// resource by looking for ".sops" and ".sops.mac" fields.
+func isSOPSEncryptedResource(res *resource.Resource) bool {
+	if res == nil {
+		return false
 	}
-
-	serverOpts := []intkeyservice.ServerOption{
-		intkeyservice.WithGnuPGHome(kd.gnuPGHome),
-		intkeyservice.WithVaultToken(kd.vaultToken),
-		intkeyservice.WithAgeIdentities(kd.ageIdentities),
+	sopsField := res.Field("sops")
+	if sopsField.IsNilOrEmpty() {
+		return false
 	}
-	if kd.azureToken != nil {
-		serverOpts = append(serverOpts, intkeyservice.WithAzureToken{Token: kd.azureToken})
-	}
-
-	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(
-		[]keyservice.KeyServiceClient{
-			intkeyservice.NewLocalClient(intkeyservice.NewServer(serverOpts...)),
-		},
-	)
-	if err != nil {
-		if userErr, ok := err.(sops.UserError); ok {
-			err = fmt.Errorf(userErr.UserError())
-		}
-		return nil, fmt.Errorf("GetDataKey: %w", err)
-	}
-
-	cipher := aes.NewCipher()
-	if _, err := tree.Decrypt(metadataKey, cipher); err != nil {
-		return nil, fmt.Errorf("AES decrypt: %w", err)
-	}
-
-	outputStore := common.StoreForFormat(outputFormat)
-
-	out, err := outputStore.EmitPlainFile(tree.Branches)
-	if err != nil {
-		return nil, fmt.Errorf("EmitPlainFile: %w", err)
-	}
-
-	return out, err
+	macField := sopsField.Value.Field("mac")
+	return !macField.IsNilOrEmpty()
 }
 
-func isDir(path string) (bool, error) {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return false, err
+// securePaths returns the absolute and relative paths for the provided path,
+// guaranteed to be scoped inside the provided root.
+// When the given path is absolute, the root is stripped before secure joining
+// it on root.
+func securePaths(root, path string) (string, string, error) {
+	if filepath.IsAbs(path) {
+		path = stripRoot(root, path)
 	}
-
-	return fileInfo.IsDir(), nil
+	secureAbsPath, err := securejoin.SecureJoin(root, path)
+	if err != nil {
+		return "", "", err
+	}
+	return secureAbsPath, stripRoot(root, secureAbsPath), nil
 }
 
-// IsEncryptedSecret checks if the given object is a Kubernetes Secret encrypted with Mozilla SOPS.
-func IsEncryptedSecret(object *unstructured.Unstructured) bool {
-	if object.GetKind() == "Secret" && object.GetAPIVersion() == "v1" {
-		if _, found, _ := unstructured.NestedFieldNoCopy(object.Object, "sops"); found {
-			return true
-		}
+func stripRoot(root, path string) string {
+	sepStr := string(filepath.Separator)
+	root, path = filepath.Clean(sepStr+root), filepath.Clean(sepStr+path)
+	switch {
+	case path == root:
+		path = sepStr
+	case root == sepStr:
+		// noop
+	case strings.HasPrefix(path, root+sepStr):
+		path = strings.TrimPrefix(path, root+sepStr)
 	}
-	return false
+	return filepath.Clean(filepath.Join("."+sepStr, path))
+}
+
+func sopsUserErr(msg string, err error) error {
+	if userErr, ok := err.(sops.UserError); ok {
+		err = fmt.Errorf(userErr.UserError())
+	}
+	return fmt.Errorf("%s: %w", msg, err)
+}
+
+func securePathErr(root string, err error) error {
+	if pathErr := new(fs.PathError); errors.As(err, &pathErr) {
+		err = &fs.PathError{Op: pathErr.Op, Path: stripRoot(root, pathErr.Path), Err: pathErr.Err}
+	}
+	return err
 }
