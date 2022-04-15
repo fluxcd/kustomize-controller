@@ -29,19 +29,22 @@ import (
 	"sigs.k8s.io/kustomize/api/provider"
 	"sigs.k8s.io/kustomize/api/resmap"
 	kustypes "sigs.k8s.io/kustomize/api/types"
-	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/yaml"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/apis/kustomize"
+	securefs "github.com/fluxcd/pkg/kustomize/filesys"
+
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
 
 type KustomizeGenerator struct {
+	root          string
 	kustomization kustomizev1.Kustomization
 }
 
-func NewGenerator(kustomization kustomizev1.Kustomization) *KustomizeGenerator {
+func NewGenerator(root string, kustomization kustomizev1.Kustomization) *KustomizeGenerator {
 	return &KustomizeGenerator{
+		root:          root,
 		kustomization: kustomization,
 	}
 }
@@ -127,7 +130,10 @@ func checkKustomizeImageExists(images []kustypes.Image, imageName string) (bool,
 }
 
 func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
-	fs := filesys.MakeFsOnDisk()
+	fs, err := securefs.MakeFsOnDiskSecure(kg.root)
+	if err != nil {
+		return err
+	}
 
 	// Determine if there already is a Kustomization file at the root,
 	// as this means we do not have to generate one.
@@ -234,11 +240,19 @@ func adaptSelector(selector *kustomize.Selector) (output *kustypes.Selector) {
 // TODO: remove mutex when kustomize fixes the concurrent map read/write panic
 var kustomizeBuildMutex sync.Mutex
 
-// buildKustomization wraps krusty.MakeKustomizer with the following settings:
-// - load files from outside the kustomization.yaml root
-// - disable plugins except for the builtin ones
-func buildKustomization(fs filesys.FileSystem, dirPath string) (resmap.ResMap, error) {
-	// temporary workaround for concurrent map read and map write bug
+// secureBuildKustomization wraps krusty.MakeKustomizer with the following settings:
+//  - secure on-disk FS denying operations outside root
+//  - load files from outside the kustomization dir path
+//    (but not outside root)
+//  - disable plugins except for the builtin ones
+func secureBuildKustomization(root, dirPath string) (resmap.ResMap, error) {
+	// Create secure FS for root
+	fs, err := securefs.MakeFsOnDiskSecure(root)
+	if err != nil {
+		return nil, err
+	}
+
+	// Temporary workaround for concurrent map read and map write bug
 	// https://github.com/kubernetes-sigs/kustomize/issues/3659
 	kustomizeBuildMutex.Lock()
 	defer kustomizeBuildMutex.Unlock()

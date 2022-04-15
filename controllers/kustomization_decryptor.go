@@ -358,7 +358,7 @@ func (d *KustomizeDecryptor) DecryptResource(res *resource.Resource) (*resource.
 // outside the working directory of the decryptor, but returns any decryption
 // error.
 func (d *KustomizeDecryptor) DecryptEnvSources(path string) error {
-	if d.kustomization.Spec.Decryption.Provider != DecryptionProviderSOPS {
+	if d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.Provider != DecryptionProviderSOPS {
 		return nil
 	}
 
