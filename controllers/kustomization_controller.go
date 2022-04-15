@@ -52,7 +52,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sigs.k8s.io/kustomize/kyaml/filesys"
 
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	"github.com/fluxcd/pkg/apis/meta"
@@ -357,7 +356,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// generate kustomization.yaml if needed
-	err = r.generate(kustomization, dirPath)
+	err = r.generate(kustomization, tmpDir, dirPath)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -629,8 +628,8 @@ func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization k
 	return source, nil
 }
 
-func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, dirPath string) error {
-	gen := NewGenerator(kustomization)
+func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, workDir string, dirPath string) error {
+	gen := NewGenerator(workDir, kustomization)
 	return gen.WriteFile(dirPath)
 }
 
@@ -641,19 +640,17 @@ func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kus
 	}
 	defer cleanup()
 
-	// import OpenPGP keys if any
+	// Import decryption keys
 	if err := dec.ImportKeys(ctx); err != nil {
 		return nil, err
 	}
 
-	fs := filesys.MakeFsOnDisk()
-	// decrypt .env files before building kustomization
-	if kustomization.Spec.Decryption != nil {
-		if err = dec.DecryptEnvSources(dirPath); err != nil {
-			return nil, fmt.Errorf("error decrypting .env file: %w", err)
-		}
+	// Decrypt Kustomize EnvSources files before build
+	if err = dec.DecryptEnvSources(dirPath); err != nil {
+		return nil, fmt.Errorf("error decrypting env sources: %w", err)
 	}
-	m, err := buildKustomization(fs, dirPath)
+
+	m, err := secureBuildKustomization(workDir, dirPath)
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
