@@ -14,27 +14,27 @@ require (
 	github.com/drone/envsubst v1.0.3
 	github.com/fluxcd/kustomize-controller/api v0.23.0
 	github.com/fluxcd/pkg/apis/acl v0.0.3
-	github.com/fluxcd/pkg/apis/kustomize v0.3.2
-	github.com/fluxcd/pkg/apis/meta v0.12.1
+	github.com/fluxcd/pkg/apis/kustomize v0.3.3
+	github.com/fluxcd/pkg/apis/meta v0.12.2
 	github.com/fluxcd/pkg/kustomize v0.2.0
-	github.com/fluxcd/pkg/runtime v0.13.3
-	github.com/fluxcd/pkg/ssa v0.15.1
+	github.com/fluxcd/pkg/runtime v0.14.1
+	github.com/fluxcd/pkg/ssa v0.15.2
 	github.com/fluxcd/pkg/testserver v0.2.0
 	github.com/fluxcd/pkg/untar v0.1.0
-	github.com/fluxcd/source-controller/api v0.22.3
-	github.com/hashicorp/go-retryablehttp v0.7.0
-	github.com/hashicorp/vault/api v1.4.1
-	github.com/onsi/gomega v1.18.1
+	github.com/fluxcd/source-controller/api v0.22.0
+	github.com/hashicorp/go-retryablehttp v0.7.1
+	github.com/hashicorp/vault/api v1.5.0
+	github.com/onsi/gomega v1.19.0
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.2
-	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
+	golang.org/x/net v0.0.0-20220412020605-290c469a71a5
 	google.golang.org/grpc v1.45.0
 	k8s.io/api v0.23.5
 	k8s.io/apiextensions-apiserver v0.23.5
 	k8s.io/apimachinery v0.23.5
 	k8s.io/client-go v0.23.5
-	sigs.k8s.io/cli-utils v0.29.3
+	sigs.k8s.io/cli-utils v0.29.4
 	sigs.k8s.io/controller-runtime v0.11.2
 	sigs.k8s.io/kustomize/api v0.11.4
 	sigs.k8s.io/yaml v1.3.0
