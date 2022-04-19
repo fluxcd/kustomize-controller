@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.24.0
+
+**Release date:** 2022-04-19
+
+This prerelease matures the Kustomize decryptor service, which handles the
+actual decryption of SOPS' encrypted Secrets, and now allows decrypting
+[file sources](https://pkg.go.dev/sigs.k8s.io/kustomize@v1.0.2/pkg/types#DataSources)
+referenced in Kustomization files.
+
+In addition, Kustomize now operates using our own file system implementation,
+and dependencies have been updated to their latest versions.
+
+Improvements:
+- controllers: improve decryptor and add tests
+  [#619](https://github.com/fluxcd/kustomize-controller/pull/619)
+- controllers: use own Kustomize FS implementation
+  [#620](https://github.com/fluxcd/kustomize-controller/pull/620)
+- Update dependencies
+  [#621](https://github.com/fluxcd/kustomize-controller/pull/621)
+  [#622](https://github.com/fluxcd/kustomize-controller/pull/622)
+
 ## 0.23.0
 
 **Release date:** 2022-04-05
