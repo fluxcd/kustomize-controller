@@ -21,14 +21,14 @@ require (
 	github.com/fluxcd/pkg/ssa v0.15.2
 	github.com/fluxcd/pkg/testserver v0.2.0
 	github.com/fluxcd/pkg/untar v0.1.0
-	github.com/fluxcd/source-controller/api v0.22.0
+	github.com/fluxcd/source-controller/api v0.24.0
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/hashicorp/vault/api v1.5.0
 	github.com/onsi/gomega v1.19.0
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.2
-	golang.org/x/net v0.0.0-20220412020605-290c469a71a5
+	golang.org/x/net v0.0.0-20220418201149-a630d4f3e7a2
 	google.golang.org/grpc v1.45.0
 	k8s.io/api v0.23.5
 	k8s.io/apiextensions-apiserver v0.23.5
