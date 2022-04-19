@@ -2,7 +2,7 @@
 IMG ?= fluxcd/kustomize-controller:latest
 # Produce CRDs that work back to Kubernetes 1.16
 CRD_OPTIONS ?= crd:crdVersions=v1
-SOURCE_VER ?= v0.22.3
+SOURCE_VER ?= $(shell go list -m all | grep github.com/fluxcd/source-controller/api | awk '{print $$2}')
 
 # Use the same version of SOPS already referenced on go.mod
 SOPS_VER := $(shell go list -m all | grep go.mozilla.org/sops | awk '{print $$2}')
