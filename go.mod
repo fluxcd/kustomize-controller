@@ -16,7 +16,7 @@ require (
 	github.com/fluxcd/pkg/apis/acl v0.0.3
 	github.com/fluxcd/pkg/apis/kustomize v0.3.3
 	github.com/fluxcd/pkg/apis/meta v0.12.2
-	github.com/fluxcd/pkg/kustomize v0.2.0
+	github.com/fluxcd/pkg/kustomize v0.3.0
 	github.com/fluxcd/pkg/runtime v0.14.1
 	github.com/fluxcd/pkg/ssa v0.15.2
 	github.com/fluxcd/pkg/testserver v0.2.0

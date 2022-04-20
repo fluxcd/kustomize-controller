@@ -200,7 +200,9 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 	if err != nil {
 		return err
 	}
-	f.Close()
+	if err = f.Close(); err != nil {
+		return err
+	}
 
 	kus := kustypes.Kustomization{
 		TypeMeta: kustypes.TypeMeta{
@@ -247,7 +249,7 @@ var kustomizeBuildMutex sync.Mutex
 //  - disable plugins except for the builtin ones
 func secureBuildKustomization(root, dirPath string) (resmap.ResMap, error) {
 	// Create secure FS for root
-	fs, err := securefs.MakeFsOnDiskSecure(root)
+	fs, err := securefs.MakeFsOnDiskSecureBuild(root)
 	if err != nil {
 		return nil, err
 	}
