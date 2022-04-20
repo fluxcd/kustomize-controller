@@ -33,6 +33,7 @@ import (
 
 	"github.com/fluxcd/pkg/runtime/acl"
 	"github.com/fluxcd/pkg/runtime/client"
+	helper "github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/leaderelection"
 	"github.com/fluxcd/pkg/runtime/logger"
@@ -73,6 +74,7 @@ func main() {
 		kubeConfigOpts        client.KubeConfigOptions
 		logOptions            logger.Options
 		leaderElectionOptions leaderelection.Options
+		rateLimiterOptions    helper.RateLimiterOptions
 		aclOptions            acl.Options
 		watchAllNamespaces    bool
 		httpRetry             int
@@ -93,6 +95,7 @@ func main() {
 	leaderElectionOptions.BindFlags(flag.CommandLine)
 	aclOptions.BindFlags(flag.CommandLine)
 	kubeConfigOpts.BindFlags(flag.CommandLine)
+	rateLimiterOptions.BindFlags(flag.CommandLine)
 	flag.Parse()
 
 	ctrl.SetLogger(logger.NewLogger(logOptions))
@@ -151,6 +154,7 @@ func main() {
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,
+		RateLimiter:               helper.GetRateLimiter(rateLimiterOptions),
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", controllerName)
 		os.Exit(1)
