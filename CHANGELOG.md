@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.24.1
+
+**Release date:** 2022-04-20
+
+This prerelease fixes a regression bug introduced in
+[#620](https://github.com/fluxcd/kustomize-controller/pull/620), which
+prevented remote build directories from being reachable within the FS.
+
+Fixes:
+- generator: ensure remote build dirs can be reached
+  [#626](https://github.com/fluxcd/kustomize-controller/pull/626)
+
 ## 0.24.0
 
 **Release date:** 2022-04-19
