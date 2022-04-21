@@ -40,6 +40,9 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
+// Fix CVE-2022-27191
+replace golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
+
 // Pin kustomize to v4.5.4
 replace (
 	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.11.4
@@ -181,7 +184,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
+	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
