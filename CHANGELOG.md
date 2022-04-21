@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.24.2
+
+**Release date:** 2022-04-21
+
+This prerelease updates the Go `golang.org/x/crypto` dependency to latest to
+please static security analysers (CVE-2022-27191).
+
+Fixes:
+- Update golang.org/x/crypto
+  [#628](https://github.com/fluxcd/kustomize-controller/pull/628)
+
 ## 0.24.1
 
 **Release date:** 2022-04-20
