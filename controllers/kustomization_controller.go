@@ -300,7 +300,7 @@ func (r *KustomizationReconciler) reconcile(
 	revision := source.GetArtifact().Revision
 
 	// create tmp dir
-	tmpDir, err := os.MkdirTemp("", "kustomization-")
+	tmpDir, err := MkdirTempAbs("", "kustomization-")
 	if err != nil {
 		err = fmt.Errorf("tmp dir error: %w", err)
 		return kustomizev1.KustomizationNotReady(
