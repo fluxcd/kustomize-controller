@@ -20,6 +20,7 @@ import (
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
+	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
@@ -128,7 +129,6 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 
 	fallback = NewMockKeyServer()
 	s = NewServer(WithDefaultServer{Server: fallback})
-
 	decReq := &keyservice.DecryptRequest{
 		Key:        &key,
 		Ciphertext: []byte("some ciphertext"),
@@ -209,6 +209,30 @@ func TestServer_EncryptDecrypt_azkv_Fallback(t *testing.T) {
 	g.Expect(fallback.decryptReqs).To(HaveLen(1))
 	g.Expect(fallback.decryptReqs).To(ContainElement(decReq))
 	g.Expect(fallback.encryptReqs).To(HaveLen(0))
+}
+
+func TestServer_EncryptDecrypt_gcpkms(t *testing.T) {
+	g := NewWithT(t)
+
+	creds := `{ "client_id": "<client-id>.apps.googleusercontent.com",
+ 		"client_secret": "<secret>",
+		"type": "authorized_user"}`
+	s := NewServer(WithGCPCredsJSON([]byte(creds)))
+
+	resourceID := "projects/test-flux/locations/global/keyRings/test-flux/cryptoKeys/sops"
+	key := KeyFromMasterKey(gcpkms.MasterKeyFromResourceID(resourceID))
+	_, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
+		Key: &key,
+	})
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("failed to encrypt sops data key with GCP KMS"))
+
+	_, err = s.Decrypt(context.TODO(), &keyservice.DecryptRequest{
+		Key: &key,
+	})
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("failed to decrypt sops data key with GCP KMS"))
+
 }
 
 func TestServer_EncryptDecrypt_Nil_KeyType(t *testing.T) {

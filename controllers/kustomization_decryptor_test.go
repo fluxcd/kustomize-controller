@@ -411,6 +411,29 @@ aws_session_token: test-token`),
 			},
 		},
 		{
+			name: "GCP Service Account key",
+			decryption: &kustomizev1.Decryption{
+				Provider: provider,
+				SecretRef: &meta.LocalObjectReference{
+					Name: "gcpkms-secret",
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gcpkms-secret",
+					Namespace: provider,
+				},
+				Data: map[string][]byte{
+					DecryptionGCPCredsFile: []byte(`{ "client_id": "<client-id>.apps.googleusercontent.com",
+					"client_secret": "<secret>",
+				   "type": "authorized_user"}`),
+				},
+			},
+			inspectFunc: func(g *GomegaWithT, decryptor *KustomizeDecryptor) {
+				g.Expect(decryptor.gcpCredsJSON).ToNot(BeNil())
+			},
+		},
+		{
 			name: "Azure Key Vault token",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,

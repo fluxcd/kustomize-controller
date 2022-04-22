@@ -65,13 +65,15 @@ const (
 	// DecryptionVaultTokenFileName is the name of the file containing the
 	// Hashicorp Vault token.
 	DecryptionVaultTokenFileName = "sops.vault-token"
-	// DecryptionVaultTokenFileName is the name of the file containing the
-	// AWS KMS credentials
+	// DecryptionAWSKmsFile is the name of the file containing the AWS KMS
+	// credentials.
 	DecryptionAWSKmsFile = "sops.aws-kms"
 	// DecryptionAzureAuthFile is the name of the file containing the Azure
 	// credentials.
 	DecryptionAzureAuthFile = "sops.azure-kv"
-
+	// DecryptionGCPCredsFile is the name of the file containing the GCP
+	// credentials.
+	DecryptionGCPCredsFile = "sops.gcp-kms"
 	// maxEncryptedFileSize is the max allowed file size in bytes of an encrypted
 	// file.
 	maxEncryptedFileSize int64 = 5 << 20
@@ -139,6 +141,9 @@ type KustomizeDecryptor struct {
 	// azureToken is the Azure credential token used to authenticate towards
 	// any Azure Key Vault.
 	azureToken *azkv.Token
+	// gcpCredsJSON is the JSON credential file of the service account used to
+	// authenticate towards any GCP KMS.
+	gcpCredsJSON []byte
 
 	// keyServices are the SOPS keyservice.KeyServiceClient's available to the
 	// decryptor.
@@ -243,6 +248,10 @@ func (d *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 					if d.azureToken, err = azkv.TokenFromAADConfig(conf); err != nil {
 						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 					}
+				}
+			case filepath.Ext(DecryptionGCPCredsFile):
+				if name == DecryptionGCPCredsFile {
+					d.gcpCredsJSON = bytes.Trim(value, "\n")
 				}
 			}
 		}
@@ -543,6 +552,7 @@ func (d *KustomizeDecryptor) loadKeyServiceServers() {
 		intkeyservice.WithGnuPGHome(d.gnuPGHome),
 		intkeyservice.WithVaultToken(d.vaultToken),
 		intkeyservice.WithAgeIdentities(d.ageIdentities),
+		intkeyservice.WithGCPCredsJSON(d.gcpCredsJSON),
 	}
 	if d.azureToken != nil {
 		serverOpts = append(serverOpts, intkeyservice.WithAzureToken{Token: d.azureToken})

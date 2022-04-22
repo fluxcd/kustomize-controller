@@ -8,6 +8,7 @@ package keyservice
 
 import (
 	extage "filippo.io/age"
+	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
 	"go.mozilla.org/sops/v3/keyservice"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
@@ -55,6 +56,15 @@ type WithAWSKeys struct {
 // ApplyToServer applies this configuration to the given Server.
 func (o WithAWSKeys) ApplyToServer(s *Server) {
 	s.awsCredsProvider = o.CredsProvider
+}
+
+// WithGCPCredsJSON configures the GCP service account credentials JSON on the
+// Server.
+type WithGCPCredsJSON []byte
+
+// ApplyToServer applies this configuration to the given Server.
+func (o WithGCPCredsJSON) ApplyToServer(s *Server) {
+	s.gcpCredsJSON = gcpkms.CredentialJSON(o)
 }
 
 // WithAzureToken configures the Azure credential token on the Server.
