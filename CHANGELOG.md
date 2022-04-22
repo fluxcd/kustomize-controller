@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.24.3
+
+**Release date:** 2022-04-22
+
+This prerelease allows for configuring the exponential back-off retry, already
+introduced in other Flux controllers. It can be configured with the new flags:
+`--min-retry-delay` (default: `750ms`) and `--max-retry-delay`
+(default: `15min`). Previously the defaults were set to `5ms` and `1000s`.
+
+Fixes:
+- Ensure generated temp dir is absolute on all OSes
+  [#630](https://github.com/fluxcd/kustomize-controller/pull/630)
+
+Improvements:
+- feat: flags to configure exponential backoff retry
+  [#631](https://github.com/fluxcd/kustomize-controller/pull/631)
+- Update source-controller to v0.24.1
+  [#632](https://github.com/fluxcd/kustomize-controller/pull/632)
+
 ## 0.24.2
 
 **Release date:** 2022-04-21
