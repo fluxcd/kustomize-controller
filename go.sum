@@ -286,8 +286,8 @@ github.com/fluxcd/pkg/testserver v0.2.0 h1:Mj0TapmKaywI6Fi5wvt1LAZpakUHmtzWQpJNK
 github.com/fluxcd/pkg/testserver v0.2.0/go.mod h1:bgjjydkXsZTeFzjz9Cr4heGANr41uTB1Aj1Q5qzuYVk=
 github.com/fluxcd/pkg/untar v0.1.0 h1:k97V/xV5hFrAkIkVPuv5AVhyxh1ZzzAKba/lbDfGo6o=
 github.com/fluxcd/pkg/untar v0.1.0/go.mod h1:aGswNyzB1mlz/T/kpOS58mITBMxMKc9tlJBH037A2HY=
-github.com/fluxcd/source-controller/api v0.24.0 h1:VIpyMX8jrPKGhOsFOzaxYeufi/gq5GZwcoeG8+QqrgE=
-github.com/fluxcd/source-controller/api v0.24.0/go.mod h1:+raHSQaSGlk1PqgLc0joVk1KTnf1K/lQcgxdEdZ/mk8=
+github.com/fluxcd/source-controller/api v0.24.1 h1:bFpfajE09k/xNIWkgNZtmtPrw/dS0zWUYMYxUUWu+jI=
+github.com/fluxcd/source-controller/api v0.24.1/go.mod h1:+raHSQaSGlk1PqgLc0joVk1KTnf1K/lQcgxdEdZ/mk8=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/form3tech-oss/jwt-go v3.2.3+incompatible h1:7ZaBxOI7TMoYBfyA3cQHErNNyAWIKUMIwqxEtgHOs5c=
 github.com/form3tech-oss/jwt-go v3.2.3+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
