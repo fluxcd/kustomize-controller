@@ -369,21 +369,16 @@ func (d *KustomizeDecryptor) DecryptEnvSources(path string) error {
 
 // decryptKustomizationEnvSources returns a visitKustomization implementation
 // which attempts to decrypt any EnvSources entry it finds in the Kustomization
-// file it is called with.
-// After a successful decrypt, the absolute path of the file is added to the
+// file with which it is called.
+// After decrypting successfully, it adds the absolute path of the file to the
 // given map.
 func (d *KustomizeDecryptor) decryptKustomizationEnvSources(visited map[string]struct{}) visitKustomization {
 	return func(root, path string, kus *kustypes.Kustomization) error {
-		visitRef := func(ref string, format formats.Format) error {
-			refParts := strings.Split(ref, "=")
-			if len(refParts) > 1 {
-				ref = refParts[1]
+		visitRef := func(sourcePath string, format formats.Format) error {
+			if !filepath.IsAbs(sourcePath) {
+				sourcePath = filepath.Join(path, sourcePath)
 			}
-			if !filepath.IsAbs(ref) {
-				ref = filepath.Join(path, ref)
-			}
-
-			absRef, _, err := securePaths(root, ref)
+			absRef, _, err := securePaths(root, sourcePath)
 			if err != nil {
 				return err
 			}
@@ -403,7 +398,15 @@ func (d *KustomizeDecryptor) decryptKustomizationEnvSources(visited map[string]s
 
 		for _, gen := range kus.SecretGenerator {
 			for _, fileSrc := range gen.FileSources {
-				if err := visitRef(fileSrc, formats.FormatForPath(fileSrc)); err != nil {
+				parts := strings.SplitN(fileSrc, "=", 2)
+				key := parts[0]
+				var filePath string
+				if len(parts) > 1 {
+					filePath = parts[1]
+				} else {
+					filePath = key
+				}
+				if err := visitRef(filePath, formats.FormatForPath(key)); err != nil {
 					return err
 				}
 			}
