@@ -878,7 +878,7 @@ func TestKustomizeDecryptor_decryptKustomizationEnvSources(t *testing.T) {
 						Name: "envSecret",
 						KvPairSources: kustypes.KvPairSources{
 							FileSources: []string{"file.txt"},
-							EnvSources:  []string{"app.env", "key=../secret.env"},
+							EnvSources:  []string{"app.env", "../secret.env"},
 						},
 					},
 				},
