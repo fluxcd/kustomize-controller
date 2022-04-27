@@ -388,7 +388,7 @@ reconcile.fluxcd.io/requestedAt: "2022-03-02T13:59:52.758922834Z"
 On-demand execution example:
 
 ```sh
-kubectl annotate --field-manager=flux-client-side-apply --overwrite \
+kubectl annotate --field-manager=kustomize-controller --overwrite \
 kustomization/podinfo reconcile.fluxcd.io/requestedAt="$(date +%s)"
 ```
 
@@ -1231,7 +1231,7 @@ Role ARN, granting the controller permissions to decrypt the Secrets.
 
 ```sh
 kubectl -n flux-system annotate serviceaccount kustomize-controller \
-  --field-manager=flux-client-side-apply \
+  --field-manager=kustomize-controller \
   eks.amazonaws.com/role-arn='arn:aws:iam::<ACCOUNT_ID>:role/<KMS-ROLE-NAME>'
 ```
 
