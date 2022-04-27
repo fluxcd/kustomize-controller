@@ -695,7 +695,7 @@ func TestKustomizeDecryptor_DecryptResource(t *testing.T) {
 		},
 	}
 
-	t.Run("SOPS encrypted resource", func(t *testing.T) {
+	t.Run("SOPS-encrypted Secret resource", func(t *testing.T) {
 		g := NewWithT(t)
 
 		kus := kustomization.DeepCopy()
@@ -736,7 +736,7 @@ func TestKustomizeDecryptor_DecryptResource(t *testing.T) {
 		g.Expect(got.MarshalJSON()).To(Equal(secretData))
 	})
 
-	t.Run("SOPS encrypted binary Secret data field", func(t *testing.T) {
+	t.Run("SOPS-encrypted binary-format Secret data field", func(t *testing.T) {
 		g := NewWithT(t)
 
 		kus := kustomization.DeepCopy()
@@ -771,7 +771,7 @@ func TestKustomizeDecryptor_DecryptResource(t *testing.T) {
 		g.Expect(got.GetDataMap()).To(HaveKeyWithValue("file.ini", base64.StdEncoding.EncodeToString(plainData)))
 	})
 
-	t.Run("SOPS encrypted YAML Secret data field", func(t *testing.T) {
+	t.Run("SOPS-encrypted YAML-format Secret data field", func(t *testing.T) {
 		g := NewWithT(t)
 
 		kus := kustomization.DeepCopy()
@@ -849,12 +849,14 @@ func TestKustomizeDecryptor_DecryptResource(t *testing.T) {
 
 func TestKustomizeDecryptor_decryptKustomizationEnvSources(t *testing.T) {
 	type file struct {
-		name       string
-		symlink    string
-		data       []byte
-		encrypt    bool
-		expectData bool
+		name           string
+		symlink        string
+		data           []byte
+		originalFormat *formats.Format
+		encrypt        bool
+		expectData     bool
 	}
+	binaryFormat := formats.Binary
 	tests := []struct {
 		name            string
 		wordirSuffix    string
@@ -869,6 +871,9 @@ func TestKustomizeDecryptor_decryptKustomizationEnvSources(t *testing.T) {
 			path: "subdir",
 			files: []file{
 				{name: "subdir/app.env", data: []byte("var1=value1\n"), encrypt: true, expectData: true},
+				// NB: Despite the file extension representing the SOPS-encrypted JSON output
+				// format, the original data is plain text, or "binary."
+				{name: "subdir/combination.json", data: []byte("The safe combination is ..."), originalFormat: &binaryFormat, encrypt: true, expectData: true},
 				{name: "subdir/file.txt", data: []byte("file"), encrypt: true, expectData: true},
 				{name: "secret.env", data: []byte("var2=value2\n"), encrypt: true, expectData: true},
 			},
@@ -877,13 +882,13 @@ func TestKustomizeDecryptor_decryptKustomizationEnvSources(t *testing.T) {
 					GeneratorArgs: kustypes.GeneratorArgs{
 						Name: "envSecret",
 						KvPairSources: kustypes.KvPairSources{
-							FileSources: []string{"file.txt"},
-							EnvSources:  []string{"app.env", "key=../secret.env"},
+							FileSources: []string{"file.txt", "combo=combination.json"},
+							EnvSources:  []string{"app.env", "../secret.env"},
 						},
 					},
 				},
 			},
-			expectVisited: []string{"subdir/app.env", "subdir/file.txt", "secret.env"},
+			expectVisited: []string{"subdir/app.env", "subdir/combination.json", "subdir/file.txt", "secret.env"},
 		},
 		{
 			name:  "decryption error",
@@ -987,7 +992,12 @@ func TestKustomizeDecryptor_decryptKustomizationEnvSources(t *testing.T) {
 				}
 				data := f.data
 				if f.encrypt {
-					format := formats.FormatForPath(f.name)
+					var format formats.Format
+					if f.originalFormat != nil {
+						format = *f.originalFormat
+					} else {
+						format = formats.FormatForPath(f.name)
+					}
 					data, err = d.sopsEncryptWithFormat(sops.Metadata{
 						KeyGroups: []sops.KeyGroup{
 							{&sopsage.MasterKey{Recipient: id.Recipient().String()}},
@@ -1159,7 +1169,7 @@ func TestKustomizeDecryptor_decryptSopsFile(t *testing.T) {
 
 				b, err := os.ReadFile(filepath.Join(tmpDir, f.name))
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(bytes.Compare(f.data, b) == 0).To(Equal(f.expectData))
+				g.Expect(bytes.Equal(f.data, b)).To(Equal(f.expectData))
 			}
 		})
 	}
