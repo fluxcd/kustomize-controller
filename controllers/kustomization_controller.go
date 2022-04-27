@@ -88,6 +88,7 @@ type KustomizationReconciler struct {
 	ControllerName        string
 	statusManager         string
 	NoCrossNamespaceRefs  bool
+	NoRemoteBases         bool
 	DefaultServiceAccount string
 	KubeConfigOpts        runtimeClient.KubeConfigOptions
 }
@@ -655,7 +656,7 @@ func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kus
 		return nil, fmt.Errorf("error decrypting env sources: %w", err)
 	}
 
-	m, err := secureBuildKustomization(workDir, dirPath)
+	m, err := secureBuildKustomization(workDir, dirPath, !r.NoRemoteBases)
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}

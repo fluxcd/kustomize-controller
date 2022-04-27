@@ -77,6 +77,7 @@ func main() {
 		rateLimiterOptions    helper.RateLimiterOptions
 		aclOptions            acl.Options
 		watchAllNamespaces    bool
+		noRemoteBases         bool
 		httpRetry             int
 		defaultServiceAccount string
 	)
@@ -88,6 +89,8 @@ func main() {
 	flag.DurationVar(&requeueDependency, "requeue-dependency", 30*time.Second, "The interval at which failing dependencies are reevaluated.")
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
+	flag.BoolVar(&noRemoteBases, "no-remote-bases", false,
+		"Disallow remote bases usage in Kustomize overlays. When this flag is enabled, all resources must refer to local files included in the source artifact.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
 	flag.StringVar(&defaultServiceAccount, "default-service-account", "", "Default service account used for impersonation.")
 	clientOptions.BindFlags(flag.CommandLine)
@@ -146,6 +149,7 @@ func main() {
 		EventRecorder:         eventRecorder,
 		MetricsRecorder:       metricsRecorder,
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
+		NoRemoteBases:         noRemoteBases,
 		KubeConfigOpts:        kubeConfigOpts,
 		StatusPoller: polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), polling.Options{
 			CustomStatusReaders: []engine.StatusReader{jobStatusReader},
