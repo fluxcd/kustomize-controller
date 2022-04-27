@@ -47,6 +47,7 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
+	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -64,6 +65,9 @@ const (
 	// DecryptionVaultTokenFileName is the name of the file containing the
 	// Hashicorp Vault token.
 	DecryptionVaultTokenFileName = "sops.vault-token"
+	// DecryptionVaultTokenFileName is the name of the file containing the
+	// AWS KMS credentials
+	DecryptionAWSKmsFile = "sops.aws-kms"
 	// DecryptionAzureAuthFile is the name of the file containing the Azure
 	// credentials.
 	DecryptionAzureAuthFile = "sops.azure-kv"
@@ -129,6 +133,9 @@ type KustomizeDecryptor struct {
 	// vaultToken is the Hashicorp Vault token used to authenticate towards
 	// any Vault server.
 	vaultToken string
+	// awsCreds is the AWS credentials object used to authenticate towards
+	// any AWS KMS.
+	awsCreds *awskms.Creds
 	// azureToken is the Azure credential token used to authenticate towards
 	// any Azure Key Vault.
 	azureToken *azkv.Token
@@ -219,6 +226,12 @@ func (d *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 					token := string(value)
 					token = strings.Trim(strings.TrimSpace(token), "\n")
 					d.vaultToken = token
+				}
+			case filepath.Ext(DecryptionAWSKmsFile):
+				if name == DecryptionAWSKmsFile {
+					if d.awsCreds, err = awskms.LoadAwsKmsCredsFromYaml(value); err != nil {
+						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
+					}
 				}
 			case filepath.Ext(DecryptionAzureAuthFile):
 				// Make sure we have the absolute name

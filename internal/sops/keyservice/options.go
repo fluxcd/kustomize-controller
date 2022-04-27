@@ -21,6 +21,7 @@ import (
 	"go.mozilla.org/sops/v3/keyservice"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
+	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -74,4 +75,12 @@ type WithDefaultServer struct {
 // ApplyToServer applies this configuration to the given Server.
 func (o WithDefaultServer) ApplyToServer(s *Server) {
 	s.defaultServer = o.Server
+}
+
+type WithAWSKeys struct {
+	creds *awskms.Creds
+}
+
+func (o WithAWSKeys) ApplyToServer(s *Server) {
+	s.awsCreds = o.creds
 }

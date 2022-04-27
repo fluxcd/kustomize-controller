@@ -388,6 +388,29 @@ func TestKustomizeDecryptor_ImportKeys(t *testing.T) {
 			},
 		},
 		{
+			name: "AWS KMS credentials",
+			decryption: &kustomizev1.Decryption{
+				Provider: provider,
+				SecretRef: &meta.LocalObjectReference{
+					Name: "awskms-secret",
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "awskms-secret",
+					Namespace: provider,
+				},
+				Data: map[string][]byte{
+					DecryptionAWSKmsFile: []byte(`aws_access_key_id: test-id
+aws_secret_access_key: test-secret
+aws_session_token: test-token`),
+				},
+			},
+			inspectFunc: func(g *GomegaWithT, decryptor *KustomizeDecryptor) {
+				g.Expect(decryptor.awsCreds).ToNot(BeNil())
+			},
+		},
+		{
 			name: "Azure Key Vault token",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,

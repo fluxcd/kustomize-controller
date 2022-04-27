@@ -11,6 +11,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
+	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -42,6 +43,11 @@ type Server struct {
 	// operations of Azure Key Vault requests.
 	// When nil, the request will be handled by defaultServer.
 	azureToken *azkv.Token
+
+	// awsCreds is the Credentials object used for Encrypt and Decrypt
+	// operations of AWS KMS requests.
+	// When nil, the request will be handled by defaultServer.
+	awsCreds *awskms.Creds
 
 	// defaultServer is the fallback server, used to handle any request that
 	// is not eligible to be handled by this Server.
@@ -96,6 +102,16 @@ func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*
 				Ciphertext: ciphertext,
 			}, nil
 		}
+	case *keyservice.Key_KmsKey:
+		if ks.awsCreds != nil {
+			cipherText, err := ks.encryptWithAWSKMS(k.KmsKey, req.Plaintext)
+			if err != nil {
+				return nil, err
+			}
+			return &keyservice.EncryptResponse{
+				Ciphertext: cipherText,
+			}, nil
+		}
 	case *keyservice.Key_AzureKeyvaultKey:
 		if ks.azureToken != nil {
 			ciphertext, err := ks.encryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Plaintext)
@@ -137,6 +153,16 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 	case *keyservice.Key_VaultKey:
 		if ks.vaultToken != "" {
 			plaintext, err := ks.decryptWithHCVault(k.VaultKey, req.Ciphertext)
+			if err != nil {
+				return nil, err
+			}
+			return &keyservice.DecryptResponse{
+				Plaintext: plaintext,
+			}, nil
+		}
+	case *keyservice.Key_KmsKey:
+		if ks.awsCreds != nil {
+			plaintext, err := ks.decryptWithAWSKMS(k.KmsKey, req.Ciphertext)
 			if err != nil {
 				return nil, err
 			}
@@ -230,6 +256,37 @@ func (ks *Server) decryptWithHCVault(key *keyservice.VaultKey, ciphertext []byte
 	ks.vaultToken.ApplyToMasterKey(&vaultKey)
 	plaintext, err := vaultKey.Decrypt()
 	return plaintext, err
+}
+
+func (ks *Server) encryptWithAWSKMS(key *keyservice.KmsKey, plaintext []byte) ([]byte, error) {
+	context := make(map[string]*string)
+	for key, val := range key.Context {
+		context[key] = &val
+	}
+	awsKey := awskms.MasterKey{
+		Arn:               key.Arn,
+		Role:              key.Role,
+		EncryptionContext: context,
+	}
+	ks.awsCreds.ApplyToMasterKey(&awsKey)
+	if err := awsKey.Encrypt(plaintext); err != nil {
+		return nil, err
+	}
+	return []byte(awsKey.EncryptedKey), nil
+}
+
+func (ks *Server) decryptWithAWSKMS(key *keyservice.KmsKey, cipherText []byte) ([]byte, error) {
+	context := make(map[string]*string)
+	for key, val := range key.Context {
+		context[key] = &val
+	}
+	awsKey := awskms.MasterKey{
+		Arn:               key.Arn,
+		Role:              key.Role,
+		EncryptionContext: context,
+	}
+	ks.awsCreds.ApplyToMasterKey(&awsKey)
+	return awsKey.Decrypt()
 }
 
 func (ks *Server) encryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
