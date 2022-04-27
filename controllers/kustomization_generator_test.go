@@ -30,3 +30,16 @@ func Test_secureBuildKustomization(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 }
+
+func Test_secureBuildKustomization_panic(t *testing.T) {
+	t.Run("build panic", func(t *testing.T) {
+		g := NewWithT(t)
+
+		_, err := secureBuildKustomization("testdata/panic", "testdata/panic")
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("recovered from kustomize build panic"))
+		// Run again to ensure the lock is released
+		_, err = secureBuildKustomization("testdata/panic", "testdata/panic")
+		g.Expect(err).To(HaveOccurred())
+	})
+}
