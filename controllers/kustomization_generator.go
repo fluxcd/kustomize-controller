@@ -247,7 +247,7 @@ var kustomizeBuildMutex sync.Mutex
 //  - load files from outside the kustomization dir path
 //    (but not outside root)
 //  - disable plugins except for the builtin ones
-func secureBuildKustomization(root, dirPath string) (resmap.ResMap, error) {
+func secureBuildKustomization(root, dirPath string) (_ resmap.ResMap, err error) {
 	// Create secure FS for root
 	fs, err := securefs.MakeFsOnDiskSecureBuild(root)
 	if err != nil {
@@ -258,6 +258,15 @@ func secureBuildKustomization(root, dirPath string) (resmap.ResMap, error) {
 	// https://github.com/kubernetes-sigs/kustomize/issues/3659
 	kustomizeBuildMutex.Lock()
 	defer kustomizeBuildMutex.Unlock()
+
+	// Kustomize tends to panic in unpredicted ways due to (accidental)
+	// invalid object data; recover when this happens to ensure continuity of
+	// operations
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("recovered from kustomize build panic: %v", r)
+		}
+	}()
 
 	buildOptions := &krusty.Options{
 		LoadRestrictions: kustypes.LoadRestrictionsNone,
