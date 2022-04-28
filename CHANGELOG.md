@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.24.4
+
+**Release date:** 2022-04-28
+
+This prerelease ensures we recover from Kustomize build panics to guarantee
+continuity of operations when running into invalid object data.
+
+In addition, handling of file formats while decrypting Secret generator entries
+with SOPS has been improved to ensure encrypted files in format A can be
+decrypted to target format B.
+
+Fixes:
+- Use Secret generator keys for SOPS format hint
+  [#636](https://github.com/fluxcd/kustomize-controller/pull/636)
+
+Improvements:
+- generator: recover from kustomize build panics
+  [#637](https://github.com/fluxcd/kustomize-controller/pull/637)
+
 ## 0.24.3
 
 **Release date:** 2022-04-22
