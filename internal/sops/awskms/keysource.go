@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Flux authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package awskms
 
 import (
@@ -32,16 +48,21 @@ type MasterKey struct {
 	credentials       *credentials.Credentials
 }
 
+// Creds is a wrapper around credentials.Credentials used for authenticating
+// when using AWS KMS.
 type Creds struct {
 	credentials *credentials.Credentials
 }
 
+// NewCreds creates new Creds object with the provided credentials.Credentials
 func NewCreds(credentials *credentials.Credentials) *Creds {
 	return &Creds{
 		credentials: credentials,
 	}
 }
 
+// LoadAwsKmsCredsFromYaml parses the given yaml returns a Creds object, which contains
+// the AWS credentials.
 func LoadAwsKmsCredsFromYaml(b []byte) (*Creds, error) {
 	credInfo := struct {
 		AccessKeyID     string `json:"aws_access_key_id"`
@@ -57,6 +78,7 @@ func LoadAwsKmsCredsFromYaml(b []byte) (*Creds, error) {
 	}, nil
 }
 
+// ApplyToMasterKey configures the credentials the provided key.
 func (c Creds) ApplyToMasterKey(key *MasterKey) {
 	key.credentials = c.credentials
 }

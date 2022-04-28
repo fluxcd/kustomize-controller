@@ -57,6 +57,16 @@ func (o WithAgeIdentities) ApplyToServer(s *Server) {
 	s.ageIdentities = age.ParsedIdentities(o)
 }
 
+// WithAWSKeys configurs the AWS credentials on the Server
+type WithAWSKeys struct {
+	creds *awskms.Creds
+}
+
+// ApplyToServer applies this configuration to the given Server.
+func (o WithAWSKeys) ApplyToServer(s *Server) {
+	s.awsCreds = o.creds
+}
+
 // WithAzureToken configures the Azure credential token on the Server.
 type WithAzureToken struct {
 	Token *azkv.Token
@@ -75,12 +85,4 @@ type WithDefaultServer struct {
 // ApplyToServer applies this configuration to the given Server.
 func (o WithDefaultServer) ApplyToServer(s *Server) {
 	s.defaultServer = o.Server
-}
-
-type WithAWSKeys struct {
-	creds *awskms.Creds
-}
-
-func (o WithAWSKeys) ApplyToServer(s *Server) {
-	s.awsCreds = o.creds
 }

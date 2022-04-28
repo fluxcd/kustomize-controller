@@ -1105,6 +1105,25 @@ data:
   identity.asc: <BASE64>
 ```
 
+#### AWS KMS Secret Entry
+
+To specify credentials for an AWS user account linked to the IAM role with access
+to KMS, append a `.data` entry with a fixed `sops.aws-kms` key.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sops-keys
+  namespace: default
+stringData:
+  sops.aws-kms: |
+        aws_access_key_id: some-access-key-id
+        aws_secret_access_key: some-aws-secret-access-key
+        aws_session_token: some-aws-session-token # this field is optional
+```
+
 #### Azure Key Vault Secret entry
 
 To specify credentials for Azure Key Vault in a Secret, append a `.data` entry
@@ -1233,7 +1252,8 @@ While making use of the [IAM OIDC provider](https://eksctl.io/usage/iamserviceac
 on your EKS cluster, you can create an IAM Role and Service Account with access
 to AWS KMS (using at least `kms:Decrypt` and `kms:DescribeKey`). Once these are
 created, you can annotate the kustomize-controller Service Account with the
-Role ARN, granting the controller permissions to decrypt the Secrets.
+Role ARN, granting the controller permissions to decrypt the Secrets. Please refer
+to the [SOPS guide](https://fluxcd.io/docs/guides/mozilla-sops/#aws) for detailed steps.
 
 ```sh
 kubectl -n flux-system annotate serviceaccount kustomize-controller \
