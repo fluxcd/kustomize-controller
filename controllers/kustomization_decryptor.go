@@ -335,7 +335,7 @@ func (d *KustomizeDecryptor) DecryptResource(res *resource.Resource) (*resource.
 				}
 
 				if bytes.Contains(data, sopsFormatToMarkerBytes[formats.Yaml]) || bytes.Contains(data, sopsFormatToMarkerBytes[formats.Json]) {
-					outF := formats.FormatForPath(key)
+					outF := formatForPath(key)
 					out, err := d.SopsDecryptWithFormat(data, formats.Yaml, outF)
 					if err != nil {
 						return nil, fmt.Errorf("failed to decrypt and format '%s/%s' Secret field '%s': %w",
@@ -406,13 +406,13 @@ func (d *KustomizeDecryptor) decryptKustomizationEnvSources(visited map[string]s
 				} else {
 					filePath = key
 				}
-				if err := visitRef(filePath, formats.FormatForPath(key)); err != nil {
+				if err := visitRef(filePath, formatForPath(key)); err != nil {
 					return err
 				}
 			}
 			for _, envFile := range gen.EnvSources {
-				format := formats.FormatForPath(envFile)
-				if formats.FormatForPath(envFile) == formats.Binary {
+				format := formatForPath(envFile)
+				if formatForPath(envFile) == formats.Binary {
 					// Default to dotenv
 					format = formats.Dotenv
 				}
@@ -730,4 +730,13 @@ func securePathErr(root string, err error) error {
 		err = &fs.PathError{Op: pathErr.Op, Path: stripRoot(root, pathErr.Path), Err: pathErr.Err}
 	}
 	return err
+}
+
+func formatForPath(path string) formats.Format {
+	switch {
+	case strings.HasSuffix(path, corev1.DockerConfigJsonKey):
+		return formats.Json
+	default:
+		return formats.FormatForPath(path)
+	}
 }
