@@ -74,7 +74,7 @@ func TestKustomizationReconciler_KustomizeTransformer(t *testing.T) {
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
 			KubeConfig: &kustomizev1.KubeConfig{
-				SecretRef: meta.LocalObjectReference{
+				SecretRef: meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
 			},
@@ -197,7 +197,7 @@ func TestKustomizationReconciler_KustomizeTransformerFiles(t *testing.T) {
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
 			KubeConfig: &kustomizev1.KubeConfig{
-				SecretRef: meta.LocalObjectReference{
+				SecretRef: meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
 			},
@@ -316,7 +316,7 @@ func TestKustomizationReconciler_FluxTransformers(t *testing.T) {
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
 			KubeConfig: &kustomizev1.KubeConfig{
-				SecretRef: meta.LocalObjectReference{
+				SecretRef: meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
 			},

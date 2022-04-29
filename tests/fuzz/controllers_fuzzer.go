@@ -266,7 +266,7 @@ func FuzzControllers(data []byte) int {
 			Spec: kustomizev1.KustomizationSpec{
 				Path: "./",
 				KubeConfig: &kustomizev1.KubeConfig{
-					SecretRef: meta.LocalObjectReference{
+					SecretRef: meta.SecretKeyReference{
 						Name: "kubeconfig",
 					},
 				},
