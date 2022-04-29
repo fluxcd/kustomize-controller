@@ -677,8 +677,8 @@ func TestKustomizeDecryptor_DecryptResource(t *testing.T) {
 			"apiVersion": "v1",
 			"kind":       "Secret",
 			"metadata": map[string]interface{}{
-				"name":      "secret",
-				"namespace": "test",
+				"name":      name,
+				"namespace": namespace,
 			},
 			"data": data,
 		})
@@ -804,6 +804,59 @@ func TestKustomizeDecryptor_DecryptResource(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).ToNot(BeNil())
 		g.Expect(got.GetDataMap()).To(HaveKeyWithValue("key.yaml", base64.StdEncoding.EncodeToString(plainData)))
+	})
+
+	t.Run("SOPS-encrypted Docker config Secret", func(t *testing.T) {
+		g := NewWithT(t)
+
+		kus := kustomization.DeepCopy()
+		kus.Spec.Decryption = &kustomizev1.Decryption{
+			Provider: DecryptionProviderSOPS,
+		}
+
+		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), *kus)
+		g.Expect(err).ToNot(HaveOccurred())
+		t.Cleanup(cleanup)
+
+		ageID, err := extage.GenerateX25519Identity()
+		g.Expect(err).ToNot(HaveOccurred())
+		d.ageIdentities = append(d.ageIdentities, ageID)
+
+		plainData := []byte(`{
+	"auths": {
+		"my-registry.example:5000": {
+			"username": "tiger",
+			"password": "pass1234",
+			"email": "tiger@acme.example",
+			"auth": "dGlnZXI6cGFzczEyMzQ="
+		}
+	}
+}`)
+		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+			KeyGroups: []sops.KeyGroup{
+				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
+			},
+		}, plainData, formats.Json, formats.Yaml)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		secret := resourceFactory.FromMap(map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "secret",
+				"namespace": "test",
+			},
+			"type": corev1.SecretTypeDockerConfigJson,
+			"data": map[string]interface{}{
+				corev1.DockerConfigJsonKey: base64.StdEncoding.EncodeToString(encData),
+			},
+		})
+		g.Expect(isSOPSEncryptedResource(secret)).To(BeFalse())
+
+		got, err := d.DecryptResource(secret)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(got).ToNot(BeNil())
+		g.Expect(got.GetDataMap()).To(HaveKeyWithValue(corev1.DockerConfigJsonKey, base64.StdEncoding.EncodeToString(plainData)))
 	})
 
 	t.Run("nil resource", func(t *testing.T) {
@@ -1643,6 +1696,58 @@ func Test_secureAbsPath(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(gotAbs).To(Equal(tt.wantAbs))
 			g.Expect(gotRel).To(Equal(tt.wantRel))
+		})
+	}
+}
+
+func Test_formatForPath(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want formats.Format
+	}{
+		{
+			name: "docker config",
+			path: corev1.DockerConfigJsonKey,
+			want: formats.Json,
+		},
+		{
+			name: "fallback",
+			path: "foo.yaml",
+			want: formats.Yaml,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			g.Expect(formatForPath(tt.path)).To(Equal(tt.want))
+		})
+	}
+}
+
+func Test_detectFormatFromMarkerBytes(t *testing.T) {
+	tests := []struct {
+		name string
+		b    []byte
+		want formats.Format
+	}{
+		{
+			name: "detects format",
+			b:    bytes.Join([][]byte{[]byte("random other bytes"), sopsFormatToMarkerBytes[formats.Yaml], []byte("more random bytes")}, []byte(" ")),
+			want: formats.Yaml,
+		},
+		{
+			name: "returns unsupported format",
+			b:    []byte("no marker bytes present"),
+			want: unsupportedFormat,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := detectFormatFromMarkerBytes(tt.b); got != tt.want {
+				t.Errorf("detectFormatFromMarkerBytes() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

@@ -67,12 +67,16 @@ const (
 	// DecryptionAzureAuthFile is the name of the file containing the Azure
 	// credentials.
 	DecryptionAzureAuthFile = "sops.azure-kv"
-)
 
-var (
 	// maxEncryptedFileSize is the max allowed file size in bytes of an encrypted
 	// file.
 	maxEncryptedFileSize int64 = 5 << 20
+	// unsupportedFormat is used to signal no sopsFormatToMarkerBytes format was
+	// detected by detectFormatFromMarkerBytes.
+	unsupportedFormat = formats.Format(-1)
+)
+
+var (
 	// sopsFormatToString is the counterpart to
 	// https://github.com/mozilla/sops/blob/v3.7.2/cmd/sops/formats/formats.go#L16
 	sopsFormatToString = map[formats.Format]string{
@@ -334,9 +338,9 @@ func (d *KustomizeDecryptor) DecryptResource(res *resource.Resource) (*resource.
 					continue
 				}
 
-				if bytes.Contains(data, sopsFormatToMarkerBytes[formats.Yaml]) || bytes.Contains(data, sopsFormatToMarkerBytes[formats.Json]) {
-					outF := formats.FormatForPath(key)
-					out, err := d.SopsDecryptWithFormat(data, formats.Yaml, outF)
+				if inF := detectFormatFromMarkerBytes(data); inF != unsupportedFormat {
+					outF := formatForPath(key)
+					out, err := d.SopsDecryptWithFormat(data, inF, outF)
 					if err != nil {
 						return nil, fmt.Errorf("failed to decrypt and format '%s/%s' Secret field '%s': %w",
 							res.GetNamespace(), res.GetName(), key, err)
@@ -406,13 +410,13 @@ func (d *KustomizeDecryptor) decryptKustomizationEnvSources(visited map[string]s
 				} else {
 					filePath = key
 				}
-				if err := visitRef(filePath, formats.FormatForPath(key)); err != nil {
+				if err := visitRef(filePath, formatForPath(key)); err != nil {
 					return err
 				}
 			}
 			for _, envFile := range gen.EnvSources {
-				format := formats.FormatForPath(envFile)
-				if formats.FormatForPath(envFile) == formats.Binary {
+				format := formatForPath(envFile)
+				if format == formats.Binary {
 					// Default to dotenv
 					format = formats.Dotenv
 				}
@@ -730,4 +734,22 @@ func securePathErr(root string, err error) error {
 		err = &fs.PathError{Op: pathErr.Op, Path: stripRoot(root, pathErr.Path), Err: pathErr.Err}
 	}
 	return err
+}
+
+func formatForPath(path string) formats.Format {
+	switch {
+	case strings.HasSuffix(path, corev1.DockerConfigJsonKey):
+		return formats.Json
+	default:
+		return formats.FormatForPath(path)
+	}
+}
+
+func detectFormatFromMarkerBytes(b []byte) formats.Format {
+	for k, v := range sopsFormatToMarkerBytes {
+		if bytes.Contains(b, v) {
+			return k
+		}
+	}
+	return unsupportedFormat
 }
