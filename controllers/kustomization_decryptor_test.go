@@ -846,7 +846,7 @@ func TestKustomizeDecryptor_DecryptResource(t *testing.T) {
 				"name":      "secret",
 				"namespace": "test",
 			},
-			"type": corev1.SecretTypeDockercfg,
+			"type": corev1.SecretTypeDockerConfigJson,
 			"data": map[string]interface{}{
 				corev1.DockerConfigJsonKey: base64.StdEncoding.EncodeToString(encData),
 			},
@@ -1722,6 +1722,32 @@ func Test_formatForPath(t *testing.T) {
 			g := NewWithT(t)
 
 			g.Expect(formatForPath(tt.path)).To(Equal(tt.want))
+		})
+	}
+}
+
+func Test_detectFormatFromMarkerBytes(t *testing.T) {
+	tests := []struct {
+		name string
+		b    []byte
+		want formats.Format
+	}{
+		{
+			name: "detects format",
+			b:    bytes.Join([][]byte{[]byte("random other bytes"), sopsFormatToMarkerBytes[formats.Yaml], []byte("more random bytes")}, []byte(" ")),
+			want: formats.Yaml,
+		},
+		{
+			name: "returns unsupported format",
+			b:    []byte("no marker bytes present"),
+			want: unsupportedFormat,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := detectFormatFromMarkerBytes(tt.b); got != tt.want {
+				t.Errorf("detectFormatFromMarkerBytes() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
