@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	. "github.com/onsi/gomega"
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
@@ -151,8 +151,9 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 
 func TestServer_EncryptDecrypt_awskms(t *testing.T) {
 	g := NewWithT(t)
-	creds := credentials.NewEnvCredentials()
-	s := NewServer(WithAWSKeys{creds: awskms.NewCreds(creds)})
+	s := NewServer(WithAWSKeys{
+		CredsProvider: awskms.NewCredsProvider(credentials.StaticCredentialsProvider{}),
+	})
 
 	key := KeyFromMasterKey(awskms.NewMasterKeyFromArn("arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48", nil, ""))
 	_, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
@@ -166,36 +167,6 @@ func TestServer_EncryptDecrypt_awskms(t *testing.T) {
 	})
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("failed to decrypt sops data key with AWS KMS"))
-}
-
-func TestServer_EncryptDecrypt_awskms_Fallback(t *testing.T) {
-	g := NewWithT(t)
-
-	fallback := NewMockKeyServer()
-	s := NewServer(WithDefaultServer{Server: fallback})
-
-	key := KeyFromMasterKey(awskms.NewMasterKeyFromArn("arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48", nil, ""))
-	encReq := &keyservice.EncryptRequest{
-		Key:       &key,
-		Plaintext: []byte("some data key"),
-	}
-	_, err := s.Encrypt(context.TODO(), encReq)
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(fallback.encryptReqs).To(HaveLen(1))
-	g.Expect(fallback.encryptReqs).To(ContainElement(encReq))
-	g.Expect(fallback.decryptReqs).To(HaveLen(0))
-
-	fallback = NewMockKeyServer()
-	s = NewServer(WithDefaultServer{Server: fallback})
-
-	decReq := &keyservice.DecryptRequest{
-		Key:        &key,
-		Ciphertext: []byte("some ciphertext"),
-	}
-	_, err = s.Decrypt(context.TODO(), decReq)
-	g.Expect(fallback.decryptReqs).To(HaveLen(1))
-	g.Expect(fallback.decryptReqs).To(ContainElement(decReq))
-	g.Expect(fallback.encryptReqs).To(HaveLen(0))
 }
 
 func TestServer_EncryptDecrypt_azkv(t *testing.T) {

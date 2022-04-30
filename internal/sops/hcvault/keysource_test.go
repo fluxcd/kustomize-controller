@@ -60,6 +60,12 @@ func TestMain(m *testing.M) {
 		logger.Fatalf("could not start resource: %s", err)
 	}
 
+	purgeResource := func() {
+		if err := pool.Purge(resource); err != nil {
+			logger.Printf("could not purge resource: %s", err)
+		}
+	}
+
 	testVaultAddress = fmt.Sprintf("http://127.0.0.1:%v", resource.GetPort("8200/tcp"))
 	// Wait until Vault is ready to serve requests
 	if err := pool.Retry(func() error {
@@ -78,10 +84,12 @@ func TestMain(m *testing.M) {
 		}
 		return nil
 	}); err != nil {
+		purgeResource()
 		logger.Fatalf("could not connect to docker: %s", err)
 	}
 
 	if err = enableVaultTransit(testVaultAddress, testVaultToken, testEnginePath); err != nil {
+		purgeResource()
 		logger.Fatalf("could not enable Vault transit: %s", err)
 	}
 

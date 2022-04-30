@@ -407,7 +407,7 @@ aws_session_token: test-token`),
 				},
 			},
 			inspectFunc: func(g *GomegaWithT, decryptor *KustomizeDecryptor) {
-				g.Expect(decryptor.awsCreds).ToNot(BeNil())
+				g.Expect(decryptor.awsCredsProvider).ToNot(BeNil())
 			},
 		},
 		{
