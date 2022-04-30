@@ -17,25 +17,28 @@ limitations under the License.
 package awskms
 
 import (
-	"encoding/base64"
+	"context"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/kms"
-	"github.com/aws/aws-sdk-go/service/sts"
+	"encoding/base64"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"sigs.k8s.io/yaml"
 )
 
 const (
 	arnRegex        = `^arn:aws[\w-]*:kms:(.+):[0-9]+:(key|alias)/.+$`
 	stsSessionRegex = "[^a-zA-Z0-9=,.@-]+"
+	// kmsTTL is the duration after which a MasterKey requires rotation.
+	kmsTTL = time.Hour * 24 * 30 * 6
 )
 
 // MasterKey is a AWS KMS key used to encrypt and decrypt sops' data key.
@@ -44,26 +47,38 @@ type MasterKey struct {
 	Role              string
 	EncryptedKey      string
 	CreationDate      time.Time
-	EncryptionContext map[string]*string
-	credentials       *credentials.Credentials
+	EncryptionContext map[string]string
+
+	credentialsProvider aws.CredentialsProvider
+
+	// epResolver IS ONLY MEANT TO BE USED FOR TESTS.
+	// it can be used to override the endpoint that the AWS client resolves to
+	// by default. it's hacky but there is no other choice, since you can't
+	// specify the endpoint as an env var like you can do with an access key.
+	epResolver aws.EndpointResolver
 }
 
-// Creds is a wrapper around credentials.Credentials used for authenticating
+// CredsProvider is a wrapper around aws.CredentialsProvider used for authenticating
 // when using AWS KMS.
-type Creds struct {
-	credentials *credentials.Credentials
+type CredsProvider struct {
+	credsProvider aws.CredentialsProvider
 }
 
-// NewCreds creates new Creds object with the provided credentials.Credentials
-func NewCreds(credentials *credentials.Credentials) *Creds {
-	return &Creds{
-		credentials: credentials,
+// NewCredsProvider returns a Creds object with the provided aws.CredentialsProvider
+func NewCredsProvider(cp aws.CredentialsProvider) *CredsProvider {
+	return &CredsProvider{
+		credsProvider: cp,
 	}
 }
 
-// LoadAwsKmsCredsFromYaml parses the given yaml returns a Creds object, which contains
-// the AWS credentials.
-func LoadAwsKmsCredsFromYaml(b []byte) (*Creds, error) {
+// ApplyToMasterKey configures the credentials the provided key.
+func (c CredsProvider) ApplyToMasterKey(key *MasterKey) {
+	key.credentialsProvider = c.credsProvider
+}
+
+// LoadAwsKmsCredsProviderFromYaml parses the given yaml returns a CredsProvider object
+// which contains the credentials provider used for authenticating towards AWS KMS.
+func LoadAwsKmsCredsProviderFromYaml(b []byte) (*CredsProvider, error) {
 	credInfo := struct {
 		AccessKeyID     string `json:"aws_access_key_id"`
 		SecretAccessKey string `json:"aws_secret_access_key"`
@@ -72,15 +87,10 @@ func LoadAwsKmsCredsFromYaml(b []byte) (*Creds, error) {
 	if err := yaml.Unmarshal(b, &credInfo); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal AWS credentials file: %w", err)
 	}
-	creds := credentials.NewStaticCredentials(credInfo.AccessKeyID, credInfo.SecretAccessKey, credInfo.SessionToken)
-	return &Creds{
-		credentials: creds,
+	return &CredsProvider{
+		credsProvider: credentials.NewStaticCredentialsProvider(credInfo.AccessKeyID,
+			credInfo.SecretAccessKey, credInfo.SessionToken),
 	}, nil
-}
-
-// ApplyToMasterKey configures the credentials the provided key.
-func (c Creds) ApplyToMasterKey(key *MasterKey) {
-	key.credentials = c.credentials
 }
 
 // EncryptedDataKey returns the encrypted data key this master key holds
@@ -95,12 +105,16 @@ func (key *MasterKey) SetEncryptedDataKey(enc []byte) {
 
 // Encrypt takes a sops data key, encrypts it with KMS and stores the result in the EncryptedKey field
 func (key *MasterKey) Encrypt(dataKey []byte) error {
-	sess, err := key.createSession()
+	cfg, err := key.createKMSConfig()
 	if err != nil {
-		return fmt.Errorf("failed to create session: %w", err)
+		return err
 	}
-	kmsSvc := kms.New(sess)
-	out, err := kmsSvc.Encrypt(&kms.EncryptInput{Plaintext: dataKey, KeyId: &key.Arn, EncryptionContext: key.EncryptionContext})
+	client := kms.NewFromConfig(*cfg)
+	input := &kms.EncryptInput{
+		KeyId:     &key.Arn,
+		Plaintext: dataKey,
+	}
+	out, err := client.Encrypt(context.TODO(), input)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt sops data key with AWS KMS: %w", err)
 	}
@@ -122,12 +136,17 @@ func (key *MasterKey) Decrypt() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error base64-decoding encrypted data key: %s", err)
 	}
-	sess, err := key.createSession()
+	cfg, err := key.createKMSConfig()
 	if err != nil {
-		return nil, fmt.Errorf("error creating AWS session: %w", err)
+		return nil, err
 	}
-	kmsSvc := kms.New(sess)
-	decrypted, err := kmsSvc.Decrypt(&kms.DecryptInput{CiphertextBlob: k, EncryptionContext: key.EncryptionContext})
+	client := kms.NewFromConfig(*cfg)
+	input := &kms.DecryptInput{
+		KeyId:             &key.Arn,
+		CiphertextBlob:    k,
+		EncryptionContext: key.EncryptionContext,
+	}
+	decrypted, err := client.Decrypt(context.TODO(), input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt sops data key with AWS KMS: %w", err)
 	}
@@ -145,7 +164,7 @@ func (key *MasterKey) ToString() string {
 }
 
 // NewMasterKey creates a new MasterKey from an ARN, role and context, setting the creation date to the current date
-func NewMasterKey(arn string, role string, context map[string]*string) *MasterKey {
+func NewMasterKey(arn string, role string, context map[string]string) *MasterKey {
 	return &MasterKey{
 		Arn:               arn,
 		Role:              role,
@@ -155,7 +174,7 @@ func NewMasterKey(arn string, role string, context map[string]*string) *MasterKe
 }
 
 // NewMasterKeyFromArn takes an ARN string and returns a new MasterKey for that ARN
-func NewMasterKeyFromArn(arn string, context map[string]*string, awsProfile string) *MasterKey {
+func NewMasterKeyFromArn(arn string, context map[string]string, awsProfile string) *MasterKey {
 	k := &MasterKey{}
 	arn = strings.Replace(arn, " ", "", -1)
 	roleIndex := strings.Index(arn, "+arn:aws:iam::")
@@ -170,69 +189,51 @@ func NewMasterKeyFromArn(arn string, context map[string]*string, awsProfile stri
 	return k
 }
 
-// MasterKeysFromArnString takes a comma separated list of AWS KMS ARNs and returns a slice of new MasterKeys for those ARNs
-func MasterKeysFromArnString(arn string, context map[string]*string, awsProfile string) []*MasterKey {
-	var keys []*MasterKey
-	if arn == "" {
-		return keys
-	}
-	for _, s := range strings.Split(arn, ",") {
-		keys = append(keys, NewMasterKeyFromArn(s, context, awsProfile))
-	}
-	return keys
-}
-
-func (key MasterKey) createSession() (*session.Session, error) {
-	re := regexp.MustCompile(arnRegex)
-	matches := re.FindStringSubmatch(key.Arn)
-	if matches == nil {
-		return nil, fmt.Errorf("No valid ARN found in %q", key.Arn)
-	}
-
-	config := aws.Config{
-		Region:      aws.String(matches[1]),
-		Credentials: key.credentials,
-	}
-
-	opts := session.Options{
-		Config:                  config,
-		AssumeRoleTokenProvider: stscreds.StdinTokenProvider,
-		SharedConfigState:       session.SharedConfigEnable,
-	}
-	sess, err := session.NewSessionWithOptions(opts)
+func (key MasterKey) createKMSConfig() (*aws.Config, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), func(lo *config.LoadOptions) error {
+		if key.credentialsProvider != nil {
+			lo.Credentials = key.credentialsProvider
+		}
+		if key.epResolver != nil {
+			lo.EndpointResolver = key.epResolver
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldn't load AWS config: %w", err)
 	}
 	if key.Role != "" {
-		return key.createStsSession(config, sess)
+		return key.createSTSConfig(&cfg)
 	}
-	return sess, nil
+
+	return &cfg, nil
 }
 
-func (key MasterKey) createStsSession(config aws.Config, sess *session.Session) (*session.Session, error) {
+func (key MasterKey) createSTSConfig(config *aws.Config) (*aws.Config, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
 	}
 	stsRoleSessionNameRe, err := regexp.Compile(stsSessionRegex)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to compile STS role session name regex: %w", err)
+		return nil, fmt.Errorf("failed to compile STS role session name regex: %w", err)
 	}
 	sanitizedHostname := stsRoleSessionNameRe.ReplaceAllString(hostname, "")
-	stsService := sts.New(sess)
 	name := "sops@" + sanitizedHostname
-	out, err := stsService.AssumeRole(&sts.AssumeRoleInput{
-		RoleArn: &key.Role, RoleSessionName: &name})
-	if err != nil {
-		return nil, fmt.Errorf("Failed to assume role %q: %w", key.Role, err)
+
+	client := sts.NewFromConfig(*config)
+	input := &sts.AssumeRoleInput{
+		RoleArn:         &key.Arn,
+		RoleSessionName: &name,
 	}
-	config.Credentials = credentials.NewStaticCredentials(*out.Credentials.AccessKeyId,
-		*out.Credentials.SecretAccessKey, *out.Credentials.SessionToken)
-	sess, err = session.NewSession(&config)
+	out, err := client.AssumeRole(context.TODO(), input)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create new aws session: %w", err)
+		return nil, fmt.Errorf("failed to assume role '%s': %w", key.Role, err)
 	}
-	return sess, nil
+	config.Credentials = credentials.NewStaticCredentialsProvider(*out.Credentials.AccessKeyId,
+		*out.Credentials.SecretAccessKey, *out.Credentials.SessionToken,
+	)
+	return config, nil
 }
 
 // ToMap converts the MasterKey to a map for serialization purposes
@@ -247,60 +248,9 @@ func (key MasterKey) ToMap() map[string]interface{} {
 	if key.EncryptionContext != nil {
 		outcontext := make(map[string]string)
 		for k, v := range key.EncryptionContext {
-			outcontext[k] = *v
+			outcontext[k] = v
 		}
 		out["context"] = outcontext
-	}
-	return out
-}
-
-// ParseKMSContext takes either a KMS context map or a comma-separated list of KMS context key:value pairs and returns a map
-func ParseKMSContext(in interface{}) map[string]*string {
-	// nonStringValueWarning := "Encryption context contains a non-string value, context will not be used"
-	out := make(map[string]*string)
-
-	switch in := in.(type) {
-	case map[string]interface{}:
-		if len(in) == 0 {
-			return nil
-		}
-		for k, v := range in {
-			value, ok := v.(string)
-			if !ok {
-				// log.Warn(nonStringValueWarning)
-				return nil
-			}
-			out[k] = &value
-		}
-	case map[interface{}]interface{}:
-		if len(in) == 0 {
-			return nil
-		}
-		for k, v := range in {
-			key, ok := k.(string)
-			if !ok {
-				// log.Warn(nonStringValueWarning)
-				return nil
-			}
-			value, ok := v.(string)
-			if !ok {
-				// log.Warn(nonStringValueWarning)
-				return nil
-			}
-			out[key] = &value
-		}
-	case string:
-		if in == "" {
-			return nil
-		}
-		for _, kv := range strings.Split(in, ",") {
-			kv := strings.Split(kv, ":")
-			if len(kv) != 2 {
-				// log.Warn(nonStringValueWarning)
-				return nil
-			}
-			out[kv[0]] = &kv[1]
-		}
 	}
 	return out
 }

@@ -133,9 +133,9 @@ type KustomizeDecryptor struct {
 	// vaultToken is the Hashicorp Vault token used to authenticate towards
 	// any Vault server.
 	vaultToken string
-	// awsCreds is the AWS credentials object used to authenticate towards
+	// awsCredsProvider is the AWS credentials provider object used to authenticate towards
 	// any AWS KMS.
-	awsCreds *awskms.Creds
+	awsCredsProvider *awskms.CredsProvider
 	// azureToken is the Azure credential token used to authenticate towards
 	// any Azure Key Vault.
 	azureToken *azkv.Token
@@ -229,7 +229,7 @@ func (d *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 				}
 			case filepath.Ext(DecryptionAWSKmsFile):
 				if name == DecryptionAWSKmsFile {
-					if d.awsCreds, err = awskms.LoadAwsKmsCredsFromYaml(value); err != nil {
+					if d.awsCredsProvider, err = awskms.LoadAwsKmsCredsProviderFromYaml(value); err != nil {
 						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 					}
 				}
@@ -547,6 +547,7 @@ func (d *KustomizeDecryptor) loadKeyServiceServers() {
 	if d.azureToken != nil {
 		serverOpts = append(serverOpts, intkeyservice.WithAzureToken{Token: d.azureToken})
 	}
+	serverOpts = append(serverOpts, intkeyservice.WithAWSKeys{CredsProvider: d.awsCredsProvider})
 	server := intkeyservice.NewServer(serverOpts...)
 	d.keyServices = append(make([]keyservice.KeyServiceClient, 0), keyservice.NewCustomLocalClient(server))
 }
