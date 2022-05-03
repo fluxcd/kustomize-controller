@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.25.0
+
+**Release date:** 2022-05-03
+
+This prerelease adds support for disallowing remote bases in Kustomize overlays
+using `--no-remote-bases=true` (default: `false`).  When this flag is enabled on
+the controller, all resources must refer to local files included in the Source
+Artifact, meaning only the Flux Sources can affect the cluster-state. Users
+are encouraged to enable it on production systems for security and performance
+reasons.
+
+In addition, support has been introduced for defining a KubeConfig Secret data
+key in the `.spec.kubeConfig.SecretRef.key` (default: `value` or `value.yaml`),
+and dependencies have been updated.
+
+Improvements:
+- Support defining a KubeConfig Secret data key
+  [#615](https://github.com/fluxcd/kustomize-controller/pull/615)
+  [#645](https://github.com/fluxcd/kustomize-controller/pull/645)
+- Disallow remote bases usage in Kustomize overlays
+  [#638](https://github.com/fluxcd/kustomize-controller/pull/638)
+- decryptor: improve detection of in and out formats for Secret data fields
+  [#644](https://github.com/fluxcd/kustomize-controller/pull/644)
+
 ## 0.24.4
 
 **Release date:** 2022-04-28
