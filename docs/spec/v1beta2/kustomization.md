@@ -287,6 +287,10 @@ spec:
   path: "./deploy/production"
 ```
 
+For security and performance reasons, it is advised to disallow the usage of
+[remote bases](https://github.com/kubernetes-sigs/kustomize/blob/a7f4db7fb41e17b2c826a524f545e6174b4dc6ac/examples/remoteBuild.md)
+in Kustomize overlays. To enforce this setting, platform admins can use the `--no-remote-bases=true` flag.
+
 ## Source reference
 
 The Kustomization `spec.sourceRef` is a reference to an object managed by
