@@ -99,7 +99,7 @@ func TestMain(m *testing.M) {
 		logger.Fatalf("could not set arn")
 	}
 
-	// Run the tests, but only if we succeeded in setting up the Vault server
+	// Run the tests, but only if we succeeded in setting up the AWS KMS server.
 	var code int
 	if err == nil {
 		code = m.Run()
@@ -276,7 +276,7 @@ aws_access_key_id: test-id
 aws_secret_access_key: test-secret
 aws_session_token: test-token
 `)
-	credsProvider, err := LoadAwsKmsCredsProviderFromYaml(credsYaml)
+	credsProvider, err := LoadCredsProviderFromYaml(credsYaml)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	creds, err := credsProvider.credsProvider.Retrieve(context.TODO())

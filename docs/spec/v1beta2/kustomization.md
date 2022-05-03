@@ -1117,7 +1117,7 @@ kind: Secret
 metadata:
   name: sops-keys
   namespace: default
-stringData:
+data:
   sops.aws-kms: |
         aws_access_key_id: some-access-key-id
         aws_secret_access_key: some-aws-secret-access-key
@@ -1259,6 +1259,40 @@ to the [SOPS guide](https://fluxcd.io/docs/guides/mozilla-sops/#aws) for detaile
 kubectl -n flux-system annotate serviceaccount kustomize-controller \
   --field-manager=flux-client-side-apply \
   eks.amazonaws.com/role-arn='arn:aws:iam::<ACCOUNT_ID>:role/<KMS-ROLE-NAME>'
+```
+
+Furthermore, you can also use the usual [environmentvariables used for specifying AWS
+credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html#envvars-list)
+, by patching the kustomize-controller deployment:
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kustomize-controller
+  namespace: flux-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-creds
+              key: awsAccessKeyID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-creds
+              key: awsSecretAccessKey
+        - name: AWS_SESSION_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: aws-creds
+              key: awsSessionToken
 ```
 
 In addition to this, the

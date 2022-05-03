@@ -57,7 +57,7 @@ func (o WithAgeIdentities) ApplyToServer(s *Server) {
 	s.ageIdentities = age.ParsedIdentities(o)
 }
 
-// WithAWSKeys configurs the AWS credentials on the Server
+// WithAWSKeys configures the AWS credentials on the Server
 type WithAWSKeys struct {
 	CredsProvider *awskms.CredsProvider
 }

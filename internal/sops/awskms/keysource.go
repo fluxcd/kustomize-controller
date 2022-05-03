@@ -35,36 +35,51 @@ import (
 )
 
 const (
-	arnRegex        = `^arn:aws[\w-]*:kms:(.+):[0-9]+:(key|alias)/.+$`
-	stsSessionRegex = "[^a-zA-Z0-9=,.@-]+"
+	// arnRegex matches an AWS ARN.
+	// valid ARN example: arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48
+	arnRegex = `^arn:aws[\w-]*:kms:(.+):[0-9]+:(key|alias)/.+$`
+	// stsSessionRegex matches an AWS STS session name.
+	// valid STS session examples: john_s, sops@42WQm042
+	stsSessionRegex = "[^a-zA-Z0-9=,.@-_]+"
 	// kmsTTL is the duration after which a MasterKey requires rotation.
 	kmsTTL = time.Hour * 24 * 30 * 6
 )
 
-// MasterKey is a AWS KMS key used to encrypt and decrypt sops' data key.
+// MasterKey is an AWS KMS key used to encrypt and decrypt sops' data key.
+// Adapted from: https://github.com/mozilla/sops/blob/v3.7.2/kms/keysource.go#L39
+// Modified to accept custom static credentials as opposed to using env vars by default
+// and use aws-sdk-go-v2 instead of aws-sdk-go being used in upstream.
 type MasterKey struct {
-	Arn               string
-	Role              string
-	EncryptedKey      string
-	CreationDate      time.Time
+	// AWS Role ARN associated with the KMS key.
+	Arn string
+	// AWS Role ARN used to assume a role through AWS STS.
+	Role string
+	// EncryptedKey stores the data key in it's encrypted form.
+	EncryptedKey string
+	// CreationDate is when this MasterKey was created.
+	CreationDate time.Time
+	// EncryptionContext provides additional context about the data key.
+	// Ref: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#encrypt_context
 	EncryptionContext map[string]string
 
+	// credentialsProvider is used to configure the AWS config with the
+	// necessary credentials.
 	credentialsProvider aws.CredentialsProvider
 
-	// epResolver IS ONLY MEANT TO BE USED FOR TESTS.
-	// it can be used to override the endpoint that the AWS client resolves to
-	// by default. it's hacky but there is no other choice, since you can't
-	// specify the endpoint as an env var like you can do with an access key.
+	// epResolver can be used to override the endpoint the AWS client resolves
+	// to by default. This is mostly used for testing purposes as it can not be
+	// injected using e.g. an environment variable. The field is not publicly
+	// exposed, nor configurable.
 	epResolver aws.EndpointResolver
 }
 
 // CredsProvider is a wrapper around aws.CredentialsProvider used for authenticating
-// when using AWS KMS.
+// towards AWS KMS.
 type CredsProvider struct {
 	credsProvider aws.CredentialsProvider
 }
 
-// NewCredsProvider returns a Creds object with the provided aws.CredentialsProvider
+// NewCredsProvider returns a CredsProvider object with the provided aws.CredentialsProvider.
 func NewCredsProvider(cp aws.CredentialsProvider) *CredsProvider {
 	return &CredsProvider{
 		credsProvider: cp,
@@ -76,9 +91,9 @@ func (c CredsProvider) ApplyToMasterKey(key *MasterKey) {
 	key.credentialsProvider = c.credsProvider
 }
 
-// LoadAwsKmsCredsProviderFromYaml parses the given yaml returns a CredsProvider object
+// LoadCredsProviderFromYaml parses the given YAML returns a CredsProvider object
 // which contains the credentials provider used for authenticating towards AWS KMS.
-func LoadAwsKmsCredsProviderFromYaml(b []byte) (*CredsProvider, error) {
+func LoadCredsProviderFromYaml(b []byte) (*CredsProvider, error) {
 	credInfo := struct {
 		AccessKeyID     string `json:"aws_access_key_id"`
 		SecretAccessKey string `json:"aws_secret_access_key"`
@@ -93,17 +108,18 @@ func LoadAwsKmsCredsProviderFromYaml(b []byte) (*CredsProvider, error) {
 	}, nil
 }
 
-// EncryptedDataKey returns the encrypted data key this master key holds
+// EncryptedDataKey returns the encrypted data key this master key holds.
 func (key *MasterKey) EncryptedDataKey() []byte {
 	return []byte(key.EncryptedKey)
 }
 
-// SetEncryptedDataKey sets the encrypted data key for this master key
+// SetEncryptedDataKey sets the encrypted data key for this master key.
 func (key *MasterKey) SetEncryptedDataKey(enc []byte) {
 	key.EncryptedKey = string(enc)
 }
 
-// Encrypt takes a sops data key, encrypts it with KMS and stores the result in the EncryptedKey field
+// Encrypt takes a SOPS data key, encrypts it with KMS and stores the result
+// in the EncryptedKey field.
 func (key *MasterKey) Encrypt(dataKey []byte) error {
 	cfg, err := key.createKMSConfig()
 	if err != nil {
@@ -122,7 +138,8 @@ func (key *MasterKey) Encrypt(dataKey []byte) error {
 	return nil
 }
 
-// EncryptIfNeeded encrypts the provided sops' data key and encrypts it if it hasn't been encrypted yet
+// EncryptIfNeeded encrypts the provided sops' data key and encrypts it, if it
+// has not been encrypted yet.
 func (key *MasterKey) EncryptIfNeeded(dataKey []byte) error {
 	if key.EncryptedKey == "" {
 		return key.Encrypt(dataKey)
@@ -155,88 +172,15 @@ func (key *MasterKey) Decrypt() ([]byte, error) {
 
 // NeedsRotation returns whether the data key needs to be rotated or not.
 func (key *MasterKey) NeedsRotation() bool {
-	return time.Since(key.CreationDate) > (time.Hour * 24 * 30 * 6)
+	return time.Since(key.CreationDate) > kmsTTL
 }
 
-// ToString converts the key to a string representation
+// ToString converts the key to a string representation.
 func (key *MasterKey) ToString() string {
 	return key.Arn
 }
 
-// NewMasterKey creates a new MasterKey from an ARN, role and context, setting the creation date to the current date
-func NewMasterKey(arn string, role string, context map[string]string) *MasterKey {
-	return &MasterKey{
-		Arn:               arn,
-		Role:              role,
-		EncryptionContext: context,
-		CreationDate:      time.Now().UTC(),
-	}
-}
-
-// NewMasterKeyFromArn takes an ARN string and returns a new MasterKey for that ARN
-func NewMasterKeyFromArn(arn string, context map[string]string, awsProfile string) *MasterKey {
-	k := &MasterKey{}
-	arn = strings.Replace(arn, " ", "", -1)
-	roleIndex := strings.Index(arn, "+arn:aws:iam::")
-	if roleIndex > 0 {
-		k.Arn = arn[:roleIndex]
-		k.Role = arn[roleIndex+1:]
-	} else {
-		k.Arn = arn
-	}
-	k.EncryptionContext = context
-	k.CreationDate = time.Now().UTC()
-	return k
-}
-
-func (key MasterKey) createKMSConfig() (*aws.Config, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), func(lo *config.LoadOptions) error {
-		if key.credentialsProvider != nil {
-			lo.Credentials = key.credentialsProvider
-		}
-		if key.epResolver != nil {
-			lo.EndpointResolver = key.epResolver
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("couldn't load AWS config: %w", err)
-	}
-	if key.Role != "" {
-		return key.createSTSConfig(&cfg)
-	}
-
-	return &cfg, nil
-}
-
-func (key MasterKey) createSTSConfig(config *aws.Config) (*aws.Config, error) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		return nil, err
-	}
-	stsRoleSessionNameRe, err := regexp.Compile(stsSessionRegex)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile STS role session name regex: %w", err)
-	}
-	sanitizedHostname := stsRoleSessionNameRe.ReplaceAllString(hostname, "")
-	name := "sops@" + sanitizedHostname
-
-	client := sts.NewFromConfig(*config)
-	input := &sts.AssumeRoleInput{
-		RoleArn:         &key.Arn,
-		RoleSessionName: &name,
-	}
-	out, err := client.AssumeRole(context.TODO(), input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to assume role '%s': %w", key.Role, err)
-	}
-	config.Credentials = credentials.NewStaticCredentialsProvider(*out.Credentials.AccessKeyId,
-		*out.Credentials.SecretAccessKey, *out.Credentials.SessionToken,
-	)
-	return config, nil
-}
-
-// ToMap converts the MasterKey to a map for serialization purposes
+// ToMap converts the MasterKey to a map for serialization purposes.
 func (key MasterKey) ToMap() map[string]interface{} {
 	out := make(map[string]interface{})
 	out["arn"] = key.Arn
@@ -253,4 +197,85 @@ func (key MasterKey) ToMap() map[string]interface{} {
 		out["context"] = outcontext
 	}
 	return out
+}
+
+// NewMasterKey creates a new MasterKey from an ARN, role and context, setting the
+// creation date to the current date.
+func NewMasterKey(arn string, role string, context map[string]string) *MasterKey {
+	return &MasterKey{
+		Arn:               arn,
+		Role:              role,
+		EncryptionContext: context,
+		CreationDate:      time.Now().UTC(),
+	}
+}
+
+// NewMasterKeyFromArn takes an ARN string and returns a new MasterKey for that
+// ARN.
+func NewMasterKeyFromArn(arn string, context map[string]string, awsProfile string) *MasterKey {
+	k := &MasterKey{}
+	arn = strings.Replace(arn, " ", "", -1)
+	roleIndex := strings.Index(arn, "+arn:aws:iam::")
+	if roleIndex > 0 {
+		k.Arn = arn[:roleIndex]
+		k.Role = arn[roleIndex+1:]
+	} else {
+		k.Arn = arn
+	}
+	k.EncryptionContext = context
+	k.CreationDate = time.Now().UTC()
+	return k
+}
+
+// createKMSConfig returns a Config configured with the appropriate credentials.
+func (key MasterKey) createKMSConfig() (*aws.Config, error) {
+	// Use the credentialsProvider if present, otherwise default to reading credentials
+	// from the environment.
+	cfg, err := config.LoadDefaultConfig(context.TODO(), func(lo *config.LoadOptions) error {
+		if key.credentialsProvider != nil {
+			lo.Credentials = key.credentialsProvider
+		}
+		// Set the epResolver, if present. Used ONLY for tests.
+		if key.epResolver != nil {
+			lo.EndpointResolver = key.epResolver
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("couldn't load AWS config: %w", err)
+	}
+	if key.Role != "" {
+		return key.createSTSConfig(&cfg)
+	}
+
+	return &cfg, nil
+}
+
+// createSTSConfig uses AWS STS to assume a role and returns a Config configured
+// with that role's credentials.
+func (key MasterKey) createSTSConfig(config *aws.Config) (*aws.Config, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+	stsRoleSessionNameRe, err := regexp.Compile(stsSessionRegex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile STS role session name regex: %w", err)
+	}
+	sanitizedHostname := stsRoleSessionNameRe.ReplaceAllString(hostname, "")
+	name := "sops@" + sanitizedHostname
+
+	client := sts.NewFromConfig(*config)
+	input := &sts.AssumeRoleInput{
+		RoleArn:         &key.Role,
+		RoleSessionName: &name,
+	}
+	out, err := client.AssumeRole(context.TODO(), input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to assume role '%s': %w", key.Role, err)
+	}
+	config.Credentials = credentials.NewStaticCredentialsProvider(*out.Credentials.AccessKeyId,
+		*out.Credentials.SecretAccessKey, *out.Credentials.SessionToken,
+	)
+	return config, nil
 }
