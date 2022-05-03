@@ -66,7 +66,7 @@ type KustomizationSpec struct {
 	// for changing image names, tags or digests. This can also be achieved with a
 	// patch, but this operator is simpler to specify.
 	// +optional
-    Images []kustomize.Image `json:"images,omitempty"`
+	Images []kustomize.Image `json:"images,omitempty"`
 
 	// The name of the Kubernetes service account to impersonate
 	// when reconciling this Kustomization.
@@ -123,8 +123,9 @@ This can be used with Cluster API:
 
 ```go
 type KubeConfig struct {
-	// SecretRef holds the name to a secret that contains a 'value' key with
-	// the kubeconfig file as the value. It must be in the same namespace as
+	// SecretRef holds the name of a secret that contains a key with
+	// the kubeconfig file as the value. If no key is set, the key will default
+	// to 'value'. The secret must be in the same namespace as
 	// the Kustomization.
 	// It is recommended that the kubeconfig is self-contained, and the secret
 	// is regularly updated if credentials such as a cloud-access-token expire.
@@ -132,7 +133,7 @@ type KubeConfig struct {
 	// binaries and credentials to the Pod that is responsible for reconciling
 	// the Kustomization.
 	// +required
-	SecretRef meta.LocalObjectReference `json:"secretRef,omitempty"`
+	SecretRef meta.SecretKeyReference `json:"secretRef,omitempty"`
 }
 ```
 
@@ -938,8 +939,9 @@ If the `kubeConfig` field is set, objects will be applied, health-checked, prune
 cluster specified in that KubeConfig instead of using the in-cluster ServiceAccount.
 
 The secret defined in the `kubeConfig.SecretRef` must exist in the same namespace as the Kustomization.
-On every reconciliation, the KubeConfig bytes will be loaded from the `value` or `value.yaml` key of the secret's data,
-and the secret can thus be regularly updated if cluster-access-tokens have to rotate due to expiration.
+On every reconciliation, the KubeConfig bytes will be loaded from the `.secretRef.key`
+key (default: `value` or `value.yaml`) of the Secret's data , and the Secret can thus be regularly
+updated if cluster-access-tokens have to rotate due to expiration.
 
 This composes well with Cluster API bootstrap providers such as CAPBK (kubeadm), CAPA (AWS) and others.
 
