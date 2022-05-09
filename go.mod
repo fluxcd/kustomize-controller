@@ -29,7 +29,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.3
 	golang.org/x/net v0.0.0-20220420153159-1850ba15e1be
-	google.golang.org/grpc v1.45.0
 	k8s.io/api v0.23.5
 	k8s.io/apiextensions-apiserver v0.23.5
 	k8s.io/apimachinery v0.23.5
@@ -195,6 +194,7 @@ require (
 	google.golang.org/api v0.74.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220405205423-9d709892a2bf // indirect
+	google.golang.org/grpc v1.45.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect

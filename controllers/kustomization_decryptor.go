@@ -535,7 +535,7 @@ func (d *KustomizeDecryptor) loadKeyServiceServers() {
 		serverOpts = append(serverOpts, intkeyservice.WithAzureToken{Token: d.azureToken})
 	}
 	server := intkeyservice.NewServer(serverOpts...)
-	d.keyServices = append(make([]keyservice.KeyServiceClient, 0), intkeyservice.NewLocalClient(server))
+	d.keyServices = append(make([]keyservice.KeyServiceClient, 0), keyservice.NewCustomLocalClient(server))
 }
 
 // secureLoadKustomizationFile tries to securely load a Kustomization file from
