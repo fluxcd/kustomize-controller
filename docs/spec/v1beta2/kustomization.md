@@ -1246,7 +1246,7 @@ it is possible to specify global decryption settings on the
 kustomize-controller Pod. When the controller fails to find credentials on the
 Kustomization object itself, it will fall back to these defaults.
 
-#### AWS
+#### AWS KMS
 
 While making use of the [IAM OIDC provider](https://eksctl.io/usage/iamserviceaccounts/)
 on your EKS cluster, you can create an IAM Role and Service Account with access
@@ -1261,7 +1261,7 @@ kubectl -n flux-system annotate serviceaccount kustomize-controller \
   eks.amazonaws.com/role-arn='arn:aws:iam::<ACCOUNT_ID>:role/<KMS-ROLE-NAME>'
 ```
 
-Furthermore, you can also use the usual [environmentvariables used for specifying AWS
+Furthermore, you can also use the usual [environment variables used for specifying AWS
 credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html#envvars-list)
 , by patching the kustomize-controller deployment:
 
@@ -1298,6 +1298,16 @@ spec:
 In addition to this, the
 [general SOPS documentation around KMS AWS applies](https://github.com/mozilla/sops#27kms-aws-profiles),
 allowing you to specify e.g. a `SOPS_KMS_ARN` environment variable.
+
+> **Note:**: If you're mounting a secret containing the AWS credentials as a file in the `kustomize-controller` pod,
+> you'd need to specify an environment variable `$HOME`, since the AWS credentials file is expected to be present
+> at `~/.aws`, like so:
+```yaml
+env:
+  - name: HOME
+    value: /home/{$USER}
+```
+
 
 #### Azure Key Vault
 
