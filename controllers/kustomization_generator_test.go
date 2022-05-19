@@ -50,3 +50,7 @@ func Test_secureBuildKustomization_panic(t *testing.T) {
 		g.Expect(err).To(HaveOccurred())
 	})
 }
+
+func Test_WriteFile(t *testing.T) {
+
+}
