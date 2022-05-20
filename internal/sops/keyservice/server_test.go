@@ -22,11 +22,13 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	. "github.com/onsi/gomega"
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
+	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -145,6 +147,26 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 	g.Expect(fallback.decryptReqs).To(HaveLen(1))
 	g.Expect(fallback.decryptReqs).To(ContainElement(decReq))
 	g.Expect(fallback.encryptReqs).To(HaveLen(0))
+}
+
+func TestServer_EncryptDecrypt_awskms(t *testing.T) {
+	g := NewWithT(t)
+	s := NewServer(WithAWSKeys{
+		CredsProvider: awskms.NewCredsProvider(credentials.StaticCredentialsProvider{}),
+	})
+
+	key := KeyFromMasterKey(awskms.NewMasterKeyFromArn("arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48", nil, ""))
+	_, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
+		Key: &key,
+	})
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("failed to encrypt sops data key with AWS KMS"))
+
+	_, err = s.Decrypt(context.TODO(), &keyservice.DecryptRequest{
+		Key: &key,
+	})
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("failed to decrypt sops data key with AWS KMS"))
 }
 
 func TestServer_EncryptDecrypt_azkv(t *testing.T) {

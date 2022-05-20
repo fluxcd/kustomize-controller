@@ -47,6 +47,7 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
+	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -64,6 +65,9 @@ const (
 	// DecryptionVaultTokenFileName is the name of the file containing the
 	// Hashicorp Vault token.
 	DecryptionVaultTokenFileName = "sops.vault-token"
+	// DecryptionVaultTokenFileName is the name of the file containing the
+	// AWS KMS credentials
+	DecryptionAWSKmsFile = "sops.aws-kms"
 	// DecryptionAzureAuthFile is the name of the file containing the Azure
 	// credentials.
 	DecryptionAzureAuthFile = "sops.azure-kv"
@@ -129,6 +133,9 @@ type KustomizeDecryptor struct {
 	// vaultToken is the Hashicorp Vault token used to authenticate towards
 	// any Vault server.
 	vaultToken string
+	// awsCredsProvider is the AWS credentials provider object used to authenticate
+	// towards any AWS KMS.
+	awsCredsProvider *awskms.CredsProvider
 	// azureToken is the Azure credential token used to authenticate towards
 	// any Azure Key Vault.
 	azureToken *azkv.Token
@@ -219,6 +226,12 @@ func (d *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 					token := string(value)
 					token = strings.Trim(strings.TrimSpace(token), "\n")
 					d.vaultToken = token
+				}
+			case filepath.Ext(DecryptionAWSKmsFile):
+				if name == DecryptionAWSKmsFile {
+					if d.awsCredsProvider, err = awskms.LoadCredsProviderFromYaml(value); err != nil {
+						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
+					}
 				}
 			case filepath.Ext(DecryptionAzureAuthFile):
 				// Make sure we have the absolute name
@@ -534,6 +547,7 @@ func (d *KustomizeDecryptor) loadKeyServiceServers() {
 	if d.azureToken != nil {
 		serverOpts = append(serverOpts, intkeyservice.WithAzureToken{Token: d.azureToken})
 	}
+	serverOpts = append(serverOpts, intkeyservice.WithAWSKeys{CredsProvider: d.awsCredsProvider})
 	server := intkeyservice.NewServer(serverOpts...)
 	d.keyServices = append(make([]keyservice.KeyServiceClient, 0), keyservice.NewCustomLocalClient(server))
 }

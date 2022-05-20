@@ -1105,6 +1105,25 @@ data:
   identity.asc: <BASE64>
 ```
 
+#### AWS KMS Secret Entry
+
+To specify credentials for an AWS user account linked to the IAM role with access
+to KMS, append a `.data` entry with a fixed `sops.aws-kms` key.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sops-keys
+  namespace: default
+data:
+  sops.aws-kms: |
+        aws_access_key_id: some-access-key-id
+        aws_secret_access_key: some-aws-secret-access-key
+        aws_session_token: some-aws-session-token # this field is optional
+```
+
 #### Azure Key Vault Secret entry
 
 To specify credentials for Azure Key Vault in a Secret, append a `.data` entry
@@ -1227,13 +1246,14 @@ it is possible to specify global decryption settings on the
 kustomize-controller Pod. When the controller fails to find credentials on the
 Kustomization object itself, it will fall back to these defaults.
 
-#### AWS
+#### AWS KMS
 
 While making use of the [IAM OIDC provider](https://eksctl.io/usage/iamserviceaccounts/)
 on your EKS cluster, you can create an IAM Role and Service Account with access
 to AWS KMS (using at least `kms:Decrypt` and `kms:DescribeKey`). Once these are
 created, you can annotate the kustomize-controller Service Account with the
-Role ARN, granting the controller permissions to decrypt the Secrets.
+Role ARN, granting the controller permissions to decrypt the Secrets. Please refer
+to the [SOPS guide](https://fluxcd.io/docs/guides/mozilla-sops/#aws) for detailed steps.
 
 ```sh
 kubectl -n flux-system annotate serviceaccount kustomize-controller \
@@ -1241,9 +1261,53 @@ kubectl -n flux-system annotate serviceaccount kustomize-controller \
   eks.amazonaws.com/role-arn='arn:aws:iam::<ACCOUNT_ID>:role/<KMS-ROLE-NAME>'
 ```
 
+Furthermore, you can also use the usual [environment variables used for specifying AWS
+credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html#envvars-list)
+, by patching the kustomize-controller deployment:
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kustomize-controller
+  namespace: flux-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-creds
+              key: awsAccessKeyID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-creds
+              key: awsSecretAccessKey
+        - name: AWS_SESSION_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: aws-creds
+              key: awsSessionToken
+```
+
 In addition to this, the
 [general SOPS documentation around KMS AWS applies](https://github.com/mozilla/sops#27kms-aws-profiles),
 allowing you to specify e.g. a `SOPS_KMS_ARN` environment variable.
+
+> **Note:**: If you're mounting a secret containing the AWS credentials as a file in the `kustomize-controller` pod,
+> you'd need to specify an environment variable `$HOME`, since the AWS credentials file is expected to be present
+> at `~/.aws`, like so:
+```yaml
+env:
+  - name: HOME
+    value: /home/{$USER}
+```
+
 
 #### Azure Key Vault
 

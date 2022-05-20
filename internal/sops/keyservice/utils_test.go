@@ -24,6 +24,7 @@ import (
 	"go.mozilla.org/sops/v3/keyservice"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
+	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -48,6 +49,14 @@ func KeyFromMasterKey(k keys.MasterKey) keyservice.Key {
 					VaultAddress: mk.VaultAddress,
 					EnginePath:   mk.EnginePath,
 					KeyName:      mk.KeyName,
+				},
+			},
+		}
+	case *awskms.MasterKey:
+		return keyservice.Key{
+			KeyType: &keyservice.Key_KmsKey{
+				KmsKey: &keyservice.KmsKey{
+					Arn: mk.Arn,
 				},
 			},
 		}

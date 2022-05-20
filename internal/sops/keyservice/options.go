@@ -21,6 +21,7 @@ import (
 	"go.mozilla.org/sops/v3/keyservice"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
+	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -54,6 +55,16 @@ type WithAgeIdentities []extage.Identity
 // ApplyToServer applies this configuration to the given Server.
 func (o WithAgeIdentities) ApplyToServer(s *Server) {
 	s.ageIdentities = age.ParsedIdentities(o)
+}
+
+// WithAWSKeys configures the AWS credentials on the Server
+type WithAWSKeys struct {
+	CredsProvider *awskms.CredsProvider
+}
+
+// ApplyToServer applies this configuration to the given Server.
+func (o WithAWSKeys) ApplyToServer(s *Server) {
+	s.awsCredsProvider = o.CredsProvider
 }
 
 // WithAzureToken configures the Azure credential token on the Server.
