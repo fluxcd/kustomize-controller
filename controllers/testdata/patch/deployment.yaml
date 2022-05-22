@@ -17,3 +17,5 @@ spec:
       containers:
       - name: podinfo
         image: podinfo
+      - name: flagger
+        image: ghcr.io/fluxcd/flagger

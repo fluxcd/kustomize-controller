@@ -104,6 +104,7 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
 			Name:    image.Name,
 			NewName: image.NewName,
 			NewTag:  image.NewTag,
+			Digest:  image.Digest,
 		}
 		if exists, index := checkKustomizeImageExists(kus.Images, image.Name); exists {
 			kus.Images[index] = newImage
