@@ -60,9 +60,17 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 
 	cli, err := api.NewClient(api.DefaultConfig())
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create vault client")
+	cli.SetToken(os.Getenv("VAULT_TOKEN"))
 
+	enginePath := "sops"
+	err = cli.Sys().Mount(enginePath, &api.MountInput{
+		Type:        "transit",
+		Description: "backend transit used by SOPS",
+	})
+	g.Expect(err).NotTo(HaveOccurred(), "failed to mount transit on engine path")
 	// create a master key on the vault transit engine
 	path, data := "sops/keys/firstkey", map[string]interface{}{"type": "rsa-4096"}
+
 	_, err = cli.Logical().Write(path, data)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to write key")
 
@@ -127,7 +135,7 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		StringData: map[string]string{
 			"pgp.asc":          string(pgpKey),
 			"age.agekey":       string(ageKey),
-			"sops.vault-token": "secret",
+			"sops.vault-token": os.Getenv("VAULT_TOKEN"),
 		},
 	}
 

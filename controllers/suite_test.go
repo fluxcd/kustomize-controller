@@ -37,8 +37,10 @@ import (
 	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
-	"github.com/hashicorp/vault/api"
-	"github.com/ory/dockertest"
+	vaulttransit "github.com/hashicorp/vault/builtin/logical/transit"
+	vaulthttp "github.com/hashicorp/vault/http"
+	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/vault"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -121,12 +123,12 @@ func runInContext(registerControllers func(*testenv.Environment), run func() err
 	}
 
 	// Create a Vault test instance.
-	pool, resource, err := createVaultTestInstance()
+	cluster, err := createVaultTestInstance()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create Vault instance: %v", err))
 	}
 	defer func() {
-		pool.Purge(resource)
+		cluster.Cleanup()
 	}()
 
 	runErr := run()
@@ -374,44 +376,39 @@ func createArtifact(artifactServer *testserver.ArtifactServer, fixture, path str
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-func createVaultTestInstance() (*dockertest.Pool, *dockertest.Resource, error) {
-	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
-	pool, err := dockertest.NewPool("")
-	if err != nil {
-		return nil, nil, fmt.Errorf("Could not connect to docker: %s", err)
+func createVaultTestInstance() (*vault.TestCluster, error) {
+	// this is set to prevent "certificate signed by unknown authority" errors
+	os.Setenv("VAULT_SKIP_VERIFY", "true")
+	os.Setenv("VAULT_INSECURE", "true")
+	t := &testing.T{}
+	coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"transit": vaulttransit.Factory,
+		},
+	}
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+		NumCores:    1,
+	})
+	cluster.Start()
+
+	if err := vault.TestWaitActiveWithError(cluster.Cores[0].Core); err != nil {
+		return nil, fmt.Errorf("test core not active: %s", err)
 	}
 
-	// pulls an image, creates a container based on it and runs it
-	resource, err := pool.Run("vault", vaultVersion, []string{"VAULT_DEV_ROOT_TOKEN_ID=secret"})
+	testClient := cluster.Cores[0].Client
+
+	status, err := testClient.Sys().InitStatus()
 	if err != nil {
-		return nil, nil, fmt.Errorf("Could not start resource: %s", err)
+		return nil, fmt.Errorf("cannot checking Vault client status: %s", err)
+	}
+	if status != true {
+		return nil, fmt.Errorf("waiting on Vault server to become ready")
 	}
 
-	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1:%v", resource.GetPort("8200/tcp")))
-	os.Setenv("VAULT_TOKEN", "secret")
+	os.Setenv("VAULT_ADDR", testClient.Address())
+	os.Setenv("VAULT_TOKEN", testClient.Token())
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
-	if err := pool.Retry(func() error {
-		cli, err := api.NewClient(api.DefaultConfig())
-		if err != nil {
-			return fmt.Errorf("Cannot create Vault Client: %w", err)
-		}
-		status, err := cli.Sys().InitStatus()
-		if err != nil {
-			return err
-		}
-		if status != true {
-			return fmt.Errorf("Vault not ready yet")
-		}
-		if err := cli.Sys().Mount("sops", &api.MountInput{
-			Type: "transit",
-		}); err != nil {
-			return fmt.Errorf("Cannot create Vault Transit Engine: %w", err)
-		}
 
-		return nil
-	}); err != nil {
-		return nil, nil, fmt.Errorf("Could not connect to docker: %w", err)
-	}
-
-	return pool, resource, nil
+	return cluster, nil
 }
