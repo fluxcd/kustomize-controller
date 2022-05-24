@@ -15,22 +15,22 @@ import (
 	"time"
 
 	"github.com/hashicorp/vault/api"
+	vaulttransit "github.com/hashicorp/vault/builtin/logical/transit"
+	vaulthttp "github.com/hashicorp/vault/http"
+	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/vault"
 	. "github.com/onsi/gomega"
-	"github.com/ory/dockertest"
 	"go.mozilla.org/sops/v3/hcvault"
 )
 
 var (
-	// testVaultVersion is the version (image tag) of the Vault server image
-	// used to test against.
-	testVaultVersion = "1.10.0"
-	// testVaultToken is the token of the Vault server.
-	testVaultToken = "secret"
 	// testEnginePath is the path to mount the Vault Transit on.
 	testEnginePath = "sops"
 	// testVaultAddress is the HTTP/S address of the Vault server, it is set
 	// by TestMain after booting it.
 	testVaultAddress string
+	// testVaultToken is the token of the Vault server.
+	testVaultToken string
 )
 
 // TestMain initializes a Vault server using Docker, writes the HTTP address to
@@ -38,62 +38,47 @@ var (
 // Vault Transit on the testEnginePath. It then runs all the tests, which can
 // make use of the various `test*` variables.
 func TestMain(m *testing.M) {
-	// Uses a sensible default on Windows (TCP/HTTP) and Linux/MacOS (socket)
-	pool, err := dockertest.NewPool("")
+	// this is set to prevent "certificate signed by unknown authority" errors
+	os.Setenv("VAULT_SKIP_VERIFY", "true")
+	os.Setenv("VAULT_INSECURE", "true")
+	t := &testing.T{}
+	coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"transit": vaulttransit.Factory,
+		},
+	}
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+		NumCores:    1,
+	})
+	cluster.Start()
+
+	if err := vault.TestWaitActiveWithError(cluster.Cores[0].Core); err != nil {
+		logger.Fatalf("test core not active: %s", err)
+	}
+
+	testClient := cluster.Cores[0].Client
+
+	status, err := testClient.Sys().InitStatus()
 	if err != nil {
-		logger.Fatalf("could not connect to docker: %s", err)
+		logger.Fatalf("cannot checking Vault client status: %s", err)
+	}
+	if status != true {
+		logger.Fatal("waiting on Vault server to become ready")
 	}
 
-	// Pull the image, create a container based on it, and run it
-	resource, err := pool.Run("vault", testVaultVersion, []string{"VAULT_DEV_ROOT_TOKEN_ID=" + testVaultToken})
-	if err != nil {
-		logger.Fatalf("could not start resource: %s", err)
-	}
+	testVaultToken = testClient.Token()
+	testVaultAddress = testClient.Address()
 
-	purgeResource := func() {
-		if err := pool.Purge(resource); err != nil {
-			logger.Printf("could not purge resource: %s", err)
-		}
-	}
-
-	testVaultAddress = fmt.Sprintf("http://127.0.0.1:%v", resource.GetPort("8200/tcp"))
-	// Wait until Vault is ready to serve requests
-	if err := pool.Retry(func() error {
-		cfg := api.DefaultConfig()
-		cfg.Address = testVaultAddress
-		cli, err := api.NewClient(cfg)
-		if err != nil {
-			return fmt.Errorf("cannot create Vault client: %w", err)
-		}
-		status, err := cli.Sys().InitStatus()
-		if err != nil {
-			return err
-		}
-		if status != true {
-			return fmt.Errorf("waiting on Vault server to become ready")
-		}
-		return nil
-	}); err != nil {
-		purgeResource()
-		logger.Fatalf("could not connect to docker: %s", err)
-	}
-
-	if err = enableVaultTransit(testVaultAddress, testVaultToken, testEnginePath); err != nil {
-		purgeResource()
+	if err := enableVaultTransit(testVaultAddress, testVaultToken, testEnginePath); err != nil {
 		logger.Fatalf("could not enable Vault transit: %s", err)
 	}
 
 	// Run the tests, but only if we succeeded in setting up the Vault server
 	var code int
-	if err == nil {
-		code = m.Run()
-	}
+	code = m.Run()
 
-	// This can't be deferred, as os.Exit simpy does not care
-	if err := pool.Purge(resource); err != nil {
-		logger.Fatalf("could not purge resource: %s", err)
-	}
-
+	cluster.Cleanup()
 	os.Exit(code)
 }
 
