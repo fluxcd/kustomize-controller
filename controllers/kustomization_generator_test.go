@@ -50,3 +50,10 @@ func Test_secureBuildKustomization_panic(t *testing.T) {
 		g.Expect(err).To(HaveOccurred())
 	})
 }
+
+func Test_secureBuildKustomization_rel_basedir(t *testing.T) {
+	g := NewWithT(t)
+
+	_, err := secureBuildKustomization("testdata/relbase", "testdata/relbase/clusters/staging/flux-system", false)
+	g.Expect(err).ToNot(HaveOccurred())
+}
