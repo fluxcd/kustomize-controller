@@ -1,5 +1,5 @@
-//go:build integration
-// +build integration
+//go:build integration && disabled
+// +build integration,disabled
 
 // Copyright (C) 2022 The Flux authors
 //
