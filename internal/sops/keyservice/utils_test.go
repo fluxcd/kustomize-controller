@@ -16,6 +16,7 @@ import (
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
+	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
@@ -65,6 +66,14 @@ func KeyFromMasterKey(k keys.MasterKey) keyservice.Key {
 			KeyType: &keyservice.Key_AgeKey{
 				AgeKey: &keyservice.AgeKey{
 					Recipient: mk.Recipient,
+				},
+			},
+		}
+	case *gcpkms.MasterKey:
+		return keyservice.Key{
+			KeyType: &keyservice.Key_GcpKmsKey{
+				GcpKmsKey: &keyservice.GcpKmsKey{
+					ResourceId: mk.ResourceID,
 				},
 			},
 		}

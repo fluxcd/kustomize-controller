@@ -1222,6 +1222,29 @@ stringData:
     clientId: some-client-id
 ```
 
+#### GCP KMS Secret entry
+
+To specify credentials for GCP KMS in a Kubernetes Secret, append a `.data`
+entry with a fixed `sops.gcp-kms` key and the service account keys as its value.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sops-keys
+  namespace: default
+stringData:
+  # Exemplary GCP Service Account credentials file
+  sops.gcp-kms: |
+    {
+      "type": "service_account",
+      "project_id": "<project-id>",
+      "private_key_id": "<private-key-id>",
+      "private_key": "<private-key>"
+    }
+```
+
 #### Hashicorp Vault Secret entry
 
 To specify credentials for Hashicorp Vault in a Kubernetes Secret, append a

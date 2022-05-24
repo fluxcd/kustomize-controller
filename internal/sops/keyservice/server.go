@@ -15,6 +15,7 @@ import (
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
+	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
@@ -50,6 +51,11 @@ type Server struct {
 	// operations of AWS KMS requests.
 	// When nil, the request will be handled by defaultServer.
 	awsCredsProvider *awskms.CredsProvider
+
+	// gcpCredsJSON is the JSON credentials used for Decrypt and Encrypt
+	// operations of GCP KMS requests. When nil, a default client with
+	// environmental runtime settings will be used.
+	gcpCredsJSON gcpkms.CredentialJSON
 
 	// defaultServer is the fallback server, used to handle any request that
 	// is not eligible to be handled by this Server.
@@ -122,6 +128,14 @@ func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*
 				Ciphertext: ciphertext,
 			}, nil
 		}
+	case *keyservice.Key_GcpKmsKey:
+		ciphertext, err := ks.encryptWithGCPKMS(k.GcpKmsKey, req.Plaintext)
+		if err != nil {
+			return nil, err
+		}
+		return &keyservice.EncryptResponse{
+			Ciphertext: ciphertext,
+		}, nil
 	case nil:
 		return nil, fmt.Errorf("must provide a key")
 	}
@@ -178,6 +192,14 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 				Plaintext: plaintext,
 			}, nil
 		}
+	case *keyservice.Key_GcpKmsKey:
+		plaintext, err := ks.decryptWithGCPKMS(k.GcpKmsKey, req.Ciphertext)
+		if err != nil {
+			return nil, err
+		}
+		return &keyservice.DecryptResponse{
+			Plaintext: plaintext,
+		}, nil
 	case nil:
 		return nil, fmt.Errorf("must provide a key")
 	}
@@ -315,5 +337,26 @@ func (ks *Server) decryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, cip
 	ks.azureToken.ApplyToMasterKey(&azureKey)
 	azureKey.EncryptedKey = string(ciphertext)
 	plaintext, err := azureKey.Decrypt()
+	return plaintext, err
+}
+
+func (ks *Server) encryptWithGCPKMS(key *keyservice.GcpKmsKey, plaintext []byte) ([]byte, error) {
+	gcpKey := gcpkms.MasterKey{
+		ResourceID: key.ResourceId,
+	}
+	ks.gcpCredsJSON.ApplyToMasterKey(&gcpKey)
+	if err := gcpKey.Encrypt(plaintext); err != nil {
+		return nil, err
+	}
+	return gcpKey.EncryptedDataKey(), nil
+}
+
+func (ks *Server) decryptWithGCPKMS(key *keyservice.GcpKmsKey, ciphertext []byte) ([]byte, error) {
+	gcpKey := gcpkms.MasterKey{
+		ResourceID: key.ResourceId,
+	}
+	ks.gcpCredsJSON.ApplyToMasterKey(&gcpKey)
+	gcpKey.EncryptedKey = string(ciphertext)
+	plaintext, err := gcpKey.Decrypt()
 	return plaintext, err
 }

@@ -117,7 +117,6 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
 	if err != nil {
 		return err
 	}
-
 	return os.WriteFile(kfile, kd, os.ModePerm)
 }
 
