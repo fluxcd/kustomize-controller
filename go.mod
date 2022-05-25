@@ -49,23 +49,17 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-// Fix CVE-2022-27191
-replace golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
-
 // Pin kustomize to v4.5.5
 replace (
 	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.11.5
 	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.13.7
 )
 
-// Fix CVE-2021-30465
-// Fix CVE-2021-43784
-// Fix GO-2021-0085
-// Fix GO-2021-0087
-replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.3
+// Fix CVE-2022-29162
+replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.2
 
-// Fix CVE-2021-41190
-replace github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
+// Fix CVE-2022-27191
+replace golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
 
 require (
 	cloud.google.com/go v0.100.2 // indirect
