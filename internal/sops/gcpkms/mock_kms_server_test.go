@@ -24,16 +24,16 @@ import (
 	"io"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	kmspb "google.golang.org/genproto/googleapis/cloud/kms/v1"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	status "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/metadata"
 )
 
 var _ = io.EOF
-var _ = ptypes.MarshalAny
+var _ = anypb.New
 var _ status.Status
 
 type mockKeyManagementServer struct {
