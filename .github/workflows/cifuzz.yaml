@@ -1,4 +1,4 @@
-name: CIFuzz
+name: fuzz
 on:
   pull_request:
     branches:
@@ -6,9 +6,9 @@ on:
 
 permissions:
   contents: read # for actions/checkout to fetch code
-  
+
 jobs:
-  Fuzzing:
+  smoketest:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
