@@ -20,11 +20,11 @@ require (
 	github.com/drone/envsubst v1.0.3
 	github.com/fluxcd/kustomize-controller/api v0.25.0
 	github.com/fluxcd/pkg/apis/acl v0.0.3
-	github.com/fluxcd/pkg/apis/kustomize v0.4.0
-	github.com/fluxcd/pkg/apis/meta v0.14.0
-	github.com/fluxcd/pkg/kustomize v0.5.0
-	github.com/fluxcd/pkg/runtime v0.16.0
-	github.com/fluxcd/pkg/ssa v0.16.0
+	github.com/fluxcd/pkg/apis/kustomize v0.4.1
+	github.com/fluxcd/pkg/apis/meta v0.14.1
+	github.com/fluxcd/pkg/kustomize v0.5.1
+	github.com/fluxcd/pkg/runtime v0.16.1
+	github.com/fluxcd/pkg/ssa v0.16.1
 	github.com/fluxcd/pkg/testserver v0.2.0
 	github.com/fluxcd/pkg/untar v0.1.0
 	github.com/fluxcd/source-controller/api v0.24.4
@@ -60,6 +60,9 @@ replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.2
 
 // Fix CVE-2022-27191
 replace golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220518034528-6f7dac969898
+
+// Fix CVE-2022-28948
+replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.0
 
 require (
 	cloud.google.com/go v0.100.2 // indirect
