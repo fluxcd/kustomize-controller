@@ -35,6 +35,8 @@ const (
 	stsSessionRegex = "[^a-zA-Z0-9=,.@-_]+"
 	// kmsTTL is the duration after which a MasterKey requires rotation.
 	kmsTTL = time.Hour * 24 * 30 * 6
+	// roleSessionNameLengthLimit is the AWS role session name length limit.
+	roleSessionNameLengthLimit = 64
 )
 
 // MasterKey is an AWS KMS key used to encrypt and decrypt sops' data key.
@@ -53,6 +55,8 @@ type MasterKey struct {
 	// EncryptionContext provides additional context about the data key.
 	// Ref: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#encrypt_context
 	EncryptionContext map[string]string
+	// AWSProfile is the profile to use for loading configuration and credentials.
+	AwsProfile string
 
 	// credentialsProvider is used to configure the AWS config with the
 	// necessary credentials.
@@ -62,7 +66,7 @@ type MasterKey struct {
 	// to by default. This is mostly used for testing purposes as it can not be
 	// injected using e.g. an environment variable. The field is not publicly
 	// exposed, nor configurable.
-	epResolver aws.EndpointResolver
+	epResolver aws.EndpointResolverWithOptions
 }
 
 // CredsProvider is a wrapper around aws.CredentialsProvider used for authenticating
@@ -119,8 +123,9 @@ func (key *MasterKey) Encrypt(dataKey []byte) error {
 	}
 	client := kms.NewFromConfig(*cfg)
 	input := &kms.EncryptInput{
-		KeyId:     &key.Arn,
-		Plaintext: dataKey,
+		KeyId:             &key.Arn,
+		Plaintext:         dataKey,
+		EncryptionContext: key.EncryptionContext,
 	}
 	out, err := client.Encrypt(context.TODO(), input)
 	if err != nil {
@@ -216,20 +221,32 @@ func NewMasterKeyFromArn(arn string, context map[string]string, awsProfile strin
 	}
 	k.EncryptionContext = context
 	k.CreationDate = time.Now().UTC()
+	k.AwsProfile = awsProfile
 	return k
 }
 
 // createKMSConfig returns a Config configured with the appropriate credentials.
 func (key MasterKey) createKMSConfig() (*aws.Config, error) {
-	// Use the credentialsProvider if present, otherwise default to reading credentials
-	// from the environment.
+	re := regexp.MustCompile(arnRegex)
+	matches := re.FindStringSubmatch(key.Arn)
+	if matches == nil {
+		return nil, fmt.Errorf("no valid ARN found in '%s'", key.Arn)
+	}
+	region := matches[1]
 	cfg, err := config.LoadDefaultConfig(context.TODO(), func(lo *config.LoadOptions) error {
+		// Use the credentialsProvider if present, otherwise default to reading credentials
+		// from the environment.
 		if key.credentialsProvider != nil {
 			lo.Credentials = key.credentialsProvider
 		}
+		if key.AwsProfile != "" {
+			lo.SharedConfigProfile = key.AwsProfile
+		}
+		lo.Region = region
+
 		// Set the epResolver, if present. Used ONLY for tests.
 		if key.epResolver != nil {
-			lo.EndpointResolver = key.epResolver
+			lo.EndpointResolverWithOptions = key.epResolver
 		}
 		return nil
 	})
@@ -250,12 +267,13 @@ func (key MasterKey) createSTSConfig(config *aws.Config) (*aws.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	stsRoleSessionNameRe, err := regexp.Compile(stsSessionRegex)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile STS role session name regex: %w", err)
-	}
+	stsRoleSessionNameRe := regexp.MustCompile(stsSessionRegex)
+
 	sanitizedHostname := stsRoleSessionNameRe.ReplaceAllString(hostname, "")
 	name := "sops@" + sanitizedHostname
+	if len(name) >= roleSessionNameLengthLimit {
+		name = name[:roleSessionNameLengthLimit]
+	}
 
 	client := sts.NewFromConfig(*config)
 	input := &sts.AssumeRoleInput{
