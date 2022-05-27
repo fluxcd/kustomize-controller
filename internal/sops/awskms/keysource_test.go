@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	. "github.com/onsi/gomega"
@@ -280,35 +281,79 @@ aws_session_token: test-token
 }
 
 func Test_createKMSConfig(t *testing.T) {
-	g := NewWithT(t)
+	tests := []struct {
+		name       string
+		key        MasterKey
+		assertFunc func(g *WithT, cfg *aws.Config, err error)
+		fallback   bool
+	}{
+		{
+			name: "master key with invalid arn fails",
+			key: MasterKey{
+				Arn: "arn:gcp:kms:antartica-north-2::key/45e6-aca6-a5b005693a48",
+			},
+			assertFunc: func(g *WithT, _ *aws.Config, err error) {
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err.Error()).To(ContainSubstring("no valid ARN found"))
+			},
+		},
+		{
+			name: "master key with with proper configuration passes",
+			key: MasterKey{
+				credentialsProvider: credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token"),
+				AwsProfile:          "test-profile",
+				Arn:                 "arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48",
+			},
+			assertFunc: func(g *WithT, cfg *aws.Config, err error) {
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(cfg.Region).To(Equal("us-west-2"))
 
-	key := MasterKey{
-		credentialsProvider: credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token"),
+				creds, err := cfg.Credentials.Retrieve(context.TODO())
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(creds.AccessKeyID).To(Equal("test-id"))
+				g.Expect(creds.SecretAccessKey).To(Equal("test-secret"))
+				g.Expect(creds.SessionToken).To(Equal("test-token"))
+
+				// ConfigSources is a slice of config.Config, which in turn is an interface.
+				// Since we use a LoadOptions object, we assert the type of cfgSrc and then
+				// check if the expected profile is present.
+				for _, cfgSrc := range cfg.ConfigSources {
+					if src, ok := cfgSrc.(config.LoadOptions); ok {
+						g.Expect(src.SharedConfigProfile).To(Equal("test-profile"))
+					}
+				}
+			},
+		},
+		{
+			name: "master key without creds and profile falls back to the environment variables",
+			key: MasterKey{
+				Arn: "arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48",
+			},
+			fallback: true,
+			assertFunc: func(g *WithT, cfg *aws.Config, err error) {
+				g.Expect(err).ToNot(HaveOccurred())
+
+				creds, err := cfg.Credentials.Retrieve(context.TODO())
+				g.Expect(creds.AccessKeyID).To(Equal("id"))
+				g.Expect(creds.SecretAccessKey).To(Equal("secret"))
+				g.Expect(creds.SessionToken).To(Equal("token"))
+			},
+		},
 	}
-	cfg, err := key.createKMSConfig()
-	g.Expect(err).ToNot(HaveOccurred())
 
-	creds, err := cfg.Credentials.Retrieve(context.TODO())
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(creds.AccessKeyID).To(Equal("test-id"))
-	g.Expect(creds.SecretAccessKey).To(Equal("test-secret"))
-	g.Expect(creds.SessionToken).To(Equal("test-token"))
-
-	// test if we fallback to the default way of fetching credentials
-	// if no static credentials are provided.
-	key.credentialsProvider = nil
-	t.Setenv("AWS_ACCESS_KEY_ID", "id")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "secret")
-	t.Setenv("AWS_SESSION_TOKEN", "token")
-
-	cfg, err = key.createKMSConfig()
-	g.Expect(err).ToNot(HaveOccurred())
-
-	creds, err = cfg.Credentials.Retrieve(context.TODO())
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(creds.AccessKeyID).To(Equal("id"))
-	g.Expect(creds.SecretAccessKey).To(Equal("secret"))
-	g.Expect(creds.SessionToken).To(Equal("token"))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			// Set the environment variables if we want to fallback
+			if tt.fallback {
+				t.Setenv("AWS_ACCESS_KEY_ID", "id")
+				t.Setenv("AWS_SECRET_ACCESS_KEY", "secret")
+				t.Setenv("AWS_SESSION_TOKEN", "token")
+			}
+			cfg, err := tt.key.createKMSConfig()
+			tt.assertFunc(g, cfg, err)
+		})
+	}
 }
 
 func createTestMasterKey(arn string) MasterKey {
@@ -322,7 +367,7 @@ func createTestMasterKey(arn string) MasterKey {
 // epResolver is a dummy resolver that points to the local test KMS server
 type epResolver struct{}
 
-func (e epResolver) ResolveEndpoint(service, region string) (aws.Endpoint, error) {
+func (e epResolver) ResolveEndpoint(service, region string, options ...interface{}) (aws.Endpoint, error) {
 	return aws.Endpoint{
 		URL: testKMSServerURL,
 	}, nil
@@ -334,7 +379,7 @@ func createTestKMSClient(key MasterKey) (*kms.Client, error) {
 		return nil, err
 	}
 
-	cfg.EndpointResolver = epResolver{}
+	cfg.EndpointResolverWithOptions = epResolver{}
 
 	return kms.NewFromConfig(*cfg), nil
 }
