@@ -1452,9 +1452,9 @@ them on the cluster.
 For secrets in `.json`, `.yaml` and `.env` format, make sure you specify the input type when encrypting them with SOPS:
 
 ```sh
-cat config.json | sops -e --input-type=json > config.json.encrypted
-cat config.yaml | sops -e --input-type=yaml > config.yaml.encrypted
-cat config.env | sops -e --input-type=env > config.env.encrypted
+sops -e --input-type=json /dev/stdin < config.json > config.json.encrypted
+sops -e --input-type=yaml /dev/stdin < config.yaml > config.yaml.encrypted
+sops -e --input-type=env /dev/stdin < config.env > config.env.encrypted
 ```
 
 For kustomize-controller to be able to decrypt a JSON config, you need to set the file extension to `.json`:
