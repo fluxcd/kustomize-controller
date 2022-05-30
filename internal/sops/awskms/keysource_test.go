@@ -21,6 +21,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
+	awsv1 "github.com/aws/aws-sdk-go/aws"
+	sessionv1 "github.com/aws/aws-sdk-go/aws/session"
+	kmsv1 "github.com/aws/aws-sdk-go/service/kms"
 	. "github.com/onsi/gomega"
 	"github.com/ory/dockertest"
 )
@@ -135,14 +138,24 @@ func TestMasterKey_Encrypt_SOPS_Compat(t *testing.T) {
 	dataKey := []byte("encrypt-compat")
 	g.Expect(encryptKey.Encrypt(dataKey)).To(Succeed())
 
-	decryptKey := createTestMasterKey(testKMSARN)
-	decryptKey.credentialsProvider = nil
-	decryptKey.EncryptedKey = encryptKey.EncryptedKey
+	// This is the core decryption logic of `sopskms.MasterKey.Decrypt()`.
+	// We don't call `sops.MasterKey.Decrypt()` directly to avoid issues with
+	// session and config setup.
+	config := awsv1.Config{
+		Region:   awsv1.String("us-west-2"),
+		Endpoint: &testKMSServerURL,
+	}
 	t.Setenv("AWS_ACCESS_KEY_ID", "id")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "secret")
-	dec, err := decryptKey.Decrypt()
+	k, err := base64.StdEncoding.DecodeString(encryptKey.EncryptedKey)
 	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(dec).To(Equal(dataKey))
+	sess, err := sessionv1.NewSessionWithOptions(sessionv1.Options{
+		Config: config,
+	})
+	kmsSvc := kmsv1.New(sess)
+	decrypted, err := kmsSvc.Decrypt(&kmsv1.DecryptInput{CiphertextBlob: k})
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(decrypted.Plaintext).To(Equal(dataKey))
 }
 
 func TestMasterKey_EncryptIfNeeded(t *testing.T) {
@@ -187,17 +200,25 @@ func TestMasterKey_Decrypt(t *testing.T) {
 func TestMasterKey_Decrypt_SOPS_Compat(t *testing.T) {
 	g := NewWithT(t)
 
+	// This is the core encryption logic of `sopskms.MasterKey.Encrypt()`.
+	// We don't call `sops.MasterKey.Encrypt()` directly to avoid issues with
+	// session and config setup.
 	dataKey := []byte("decrypt-compat")
-
-	encryptKey := createTestMasterKey(testKMSARN)
-	encryptKey.credentialsProvider = nil
+	config := awsv1.Config{
+		Region:   awsv1.String("us-west-2"),
+		Endpoint: &testKMSServerURL,
+	}
 	t.Setenv("AWS_ACCESS_KEY_ID", "id")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "secret")
-
-	g.Expect(encryptKey.Encrypt(dataKey)).To(Succeed())
+	sess, err := sessionv1.NewSessionWithOptions(sessionv1.Options{
+		Config: config,
+	})
+	kmsSvc := kmsv1.New(sess)
+	encrypted, err := kmsSvc.Encrypt(&kmsv1.EncryptInput{Plaintext: dataKey, KeyId: &testKMSARN})
+	g.Expect(err).ToNot(HaveOccurred())
 
 	decryptKey := createTestMasterKey(testKMSARN)
-	decryptKey.EncryptedKey = encryptKey.EncryptedKey
+	decryptKey.EncryptedKey = base64.StdEncoding.EncodeToString(encrypted.CiphertextBlob)
 	dec, err := decryptKey.Decrypt()
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(dec).To(Equal(dataKey))
