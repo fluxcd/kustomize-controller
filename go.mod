@@ -10,10 +10,10 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.22.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v0.13.2
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.4.0
-	github.com/aws/aws-sdk-go v1.43.43
+	github.com/aws/aws-sdk-go v1.44.28
 	github.com/aws/aws-sdk-go-v2 v1.16.4
-	github.com/aws/aws-sdk-go-v2/config v1.15.7
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.2
+	github.com/aws/aws-sdk-go-v2/config v1.15.9
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.4
 	github.com/aws/aws-sdk-go-v2/service/kms v1.17.2
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.6
 	github.com/cyphar/filepath-securejoin v0.2.3
@@ -28,22 +28,22 @@ require (
 	github.com/fluxcd/pkg/ssa v0.16.1
 	github.com/fluxcd/pkg/testserver v0.2.0
 	github.com/fluxcd/pkg/untar v0.1.0
-	github.com/fluxcd/source-controller/api v0.25.0
+	github.com/fluxcd/source-controller/api v0.25.3
 	github.com/hashicorp/go-retryablehttp v0.7.1
-	github.com/hashicorp/vault/api v1.5.0
+	github.com/hashicorp/vault/api v1.6.0
 	github.com/onsi/gomega v1.19.0
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.3
-	golang.org/x/net v0.0.0-20220524220425-1d687d428aca
-	google.golang.org/api v0.81.0
-	google.golang.org/genproto v0.0.0-20220525015930-6ca3db687a9d
-	google.golang.org/grpc v1.46.2
+	golang.org/x/net v0.0.0-20220607020251-c690dde0001d
+	google.golang.org/api v0.82.0
+	google.golang.org/genproto v0.0.0-20220602131408-e326c6e8e9c8
+	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.28.0
-	k8s.io/api v0.24.0
-	k8s.io/apiextensions-apiserver v0.24.0
-	k8s.io/apimachinery v0.24.0
-	k8s.io/client-go v0.24.0
+	k8s.io/api v0.24.1
+	k8s.io/apiextensions-apiserver v0.24.1
+	k8s.io/apimachinery v0.24.1
+	k8s.io/client-go v0.24.1
 	sigs.k8s.io/cli-utils v0.31.1
 	sigs.k8s.io/controller-runtime v0.11.2
 	sigs.k8s.io/kustomize/api v0.11.5
@@ -97,7 +97,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.5 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.7 // indirect
 	github.com/aws/smithy-go v1.11.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -143,14 +143,14 @@ require (
 	github.com/hashicorp/go-plugin v1.4.3 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/mlock v0.1.2 // indirect
-	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.3 // indirect
+	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.5 // indirect
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/go-version v1.4.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hashicorp/vault/sdk v0.4.1 // indirect
+	github.com/hashicorp/vault/sdk v0.5.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
@@ -169,7 +169,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
-	github.com/mitchellh/mapstructure v1.4.3 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
@@ -201,7 +201,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
-	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
+	golang.org/x/oauth2 v0.0.0-20220524215830-622c5d57e401 // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
@@ -215,7 +215,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	k8s.io/cli-runtime v0.24.0 // indirect
-	k8s.io/component-base v0.24.0 // indirect
+	k8s.io/component-base v0.24.1 // indirect
 	k8s.io/klog/v2 v2.60.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220401212409-b28bf2818661 // indirect
 	k8s.io/kubectl v0.24.0 // indirect
