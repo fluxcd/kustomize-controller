@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.26.1
+
+**Release date:** 2022-06-08
+
+This prerelease comes with documentation improvements on how to generate
+image pull secrets from SOPS encrypted `.dockerconfigjson` files.
+
+In addition, the controller has been updated to Kubernetes v1.24.1.
+
+Improvements:
+- docs: Add example section and dockerconfigjson encryption
+  [#675](https://github.com/fluxcd/kustomize-controller/pull/675)
+- Update dependencies
+  [#676](https://github.com/fluxcd/kustomize-controller/pull/676)
+- Update fluxcd/pkg dependencies
+  [#677](https://github.com/fluxcd/kustomize-controller/pull/677)
+
 ## 0.26.0
 
 **Release date:** 2022-06-01
