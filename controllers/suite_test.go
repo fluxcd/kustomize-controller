@@ -209,6 +209,16 @@ func getEvents(objName string, annotations map[string]string) []corev1.Event {
 	return result
 }
 
+func createServiceAccount(name string, namespace string) error {
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+	return k8sClient.Create(context.Background(), sa)
+}
+
 func createNamespace(name string) error {
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: name},

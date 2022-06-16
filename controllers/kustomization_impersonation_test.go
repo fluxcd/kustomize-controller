@@ -49,6 +49,9 @@ func TestKustomizationReconciler_Impersonation(t *testing.T) {
 	err := createNamespace(id)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
 
+	err = createServiceAccount("default", id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create default service account")
+
 	err = createKubeConfigSecret(id)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
 
