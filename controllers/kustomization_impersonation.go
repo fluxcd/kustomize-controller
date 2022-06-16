@@ -70,7 +70,7 @@ func (ki *KustomizeImpersonation) GetClient(ctx context.Context) (client.Client,
 	case ki.kustomization.Spec.KubeConfig != nil:
 		return ki.clientForKubeConfig(ctx)
 	case ki.defaultServiceAccount != "" || ki.kustomization.Spec.ServiceAccountName != "":
-		return ki.clientForServiceAccountOrDefault()
+		return ki.clientForServiceAccountOrDefault(ctx)
 	default:
 		return ki.Client, ki.statusPoller, nil
 	}
@@ -103,23 +103,39 @@ func (ki *KustomizeImpersonation) CanFinalize(ctx context.Context) bool {
 	return true
 }
 
-func (ki *KustomizeImpersonation) setImpersonationConfig(restConfig *rest.Config) {
+func (ki *KustomizeImpersonation) setImpersonationConfig(ctx context.Context, restConfig *rest.Config) error {
 	name := ki.defaultServiceAccount
 	if sa := ki.kustomization.Spec.ServiceAccountName; sa != "" {
 		name = sa
 	}
+
 	if name != "" {
+		serviceAccountName := types.NamespacedName{
+			Namespace: ki.kustomization.GetNamespace(),
+			Name:      name,
+		}
+
+		var serviceAccount corev1.ServiceAccount
+		if err := ki.Get(ctx, serviceAccountName, &serviceAccount); err != nil {
+			return fmt.Errorf("unable to set ImpersonationConfig for ServiceAccount '%s' error: %w", serviceAccountName.String(), err)
+		}
+
 		username := fmt.Sprintf("system:serviceaccount:%s:%s", ki.kustomization.GetNamespace(), name)
 		restConfig.Impersonate = rest.ImpersonationConfig{UserName: username}
 	}
+
+	return nil
 }
 
-func (ki *KustomizeImpersonation) clientForServiceAccountOrDefault() (client.Client, *polling.StatusPoller, error) {
+func (ki *KustomizeImpersonation) clientForServiceAccountOrDefault(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
 	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, nil, err
 	}
-	ki.setImpersonationConfig(restConfig)
+	err = ki.setImpersonationConfig(ctx, restConfig)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
 	if err != nil {
@@ -133,7 +149,6 @@ func (ki *KustomizeImpersonation) clientForServiceAccountOrDefault() (client.Cli
 
 	statusPoller := polling.NewStatusPoller(client, restMapper, polling.Options{})
 	return client, statusPoller, err
-
 }
 
 func (ki *KustomizeImpersonation) clientForKubeConfig(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
@@ -148,7 +163,10 @@ func (ki *KustomizeImpersonation) clientForKubeConfig(ctx context.Context) (clie
 	}
 
 	restConfig = runtimeClient.KubeConfig(restConfig, ki.kubeConfigOpts)
-	ki.setImpersonationConfig(restConfig)
+	err = ki.setImpersonationConfig(ctx, restConfig)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
 	if err != nil {
