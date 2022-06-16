@@ -140,6 +140,29 @@ data:
 		g.Expect(readyCondition.Message).To(ContainSubstring("system:serviceaccount:%s:default", id))
 	})
 
+	t.Run("fails to reconcile trying to impersonate a missing service account", func(t *testing.T) {
+		saK := &kustomizev1.Kustomization{}
+		err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), saK)
+		g.Expect(err).NotTo(HaveOccurred())
+		saK.Spec.ServiceAccountName = "missing"
+		err = k8sClient.Update(context.Background(), saK)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		revision = "v3.0.0"
+		err = applyGitRepository(repositoryName, artifact, revision)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			readyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
+			return apimeta.IsStatusConditionFalse(resultK.Status.Conditions, meta.ReadyCondition)
+		}, timeout, time.Second).Should(BeTrue())
+
+		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationFailedReason))
+		g.Expect(readyCondition.Message).To(ContainSubstring("%s/missing", id))
+		g.Expect(readyCondition.Message).To(ContainSubstring("unable to set ImpersonationConfig"))
+	})
+
 	t.Run("reconciles impersonating service account", func(t *testing.T) {
 		sa := corev1.ServiceAccount{
 			TypeMeta: metav1.TypeMeta{
