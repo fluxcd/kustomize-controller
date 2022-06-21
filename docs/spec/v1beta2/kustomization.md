@@ -149,8 +149,9 @@ changes, it generates a Kubernetes event that triggers a kustomize build and app
 
 Source supported types:
 
-* [GitRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta1/gitrepositories.md)
-* [Bucket](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta1/buckets.md)
+* [GitRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/gitrepositories.md)
+* [OCIRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/ocirepositories.md)
+* [Bucket](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/buckets.md)
 
 > **Note** that the source should contain the kustomization.yaml and all the
 > Kubernetes manifests and configuration files referenced in the kustomization.yaml.

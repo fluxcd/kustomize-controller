@@ -26,7 +26,7 @@ type CrossNamespaceSourceReference struct {
 	APIVersion string `json:"apiVersion,omitempty"`
 
 	// Kind of the referent.
-	// +kubebuilder:validation:Enum=GitRepository;Bucket
+	// +kubebuilder:validation:Enum=OCIRepository;GitRepository;Bucket
 	// +required
 	Kind string `json:"kind"`
 

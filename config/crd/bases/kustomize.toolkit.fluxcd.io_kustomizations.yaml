@@ -942,6 +942,7 @@ spec:
                   kind:
                     description: Kind of the referent.
                     enum:
+                    - OCIRepository
                     - GitRepository
                     - Bucket
                     type: string

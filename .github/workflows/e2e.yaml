@@ -144,6 +144,11 @@ jobs:
           kubectl -n impersonation wait kustomizations/podinfo --for=condition=ready --timeout=4m
           kubectl -n impersonation delete kustomizations/podinfo
           until kubectl -n impersonation get deploy/podinfo 2>&1 | grep NotFound ; do sleep 2; done
+      - name: Run OCI tests
+        run: |
+          kubectl create ns oci
+          kubectl -n oci apply -f ./config/testdata/oci
+          kubectl -n oci wait kustomizations/oci --for=condition=ready --timeout=4m
       - name: Run CRDs + CRs tests
         run: |
           kubectl -n kustomize-system apply -f ./config/testdata/crds-crs
@@ -162,5 +167,7 @@ jobs:
           kubectl -n kustomize-system get gitrepositories -oyaml
           kubectl -n kustomize-system get kustomizations -oyaml
           kubectl -n kustomize-system get all
+          kubectl -n oci get ocirepository/oci -oyaml
+          kubectl -n oci get kustomization/oci -oyaml
           kubectl -n kustomize-system logs deploy/source-controller
           kubectl -n kustomize-system logs deploy/kustomize-controller

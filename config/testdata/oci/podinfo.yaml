@@ -1,0 +1,37 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: OCIRepository
+metadata:
+  name: oci
+  namespace: oci
+spec:
+  interval: 10m
+  url: oci://ghcr.io/stefanprodan/manifests/podinfo
+  ref:
+    tag: "6.1.6"
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: oci
+  namespace: oci
+spec:
+  targetNamespace: oci
+  interval: 10m
+  path: "./kustomize"
+  prune: true
+  sourceRef:
+    kind: OCIRepository
+    name: oci
+  wait: true
+  timeout: 2m
+  patches:
+    - patch: |-
+        apiVersion: autoscaling/v2beta2
+        kind: HorizontalPodAutoscaler
+        metadata:
+          name: podinfo
+        spec:
+          minReplicas: 1
+      target:
+        name: podinfo
+        kind: HorizontalPodAutoscaler

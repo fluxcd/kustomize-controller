@@ -302,8 +302,8 @@ github.com/fluxcd/pkg/testserver v0.2.0 h1:Mj0TapmKaywI6Fi5wvt1LAZpakUHmtzWQpJNK
 github.com/fluxcd/pkg/testserver v0.2.0/go.mod h1:bgjjydkXsZTeFzjz9Cr4heGANr41uTB1Aj1Q5qzuYVk=
 github.com/fluxcd/pkg/untar v0.1.0 h1:k97V/xV5hFrAkIkVPuv5AVhyxh1ZzzAKba/lbDfGo6o=
 github.com/fluxcd/pkg/untar v0.1.0/go.mod h1:aGswNyzB1mlz/T/kpOS58mITBMxMKc9tlJBH037A2HY=
-github.com/fluxcd/source-controller/api v0.25.9 h1:hdaBYYNuW3qTcXRMfrxO5paK+UVFL9ApZS495nd7K2w=
-github.com/fluxcd/source-controller/api v0.25.9/go.mod h1:/e7YRDOqb8z8I3N8ifbDF1mknf8zFsoADtS/Q93iWPs=
+github.com/fluxcd/source-controller/api v0.26.0 h1:DOf9R7YLV0lNiIRnaYg5bh8fGbIB6zGbK5vFqejeSAk=
+github.com/fluxcd/source-controller/api v0.26.0/go.mod h1:1W0Xx/GpZ14Z/sOltxjsQKXeCv8zxAqSivbX9e4s+H8=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/form3tech-oss/jwt-go v3.2.3+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/frankban/quicktest v1.11.3/go.mod h1:wRf/ReqHper53s+kmmSZizM8NamnL3IM0I9ntUbOk+k=
