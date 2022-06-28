@@ -41,6 +41,7 @@ type KustomizeImpersonation struct {
 	kustomization         kustomizev1.Kustomization
 	statusPoller          *polling.StatusPoller
 	defaultServiceAccount string
+	pollingOpts           polling.Options
 	kubeConfigOpts        runtimeClient.KubeConfigOptions
 }
 
@@ -50,13 +51,15 @@ func NewKustomizeImpersonation(
 	kubeClient client.Client,
 	statusPoller *polling.StatusPoller,
 	defaultServiceAccount string,
-	kubeConfigOpts runtimeClient.KubeConfigOptions) *KustomizeImpersonation {
+	kubeConfigOpts runtimeClient.KubeConfigOptions,
+	pollingOpts polling.Options) *KustomizeImpersonation {
 	return &KustomizeImpersonation{
 		defaultServiceAccount: defaultServiceAccount,
 		kustomization:         kustomization,
 		statusPoller:          statusPoller,
 		Client:                kubeClient,
 		kubeConfigOpts:        kubeConfigOpts,
+		pollingOpts:           pollingOpts,
 	}
 }
 
@@ -131,7 +134,7 @@ func (ki *KustomizeImpersonation) clientForServiceAccountOrDefault() (client.Cli
 		return nil, nil, err
 	}
 
-	statusPoller := polling.NewStatusPoller(client, restMapper, polling.Options{})
+	statusPoller := polling.NewStatusPoller(client, restMapper, ki.pollingOpts)
 	return client, statusPoller, err
 
 }
@@ -160,7 +163,7 @@ func (ki *KustomizeImpersonation) clientForKubeConfig(ctx context.Context) (clie
 		return nil, nil, err
 	}
 
-	statusPoller := polling.NewStatusPoller(client, restMapper, polling.Options{})
+	statusPoller := polling.NewStatusPoller(client, restMapper, ki.pollingOpts)
 
 	return client, statusPoller, err
 }

@@ -141,6 +141,9 @@ func main() {
 	}
 
 	jobStatusReader := statusreaders.NewCustomJobStatusReader(mgr.GetRESTMapper())
+	pollingOpts := polling.Options{
+		CustomStatusReaders: []engine.StatusReader{jobStatusReader},
+	}
 	if err = (&controllers.KustomizationReconciler{
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,
@@ -151,9 +154,8 @@ func main() {
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
 		NoRemoteBases:         noRemoteBases,
 		KubeConfigOpts:        kubeConfigOpts,
-		StatusPoller: polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), polling.Options{
-			CustomStatusReaders: []engine.StatusReader{jobStatusReader},
-		}),
+		PollingOpts:           pollingOpts,
+		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), pollingOpts),
 	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
