@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+	"github.com/pkg/errors"
 
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 )
@@ -103,29 +104,44 @@ func (ki *KustomizeImpersonation) CanFinalize(ctx context.Context) bool {
 	return true
 }
 
-func (ki *KustomizeImpersonation) setImpersonationConfig(ctx context.Context, restConfig *rest.Config) error {
+func (ki *KustomizeImpersonation) getImpersonationServiceAccount() string {
 	name := ki.defaultServiceAccount
 	if sa := ki.kustomization.Spec.ServiceAccountName; sa != "" {
 		name = sa
 	}
 
-	if name != "" {
-		c, err := client.New(restConfig, client.Options{})
+	return name
+}
+
+func (ki *KustomizeImpersonation) checkImpersonationServiceAccount(ctx context.Context, restConfig *rest.Config, name string) error {
+	c, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		return err
+	}
+
+	serviceAccountName := types.NamespacedName{
+		Namespace: ki.kustomization.GetNamespace(),
+		Name:      name,
+	}
+
+	var serviceAccount corev1.ServiceAccount
+	if err := c.Get(ctx, serviceAccountName, &serviceAccount); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ki *KustomizeImpersonation) setImpersonationConfig(ctx context.Context, restConfig *rest.Config) error {
+	sa := ki.getImpersonationServiceAccount()
+
+	if sa != "" {
+		err := ki.checkImpersonationServiceAccount(ctx, restConfig, sa)
 		if err != nil {
-			return err
+			return errors.Wrap(err, fmt.Sprintf("unable to set ImpersonationConfig for ServiceAccount '%s'", sa))
 		}
 
-		serviceAccountName := types.NamespacedName{
-			Namespace: ki.kustomization.GetNamespace(),
-			Name:      name,
-		}
-
-		var serviceAccount corev1.ServiceAccount
-		if err := c.Get(ctx, serviceAccountName, &serviceAccount); err != nil {
-			return fmt.Errorf("unable to set ImpersonationConfig for ServiceAccount '%s' error: %w", serviceAccountName.String(), err)
-		}
-
-		username := fmt.Sprintf("system:serviceaccount:%s:%s", ki.kustomization.GetNamespace(), name)
+		username := fmt.Sprintf("system:serviceaccount:%s:%s", ki.kustomization.GetNamespace(), sa)
 		restConfig.Impersonate = rest.ImpersonationConfig{UserName: username}
 	}
 

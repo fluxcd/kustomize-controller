@@ -159,8 +159,8 @@ data:
 		}, timeout, time.Second).Should(BeTrue())
 
 		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationFailedReason))
-		g.Expect(readyCondition.Message).To(ContainSubstring("%s/missing", id))
-		g.Expect(readyCondition.Message).To(ContainSubstring("unable to set ImpersonationConfig"))
+		g.Expect(readyCondition.Message).To(ContainSubstring("unable to set ImpersonationConfig for ServiceAccount 'missing'"))
+		g.Expect(readyCondition.Message).To(ContainSubstring(`"missing" not found`))
 	})
 
 	t.Run("reconciles impersonating service account", func(t *testing.T) {
