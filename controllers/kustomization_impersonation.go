@@ -110,13 +110,18 @@ func (ki *KustomizeImpersonation) setImpersonationConfig(ctx context.Context, re
 	}
 
 	if name != "" {
+		c, err := client.New(restConfig, client.Options{})
+		if err != nil {
+			return err
+		}
+
 		serviceAccountName := types.NamespacedName{
 			Namespace: ki.kustomization.GetNamespace(),
 			Name:      name,
 		}
 
 		var serviceAccount corev1.ServiceAccount
-		if err := ki.Get(ctx, serviceAccountName, &serviceAccount); err != nil {
+		if err := c.Get(ctx, serviceAccountName, &serviceAccount); err != nil {
 			return fmt.Errorf("unable to set ImpersonationConfig for ServiceAccount '%s' error: %w", serviceAccountName.String(), err)
 		}
 

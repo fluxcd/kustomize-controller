@@ -33,6 +33,7 @@ require (
 	github.com/hashicorp/vault/api v1.6.0
 	github.com/onsi/gomega v1.19.0
 	github.com/ory/dockertest v3.3.5+incompatible
+	github.com/pkg/errors v0.9.1
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.3
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d
@@ -184,7 +185,6 @@ require (
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.12.1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
