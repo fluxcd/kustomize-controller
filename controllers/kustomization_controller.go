@@ -85,6 +85,7 @@ type KustomizationReconciler struct {
 	EventRecorder         kuberecorder.EventRecorder
 	MetricsRecorder       *metrics.Recorder
 	StatusPoller          *polling.StatusPoller
+	PollingOpts           polling.Options
 	ControllerName        string
 	statusManager         string
 	NoCrossNamespaceRefs  bool
@@ -350,7 +351,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// setup the Kubernetes client for impersonation
-	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount, r.KubeConfigOpts)
+	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount, r.KubeConfigOpts, r.PollingOpts)
 	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
@@ -931,7 +932,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 		kustomization.Status.Inventory.Entries != nil {
 		objects, _ := ListObjectsInInventory(kustomization.Status.Inventory)
 
-		impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount, r.KubeConfigOpts)
+		impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount, r.KubeConfigOpts, r.PollingOpts)
 		if impersonation.CanFinalize(ctx) {
 			kubeClient, _, err := impersonation.GetClient(ctx)
 			if err != nil {
