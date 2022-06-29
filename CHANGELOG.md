@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.26.2
+
+**Release date:** 2022-06-29
+
+This prerelease adds support for health checking Kubernetes Jobs 
+when impersonating a service account.
+
+Fixes:
+- Fix job wait by adding polling options to impersonation client
+  [#687](https://github.com/fluxcd/kustomize-controller/pull/687)
+
 ## 0.26.1
 
 **Release date:** 2022-06-08

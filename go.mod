@@ -19,7 +19,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/drone/envsubst v1.0.3
-	github.com/fluxcd/kustomize-controller/api v0.26.1
+	github.com/fluxcd/kustomize-controller/api v0.26.2
 	github.com/fluxcd/pkg/apis/acl v0.0.3
 	github.com/fluxcd/pkg/apis/kustomize v0.4.2
 	github.com/fluxcd/pkg/apis/meta v0.14.2
@@ -28,7 +28,7 @@ require (
 	github.com/fluxcd/pkg/ssa v0.17.0
 	github.com/fluxcd/pkg/testserver v0.2.0
 	github.com/fluxcd/pkg/untar v0.1.0
-	github.com/fluxcd/source-controller/api v0.25.5
+	github.com/fluxcd/source-controller/api v0.25.9
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/hashicorp/vault/api v1.6.0
 	github.com/onsi/gomega v1.19.0
