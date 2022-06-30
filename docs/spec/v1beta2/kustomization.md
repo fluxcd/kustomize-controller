@@ -738,6 +738,31 @@ which will print out `${var}`.
 All the undefined variables in the format `${var}` will be substituted with string empty, unless a default 
 is provided e.g. `${var:=default}`.
 
+When using integers as values, for example:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: apps
+spec:
+  ...
+  postBuild:
+    substitute:
+      AWS_ACCOUNT_ID: "71111111117"
+```
+
+For the integer to be replaced as string, the variable needs to be escaped like so:
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps
+  annotations:
+    account: "\"${AWS_ACCOUNT_ID}\""
+```
+
 You can disable the variable substitution for certain resources by either
 labeling or annotating them with:
 
