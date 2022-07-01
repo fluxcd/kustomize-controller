@@ -57,7 +57,7 @@ const (
 	// DecryptionProviderSOPS is the SOPS provider name.
 	DecryptionProviderSOPS = "sops"
 	// DecryptionPGPExt is the extension of the file containing an armored PGP
-	//key.
+	// key.
 	DecryptionPGPExt = ".asc"
 	// DecryptionAgeExt is the extension of the file containing an age key
 	// file.
@@ -263,7 +263,16 @@ func (d *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 // for the input format, gathers the data key for it from the key service,
 // and then decrypts the file data with the retrieved data key.
 // It returns the decrypted bytes in the provided output format, or an error.
-func (d *KustomizeDecryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat formats.Format) ([]byte, error) {
+func (d *KustomizeDecryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat formats.Format) (_ []byte, err error) {
+	defer func() {
+		// It was discovered that malicious input and/or output instructions can
+		// make SOPS panic. Recover from this panic and return as an error.
+		if r := recover(); r != nil {
+			err = fmt.Errorf("failed to emit encrypted %s file as decrypted %s: %v",
+				sopsFormatToString[inputFormat], sopsFormatToString[outputFormat], r)
+		}
+	}()
+
 	store := common.StoreForFormat(inputFormat)
 
 	tree, err := store.LoadEncryptedFile(data)
