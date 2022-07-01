@@ -167,7 +167,10 @@ func TestMain(m *testing.M) {
 			EventRecorder:   testEnv.GetEventRecorderFor(controllerName),
 			MetricsRecorder: testMetricsH.MetricsRecorder,
 		}
-		if err := (reconciler).SetupWithManager(testEnv, KustomizationReconcilerOptions{MaxConcurrentReconciles: 4}); err != nil {
+		if err := (reconciler).SetupWithManager(testEnv, KustomizationReconcilerOptions{
+			MaxConcurrentReconciles:   4,
+			DependencyRequeueInterval: 2 * time.Second,
+		}); err != nil {
 			panic(fmt.Sprintf("Failed to start KustomizationReconciler: %v", err))
 		}
 	}, func() error {
