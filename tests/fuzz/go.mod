@@ -3,4 +3,4 @@ module github.com/fluxcd/kustomize-controller/tests/fuzz
 // with fuzz dependencies.
 // It is managed by oss_fuzz_build.sh.
 
-go 1.17
+go 1.18
