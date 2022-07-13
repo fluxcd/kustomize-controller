@@ -62,6 +62,9 @@ replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.2
 // Fix CVE-2022-27191
 replace golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220518034528-6f7dac969898
 
+// Fix CVE-2022-1996 (for v2, Go Modules incompatible)
+replace github.com/emicklei/go-restful => github.com/emicklei/go-restful v2.16.0+incompatible
+
 // Fix CVE-2022-28948
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
 
