@@ -10,12 +10,12 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.22.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v0.13.2
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.4.0
-	github.com/aws/aws-sdk-go v1.44.46
-	github.com/aws/aws-sdk-go-v2 v1.16.6
-	github.com/aws/aws-sdk-go-v2/config v1.15.12
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.7
-	github.com/aws/aws-sdk-go-v2/service/kms v1.17.4
-	github.com/aws/aws-sdk-go-v2/service/sts v1.16.8
+	github.com/aws/aws-sdk-go v1.44.53
+	github.com/aws/aws-sdk-go-v2 v1.16.7
+	github.com/aws/aws-sdk-go-v2/config v1.15.14
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.9
+	github.com/aws/aws-sdk-go-v2/service/kms v1.17.5
+	github.com/aws/aws-sdk-go-v2/service/sts v1.16.9
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/drone/envsubst v1.0.3
@@ -35,10 +35,10 @@ require (
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.3
-	golang.org/x/net v0.0.0-20220630215102-69896b714898
-	google.golang.org/api v0.86.0
-	google.golang.org/genproto v0.0.0-20220630174209-ad1d48641aa7
-	google.golang.org/grpc v1.47.0
+	golang.org/x/net v0.0.0-20220708220712-1185a9018129
+	google.golang.org/api v0.87.0
+	google.golang.org/genproto v0.0.0-20220712132514-bdd2acd4974d
+	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
 	k8s.io/api v0.24.1
 	k8s.io/apiextensions-apiserver v0.24.1
@@ -61,6 +61,9 @@ replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.2
 
 // Fix CVE-2022-27191
 replace golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220518034528-6f7dac969898
+
+// Fix CVE-2022-1996 (for v2, Go Modules incompatible)
+replace github.com/emicklei/go-restful => github.com/emicklei/go-restful v2.16.0+incompatible
 
 // Fix CVE-2022-28948
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
@@ -92,12 +95,12 @@ require (
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.13 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.14 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.10 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.14 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.15 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.12 // indirect
 	github.com/aws/smithy-go v1.12.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
