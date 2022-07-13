@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.26.3
+
+**Release date:** 2022-07-13
+
+This prerelease adds a retry mechanism for "not found" errors when
+downloading artifacts and recovers from SOPS store panics.
+Some dependencies have also been updated to patch upstream CVEs.
+
+Fixes:
+- decryptor: recover from SOPS store panic
+  [#691](https://github.com/fluxcd/kustomize-controller/pull/691)
+
+Improvements:
+- Retry downloading artifacts on not found errors
+  [#689](https://github.com/fluxcd/kustomize-controller/pull/689)
+- Update dependencies
+  [#692](https://github.com/fluxcd/kustomize-controller/pull/692)
+  [#696](https://github.com/fluxcd/kustomize-controller/pull/696)
+- build: Upgrade to Go 1.18
+  [#694](https://github.com/fluxcd/kustomize-controller/pull/694)
+
 ## 0.26.2
 
 **Release date:** 2022-06-29
