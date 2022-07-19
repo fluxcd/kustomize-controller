@@ -47,7 +47,7 @@ In the above example:
   validates the objects against the Kubernetes API, and finally applies them on the cluster. 
 - Every ten minutes, the Kustomization runs a server-side apply dry-run to detect and correct drift inside the cluster.
 - When the Git revision changes, the manifests are reconciled automatically. If previously applied objects
-  are missing from the current revision, these objects are deleted from the cluster when `spec.pune` is enabled.
+  are missing from the current revision, these objects are deleted from the cluster when `spec.prune` is enabled.
 
 You can run this example by saving the manifest into `podinfo.yaml`.
 
