@@ -19,7 +19,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/drone/envsubst v1.0.3
-	github.com/fluxcd/kustomize-controller/api v0.26.3
+	github.com/fluxcd/kustomize-controller/api v0.27.0
 	github.com/fluxcd/pkg/apis/acl v0.0.3
 	github.com/fluxcd/pkg/apis/kustomize v0.4.2
 	github.com/fluxcd/pkg/apis/meta v0.14.2
@@ -50,7 +50,7 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-// Pin kustomize to v4.5.6
+// Pin kustomize to v4.5.7
 replace (
 	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.12.1
 	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.13.9

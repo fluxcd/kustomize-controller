@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.27.0
+
+**Release date:** 2022-08-08
+
+This prerelease comes with support for the `OCIRepository` source type.
+
+In addition, the controller has been updated to Kubernetes v1.24.3
+and Kustomize v4.5.7.
+
+Features:
+- Add support for OCIRepository sources
+  [#684](https://github.com/fluxcd/kustomize-controller/pull/684)
+
+Improvements:
+- Update dependencies
+  [#704](https://github.com/fluxcd/kustomize-controller/pull/704)
+
 ## 0.26.3
 
 **Release date:** 2022-07-13
