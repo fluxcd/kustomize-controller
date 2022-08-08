@@ -64,8 +64,8 @@ import (
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations/finalizers,verbs=get;create;update;patch;delete
-// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets;gitrepositories,verbs=get;list;watch
-// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets/status;gitrepositories/status,verbs=get
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets;ocirepositories;gitrepositories,verbs=get;list;watch
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets/status;ocirepositories/status;gitrepositories/status,verbs=get
 // +kubebuilder:rbac:groups="",resources=configmaps;secrets;serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
@@ -97,9 +97,16 @@ type KustomizationReconcilerOptions struct {
 
 func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
 	const (
+		ociRepositoryIndexKey string = ".metadata.ociRepository"
 		gitRepositoryIndexKey string = ".metadata.gitRepository"
 		bucketIndexKey        string = ".metadata.bucket"
 	)
+
+	// Index the Kustomizations by the OCIRepository references they (may) point at.
+	if err := mgr.GetCache().IndexField(context.TODO(), &kustomizev1.Kustomization{}, ociRepositoryIndexKey,
+		r.indexBy(sourcev1.OCIRepositoryKind)); err != nil {
+		return fmt.Errorf("failed setting index fields: %w", err)
+	}
 
 	// Index the Kustomizations by the GitRepository references they (may) point at.
 	if err := mgr.GetCache().IndexField(context.TODO(), &kustomizev1.Kustomization{}, gitRepositoryIndexKey,
@@ -121,6 +128,11 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
 			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
 		)).
+		Watches(
+			&source.Kind{Type: &sourcev1.OCIRepository{}},
+			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(ociRepositoryIndexKey)),
+			builder.WithPredicates(SourceRevisionChangePredicate{}),
+		).
 		Watches(
 			&source.Kind{Type: &sourcev1.GitRepository{}},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(gitRepositoryIndexKey)),
@@ -541,6 +553,16 @@ func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization k
 	}
 
 	switch kustomization.Spec.SourceRef.Kind {
+	case sourcev1.OCIRepositoryKind:
+		var repository sourcev1.OCIRepository
+		err := r.Client.Get(ctx, namespacedName, &repository)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return source, err
+			}
+			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
+		}
+		source = &repository
 	case sourcev1.GitRepositoryKind:
 		var repository sourcev1.GitRepository
 		err := r.Client.Get(ctx, namespacedName, &repository)

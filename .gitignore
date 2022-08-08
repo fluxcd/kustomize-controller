@@ -15,6 +15,7 @@
 # vendor/
 bin/
 config/release/
+config/crd/bases/ocirepositories.yaml
 config/crd/bases/gitrepositories.yaml
 config/crd/bases/buckets.yaml
 
