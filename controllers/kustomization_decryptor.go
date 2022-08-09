@@ -621,7 +621,7 @@ func secureLoadKustomizationFile(root, path string) (*kustypes.Kustomization, er
 		},
 	}
 	if err := yaml.Unmarshal(data, &kus); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal kustomization file: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal kustomization file from '%s': %w", loadPath, err)
 	}
 	return &kus, nil
 }
