@@ -26,14 +26,14 @@ func Test_secureBuildKustomization(t *testing.T) {
 	t.Run("remote build", func(t *testing.T) {
 		g := NewWithT(t)
 
-		_, err := secureBuildKustomization("testdata/remote", "testdata/remote", true)
+		_, err := secureBuildKustomization("testdata/remote", "testdata/remote", true, true)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
 	t.Run("no remote build", func(t *testing.T) {
 		g := NewWithT(t)
 
-		_, err := secureBuildKustomization("testdata/remote", "testdata/remote", false)
+		_, err := secureBuildKustomization("testdata/remote", "testdata/remote", false, true)
 		g.Expect(err).To(HaveOccurred())
 	})
 }
@@ -42,11 +42,11 @@ func Test_secureBuildKustomization_panic(t *testing.T) {
 	t.Run("build panic", func(t *testing.T) {
 		g := NewWithT(t)
 
-		_, err := secureBuildKustomization("testdata/panic", "testdata/panic", false)
+		_, err := secureBuildKustomization("testdata/panic", "testdata/panic", false, true)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("recovered from kustomize build panic"))
 		// Run again to ensure the lock is released
-		_, err = secureBuildKustomization("testdata/panic", "testdata/panic", false)
+		_, err = secureBuildKustomization("testdata/panic", "testdata/panic", false, true)
 		g.Expect(err).To(HaveOccurred())
 	})
 }
@@ -54,6 +54,6 @@ func Test_secureBuildKustomization_panic(t *testing.T) {
 func Test_secureBuildKustomization_rel_basedir(t *testing.T) {
 	g := NewWithT(t)
 
-	_, err := secureBuildKustomization("testdata/relbase", "testdata/relbase/clusters/staging/flux-system", false)
+	_, err := secureBuildKustomization("testdata/relbase", "testdata/relbase/clusters/staging/flux-system", false, true)
 	g.Expect(err).ToNot(HaveOccurred())
 }

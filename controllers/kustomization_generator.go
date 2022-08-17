@@ -244,11 +244,12 @@ func adaptSelector(selector *kustomize.Selector) (output *kustypes.Selector) {
 var kustomizeBuildMutex sync.Mutex
 
 // secureBuildKustomization wraps krusty.MakeKustomizer with the following settings:
+//  - specify resource sorting options
 //  - secure on-disk FS denying operations outside root
 //  - load files from outside the kustomization dir path
 //    (but not outside root)
 //  - disable plugins except for the builtin ones
-func secureBuildKustomization(root, dirPath string, allowRemoteBases bool) (_ resmap.ResMap, err error) {
+func secureBuildKustomization(root, dirPath string, allowRemoteBases bool, doLegacyResourceSort bool) (_ resmap.ResMap, err error) {
 	var fs filesys.FileSystem
 
 	// Create secure FS for root with or without remote base support
@@ -279,8 +280,9 @@ func secureBuildKustomization(root, dirPath string, allowRemoteBases bool) (_ re
 	}()
 
 	buildOptions := &krusty.Options{
-		LoadRestrictions: kustypes.LoadRestrictionsNone,
-		PluginConfig:     kustypes.DisabledPluginConfig(),
+		DoLegacyResourceSort: doLegacyResourceSort,
+		LoadRestrictions:     kustypes.LoadRestrictionsNone,
+		PluginConfig:         kustypes.DisabledPluginConfig(),
 	}
 
 	k := krusty.MakeKustomizer(buildOptions)

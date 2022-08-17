@@ -48,7 +48,9 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
-const controllerName = "kustomize-controller"
+const (
+	controllerName = "kustomize-controller"
+)
 
 var (
 	scheme   = runtime.NewScheme()
@@ -80,6 +82,7 @@ func main() {
 		noRemoteBases         bool
 		httpRetry             int
 		defaultServiceAccount string
+		reorder               string
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -93,6 +96,11 @@ func main() {
 		"Disallow remote bases usage in Kustomize overlays. When this flag is enabled, all resources must refer to local files included in the source artifact.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
 	flag.StringVar(&defaultServiceAccount, "default-service-account", "", "Default service account used for impersonation.")
+	flag.StringVar(&reorder, "reorder", "legacy",
+		"Reorder the resources just before output. "+
+			"Use 'legacy' to apply a legacy reordering "+
+			"(Namespaces first, Webhooks last, etc). "+
+			"Use 'none' to suppress a final reordering.")
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)
 	leaderElectionOptions.BindFlags(flag.CommandLine)
@@ -147,6 +155,7 @@ func main() {
 	if err = (&controllers.KustomizationReconciler{
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,
+		Reorder:               reorder,
 		Client:                mgr.GetClient(),
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         eventRecorder,

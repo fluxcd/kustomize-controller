@@ -83,6 +83,7 @@ type KustomizationReconciler struct {
 	statusManager         string
 	NoCrossNamespaceRefs  bool
 	NoRemoteBases         bool
+	Reorder               string
 	DefaultServiceAccount string
 	KubeConfigOpts        runtimeClient.KubeConfigOptions
 }
@@ -596,6 +597,14 @@ func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomizati
 	return gen.WriteFile(dirPath)
 }
 
+func (r *KustomizationReconciler) getFlagReorderOutput() bool {
+	if r.Reorder == "none" {
+		return false
+	} else {
+		return true
+	}
+}
+
 func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kustomization kustomizev1.Kustomization, dirPath string) ([]byte, error) {
 	dec, cleanup, err := NewTempDecryptor(workDir, r.Client, kustomization)
 	if err != nil {
@@ -613,7 +622,7 @@ func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kus
 		return nil, fmt.Errorf("error decrypting env sources: %w", err)
 	}
 
-	m, err := secureBuildKustomization(workDir, dirPath, !r.NoRemoteBases)
+	m, err := secureBuildKustomization(workDir, dirPath, !r.NoRemoteBases, r.getFlagReorderOutput())
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
