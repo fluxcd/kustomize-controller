@@ -48,9 +48,7 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
-const (
-	controllerName = "kustomize-controller"
-)
+const controllerName = "kustomize-controller"
 
 var (
 	scheme   = runtime.NewScheme()
