@@ -630,7 +630,7 @@ spec:
   targetNamespace: test
 ```
 
-While `targetNamespace` is optional, if `targetNamespace` exists, then the namespace pointed to by the `targetNamespace` is expected to exist, kustomize-controller will not create it otherwise.
+While the field `targetNamespace` in Kustomization is optional, if this field exists, then the k8s namespace pointed to by `targetNamespace` is expected to exist, kustomize-controller will not create it otherwise.
 
 ### Patches
 
