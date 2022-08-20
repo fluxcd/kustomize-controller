@@ -569,7 +569,7 @@ spec:
   targetNamespace: test
 ```
 
-The `targetNamespace` is expected to exist.
+ While `targetNamespace` is optional, if `targetNamespace` exists, then the namespace pointed to by the `targetNamespace` is expected to exist, kustomize-controller will not create it otherwise.
 
 ### Patches
 
