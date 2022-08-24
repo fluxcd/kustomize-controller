@@ -569,7 +569,7 @@ spec:
   targetNamespace: test
 ```
 
-The `targetNamespace` is expected to exist.
+While the field `targetNamespace` in a Kustomization is optional, if this field is non-empty then the Kubernetes namespace pointed to by `targetNamespace` must exist prior to the Kustomization being applied, kustomize-controller will not create the namespace.
 
 ### Patches
 
