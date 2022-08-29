@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.27.1
+
+**Release date:** 2022-08-29
+
+This prerelease comes with panic recovery, to protect the controller from crashing when reconciliations lead to a crash.
+
+In addition, the controller dependencies have been updated to Kubernetes v1.25.0.
+
+Improvements:
+- Enable RecoverPanic option on reconciler
+  [#708](https://github.com/fluxcd/kustomize-controller/pull/708)
+- Update Kubernetes packages to v1.25.0
+  [#714](https://github.com/fluxcd/kustomize-controller/pull/714)
+- Add file path to sops decryption errors
+  [#706](https://github.com/fluxcd/kustomize-controller/pull/706)
+- Update doc on target namespace
+  [#712](https://github.com/fluxcd/kustomize-controller/pull/712)
+
 ## 0.27.0
 
 **Release date:** 2022-08-08
