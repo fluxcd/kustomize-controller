@@ -32,7 +32,7 @@ Specifications:
 
 ## Usage
 
-The kustomize-controller is part of a composable [GitOps toolkit](https://fluxcd.io/docs/components/)
+The kustomize-controller is part of a composable [GitOps toolkit](https://fluxcd.io/flux/components/)
 and depends on [source-controller](https://github.com/fluxcd/source-controller)
 to acquire the Kubernetes manifests from Git repositories and S3 compatible storage buckets.
 

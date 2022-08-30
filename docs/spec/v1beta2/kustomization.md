@@ -1125,7 +1125,7 @@ on your EKS cluster, you can create an IAM Role and Service Account with access
 to AWS KMS (using at least `kms:Decrypt` and `kms:DescribeKey`). Once these are
 created, you can annotate the kustomize-controller Service Account with the
 Role ARN, granting the controller permissions to decrypt the Secrets. Please refer
-to the [SOPS guide](https://fluxcd.io/docs/guides/mozilla-sops/#aws) for detailed steps.
+to the [SOPS guide](https://fluxcd.io/flux/guides/mozilla-sops/#aws) for detailed steps.
 
 ```sh
 kubectl -n flux-system annotate serviceaccount kustomize-controller \
