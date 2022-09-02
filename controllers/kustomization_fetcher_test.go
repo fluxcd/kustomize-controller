@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -135,10 +136,8 @@ stringData:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
-			return ready.Reason == meta.ProgressingReason
+			return strings.Contains(ready.Message, "artifact not found")
 		}, timeout, time.Second).Should(BeTrue())
-
-		g.Expect(apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition).Message).To(ContainSubstring("artifact not found"))
 	})
 
 	t.Run("recovers after not found errors", func(t *testing.T) {
