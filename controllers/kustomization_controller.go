@@ -715,10 +715,14 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	}
 
 	// contains only CRDs and Namespaces
-	var stageOne []*unstructured.Unstructured
+	var defStage []*unstructured.Unstructured
 
-	// contains all objects except for CRDs and Namespaces
-	var stageTwo []*unstructured.Unstructured
+	// contains only Kubernetes Class types e.g.: RuntimeClass, PriorityClass,
+	// StorageClas, VolumeSnapshotClass, IngressClass, GatewayClass, ClusterClass, etc
+	var classStage []*unstructured.Unstructured
+
+	// contains all objects except for CRDs, Namespaces and Class type objects
+	var resStage []*unstructured.Unstructured
 
 	// contains the objects' metadata after apply
 	resultSet := ssa.NewChangeSet()
@@ -730,25 +734,29 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 					ssa.FmtUnstructured(u))
 		}
 
-		if ssa.IsClusterDefinition(u) {
-			stageOne = append(stageOne, u)
-		} else {
-			stageTwo = append(stageTwo, u)
+		switch {
+		case ssa.IsClusterDefinition(u):
+			defStage = append(defStage, u)
+		case strings.HasSuffix(u.GetKind(), "Class"):
+			classStage = append(classStage, u)
+		default:
+			resStage = append(resStage, u)
 		}
+
 	}
 
 	var changeSetLog strings.Builder
 
 	// validate, apply and wait for CRDs and Namespaces to register
-	if len(stageOne) > 0 {
-		changeSet, err := manager.ApplyAll(ctx, stageOne, applyOpts)
+	if len(defStage) > 0 {
+		changeSet, err := manager.ApplyAll(ctx, defStage, applyOpts)
 		if err != nil {
 			return false, nil, err
 		}
 		resultSet.Append(changeSet.Entries)
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
-			log.Info("server-side apply completed", "output", changeSet.ToMap())
+			log.Info("server-side apply for cluster definitions completed", "output", changeSet.ToMap())
 			for _, change := range changeSet.Entries {
 				if change.Action != string(ssa.UnchangedAction) {
 					changeSetLog.WriteString(change.String() + "\n")
@@ -756,7 +764,32 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 			}
 		}
 
-		if err := manager.Wait(stageOne, ssa.WaitOptions{
+		if err := manager.Wait(defStage, ssa.WaitOptions{
+			Interval: 2 * time.Second,
+			Timeout:  kustomization.GetTimeout(),
+		}); err != nil {
+			return false, nil, err
+		}
+	}
+
+	// validate, apply and wait for Class type objects to register
+	if len(classStage) > 0 {
+		changeSet, err := manager.ApplyAll(ctx, classStage, applyOpts)
+		if err != nil {
+			return false, nil, err
+		}
+		resultSet.Append(changeSet.Entries)
+
+		if changeSet != nil && len(changeSet.Entries) > 0 {
+			log.Info("server-side apply for cluster class types completed", "output", changeSet.ToMap())
+			for _, change := range changeSet.Entries {
+				if change.Action != string(ssa.UnchangedAction) {
+					changeSetLog.WriteString(change.String() + "\n")
+				}
+			}
+		}
+
+		if err := manager.Wait(classStage, ssa.WaitOptions{
 			Interval: 2 * time.Second,
 			Timeout:  kustomization.GetTimeout(),
 		}); err != nil {
@@ -765,9 +798,9 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	}
 
 	// sort by kind, validate and apply all the others objects
-	sort.Sort(ssa.SortableUnstructureds(stageTwo))
-	if len(stageTwo) > 0 {
-		changeSet, err := manager.ApplyAll(ctx, stageTwo, applyOpts)
+	sort.Sort(ssa.SortableUnstructureds(resStage))
+	if len(resStage) > 0 {
+		changeSet, err := manager.ApplyAll(ctx, resStage, applyOpts)
 		if err != nil {
 			return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String())
 		}
