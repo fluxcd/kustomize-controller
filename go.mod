@@ -7,6 +7,7 @@ replace github.com/fluxcd/kustomize-controller/api => ./api
 require (
 	cloud.google.com/go/kms v1.4.0
 	filippo.io/age v1.0.0
+	github.com/AdaLogics/go-fuzz-headers v0.0.0-20220903154154-e8044f6e4c72
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.22.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v0.13.2
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.4.0
