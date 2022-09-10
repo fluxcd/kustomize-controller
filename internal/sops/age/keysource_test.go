@@ -9,6 +9,7 @@ package age
 import (
 	"testing"
 
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	. "github.com/onsi/gomega"
 	"go.mozilla.org/sops/v3/age"
 )
@@ -307,4 +308,20 @@ func TestMasterKey_ToMap(t *testing.T) {
 		"recipient": mockRecipient,
 		"enc":       key.EncryptedKey,
 	}))
+}
+
+func Fuzz_Age(f *testing.F) {
+	f.Fuzz(func(t *testing.T, receipt, identities string, seed, data []byte) {
+		fc := fuzz.NewConsumer(seed)
+		masterKey := MasterKey{}
+
+		if err := fc.GenerateStruct(&masterKey); err != nil {
+			return
+		}
+
+		_ = masterKey.Encrypt(data)
+		_ = masterKey.EncryptIfNeeded(data)
+		_, _ = MasterKeyFromRecipient(receipt)
+		_, _ = MasterKeyFromIdentities(identities)
+	})
 }

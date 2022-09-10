@@ -19,51 +19,66 @@ set -euxo pipefail
 GOPATH="${GOPATH:-/root/go}"
 GO_SRC="${GOPATH}/src"
 PROJECT_PATH="github.com/fluxcd/kustomize-controller"
+TMP_DIR=$(mktemp -d /tmp/oss_fuzz-XXXXXX)
 
-cd "${GO_SRC}"
+cleanup(){
+	rm -rf "${TMP_DIR}"
+}
+trap cleanup EXIT
 
-# Move fuzzer to their respective directories.
-# This removes dependency noises from the modules' go.mod and go.sum files.
-mv "${PROJECT_PATH}/tests/fuzz/age_fuzzer.go" "${PROJECT_PATH}/internal/sops/age/"
-mv "${PROJECT_PATH}/tests/fuzz/pgp_fuzzer.go" "${PROJECT_PATH}/internal/sops/pgp/"
+install_deps(){
+	if ! command -v go-118-fuzz-build &> /dev/null || ! command -v addimport &> /dev/null; then
+		mkdir -p "${TMP_DIR}/go-118-fuzz-build"
 
-# Some private functions within suite_test.go are extremly useful for testing.
-# Instead of duplicating them here, or refactoring them away, this simply renames
-# the file to make it available to "non-testing code".
-# This is a temporary fix, which will cease once the implementation is migrated to
-# the built-in fuzz support in golang 1.18.
-cp "${PROJECT_PATH}/controllers/suite_test.go" "${PROJECT_PATH}/tests/fuzz/fuzzer_helper.go"
-sed -i 's;KustomizationReconciler;abc.KustomizationReconciler;g' "${PROJECT_PATH}/tests/fuzz/fuzzer_helper.go"
-sed -i 's;import (;import(\n	abc "github.com/fluxcd/kustomize-controller/controllers";g' "${PROJECT_PATH}/tests/fuzz/fuzzer_helper.go"
+		git clone https://github.com/AdamKorcz/go-118-fuzz-build "${TMP_DIR}/go-118-fuzz-build"
+		cd "${TMP_DIR}/go-118-fuzz-build"
+		go build -o "${GOPATH}/bin/go-118-fuzz-build"
 
-pushd "${PROJECT_PATH}"
+		cd addimport
+		go build -o "${GOPATH}/bin/addimport"
+	fi
 
-go get -d github.com/AdaLogics/go-fuzz-headers
+	if ! command -v goimports &> /dev/null; then
+		go install golang.org/x/tools/cmd/goimports@latest
+	fi
+}
 
-compile_go_fuzzer "${PROJECT_PATH}/internal/sops/age/" FuzzAge fuzz_age
-compile_go_fuzzer "${PROJECT_PATH}/internal/sops/pgp/" FuzzPgp fuzz_pgp
+# Removes the content of test funcs which could cause the Fuzz
+# tests to break.
+remove_test_funcs(){
+	filename=$1
 
-popd
+	echo "removing co-located *testing.T"
+	sed -i -e '/func Test.*testing.T) {$/ {:r;/\n}/!{N;br}; s/\n.*\n/\n/}' "${filename}"
+	# Remove gomega reference as it is not used by Fuzz tests.
+	sed -i 's;. "github.com/onsi/gomega";;g' "${filename}"
 
-pushd "${PROJECT_PATH}/tests/fuzz"
+	# After removing the body of the go testing funcs, consolidate the imports.
+	goimports -w "${filename}"
+}
 
-# Setup files to be embedded into controllers_fuzzer.go's testFiles variable.
-mkdir -p testdata/crd
-mkdir -p testdata/sops
-cp ../../config/crd/bases/*.yaml testdata/crd
-cp ../../controllers/testdata/sops/age.txt testdata/sops
-cp ../../controllers/testdata/sops/pgp.asc testdata/sops
+install_deps
 
-# Use main go.mod in order to conserve the same version across all dependencies.
-cp ../../go.mod .
-cp ../../go.sum .
+cd "${GO_SRC}/${PROJECT_PATH}"
 
-sed -i 's;module .*;module github.com/fluxcd/kustomize-controller/tests/fuzz;g' go.mod
-sed -i 's;api => ./api;api => ../../api;g' go.mod
-echo "replace github.com/fluxcd/kustomize-controller => ../../" >> go.mod
+go get github.com/AdamKorcz/go-118-fuzz-build/utils
 
-go mod download
+mkdir -p controllers/testdata/crd
+cp config/crd/bases/*.yaml controllers/testdata/crd
 
-compile_go_fuzzer "${PROJECT_PATH}/tests/fuzz/" FuzzControllers fuzz_controllers
+# Iterate through all Go Fuzz targets, compiling each into a fuzzer.
+test_files=$(grep -r --include='**_test.go' --files-with-matches 'func Fuzz' .)
+for file in ${test_files}
+do
+	remove_test_funcs "${file}"
 
-popd
+	targets=$(grep -oP 'func \K(Fuzz\w*)' "${file}")
+	for target_name in ${targets}
+	do
+		fuzzer_name=$(echo "${target_name}" | tr '[:upper:]' '[:lower:]')
+		target_dir=$(dirname "${file}")
+
+		echo "Building ${file}.${target_name} into ${fuzzer_name}"
+		compile_native_go_fuzzer "${target_dir}" "${target_name}" "${fuzzer_name}"
+	done
+done

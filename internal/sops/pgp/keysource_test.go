@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	. "github.com/onsi/gomega"
 	"go.mozilla.org/sops/v3/pgp"
 )
@@ -401,4 +402,18 @@ func Test_shortenFingerprint(t *testing.T) {
 	g.Expect(shortId).To(Equal("9732075EA221A7EA"))
 
 	g.Expect(shortenFingerprint(shortId)).To(Equal(shortId))
+}
+
+func Fuzz_Pgp(f *testing.F) {
+	f.Fuzz(func(t *testing.T, seed, data []byte) {
+		fc := fuzz.NewConsumer(data)
+		masterKey := MasterKey{}
+
+		if err := fc.GenerateStruct(&masterKey); err != nil {
+			return
+		}
+
+		_ = masterKey.Encrypt(data)
+		_ = masterKey.EncryptIfNeeded(data)
+	})
 }
