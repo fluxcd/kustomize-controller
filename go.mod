@@ -10,12 +10,12 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.22.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v0.13.2
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.4.0
-	github.com/aws/aws-sdk-go v1.44.90
-	github.com/aws/aws-sdk-go-v2 v1.16.13
-	github.com/aws/aws-sdk-go-v2/config v1.17.4
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.17
-	github.com/aws/aws-sdk-go-v2/service/kms v1.18.8
-	github.com/aws/aws-sdk-go-v2/service/sts v1.16.16
+	github.com/aws/aws-sdk-go v1.44.94
+	github.com/aws/aws-sdk-go-v2 v1.16.14
+	github.com/aws/aws-sdk-go-v2/config v1.17.5
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.18
+	github.com/aws/aws-sdk-go-v2/service/kms v1.18.9
+	github.com/aws/aws-sdk-go-v2/service/sts v1.16.17
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/drone/envsubst v1.0.3
@@ -25,19 +25,19 @@ require (
 	github.com/fluxcd/pkg/apis/meta v0.15.0
 	github.com/fluxcd/pkg/kustomize v0.7.0
 	github.com/fluxcd/pkg/runtime v0.18.0
-	github.com/fluxcd/pkg/ssa v0.19.0
+	github.com/fluxcd/pkg/ssa v0.20.0
 	github.com/fluxcd/pkg/testserver v0.3.0
 	github.com/fluxcd/pkg/untar v0.2.0
-	github.com/fluxcd/source-controller/api v0.28.0
+	github.com/fluxcd/source-controller/api v0.29.0
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/hashicorp/vault/api v1.7.2
 	github.com/onsi/gomega v1.20.2
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.3
-	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b
-	google.golang.org/api v0.94.0
-	google.golang.org/genproto v0.0.0-20220829175752-36a9c930ecbf
+	golang.org/x/net v0.0.0-20220907135653-1e95f45603a7
+	google.golang.org/api v0.95.0
+	google.golang.org/genproto v0.0.0-20220908141613-51c1cc9bc6d0
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
 	k8s.io/api v0.25.0
@@ -95,14 +95,14 @@ require (
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.14 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.20 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.14 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.21 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.14 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.20 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.2 // indirect
-	github.com/aws/smithy-go v1.13.1 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.15 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.21 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.15 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.22 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.15 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.21 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.3 // indirect
+	github.com/aws/smithy-go v1.13.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
