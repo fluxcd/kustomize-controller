@@ -25,6 +25,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -278,6 +279,13 @@ func (d *KustomizeDecryptor) SopsDecryptWithFormat(data []byte, inputFormat, out
 	tree, err := store.LoadEncryptedFile(data)
 	if err != nil {
 		return nil, sopsUserErr(fmt.Sprintf("failed to load encrypted %s data", sopsFormatToString[inputFormat]), err)
+	}
+
+	for _, group := range tree.Metadata.KeyGroups {
+		// Sort MasterKeys in the group so offline ones are tried first
+		sort.SliceStable(group, func(i, j int) bool {
+			return intkeyservice.IsOfflineMethod(group[i]) && !intkeyservice.IsOfflineMethod(group[j])
+		})
 	}
 
 	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(d.keyServiceServer())
