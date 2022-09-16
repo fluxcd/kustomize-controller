@@ -762,13 +762,13 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 					changeSetLog.WriteString(change.String() + "\n")
 				}
 			}
-		}
 
-		if err := manager.Wait(defStage, ssa.WaitOptions{
-			Interval: 2 * time.Second,
-			Timeout:  kustomization.GetTimeout(),
-		}); err != nil {
-			return false, nil, err
+			if err := manager.WaitForSet(changeSet.ToObjMetadataSet(), ssa.WaitOptions{
+				Interval: 2 * time.Second,
+				Timeout:  kustomization.GetTimeout(),
+			}); err != nil {
+				return false, nil, err
+			}
 		}
 	}
 
@@ -787,13 +787,13 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 					changeSetLog.WriteString(change.String() + "\n")
 				}
 			}
-		}
 
-		if err := manager.Wait(classStage, ssa.WaitOptions{
-			Interval: 2 * time.Second,
-			Timeout:  kustomization.GetTimeout(),
-		}); err != nil {
-			return false, nil, err
+			if err := manager.WaitForSet(changeSet.ToObjMetadataSet(), ssa.WaitOptions{
+				Interval: 2 * time.Second,
+				Timeout:  kustomization.GetTimeout(),
+			}); err != nil {
+				return false, nil, err
+			}
 		}
 	}
 

@@ -56,6 +56,17 @@ metadata:
   name: %[1]s
 data:
   key: "%[2]s"
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: aws-efs
+  namespace: was-system
+provisioner: aws-efs
+parameters:
+  gidMin: "2200"
+  gidMax: "2299"
+  gidAllocate: "true"
 `, name, data),
 			},
 		}
