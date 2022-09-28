@@ -52,14 +52,14 @@ type AZConfig struct {
 // TokenFromAADConfig attempts to construct a Token using the AADConfig values.
 // It detects credentials in the following order:
 //
-//  - azidentity.ClientSecretCredential when `tenantId`, `clientId` and
-//    `clientSecret` fields are found.
-//  - azidentity.ClientCertificateCredential when `tenantId`,
-//    `clientCertificate` (and optionally `clientCertificatePassword`) fields
-//    are found.
-//  - azidentity.ClientSecretCredential when AZConfig fields are found.
-//  - azidentity.ManagedIdentityCredential for a User ID, when a `clientId`
-//    field but no `tenantId` is found.
+//   - azidentity.ClientSecretCredential when `tenantId`, `clientId` and
+//     `clientSecret` fields are found.
+//   - azidentity.ClientCertificateCredential when `tenantId`,
+//     `clientCertificate` (and optionally `clientCertificatePassword`) fields
+//     are found.
+//   - azidentity.ClientSecretCredential when AZConfig fields are found.
+//   - azidentity.ManagedIdentityCredential for a User ID, when a `clientId`
+//     field but no `tenantId` is found.
 //
 // If no set of credentials is found or the azcore.TokenCredential can not be
 // created, an error is returned.
