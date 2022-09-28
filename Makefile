@@ -104,8 +104,8 @@ api-docs: gen-crd-api-reference-docs
 
 # Run go mod tidy
 tidy:
-	cd api; rm -f go.sum; go mod tidy -compat=1.18
-	rm -f go.sum; go mod tidy -compat=1.18
+	cd api; rm -f go.sum; go mod tidy -compat=1.19
+	rm -f go.sum; go mod tidy -compat=1.19
 
 # Run go fmt against code
 fmt:
@@ -140,7 +140,7 @@ docker-deploy:
 CONTROLLER_GEN = $(GOBIN)/controller-gen
 .PHONY: controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.7.0)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0)
 
 # Find or download gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS = $(GOBIN)/gen-crd-api-reference-docs
