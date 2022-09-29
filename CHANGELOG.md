@@ -2,6 +2,36 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.29.0
+
+**Release date:** 2022-09-29
+
+This prerelease comes with strict validation rules for API fields which define a
+(time) duration. Effectively, this means values without a time unit (e.g. `ms`,
+`s`, `m`, `h`) will now be rejected by the API server. To stimulate sane
+configurations, the units `ns`, `us` and `µs` can no longer be configured, nor
+can `h` be set for fields defining a timeout value.
+
+In addition, the controller dependencies have been updated
+to Kubernetes controller-runtime v0.13.
+
+:warning: **Breaking changes:**
+- `.spec.interval` new validation pattern is `"^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"`
+- `.spec.retryInterval` new validation pattern is `"^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"`
+- `.spec.timeout` new validation pattern is `"^([0-9]+(\\.[0-9]+)?(ms|s|m))+$"`
+
+Improvements:
+- api: add custom validation for v1.Duration types
+  [#731](https://github.com/fluxcd/kustomize-controller/pull/731)
+- Build with Go 1.19
+  [#733](https://github.com/fluxcd/kustomize-controller/pull/733)
+- Update dependencies
+  [#735](https://github.com/fluxcd/kustomize-controller/pull/735)
+
+Fixes:
+- Fix health checking for global objects
+  [#730](https://github.com/fluxcd/kustomize-controller/pull/730)
+
 ## 0.28.0
 
 **Release date:** 2022-09-12
