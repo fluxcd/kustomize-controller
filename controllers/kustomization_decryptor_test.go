@@ -22,6 +22,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/fs"
+	"math"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -53,6 +55,11 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/pkg/apis/meta"
+)
+
+const (
+	percent10 = 10.0
+	percent80 = 80.0
 )
 
 func TestKustomizationReconciler_Decryptor(t *testing.T) {
@@ -1681,6 +1688,92 @@ func Test_recurseKustomizationFiles(t *testing.T) {
 		})
 	}
 }
+
+// benchmarkRecKustFiles runs benchmark for recurseKustomizationFiles().
+func benchmarkRecKustFiles(numKusNodes int, percentSymlinks float64, b *testing.B) {
+	b.StopTimer()
+
+	numSymlinksFloat := (percentSymlinks / 100.0) * float64(numKusNodes)
+	numSymlinks := int(math.Round(numSymlinksFloat))
+
+	g := NewWithT(b)
+	tmpDir := b.TempDir()
+
+	// Create manifest directories. Write all the symlinked manifests in bar.
+	// /tmp/test-dir/
+	// ├── bar
+	// │   └── 1
+	// │       └── kustomization.yaml
+	// │
+	// └── foo
+	//     ├── 0
+	//     │   └── kustomization.yaml
+	//     └── 1 -> ../bar/1
+	os.MkdirAll(filepath.Join(tmpDir, "foo"), 0o700)
+	os.MkdirAll(filepath.Join(tmpDir, "bar"), 0o700)
+
+	// Generate index of kustomizations that'll be symlinked.
+	rand.Seed(42) // Reproducible.
+	randKusNodes := rand.Perm(numKusNodes)[0:numSymlinks]
+	symlinkKusNodes := map[int]struct{}{}
+	for _, n := range randKusNodes {
+		symlinkKusNodes[n] = struct{}{}
+	}
+
+	// Create kustomization nodes.
+	// The kustomizations are chained to one another. The first kustomization
+	// refers to the second, the second refers to the third, and so on.
+	for kn := 0; kn < numKusNodes; kn++ {
+		// /tmp/test-dir/foo/0
+		kPath := filepath.Join(tmpDir, "foo", fmt.Sprint(kn))
+		kus := kustypes.Kustomization{
+			TypeMeta: kustypes.TypeMeta{
+				APIVersion: kustypes.KustomizationVersion,
+				Kind:       kustypes.KustomizationKind,
+			},
+			Resources: []string{},
+		}
+		// Append next node reference, except for when it is the last node.
+		if kn != numKusNodes-1 {
+			kus.Resources = append(kus.Resources, filepath.Join("..", fmt.Sprint(kn+1)))
+		}
+		b, err := yaml.Marshal(kus)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// If this node is a symlink, create a symlink and write to the
+		// respective source file. Else, write to the actual file.
+		if _, ok := symlinkKusNodes[kn]; ok {
+			srcPath := filepath.Join(tmpDir, "bar", fmt.Sprint(kn))
+			g.Expect(os.MkdirAll(srcPath, 0o700)).ToNot(HaveOccurred())
+			// Relative path from foo/0 to bar/0 is ../bar/0.
+			g.Expect(os.Symlink(filepath.Join("..", "bar", fmt.Sprint(kn)), kPath)).ToNot(HaveOccurred())
+			g.Expect(os.WriteFile(filepath.Join(srcPath, "kustomization.yaml"), b, 0o644)).ToNot(HaveOccurred())
+		} else {
+			g.Expect(os.MkdirAll(kPath, 0o700)).ToNot(HaveOccurred())
+			g.Expect(os.WriteFile(filepath.Join(kPath, "kustomization.yaml"), b, 0o644)).ToNot(HaveOccurred())
+		}
+	}
+
+	// no-op visit.
+	visit := func(root, path string, kus *kustypes.Kustomization) error {
+		return nil
+	}
+
+	b.StartTimer()
+	for n := 0; n < b.N; n++ {
+		visited := make(map[string]struct{})
+		recurseKustomizationFiles(tmpDir, filepath.Join(tmpDir, "foo", "0"), visit, visited)
+	}
+}
+
+func BenchmarkRecKust10Nodes10pcSymlink(b *testing.B)    { benchmarkRecKustFiles(10, percent10, b) }
+func BenchmarkRecKust10Nodes80pcSymlink(b *testing.B)    { benchmarkRecKustFiles(10, percent80, b) }
+func BenchmarkRecKust100Nodes10pcSymlink(b *testing.B)   { benchmarkRecKustFiles(100, percent10, b) }
+func BenchmarkRecKust100Nodes80pcSymlink(b *testing.B)   { benchmarkRecKustFiles(100, percent80, b) }
+func BenchmarkRecKust1000Nodes10pcSymlink(b *testing.B)  { benchmarkRecKustFiles(1000, percent10, b) }
+func BenchmarkRecKust1000Nodes80pcSymlink(b *testing.B)  { benchmarkRecKustFiles(1000, percent80, b) }
+func BenchmarkRecKust10000Nodes10pcSymlink(b *testing.B) { benchmarkRecKustFiles(10000, percent10, b) }
+func BenchmarkRecKust10000Nodes80pcSymlink(b *testing.B) { benchmarkRecKustFiles(10000, percent80, b) }
 
 func Test_isSOPSEncryptedResource(t *testing.T) {
 	g := NewWithT(t)
