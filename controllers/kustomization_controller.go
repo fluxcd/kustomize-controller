@@ -592,8 +592,8 @@ func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization k
 }
 
 func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, workDir string, dirPath string) error {
-	gen := NewGenerator(workDir, kustomization)
-	return gen.WriteFile(dirPath)
+	_, err := NewGenerator(workDir, kustomization).WriteFile(dirPath)
+	return err
 }
 
 func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kustomization kustomizev1.Kustomization, dirPath string) ([]byte, error) {

@@ -24,12 +24,12 @@ import (
 	"strings"
 	"sync"
 
-	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/konfig"
 	"sigs.k8s.io/kustomize/api/krusty"
 	"sigs.k8s.io/kustomize/api/provider"
 	"sigs.k8s.io/kustomize/api/resmap"
 	kustypes "sigs.k8s.io/kustomize/api/types"
+	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/yaml"
 
 	"github.com/fluxcd/pkg/apis/kustomize"
@@ -50,16 +50,15 @@ func NewGenerator(root string, kustomization kustomizev1.Kustomization) *Kustomi
 	}
 }
 
-func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
-	if err := kg.generateKustomization(dirPath); err != nil {
-		return err
+func (kg *KustomizeGenerator) WriteFile(dirPath string) (string, error) {
+	kfile, err := kg.generateKustomization(dirPath)
+	if err != nil {
+		return "", err
 	}
-
-	kfile := filepath.Join(dirPath, konfig.DefaultKustomizationFileName())
 
 	data, err := os.ReadFile(kfile)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	kus := kustypes.Kustomization{
@@ -70,7 +69,7 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
 	}
 
 	if err := yaml.Unmarshal(data, &kus); err != nil {
-		return err
+		return "", err
 	}
 
 	if kg.kustomization.Spec.TargetNamespace != "" {
@@ -91,7 +90,7 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
 	for _, m := range kg.kustomization.Spec.PatchesJSON6902 {
 		patch, err := json.Marshal(m.Patch)
 		if err != nil {
-			return err
+			return "", err
 		}
 		kus.PatchesJson6902 = append(kus.PatchesJson6902, kustypes.Patch{
 			Patch:  string(patch),
@@ -115,9 +114,9 @@ func (kg *KustomizeGenerator) WriteFile(dirPath string) error {
 
 	kd, err := yaml.Marshal(kus)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return os.WriteFile(kfile, kd, os.ModePerm)
+	return kfile, os.WriteFile(kfile, kd, os.ModePerm)
 }
 
 func checkKustomizeImageExists(images []kustypes.Image, imageName string) (bool, int) {
@@ -130,17 +129,17 @@ func checkKustomizeImageExists(images []kustypes.Image, imageName string) (bool,
 	return false, -1
 }
 
-func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
+func (kg *KustomizeGenerator) generateKustomization(dirPath string) (string, error) {
 	fs, err := securefs.MakeFsOnDiskSecure(kg.root)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Determine if there already is a Kustomization file at the root,
 	// as this means we do not have to generate one.
 	for _, kfilename := range konfig.RecognizedKustomizationFileNames() {
 		if kpath := filepath.Join(dirPath, kfilename); fs.Exists(kpath) && !fs.IsDir(kpath) {
-			return nil
+			return kpath, nil
 		}
 	}
 
@@ -188,21 +187,21 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 
 	abs, err := filepath.Abs(dirPath)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	files, err := scan(abs)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	kfile := filepath.Join(dirPath, konfig.DefaultKustomizationFileName())
 	f, err := fs.Create(kfile)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err = f.Close(); err != nil {
-		return err
+		return "", err
 	}
 
 	kus := kustypes.Kustomization{
@@ -220,10 +219,10 @@ func (kg *KustomizeGenerator) generateKustomization(dirPath string) error {
 	kus.Resources = resources
 	kd, err := yaml.Marshal(kus)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return os.WriteFile(kfile, kd, os.ModePerm)
+	return kfile, os.WriteFile(kfile, kd, os.ModePerm)
 }
 
 func adaptSelector(selector *kustomize.Selector) (output *kustypes.Selector) {
