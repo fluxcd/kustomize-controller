@@ -59,6 +59,7 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+	"github.com/fluxcd/kustomize-controller/internal/decryptor"
 )
 
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
@@ -597,7 +598,7 @@ func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomizati
 }
 
 func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kustomization kustomizev1.Kustomization, dirPath string) ([]byte, error) {
-	dec, cleanup, err := NewTempDecryptor(workDir, r.Client, kustomization)
+	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, kustomization)
 	if err != nil {
 		return nil, err
 	}
@@ -728,7 +729,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	resultSet := ssa.NewChangeSet()
 
 	for _, u := range objects {
-		if IsEncryptedSecret(u) {
+		if decryptor.IsEncryptedSecret(u) {
 			return false, nil,
 				fmt.Errorf("%s is SOPS encrypted, configuring decryption is required for this secret to be reconciled",
 					ssa.FmtUnstructured(u))
