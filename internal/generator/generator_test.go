@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package generator
 
 import (
 	"os"
@@ -30,43 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func Test_secureBuildKustomization(t *testing.T) {
-	t.Run("remote build", func(t *testing.T) {
-		g := NewWithT(t)
-
-		_, err := secureBuildKustomization("testdata/remote", "testdata/remote", true)
-		g.Expect(err).ToNot(HaveOccurred())
-	})
-
-	t.Run("no remote build", func(t *testing.T) {
-		g := NewWithT(t)
-
-		_, err := secureBuildKustomization("testdata/remote", "testdata/remote", false)
-		g.Expect(err).To(HaveOccurred())
-	})
-}
-
-func Test_secureBuildKustomization_panic(t *testing.T) {
-	t.Run("build panic", func(t *testing.T) {
-		g := NewWithT(t)
-
-		_, err := secureBuildKustomization("testdata/panic", "testdata/panic", false)
-		g.Expect(err).To(HaveOccurred())
-		g.Expect(err.Error()).To(ContainSubstring("recovered from kustomize build panic"))
-		// Run again to ensure the lock is released
-		_, err = secureBuildKustomization("testdata/panic", "testdata/panic", false)
-		g.Expect(err).To(HaveOccurred())
-	})
-}
-
-func Test_secureBuildKustomization_rel_basedir(t *testing.T) {
-	g := NewWithT(t)
-
-	_, err := secureBuildKustomization("testdata/relbase", "testdata/relbase/clusters/staging/flux-system", false)
-	g.Expect(err).ToNot(HaveOccurred())
-}
-
-func TestGeneratorWriteFile(t *testing.T) {
+func TestGenerator_WriteFile(t *testing.T) {
 	tests := []struct {
 		name string
 		dir  string

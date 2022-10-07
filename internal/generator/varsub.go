@@ -1,4 +1,20 @@
-package controllers
+/*
+Copyright 2021 The Flux authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package generator
 
 import (
 	"context"
@@ -21,10 +37,10 @@ import (
 // the var names before substitution
 const varsubRegex = "^[_[:alpha:]][_[:alpha:][:digit:]]*$"
 
-// substituteVariables replaces the vars with their values in the specified resource.
+// SubstituteVariables replaces the vars with their values in the specified resource.
 // If a resource is labeled or annotated with
 // 'kustomize.toolkit.fluxcd.io/substitute: disabled' the substitution is skipped.
-func substituteVariables(
+func SubstituteVariables(
 	ctx context.Context,
 	kubeClient client.Client,
 	kustomization kustomizev1.Kustomization,
