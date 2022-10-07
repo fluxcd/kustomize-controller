@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package decryptor
 
 import (
 	"bytes"
@@ -105,11 +105,11 @@ var (
 	}
 )
 
-// KustomizeDecryptor performs decryption operations for a
+// Decryptor performs decryption operations for a
 // v1beta2.Kustomization.
 // The only supported decryption provider at present is
 // DecryptionProviderSOPS.
-type KustomizeDecryptor struct {
+type Decryptor struct {
 	// root is the root for file system operations. Any (relative) path or
 	// symlink is not allowed to traverse outside this path.
 	root string
@@ -152,10 +152,10 @@ type KustomizeDecryptor struct {
 	localServiceOnce sync.Once
 }
 
-// NewDecryptor creates a new KustomizeDecryptor for the given kustomization.
+// NewDecryptor creates a new Decryptor for the given kustomization.
 // gnuPGHome can be empty, in which case the systems' keyring is used.
-func NewDecryptor(root string, client client.Client, kustomization kustomizev1.Kustomization, maxFileSize int64, gnuPGHome string) *KustomizeDecryptor {
-	return &KustomizeDecryptor{
+func NewDecryptor(root string, client client.Client, kustomization kustomizev1.Kustomization, maxFileSize int64, gnuPGHome string) *Decryptor {
+	return &Decryptor{
 		root:          root,
 		client:        client,
 		kustomization: kustomization,
@@ -164,9 +164,9 @@ func NewDecryptor(root string, client client.Client, kustomization kustomizev1.K
 	}
 }
 
-// NewTempDecryptor creates a new KustomizeDecryptor, with a temporary GnuPG
-// home directory to KustomizeDecryptor.ImportKeys() into.
-func NewTempDecryptor(root string, client client.Client, kustomization kustomizev1.Kustomization) (*KustomizeDecryptor, func(), error) {
+// NewTempDecryptor creates a new Decryptor, with a temporary GnuPG
+// home directory to Decryptor.ImportKeys() into.
+func NewTempDecryptor(root string, client client.Client, kustomization kustomizev1.Kustomization) (*Decryptor, func(), error) {
 	gnuPGHome, err := pgp.NewGnuPGHome()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot create decryptor: %w", err)
@@ -192,9 +192,9 @@ func IsEncryptedSecret(object *unstructured.Unstructured) bool {
 // imports fails.
 // Imports do not have an effect after the first call to SopsDecryptWithFormat(),
 // which initializes and caches SOPS' (local) key service server.
-// For the import of PGP keys, the KustomizeDecryptor must be configured with
+// For the import of PGP keys, the Decryptor must be configured with
 // an absolute GnuPG home directory path.
-func (d *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
+func (d *Decryptor) ImportKeys(ctx context.Context) error {
 	if d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.SecretRef == nil {
 		return nil
 	}
@@ -264,7 +264,7 @@ func (d *KustomizeDecryptor) ImportKeys(ctx context.Context) error {
 // for the input format, gathers the data key for it from the key service,
 // and then decrypts the file data with the retrieved data key.
 // It returns the decrypted bytes in the provided output format, or an error.
-func (d *KustomizeDecryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat formats.Format) (_ []byte, err error) {
+func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat formats.Format) (_ []byte, err error) {
 	defer func() {
 		// It was discovered that malicious input and/or output instructions can
 		// make SOPS panic. Recover from this panic and return as an error.
@@ -336,7 +336,7 @@ func (d *KustomizeDecryptor) SopsDecryptWithFormat(data []byte, inputFormat, out
 // It has special support for Kubernetes Secrets with encrypted data entries
 // while decrypting with DecryptionProviderSOPS, to allow individual data entries
 // injected by e.g. a Kustomize secret generator to be decrypted
-func (d *KustomizeDecryptor) DecryptResource(res *resource.Resource) (*resource.Resource, error) {
+func (d *Decryptor) DecryptResource(res *resource.Resource) (*resource.Resource, error) {
 	if res == nil || d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.Provider == "" {
 		return nil, nil
 	}
@@ -400,7 +400,7 @@ func (d *KustomizeDecryptor) DecryptResource(res *resource.Resource) (*resource.
 // It ignores resource references which refer to absolute or relative paths
 // outside the working directory of the decryptor, but returns any decryption
 // error.
-func (d *KustomizeDecryptor) DecryptEnvSources(path string) error {
+func (d *Decryptor) DecryptEnvSources(path string) error {
 	if d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.Provider != DecryptionProviderSOPS {
 		return nil
 	}
@@ -415,7 +415,7 @@ func (d *KustomizeDecryptor) DecryptEnvSources(path string) error {
 // file with which it is called.
 // After decrypting successfully, it adds the absolute path of the file to the
 // given map.
-func (d *KustomizeDecryptor) decryptKustomizationEnvSources(visited map[string]struct{}) visitKustomization {
+func (d *Decryptor) decryptKustomizationEnvSources(visited map[string]struct{}) visitKustomization {
 	return func(root, path string, kus *kustypes.Kustomization) error {
 		visitRef := func(sourcePath string, format formats.Format) error {
 			if !filepath.IsAbs(sourcePath) {
@@ -477,7 +477,7 @@ func (d *KustomizeDecryptor) decryptKustomizationEnvSources(visited map[string]s
 // NB: The method only does the simple checks described above and does not
 // verify whether the path provided is inside the working directory. Boundary
 // enforcement is expected to have been done by the caller.
-func (d *KustomizeDecryptor) sopsDecryptFile(path string, inputFormat, outputFormat formats.Format) error {
+func (d *Decryptor) sopsDecryptFile(path string, inputFormat, outputFormat formats.Format) error {
 	fi, err := os.Lstat(path)
 	if err != nil {
 		return err
@@ -515,7 +515,7 @@ func (d *KustomizeDecryptor) sopsDecryptFile(path string, inputFormat, outputFor
 // for the input format, gathers the data key for it from the key service,
 // and then encrypt the file data with the retrieved data key.
 // It returns the encrypted bytes in the provided output format, or an error.
-func (d *KustomizeDecryptor) sopsEncryptWithFormat(metadata sops.Metadata, data []byte, inputFormat, outputFormat formats.Format) ([]byte, error) {
+func (d *Decryptor) sopsEncryptWithFormat(metadata sops.Metadata, data []byte, inputFormat, outputFormat formats.Format) ([]byte, error) {
 	store := common.StoreForFormat(inputFormat)
 
 	branches, err := store.LoadPlainFile(data)
@@ -554,7 +554,7 @@ func (d *KustomizeDecryptor) sopsEncryptWithFormat(metadata sops.Metadata, data 
 // keyServiceServer returns the SOPS (local) key service clients used to serve
 // decryption requests. loadKeyServiceServers() is only configured on the first
 // call.
-func (d *KustomizeDecryptor) keyServiceServer() []keyservice.KeyServiceClient {
+func (d *Decryptor) keyServiceServer() []keyservice.KeyServiceClient {
 	d.localServiceOnce.Do(func() {
 		d.loadKeyServiceServers()
 	})
@@ -562,9 +562,9 @@ func (d *KustomizeDecryptor) keyServiceServer() []keyservice.KeyServiceClient {
 }
 
 // loadKeyServiceServers loads the SOPS (local) key service clients used to
-// serve decryption requests for the current set of KustomizeDecryptor
+// serve decryption requests for the current set of Decryptor
 // credentials.
-func (d *KustomizeDecryptor) loadKeyServiceServers() {
+func (d *Decryptor) loadKeyServiceServers() {
 	serverOpts := []intkeyservice.ServerOption{
 		intkeyservice.WithGnuPGHome(d.gnuPGHome),
 		intkeyservice.WithVaultToken(d.vaultToken),
