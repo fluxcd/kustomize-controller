@@ -119,7 +119,7 @@ spec:
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
-			KubeConfig: &kustomizev1.KubeConfig{
+			KubeConfig: &meta.KubeConfigReference{
 				SecretRef: meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},

@@ -288,12 +288,12 @@ github.com/fluxcd/pkg/apis/acl v0.1.0 h1:EoAl377hDQYL3WqanWCdifauXqXbMyFuK82NnX6
 github.com/fluxcd/pkg/apis/acl v0.1.0/go.mod h1:zfEZzz169Oap034EsDhmCAGgnWlcWmIObZjYMusoXS8=
 github.com/fluxcd/pkg/apis/kustomize v0.6.0 h1:Afxv3Uv+xiuettzqm3sP0ceWikDZTfHdHtLv6u2nFM8=
 github.com/fluxcd/pkg/apis/kustomize v0.6.0/go.mod h1:iY0zSpK6eUiPfNt/yR6g0q/wQP+wH+Ax/L7KBOx5x2M=
-github.com/fluxcd/pkg/apis/meta v0.16.0 h1:6Mj9rB0TtvCeTe3IlQDc1i2DH75Oosea9yUqS7XafVg=
-github.com/fluxcd/pkg/apis/meta v0.16.0/go.mod h1:GrOVzWXiu22XjLNgLLe2EBYhQPqZetes5SIADb4bmHE=
+github.com/fluxcd/pkg/apis/meta v0.17.0 h1:Y2dfo1syHZDb9Mexjr2SWdcj1FnxnRXm015hEnhl6wU=
+github.com/fluxcd/pkg/apis/meta v0.17.0/go.mod h1:GrOVzWXiu22XjLNgLLe2EBYhQPqZetes5SIADb4bmHE=
 github.com/fluxcd/pkg/kustomize v0.8.0 h1:8AdEvp6y38ISZzoi0H82Si5zkmLXClbeX10W7HevB00=
 github.com/fluxcd/pkg/kustomize v0.8.0/go.mod h1:zGtCZF6V3hMWcf46SqrQc10fS9yUlKzi2UcFUeabDAE=
-github.com/fluxcd/pkg/runtime v0.19.0 h1:4lRlnZfJFhWvuaNWgNsAkPQg09633xCRCf9d0SgXIWk=
-github.com/fluxcd/pkg/runtime v0.19.0/go.mod h1:9Kh46LjwQeUu6o1DUQulLGyo5e5wfQxeFf4ONNobT3U=
+github.com/fluxcd/pkg/runtime v0.20.0 h1:F9q9wap0BhjQszboUroJrYOB1C831zkQwTAk2tlMIQc=
+github.com/fluxcd/pkg/runtime v0.20.0/go.mod h1:KVHNQMhccuLTjMDFVCr/SF+4Z554bcMH1LncC4sQf8o=
 github.com/fluxcd/pkg/ssa v0.21.0 h1:aeoTohPNf5x7jQjHidyLJAOHw3EyHOQoQN3mN2i+4cc=
 github.com/fluxcd/pkg/ssa v0.21.0/go.mod h1:jumyhUbEMDnduN7anSlKfxl2fEoyeyv+Ta5hWCbxI5Q=
 github.com/fluxcd/pkg/testserver v0.3.0 h1:oyZW6YWHVZR7FRVNu7lN9F5H808TD2jCzBm8CenFoi0=
@@ -1415,8 +1415,9 @@ k8s.io/apiextensions-apiserver v0.25.2/go.mod h1:iRwwRDlWPfaHhuBfQ0WMa5skdQfrE18
 k8s.io/apimachinery v0.24.0/go.mod h1:82Bi4sCzVBdpYjyI4jY6aHX+YCUchUIrZrXKedjd2UM=
 k8s.io/apimachinery v0.25.2 h1:WbxfAjCx+AeN8Ilp9joWnyJ6xu9OMeS/fsfjK/5zaQs=
 k8s.io/apimachinery v0.25.2/go.mod h1:hqqA1X0bsgsxI6dXsJ4HnNTBOmJNxyPp8dw3u2fSHwA=
-k8s.io/cli-runtime v0.24.0 h1:ot3Qf49T852uEyNApABO1UHHpFIckKK/NqpheZYN2gM=
 k8s.io/cli-runtime v0.24.0/go.mod h1:9XxoZDsEkRFUThnwqNviqzljtT/LdHtNWvcNFrAXl0A=
+k8s.io/cli-runtime v0.25.2 h1:XOx+SKRjBpYMLY/J292BHTkmyDffl/qOx3YSuFZkTuc=
+k8s.io/cli-runtime v0.25.2/go.mod h1:OQx3+/0st6x5YpkkJQlEWLC73V0wHsOFMC1/roxV8Oc=
 k8s.io/client-go v0.24.0/go.mod h1:VFPQET+cAFpYxh6Bq6f4xyMY80G6jKKktU6G0m00VDw=
 k8s.io/client-go v0.25.2 h1:SUPp9p5CwM0yXGQrwYurw9LWz+YtMwhWd0GqOsSiefo=
 k8s.io/client-go v0.25.2/go.mod h1:i7cNU7N+yGQmJkewcRD2+Vuj4iz7b30kI8OcL3horQ4=

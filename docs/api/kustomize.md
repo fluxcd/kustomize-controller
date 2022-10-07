@@ -131,8 +131,8 @@ value to retry failures.</p>
 <td>
 <code>kubeConfig</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KubeConfig">
-KubeConfig
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#KubeConfigReference">
+github.com/fluxcd/pkg/apis/meta.KubeConfigReference
 </a>
 </em>
 </td>
@@ -500,48 +500,6 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.KubeConfig">KubeConfig
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec</a>)
-</p>
-<p>KubeConfig references a Kubernetes secret that contains a kubeconfig file.</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>secretRef</code><br>
-<em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#SecretKeyReference">
-github.com/fluxcd/pkg/apis/meta.SecretKeyReference
-</a>
-</em>
-</td>
-<td>
-<p>SecretRef holds the name of a secret that contains a key with
-the kubeconfig file as the value. If no key is set, the key will default
-to &lsquo;value&rsquo;. The secret must be in the same namespace as
-the Kustomization.
-It is recommended that the kubeconfig is self-contained, and the secret
-is regularly updated if credentials such as a cloud-access-token expire.
-Cloud specific <code>cmd-path</code> auth helpers will not function without adding
-binaries and credentials to the Pod that is responsible for reconciling
-the Kustomization.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
 <h3 id="kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec
 </h3>
 <p>
@@ -622,8 +580,8 @@ value to retry failures.</p>
 <td>
 <code>kubeConfig</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KubeConfig">
-KubeConfig
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#KubeConfigReference">
+github.com/fluxcd/pkg/apis/meta.KubeConfigReference
 </a>
 </em>
 </td>

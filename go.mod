@@ -23,9 +23,9 @@ require (
 	github.com/fluxcd/kustomize-controller/api v0.29.0
 	github.com/fluxcd/pkg/apis/acl v0.1.0
 	github.com/fluxcd/pkg/apis/kustomize v0.6.0
-	github.com/fluxcd/pkg/apis/meta v0.16.0
+	github.com/fluxcd/pkg/apis/meta v0.17.0
 	github.com/fluxcd/pkg/kustomize v0.8.0
-	github.com/fluxcd/pkg/runtime v0.19.0
+	github.com/fluxcd/pkg/runtime v0.20.0
 	github.com/fluxcd/pkg/ssa v0.21.0
 	github.com/fluxcd/pkg/testserver v0.3.0
 	github.com/fluxcd/pkg/untar v0.2.0
@@ -223,7 +223,7 @@ require (
 	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/cli-runtime v0.24.0 // indirect
+	k8s.io/cli-runtime v0.25.2 // indirect
 	k8s.io/component-base v0.25.2 // indirect
 	k8s.io/klog/v2 v2.80.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect

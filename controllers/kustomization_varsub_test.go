@@ -119,7 +119,7 @@ stringData:
 			Namespace: id,
 		},
 		Spec: kustomizev1.KustomizationSpec{
-			KubeConfig: &kustomizev1.KubeConfig{
+			KubeConfig: &meta.KubeConfigReference{
 				SecretRef: meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
@@ -268,7 +268,7 @@ metadata:
 			Namespace: id,
 		},
 		Spec: kustomizev1.KustomizationSpec{
-			KubeConfig: &kustomizev1.KubeConfig{
+			KubeConfig: &meta.KubeConfigReference{
 				SecretRef: meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
