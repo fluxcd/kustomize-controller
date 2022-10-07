@@ -60,6 +60,7 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/kustomize-controller/internal/decryptor"
+	"github.com/fluxcd/kustomize-controller/internal/generator"
 )
 
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
@@ -593,7 +594,7 @@ func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization k
 }
 
 func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, workDir string, dirPath string) error {
-	_, err := NewGenerator(workDir, kustomization).WriteFile(dirPath)
+	_, err := generator.NewGenerator(workDir, kustomization).WriteFile(dirPath)
 	return err
 }
 
@@ -614,7 +615,7 @@ func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kus
 		return nil, fmt.Errorf("error decrypting env sources: %w", err)
 	}
 
-	m, err := secureBuildKustomization(workDir, dirPath, !r.NoRemoteBases)
+	m, err := generator.Build(workDir, dirPath, !r.NoRemoteBases)
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
@@ -642,7 +643,7 @@ func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kus
 
 		// run variable substitutions
 		if kustomization.Spec.PostBuild != nil {
-			outRes, err := substituteVariables(ctx, r.Client, kustomization, res)
+			outRes, err := generator.SubstituteVariables(ctx, r.Client, kustomization, res)
 			if err != nil {
 				return nil, fmt.Errorf("var substitution failed for '%s': %w", res.GetName(), err)
 			}
