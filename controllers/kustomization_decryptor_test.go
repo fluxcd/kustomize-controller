@@ -125,7 +125,7 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
-			KubeConfig: &kustomizev1.KubeConfig{
+			KubeConfig: &meta.KubeConfigReference{
 				SecretRef: meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},

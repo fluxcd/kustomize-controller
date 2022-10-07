@@ -363,7 +363,16 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// setup the Kubernetes client for impersonation
-	impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount, r.KubeConfigOpts, r.PollingOpts)
+	impersonation := runtimeClient.NewImpersonator(
+		r.Client,
+		r.StatusPoller,
+		r.PollingOpts,
+		kustomization.Spec.KubeConfig,
+		r.KubeConfigOpts,
+		r.DefaultServiceAccount,
+		kustomization.Spec.ServiceAccountName,
+		kustomization.GetNamespace(),
+	)
 	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
@@ -923,8 +932,17 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 		kustomization.Status.Inventory.Entries != nil {
 		objects, _ := ListObjectsInInventory(kustomization.Status.Inventory)
 
-		impersonation := NewKustomizeImpersonation(kustomization, r.Client, r.StatusPoller, r.DefaultServiceAccount, r.KubeConfigOpts, r.PollingOpts)
-		if impersonation.CanFinalize(ctx) {
+		impersonation := runtimeClient.NewImpersonator(
+			r.Client,
+			r.StatusPoller,
+			r.PollingOpts,
+			kustomization.Spec.KubeConfig,
+			r.KubeConfigOpts,
+			r.DefaultServiceAccount,
+			kustomization.Spec.ServiceAccountName,
+			kustomization.GetNamespace(),
+		)
+		if impersonation.CanImpersonate(ctx) {
 			kubeClient, _, err := impersonation.GetClient(ctx)
 			if err != nil {
 				return ctrl.Result{}, err

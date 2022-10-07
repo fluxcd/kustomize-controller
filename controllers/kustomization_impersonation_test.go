@@ -91,7 +91,7 @@ data:
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: time.Minute},
 			Path:     "./",
-			KubeConfig: &kustomizev1.KubeConfig{
+			KubeConfig: &meta.KubeConfigReference{
 				SecretRef: meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
@@ -260,7 +260,7 @@ data:
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: time.Minute},
 			Path:     "./",
-			KubeConfig: &kustomizev1.KubeConfig{
+			KubeConfig: &meta.KubeConfigReference{
 				SecretRef: meta.SecretKeyReference{
 					Name: secretName,
 					Key:  secretKey,

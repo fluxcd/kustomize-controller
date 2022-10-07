@@ -3,8 +3,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fluxcd/pkg/apis/kustomize v0.6.0 h1:Afxv3Uv+xiuettzqm3sP0ceWikDZTfHdHtLv6u2nFM8=
 github.com/fluxcd/pkg/apis/kustomize v0.6.0/go.mod h1:iY0zSpK6eUiPfNt/yR6g0q/wQP+wH+Ax/L7KBOx5x2M=
-github.com/fluxcd/pkg/apis/meta v0.16.0 h1:6Mj9rB0TtvCeTe3IlQDc1i2DH75Oosea9yUqS7XafVg=
-github.com/fluxcd/pkg/apis/meta v0.16.0/go.mod h1:GrOVzWXiu22XjLNgLLe2EBYhQPqZetes5SIADb4bmHE=
+github.com/fluxcd/pkg/apis/meta v0.17.0 h1:Y2dfo1syHZDb9Mexjr2SWdcj1FnxnRXm015hEnhl6wU=
+github.com/fluxcd/pkg/apis/meta v0.17.0/go.mod h1:GrOVzWXiu22XjLNgLLe2EBYhQPqZetes5SIADb4bmHE=
 github.com/fsnotify/fsnotify v1.5.4 h1:jRbGcIw6P2Meqdwuo0H1p6JVLbL5DHKAKlYndzMwVZI=
 github.com/go-logr/logr v0.1.0/go.mod h1:ixOQHD9gLJUVQQ2ZOR7zLEifBX6tGkNJF4QyIY7sIas=
 github.com/go-logr/logr v1.2.0/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
