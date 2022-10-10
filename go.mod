@@ -24,15 +24,15 @@ require (
 	github.com/fluxcd/pkg/apis/acl v0.1.0
 	github.com/fluxcd/pkg/apis/kustomize v0.6.0
 	github.com/fluxcd/pkg/apis/meta v0.17.0
+	github.com/fluxcd/pkg/http/fetch v0.1.0
 	github.com/fluxcd/pkg/kustomize v0.8.0
 	github.com/fluxcd/pkg/runtime v0.20.0
 	github.com/fluxcd/pkg/ssa v0.21.0
-	github.com/fluxcd/pkg/testserver v0.3.0
-	github.com/fluxcd/pkg/untar v0.2.0
+	github.com/fluxcd/pkg/tar v0.1.0
+	github.com/fluxcd/pkg/testserver v0.4.0
 	github.com/fluxcd/source-controller/api v0.30.0
-	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/hashicorp/vault/api v1.8.0
-	github.com/onsi/gomega v1.20.2
+	github.com/onsi/gomega v1.21.1
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/otiai10/copy v1.7.0
 	github.com/spf13/pflag v1.0.5
@@ -150,6 +150,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.4.3 // indirect
+	github.com/hashicorp/go-retryablehttp v0.7.1 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/mlock v0.1.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.6 // indirect

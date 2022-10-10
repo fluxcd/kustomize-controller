@@ -50,12 +50,14 @@ import (
 
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/http/fetch"
 	"github.com/fluxcd/pkg/runtime/acl"
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/predicates"
 	"github.com/fluxcd/pkg/ssa"
+	"github.com/fluxcd/pkg/tar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
@@ -74,7 +76,7 @@ import (
 // KustomizationReconciler reconciles a Kustomization object
 type KustomizationReconciler struct {
 	client.Client
-	artifactFetcher       *ArtifactFetcher
+	artifactFetcher       *fetch.ArchiveFetcher
 	requeueDependency     time.Duration
 	Scheme                *runtime.Scheme
 	EventRecorder         kuberecorder.EventRecorder
@@ -124,7 +126,7 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 
 	r.requeueDependency = opts.DependencyRequeueInterval
 	r.statusManager = fmt.Sprintf("gotk-%s", r.ControllerName)
-	r.artifactFetcher = NewArtifactFetcher(opts.HTTPRetry)
+	r.artifactFetcher = fetch.NewArchiveFetcher(opts.HTTPRetry, tar.UnlimitedUntarSize, os.Getenv("SOURCE_CONTROLLER_LOCALHOST"))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
@@ -270,7 +272,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	reconciledKustomization, reconcileErr := r.reconcile(ctx, *kustomization.DeepCopy(), source)
 
 	// requeue if the artifact is not found
-	if reconcileErr == ArtifactNotFoundError {
+	if reconcileErr == fetch.FileNotFoundError {
 		msg := fmt.Sprintf("Source is not ready, artifact not found, retrying in %s", r.requeueDependency.String())
 		log.Info(msg)
 		if err := r.patchStatus(ctx, req, kustomizev1.KustomizationProgressing(kustomization, msg).Status); err != nil {
@@ -332,7 +334,7 @@ func (r *KustomizationReconciler) reconcile(
 	defer os.RemoveAll(tmpDir)
 
 	// download artifact and extract files
-	err = r.artifactFetcher.Fetch(source.GetArtifact(), tmpDir)
+	err = r.artifactFetcher.Fetch(source.GetArtifact().URL, source.GetArtifact().Checksum, tmpDir)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
