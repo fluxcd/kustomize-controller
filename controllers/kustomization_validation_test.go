@@ -43,11 +43,11 @@ func TestKustomizationReconciler_Validation(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
 
 	artifactName := "val-" + randStringRunes(5)
-	artifactChecksum, err := createArtifact(testServer, "testdata/invalid/plain", artifactName)
+	artifactChecksum, err := testServer.ArtifactFromDir("testdata/invalid/plain", artifactName)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	overlayArtifactName := "val-" + randStringRunes(5)
-	overlayChecksum, err := createArtifact(testServer, "testdata/invalid/overlay", overlayArtifactName)
+	overlayChecksum, err := testServer.ArtifactFromDir("testdata/invalid/overlay", overlayArtifactName)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{

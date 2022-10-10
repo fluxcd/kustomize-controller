@@ -66,11 +66,11 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
 
 	artifactName := "sops-" + randStringRunes(5)
-	artifactChecksum, err := createArtifact(testServer, "testdata/sops", artifactName)
+	artifactChecksum, err := testServer.ArtifactFromDir("testdata/sops", artifactName)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	overlayArtifactName := "sops-" + randStringRunes(5)
-	overlayChecksum, err := createArtifact(testServer, "testdata/test-dotenv", overlayArtifactName)
+	overlayChecksum, err := testServer.ArtifactFromDir("testdata/test-dotenv", overlayArtifactName)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
