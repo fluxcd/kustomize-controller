@@ -63,6 +63,7 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/kustomize-controller/internal/decryptor"
 	"github.com/fluxcd/kustomize-controller/internal/generator"
+	"github.com/fluxcd/kustomize-controller/internal/inventory"
 )
 
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
@@ -440,8 +441,8 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// create an inventory of objects to be reconciled
-	newInventory := NewInventory()
-	err = AddObjectsToInventory(newInventory, changeSet)
+	newInventory := inventory.New()
+	err = inventory.AddChangeSet(newInventory, changeSet)
 	if err != nil {
 		return kustomizev1.KustomizationNotReady(
 			kustomization,
@@ -454,7 +455,7 @@ func (r *KustomizationReconciler) reconcile(
 	// detect stale objects which are subject to garbage collection
 	var staleObjects []*unstructured.Unstructured
 	if oldStatus.Inventory != nil {
-		diffObjects, err := DiffInventory(oldStatus.Inventory, newInventory)
+		diffObjects, err := inventory.Diff(oldStatus.Inventory, newInventory)
 		if err != nil {
 			return kustomizev1.KustomizationNotReady(
 				kustomization,
@@ -467,7 +468,7 @@ func (r *KustomizationReconciler) reconcile(
 		// TODO: remove this workaround after kustomize-controller 0.18 release
 		// skip objects that were wrongly marked as namespaced
 		// https://github.com/fluxcd/kustomize-controller/issues/466
-		newObjects, _ := ListObjectsInInventory(newInventory)
+		newObjects, _ := inventory.List(newInventory)
 		for _, obj := range diffObjects {
 			preserve := false
 			if obj.GetNamespace() != "" {
@@ -846,7 +847,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.
 	checkStart := time.Now()
 	var err error
 	if !kustomization.Spec.Wait {
-		objects, err = referenceToObjMetadataSet(kustomization.Spec.HealthChecks)
+		objects, err = inventory.ReferenceToObjMetadataSet(kustomization.Spec.HealthChecks)
 		if err != nil {
 			return err
 		}
@@ -932,7 +933,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 		!kustomization.Spec.Suspend &&
 		kustomization.Status.Inventory != nil &&
 		kustomization.Status.Inventory.Entries != nil {
-		objects, _ := ListObjectsInInventory(kustomization.Status.Inventory)
+		objects, _ := inventory.List(kustomization.Status.Inventory)
 
 		impersonation := runtimeClient.NewImpersonator(
 			r.Client,

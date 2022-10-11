@@ -14,28 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package inventory
 
 import (
 	"sort"
 
-	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/ssa"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/object"
 
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/ssa"
+
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
 
-func NewInventory() *kustomizev1.ResourceInventory {
+func New() *kustomizev1.ResourceInventory {
 	return &kustomizev1.ResourceInventory{
 		Entries: []kustomizev1.ResourceRef{},
 	}
 }
 
-// AddObjectsToInventory extracts the metadata from the given objects and adds it to the inventory.
-func AddObjectsToInventory(inv *kustomizev1.ResourceInventory, set *ssa.ChangeSet) error {
+// AddChangeSet extracts the metadata from the given objects and adds it to the inventory.
+func AddChangeSet(inv *kustomizev1.ResourceInventory, set *ssa.ChangeSet) error {
 	if set == nil {
 		return nil
 	}
@@ -50,8 +51,8 @@ func AddObjectsToInventory(inv *kustomizev1.ResourceInventory, set *ssa.ChangeSe
 	return nil
 }
 
-// ListObjectsInInventory returns the inventory entries as unstructured.Unstructured objects.
-func ListObjectsInInventory(inv *kustomizev1.ResourceInventory) ([]*unstructured.Unstructured, error) {
+// List returns the inventory entries as unstructured.Unstructured objects.
+func List(inv *kustomizev1.ResourceInventory) ([]*unstructured.Unstructured, error) {
 	objects := make([]*unstructured.Unstructured, 0)
 
 	if inv.Entries == nil {
@@ -79,8 +80,8 @@ func ListObjectsInInventory(inv *kustomizev1.ResourceInventory) ([]*unstructured
 	return objects, nil
 }
 
-// ListMetaInInventory returns the inventory entries as object.ObjMetadata objects.
-func ListMetaInInventory(inv *kustomizev1.ResourceInventory) (object.ObjMetadataSet, error) {
+// ListMetadata returns the inventory entries as object.ObjMetadata objects.
+func ListMetadata(inv *kustomizev1.ResourceInventory) (object.ObjMetadataSet, error) {
 	var metas []object.ObjMetadata
 	for _, e := range inv.Entries {
 		m, err := object.ParseObjMetadata(e.ID)
@@ -93,8 +94,8 @@ func ListMetaInInventory(inv *kustomizev1.ResourceInventory) (object.ObjMetadata
 	return metas, nil
 }
 
-// DiffInventory returns the slice of objects that do not exist in the target inventory.
-func DiffInventory(inv *kustomizev1.ResourceInventory, target *kustomizev1.ResourceInventory) ([]*unstructured.Unstructured, error) {
+// Diff returns the slice of objects that do not exist in the target inventory.
+func Diff(inv *kustomizev1.ResourceInventory, target *kustomizev1.ResourceInventory) ([]*unstructured.Unstructured, error) {
 	versionOf := func(i *kustomizev1.ResourceInventory, objMetadata object.ObjMetadata) string {
 		for _, entry := range i.Entries {
 			if entry.ID == objMetadata.String() {
@@ -105,12 +106,12 @@ func DiffInventory(inv *kustomizev1.ResourceInventory, target *kustomizev1.Resou
 	}
 
 	objects := make([]*unstructured.Unstructured, 0)
-	aList, err := ListMetaInInventory(inv)
+	aList, err := ListMetadata(inv)
 	if err != nil {
 		return nil, err
 	}
 
-	bList, err := ListMetaInInventory(target)
+	bList, err := ListMetadata(target)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +137,8 @@ func DiffInventory(inv *kustomizev1.ResourceInventory, target *kustomizev1.Resou
 	return objects, nil
 }
 
-func referenceToObjMetadataSet(cr []meta.NamespacedObjectKindReference) (object.ObjMetadataSet, error) {
+// ReferenceToObjMetadataSet transforms a NamespacedObjectKindReference to an ObjMetadataSet.
+func ReferenceToObjMetadataSet(cr []meta.NamespacedObjectKindReference) (object.ObjMetadataSet, error) {
 	var objects []object.ObjMetadata
 
 	for _, c := range cr {
