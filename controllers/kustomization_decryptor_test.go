@@ -218,7 +218,7 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			return resultK.Status.LastAttemptedRevision == revision
+			return resultK.Status.LastAppliedRevision == revision
 		}, timeout, time.Second).Should(BeTrue())
 
 		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})

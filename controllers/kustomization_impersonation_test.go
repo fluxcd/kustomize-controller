@@ -130,10 +130,9 @@ data:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			readyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
-			return apimeta.IsStatusConditionFalse(resultK.Status.Conditions, meta.ReadyCondition)
+			return readyCondition.Reason == kustomizev1.ReconciliationFailedReason
 		}, timeout, time.Second).Should(BeTrue())
 
-		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationFailedReason))
 		g.Expect(readyCondition.Message).To(ContainSubstring("system:serviceaccount:%s:default", id))
 	})
 

@@ -22,19 +22,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	. "github.com/onsi/gomega"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/conditions"
+	"github.com/fluxcd/pkg/testserver"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
+
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
 
-func TestKustomizationReconciler_HealthCheck(t *testing.T) {
+func TestKustomizationReconciler_WaitConditions(t *testing.T) {
 	g := NewWithT(t)
 	id := "wait-" + randStringRunes(5)
 	revision := "v1.0.0"
@@ -124,10 +125,11 @@ parameters:
 	t.Run("reports healthy status", func(t *testing.T) {
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			ready := apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.ReadyCondition)
-			healthy := apimeta.IsStatusConditionTrue(resultK.Status.Conditions, kustomizev1.HealthyCondition)
-			return ready && healthy
-		}, timeout, time.Second).Should(BeTrue())
+			return isReconcileSuccess(resultK)
+		}, time.Second, time.Second).Should(BeTrue())
+		logStatus(t, resultK)
+
+		g.Expect(resultK.Status.ObservedGeneration).To(BeIdenticalTo(resultK.Generation))
 	})
 
 	t.Run("reports unhealthy status", func(t *testing.T) {
@@ -149,32 +151,39 @@ parameters:
 			return k8sClient.Update(context.Background(), resultK)
 		}, timeout, time.Second).Should(BeNil())
 
-		readyCondition := &metav1.Condition{}
-		healthyCondition := &metav1.Condition{}
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			readyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
-			healthyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, kustomizev1.HealthyCondition)
-			return healthyCondition.Reason == meta.ProgressingReason
+			return conditions.IsReconciling(resultK)
 		}, timeout, time.Second).Should(BeTrue())
+		logStatus(t, resultK)
 
-		expectedMessage := "running health checks"
-		g.Expect(readyCondition.Status).To(BeIdenticalTo(metav1.ConditionUnknown))
-		g.Expect(readyCondition.Message).To(ContainSubstring(expectedMessage))
-		g.Expect(healthyCondition.Status).To(BeIdenticalTo(metav1.ConditionUnknown))
-		g.Expect(healthyCondition.Message).To(ContainSubstring(expectedMessage))
+		expectedMessage := "Running health checks"
+		g.Expect(conditions.IsUnknown(resultK, kustomizev1.HealthyCondition)).To(BeTrue())
+		g.Expect(conditions.IsTrue(resultK, meta.ReadyCondition)).To(BeTrue())
+
+		for _, c := range []string{meta.ReconcilingCondition, kustomizev1.HealthyCondition} {
+			g.Expect(conditions.GetReason(resultK, c)).To(BeIdenticalTo(meta.ProgressingReason))
+			g.Expect(conditions.GetMessage(resultK, c)).To(ContainSubstring(expectedMessage))
+			g.Expect(conditions.GetObservedGeneration(resultK, c)).To(BeIdenticalTo(resultK.Generation))
+		}
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			readyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
-			healthyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, kustomizev1.HealthyCondition)
-			return healthyCondition.Reason == kustomizev1.HealthCheckFailedReason
-		}, time.Minute, time.Second).Should(BeTrue())
+			return isReconcileFailure(resultK)
+		}, timeout, time.Second).Should(BeTrue())
+		logStatus(t, resultK)
+
+		for _, c := range []string{kustomizev1.HealthyCondition, meta.ReadyCondition} {
+			g.Expect(conditions.IsFalse(resultK, c)).To(BeTrue())
+			g.Expect(conditions.GetReason(resultK, c)).To(BeIdenticalTo(kustomizev1.HealthCheckFailedReason))
+			g.Expect(conditions.GetObservedGeneration(resultK, c)).To(BeIdenticalTo(resultK.Generation))
+		}
+
+		g.Expect(conditions.GetReason(resultK, meta.ReconcilingCondition)).To(BeIdenticalTo(meta.ProgressingReason))
+		g.Expect(conditions.GetMessage(resultK, meta.ReconcilingCondition)).To(ContainSubstring(expectedMessage))
 
 		g.Expect(resultK.Status.LastHandledReconcileAt).To(BeIdenticalTo(reconcileRequestAt))
-		g.Expect(readyCondition.Status).To(BeIdenticalTo(metav1.ConditionFalse))
-		g.Expect(healthyCondition.Status).To(BeIdenticalTo(metav1.ConditionFalse))
-		g.Expect(healthyCondition.Message).To(BeIdenticalTo(kustomizev1.HealthCheckFailedReason))
+		g.Expect(resultK.Status.ObservedGeneration).To(BeIdenticalTo(resultK.Generation - 1))
 	})
 
 	t.Run("emits unhealthy event", func(t *testing.T) {
@@ -193,10 +202,22 @@ parameters:
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			ready := apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.ReadyCondition)
-			healthy := apimeta.IsStatusConditionTrue(resultK.Status.Conditions, kustomizev1.HealthyCondition)
-			return ready && healthy
+			return isReconcileSuccess(resultK)
 		}, timeout, time.Second).Should(BeTrue())
+		logStatus(t, resultK)
+
+		expectedMessage := "Health check passed"
+		g.Expect(conditions.IsTrue(resultK, kustomizev1.HealthyCondition)).To(BeTrue())
+		g.Expect(conditions.GetReason(resultK, kustomizev1.HealthyCondition)).To(BeIdenticalTo(meta.SucceededReason))
+		g.Expect(conditions.GetObservedGeneration(resultK, kustomizev1.HealthyCondition)).To(BeIdenticalTo(resultK.Generation))
+		g.Expect(conditions.GetMessage(resultK, kustomizev1.HealthyCondition)).To(ContainSubstring(expectedMessage))
+
+		g.Expect(conditions.IsTrue(resultK, meta.ReadyCondition)).To(BeTrue())
+		g.Expect(conditions.GetReason(resultK, meta.ReadyCondition)).To(BeIdenticalTo(kustomizev1.ReconciliationSucceededReason))
+		g.Expect(conditions.GetObservedGeneration(resultK, meta.ReadyCondition)).To(BeIdenticalTo(resultK.Generation))
+		g.Expect(conditions.GetMessage(resultK, meta.ReadyCondition)).To(BeIdenticalTo(fmt.Sprintf("Applied revision: %s", revision)))
+
+		g.Expect(resultK.Status.ObservedGeneration).To(BeIdenticalTo(resultK.Generation))
 	})
 
 	t.Run("emits recovery event", func(t *testing.T) {

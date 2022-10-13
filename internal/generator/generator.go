@@ -36,10 +36,10 @@ import (
 
 type KustomizeGenerator struct {
 	root          string
-	kustomization kustomizev1.Kustomization
+	kustomization *kustomizev1.Kustomization
 }
 
-func NewGenerator(root string, kustomization kustomizev1.Kustomization) *KustomizeGenerator {
+func NewGenerator(root string, kustomization *kustomizev1.Kustomization) *KustomizeGenerator {
 	return &KustomizeGenerator{
 		root:          root,
 		kustomization: kustomization,

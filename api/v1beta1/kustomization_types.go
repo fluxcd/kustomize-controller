@@ -20,8 +20,6 @@ import (
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -229,78 +227,6 @@ type KustomizationStatus struct {
 	// The last successfully applied revision metadata.
 	// +optional
 	Snapshot *Snapshot `json:"snapshot,omitempty"`
-}
-
-// KustomizationProgressing resets the conditions of the given Kustomization to a single
-// ReadyCondition with status ConditionUnknown.
-func KustomizationProgressing(k Kustomization) Kustomization {
-	newCondition := metav1.Condition{
-		Type:    meta.ReadyCondition,
-		Status:  metav1.ConditionUnknown,
-		Reason:  meta.ProgressingReason,
-		Message: "reconciliation in progress",
-	}
-	apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
-	return k
-}
-
-// SetKustomizationHealthiness sets the HealthyCondition status for a Kustomization.
-func SetKustomizationHealthiness(k *Kustomization, status metav1.ConditionStatus, reason, message string) {
-	switch len(k.Spec.HealthChecks) {
-	case 0:
-		apimeta.RemoveStatusCondition(k.GetStatusConditions(), HealthyCondition)
-	default:
-		newCondition := metav1.Condition{
-			Type:    HealthyCondition,
-			Status:  status,
-			Reason:  reason,
-			Message: trimString(message, MaxConditionMessageLength),
-		}
-		apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
-	}
-}
-
-// SetKustomizeReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision,
-// on the Kustomization.
-func SetKustomizationReadiness(k *Kustomization, status metav1.ConditionStatus, reason, message string, revision string) {
-	newCondition := metav1.Condition{
-		Type:    meta.ReadyCondition,
-		Status:  status,
-		Reason:  reason,
-		Message: trimString(message, MaxConditionMessageLength),
-	}
-	apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
-
-	k.Status.ObservedGeneration = k.Generation
-	k.Status.LastAttemptedRevision = revision
-}
-
-// KustomizationNotReady registers a failed apply attempt of the given Kustomization.
-func KustomizationNotReady(k Kustomization, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
-	if revision != "" {
-		k.Status.LastAttemptedRevision = revision
-	}
-	return k
-}
-
-// KustomizationNotReady registers a failed apply attempt of the given Kustomization,
-// including a Snapshot.
-func KustomizationNotReadySnapshot(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
-	SetKustomizationHealthiness(&k, metav1.ConditionFalse, reason, reason)
-	k.Status.Snapshot = snapshot
-	k.Status.LastAttemptedRevision = revision
-	return k
-}
-
-// KustomizationReady registers a successful apply attempt of the given Kustomization.
-func KustomizationReady(k Kustomization, snapshot *Snapshot, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision)
-	SetKustomizationHealthiness(&k, metav1.ConditionTrue, reason, reason)
-	k.Status.Snapshot = snapshot
-	k.Status.LastAppliedRevision = revision
-	return k
 }
 
 // GetTimeout returns the timeout with default.
