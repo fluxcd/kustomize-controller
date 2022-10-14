@@ -166,10 +166,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Initialize the patch helper with the current version of the object.
-	patcher, err := patch.NewHelper(obj, r.Client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	patcher := patch.NewSerialPatcher(obj, r.Client)
 
 	// Finalise the reconciliation and report the results.
 	defer func() {
@@ -308,7 +305,7 @@ func (r *KustomizationReconciler) reconcile(
 	ctx context.Context,
 	obj *kustomizev1.Kustomization,
 	src sourcev1.Source,
-	patcher *patch.Helper) error {
+	patcher *patch.SerialPatcher) error {
 
 	// Create a snapshot of the current inventory.
 	oldInventory := inventory.New()
@@ -789,7 +786,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 
 func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	manager *ssa.ResourceManager,
-	patcher *patch.Helper,
+	patcher *patch.SerialPatcher,
 	obj *kustomizev1.Kustomization,
 	revision string,
 	isNewRevision bool,
@@ -984,7 +981,7 @@ func (r *KustomizationReconciler) event(obj *kustomizev1.Kustomization,
 
 func (r *KustomizationReconciler) patch(ctx context.Context,
 	obj *kustomizev1.Kustomization,
-	patcher *patch.Helper) (retErr error) {
+	patcher *patch.SerialPatcher) (retErr error) {
 
 	// Configure the patch helper.
 	patchOpts := []patch.Option{}
@@ -1010,13 +1007,6 @@ func (r *KustomizationReconciler) patch(ctx context.Context,
 			return retErr
 		}
 	}
-
-	// We need to re-initiate the helper with the latest object for substantial patches to work.
-	newHelper, retErr := patch.NewHelper(obj, r.Client)
-	if retErr != nil {
-		return retErr
-	}
-	*patcher = *newHelper
 
 	return nil
 }
