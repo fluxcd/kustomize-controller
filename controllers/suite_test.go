@@ -41,6 +41,7 @@ import (
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
+	kcheck "github.com/fluxcd/pkg/runtime/conditions/check"
 	"github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
@@ -69,6 +70,7 @@ var (
 	testMetricsH controller.Metrics
 	ctx          = ctrl.SetupSignalHandler()
 	kubeConfig   []byte
+	kstatusCheck *kcheck.Checker
 	debugMode    = os.Getenv("DEBUG_TEST") != ""
 )
 
@@ -160,6 +162,10 @@ func TestMain(m *testing.M) {
 	runInContext(func(testEnv *testenv.Environment) {
 		controllerName := "kustomize-controller"
 		testMetricsH = controller.MustMakeMetrics(testEnv)
+		kstatusCheck = kcheck.NewChecker(testEnv.Client,
+			&kcheck.Conditions{
+				NegativePolarity: []string{meta.StalledCondition, meta.ReconcilingCondition},
+			})
 		reconciler = &KustomizationReconciler{
 			ControllerName: controllerName,
 			Client:         testEnv,
