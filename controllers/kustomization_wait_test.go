@@ -154,7 +154,7 @@ parameters:
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			return conditions.IsReconciling(resultK)
+			return isReconcileRunning(resultK)
 		}, timeout, time.Second).Should(BeTrue())
 		logStatus(t, resultK)
 
@@ -183,7 +183,7 @@ parameters:
 		}
 
 		expectedMessage := "Running health checks"
-		g.Expect(conditions.GetReason(resultK, meta.ReconcilingCondition)).To(BeIdenticalTo(meta.ProgressingReason))
+		g.Expect(conditions.GetReason(resultK, meta.ReconcilingCondition)).To(BeIdenticalTo(kustomizev1.ProgressingWithRetryReason))
 		g.Expect(conditions.GetMessage(resultK, meta.ReconcilingCondition)).To(ContainSubstring(expectedMessage))
 
 		g.Expect(resultK.Status.LastHandledReconcileAt).To(BeIdenticalTo(reconcileRequestAt))

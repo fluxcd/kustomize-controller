@@ -170,20 +170,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Finalise the reconciliation and report the results.
 	defer func() {
-		// Set the value of the reconciliation request in status.
-		if v, ok := meta.ReconcileAnnotationValue(obj.GetAnnotations()); ok {
-			obj.Status.LastHandledReconcileAt = v
-		}
-
-		// Remove the Reconciling condition and update the observed generation
-		// if the reconciliation was successful.
-		if conditions.IsTrue(obj, meta.ReadyCondition) {
-			conditions.Delete(obj, meta.ReconcilingCondition)
-			obj.Status.ObservedGeneration = obj.Generation
-		}
-
-		// Patch metadata, status and conditions.
-		retErr = r.patch(ctx, obj, patcher)
+		retErr = r.finalizeStatus(ctx, obj, patcher)
 
 		// Record Prometheus metrics.
 		r.Metrics.RecordReadiness(ctx, obj)
@@ -221,7 +208,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Set reconciling condition.
 	if obj.Generation != obj.Status.ObservedGeneration {
-		conditions.MarkReconciling(obj, "NewGeneration", "Reconciling new object generation (%d)", obj.Generation)
+		conditions.MarkReconciling(obj, meta.ProgressingReason, "Reconciling new object generation (%d)", obj.Generation)
 	}
 
 	// Resolve the source reference and requeue the reconciliation if the source is not found.
@@ -465,7 +452,7 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 		var k kustomizev1.Kustomization
 		err := r.Get(ctx, dName, &k)
 		if err != nil {
-			return fmt.Errorf("unable to get '%s' dependency: %w", dName, err)
+			return fmt.Errorf("dependency '%s' not found: %w", dName, err)
 		}
 
 		if len(k.Status.Conditions) == 0 || k.Generation != k.Status.ObservedGeneration {
@@ -480,7 +467,7 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 			k.Spec.SourceRef.Namespace == obj.Spec.SourceRef.Namespace &&
 			k.Spec.SourceRef.Kind == obj.Spec.SourceRef.Kind &&
 			source.GetArtifact().Revision != k.Status.LastAppliedRevision {
-			return fmt.Errorf("dependency '%s' is not updated yet", dName)
+			return fmt.Errorf("dependency '%s' revision is not up to date", dName)
 		}
 	}
 
@@ -977,6 +964,34 @@ func (r *KustomizationReconciler) event(obj *kustomizev1.Kustomization,
 	}
 
 	r.EventRecorder.AnnotatedEventf(obj, metadata, eventtype, reason, msg)
+}
+
+func (r *KustomizationReconciler) finalizeStatus(ctx context.Context,
+	obj *kustomizev1.Kustomization,
+	patcher *patch.SerialPatcher) error {
+	// Set the value of the reconciliation request in status.
+	if v, ok := meta.ReconcileAnnotationValue(obj.GetAnnotations()); ok {
+		obj.Status.LastHandledReconcileAt = v
+	}
+
+	// Remove the Reconciling condition and update the observed generation
+	// if the reconciliation was successful.
+	if conditions.IsTrue(obj, meta.ReadyCondition) {
+		conditions.Delete(obj, meta.ReconcilingCondition)
+		obj.Status.ObservedGeneration = obj.Generation
+	}
+
+	// Set the Reconciling reason to ProgressingWithRetry if the
+	// reconciliation has failed.
+	if conditions.IsFalse(obj, meta.ReadyCondition) &&
+		conditions.Has(obj, meta.ReconcilingCondition) {
+		rc := conditions.Get(obj, meta.ReconcilingCondition)
+		rc.Reason = kustomizev1.ProgressingWithRetryReason
+		conditions.Set(obj, rc)
+	}
+
+	// Patch finalizers, status and conditions.
+	return r.patch(ctx, obj, patcher)
 }
 
 func (r *KustomizationReconciler) patch(ctx context.Context,
