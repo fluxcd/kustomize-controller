@@ -52,7 +52,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/acl"
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/fluxcd/pkg/runtime/conditions"
-	helper "github.com/fluxcd/pkg/runtime/controller"
+	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/fluxcd/pkg/runtime/predicates"
@@ -78,7 +78,7 @@ import (
 type KustomizationReconciler struct {
 	client.Client
 	kuberecorder.EventRecorder
-	helper.Metrics
+	runtimeCtrl.Metrics
 
 	artifactFetcher       *fetch.ArchiveFetcher
 	requeueDependency     time.Duration
@@ -165,7 +165,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Initialize the patch helper with the current version of the object.
+	// Initialize the runtime patcher with the current version of the object.
 	patcher := patch.NewSerialPatcher(obj, r.Client)
 
 	// Finalise the reconciliation and report the results.
@@ -204,11 +204,6 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if obj.Spec.Suspend {
 		log.Info("Reconciliation is suspended for this object")
 		return ctrl.Result{}, nil
-	}
-
-	// Set reconciling condition.
-	if obj.Generation != obj.Status.ObservedGeneration {
-		conditions.MarkReconciling(obj, meta.ProgressingReason, "Reconciling new object generation (%d)", obj.Generation)
 	}
 
 	// Resolve the source reference and requeue the reconciliation if the source is not found.
@@ -253,14 +248,6 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		log.Info("All dependencies are ready, proceeding with reconciliation")
 	}
 
-	// Set the reconciliation status to progressing.
-	progressingMsg := fmt.Sprintf("Reconciling revision %s with a timeout of %s",
-		artifactSource.GetArtifact().Revision, obj.GetTimeout().String())
-	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
-	if err := r.patch(ctx, obj, patcher); err != nil {
-		return ctrl.Result{Requeue: true}, err
-	}
-
 	// Reconcile the latest revision.
 	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher)
 
@@ -294,17 +281,22 @@ func (r *KustomizationReconciler) reconcile(
 	src sourcev1.Source,
 	patcher *patch.SerialPatcher) error {
 
+	revision := src.GetArtifact().Revision
+	isNewRevision := obj.Status.LastAppliedRevision != revision
+
+	// Update status with the reconciliation progress.
+	progressingMsg := fmt.Sprintf("Fetching manifests for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
+	conditions.MarkUnknown(obj, meta.ReadyCondition, meta.ProgressingReason, "Reconciliation in progress")
+	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
+	if err := r.patch(ctx, obj, patcher); err != nil {
+		return fmt.Errorf("failed to update status, error: %w", err)
+	}
+
 	// Create a snapshot of the current inventory.
 	oldInventory := inventory.New()
 	if obj.Status.Inventory != nil {
 		obj.Status.Inventory.DeepCopyInto(oldInventory)
 	}
-
-	revision := src.GetArtifact().Revision
-	isNewRevision := obj.Status.LastAppliedRevision != revision
-
-	// Set last attempted revision in status.
-	obj.Status.LastAttemptedRevision = revision
 
 	// Create tmp dir.
 	tmpDir, err := MkdirTempAbs("", "kustomization-")
@@ -329,10 +321,19 @@ func (r *KustomizationReconciler) reconcile(
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
 		return err
 	}
+
 	if _, err := os.Stat(dirPath); err != nil {
 		err = fmt.Errorf("kustomization path not found: %w", err)
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
 		return err
+	}
+
+	// Report progress and set last attempted revision in status.
+	obj.Status.LastAttemptedRevision = revision
+	progressingMsg = fmt.Sprintf("Building manifests for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
+	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
+	if err := r.patch(ctx, obj, patcher); err != nil {
+		return fmt.Errorf("failed to update status, error: %w", err)
 	}
 
 	// Configure the Kubernetes client for impersonation.
@@ -381,6 +382,13 @@ func (r *KustomizationReconciler) reconcile(
 		Group: kustomizev1.GroupVersion.Group,
 	})
 	resourceManager.SetOwnerLabels(objects, obj.GetName(), obj.GetNamespace())
+
+	// Update status with the reconciliation progress.
+	progressingMsg = fmt.Sprintf("Detecting drift for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
+	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
+	if err := r.patch(ctx, obj, patcher); err != nil {
+		return fmt.Errorf("failed to update status, error: %w", err)
+	}
 
 	// Validate and apply resources in stages.
 	drifted, changeSet, err := r.apply(ctx, resourceManager, obj, revision, objects)
@@ -798,7 +806,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 		return nil
 	}
 
-	// guard against deadlock (waiting on itself)
+	// Guard against deadlock (waiting on itself).
 	var toCheck []object.ObjMetadata
 	for _, o := range objects {
 		if o.GroupKind.Kind == kustomizev1.KustomizationKind &&
@@ -809,18 +817,18 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 		toCheck = append(toCheck, o)
 	}
 
-	// find the previous health check result
+	// Find the previous health check result.
 	wasHealthy := apimeta.IsStatusConditionTrue(obj.Status.Conditions, kustomizev1.HealthyCondition)
 
-	// set the Healthy and Ready conditions to progressing
-	message := fmt.Sprintf("Running health checks with a timeout of %s", obj.GetTimeout().String())
+	// Update status with the reconciliation progress.
+	message := fmt.Sprintf("Running health checks for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
 	conditions.MarkReconciling(obj, meta.ProgressingReason, message)
 	conditions.MarkUnknown(obj, kustomizev1.HealthyCondition, meta.ProgressingReason, message)
 	if err := r.patch(ctx, obj, patcher); err != nil {
 		return fmt.Errorf("unable to update the healthy status to progressing, error: %w", err)
 	}
 
-	// check the health with a default timeout of 30sec shorter than the reconciliation interval
+	// Check the health with a default timeout of 30sec shorter than the reconciliation interval.
 	if err := manager.WaitForSet(toCheck, ssa.WaitOptions{
 		Interval: 5 * time.Second,
 		Timeout:  obj.GetTimeout(),
@@ -830,7 +838,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 		return fmt.Errorf("Health check failed after %s: %w", time.Since(checkStart).String(), err)
 	}
 
-	// emit event if the previous health check failed
+	// Emit recovery event if the previous health check failed.
 	msg := fmt.Sprintf("Health check passed in %s", time.Since(checkStart).String())
 	if !wasHealthy || (isNewRevision && drifted) {
 		r.event(obj, revision, events.EventSeverityInfo, msg, nil)
@@ -998,7 +1006,7 @@ func (r *KustomizationReconciler) patch(ctx context.Context,
 	obj *kustomizev1.Kustomization,
 	patcher *patch.SerialPatcher) (retErr error) {
 
-	// Configure the patch helper.
+	// Configure the runtime patcher.
 	patchOpts := []patch.Option{}
 	ownedConditions := []string{
 		kustomizev1.HealthyCondition,

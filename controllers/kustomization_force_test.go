@@ -113,28 +113,31 @@ stringData:
 	resultK := &kustomizev1.Kustomization{}
 	resultSecret := &corev1.Secret{}
 
-	g.Eventually(func() bool {
-		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-		return resultK.Status.LastAppliedRevision == revision
-	}, timeout, time.Second).Should(BeTrue())
-
 	t.Run("creates immutable secret", func(t *testing.T) {
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return resultK.Status.LastAppliedRevision == revision
+		}, timeout, time.Second).Should(BeTrue())
+		logStatus(t, resultK)
+
+		kstatusCheck.CheckErr(ctx, resultK)
 		g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: id, Namespace: id}, resultSecret)).Should(Succeed())
 	})
 
 	t.Run("fails to update immutable secret", func(t *testing.T) {
-		artifact, err := testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
+		artifact, err = testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
 		g.Expect(err).NotTo(HaveOccurred())
-		revision := "v2.0.0"
+		revision = "v2.0.0"
 		err = applyGitRepository(repositoryName, artifact, revision)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			return resultK.Status.LastAttemptedRevision == revision
+			return isReconcileFailure(resultK)
 		}, timeout, time.Second).Should(BeTrue())
+		logStatus(t, resultK)
 
-		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.ReadyCondition)).To(BeFalse())
+		//kstatusCheck.CheckErr(ctx, resultK)
 
 		t.Run("emits validation error event", func(t *testing.T) {
 			events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
@@ -145,9 +148,9 @@ stringData:
 	})
 
 	t.Run("recreates immutable secret", func(t *testing.T) {
-		artifact, err := testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
+		artifact, err = testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
 		g.Expect(err).NotTo(HaveOccurred())
-		revision := "v3.0.0"
+		revision = "v3.0.0"
 		err = applyGitRepository(repositoryName, artifact, revision)
 		g.Expect(err).NotTo(HaveOccurred())
 
@@ -159,10 +162,12 @@ stringData:
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			return resultK.Status.LastAppliedRevision == revision
+			return isReconcileSuccess(resultK)
 		}, timeout, time.Second).Should(BeTrue())
+		logStatus(t, resultK)
 
-		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.ReadyCondition)).To(BeTrue())
+		//kstatusCheck.CheckErr(ctx, resultK)
+
 		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, kustomizev1.HealthyCondition)).To(BeTrue())
 	})
 }

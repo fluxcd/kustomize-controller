@@ -31,8 +31,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/fluxcd/pkg/runtime/acl"
-	"github.com/fluxcd/pkg/runtime/client"
-	helper "github.com/fluxcd/pkg/runtime/controller"
+	runtimeClient "github.com/fluxcd/pkg/runtime/client"
+	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/leaderelection"
 	"github.com/fluxcd/pkg/runtime/logger"
@@ -68,11 +68,11 @@ func main() {
 		healthAddr            string
 		concurrent            int
 		requeueDependency     time.Duration
-		clientOptions         client.Options
-		kubeConfigOpts        client.KubeConfigOptions
+		clientOptions         runtimeClient.Options
+		kubeConfigOpts        runtimeClient.KubeConfigOptions
 		logOptions            logger.Options
 		leaderElectionOptions leaderelection.Options
-		rateLimiterOptions    helper.RateLimiterOptions
+		rateLimiterOptions    runtimeCtrl.RateLimiterOptions
 		aclOptions            acl.Options
 		watchAllNamespaces    bool
 		noRemoteBases         bool
@@ -106,7 +106,7 @@ func main() {
 		watchNamespace = os.Getenv("RUNTIME_NAMESPACE")
 	}
 
-	restConfig := client.GetConfigOrDie(clientOptions)
+	restConfig := runtimeClient.GetConfigOrDie(clientOptions)
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                        scheme,
 		MetricsBindAddress:            metricsAddr,
@@ -135,7 +135,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	metricsH := helper.MustMakeMetrics(mgr)
+	metricsH := runtimeCtrl.MustMakeMetrics(mgr)
 
 	jobStatusReader := statusreaders.NewCustomJobStatusReader(mgr.GetRESTMapper())
 	pollingOpts := polling.Options{
@@ -156,7 +156,7 @@ func main() {
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,
-		RateLimiter:               helper.GetRateLimiter(rateLimiterOptions),
+		RateLimiter:               runtimeCtrl.GetRateLimiter(rateLimiterOptions),
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", controllerName)
 		os.Exit(1)
