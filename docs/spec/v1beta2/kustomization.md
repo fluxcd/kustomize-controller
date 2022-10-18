@@ -1345,20 +1345,38 @@ secretGenerator:
 
 ## Status
 
-When the controller completes a Kustomization reconciliation, reports the result in the `status` sub-resource.
+Every time the controller starts reconciling a `Kustomization`, it adds the `Reconciling` condition in `status` and
+updates its message to report the action performed during a reconciliation run:
 
-A successful reconciliation sets the ready condition to `true` and updates the revision field:
+```yaml
+conditions:
+- lastTransitionTime: "2022-10-17T13:40:21Z"
+  message: Detecting drift for revision main/a1afe267b54f38b46b487f6e938a6fd508278c07 with a timeout of 50s
+  observedGeneration: 2
+  reason: Progressing
+  status: "True"
+  type: Reconciling
+- lastTransitionTime: "2022-10-17T13:40:21Z"
+  message: Reconciliation in progress
+  observedGeneration: 2
+  reason: Progressing
+  status: Unknown
+  type: Ready
+```
+
+If the reconciliation finishes successfully, the `Reconciling` condition is removed from `status`
+and the `Ready` condition is set to `True`:
 
 ```yaml
 status:
   conditions:
-  - lastTransitionTime: "2020-09-17T19:28:48Z"
-    message: "Applied revision: master/a1afe267b54f38b46b487f6e938a6fd508278c07"
+  - lastTransitionTime: "2022-10-17T13:40:21Z"
+    message: "Applied revision: main/a1afe267b54f38b46b487f6e938a6fd508278c07"
     reason: ReconciliationSucceeded
     status: "True"
     type: Ready
-  lastAppliedRevision: master/a1afe267b54f38b46b487f6e938a6fd508278c07
-  lastAttemptedRevision: master/a1afe267b54f38b46b487f6e938a6fd508278c07
+  lastAppliedRevision: main/a1afe267b54f38b46b487f6e938a6fd508278c07
+  lastAttemptedRevision: main/a1afe267b54f38b46b487f6e938a6fd508278c07
 ```
 
 If `spec.wait` or `spec.healthChecks` is enabled, the health assessment result
@@ -1376,10 +1394,12 @@ The controller logs the Kubernetes objects:
 ```json
 {
   "level": "info",
-  "ts": "2020-09-17T07:27:11.921Z",
-  "logger": "controllers.Kustomization",
-  "msg": "Kustomization applied in 1.436096591s",
-  "kustomization": "default/backend",
+  "ts": "2022-09-17T07:27:11.921Z",
+  "controllerGroup": "kustomize.toolkit.fluxcd.io",
+  "msg": "server-side apply completed",
+  "name": "backend",
+  "namespace": "default",
+  "revision": "main/a1afe267b54f38b46b487f6e938a6fd508278c07",
   "output": {
     "service/backend": "created",
     "deployment.apps/backend": "created",
@@ -1388,7 +1408,7 @@ The controller logs the Kubernetes objects:
 }
 ```
 
-A failed reconciliation sets the ready condition to `false`:
+A failed reconciliation sets the `Ready` condition to `false`:
 
 ```yaml
 status:
@@ -1409,9 +1429,12 @@ When a reconciliation fails, the controller logs the error and issues a Kubernet
 ```json
 {
   "level": "error",
-  "ts": "2020-09-17T07:27:11.921Z",
-  "logger": "controllers.Kustomization",
-  "kustomization": "default/backend",
+  "ts": "2022-09-17T07:27:11.921Z",
+  "controllerGroup": "kustomize.toolkit.fluxcd.io",
+  "msg": "server-side apply completed",
+  "name": "backend",
+  "namespace": "default",
+  "revision": "main/a1afe267b54f38b46b487f6e938a6fd508278c07",
   "error": "The Service 'backend' is invalid: spec.type: Unsupported value: 'Ingress'"
 }
 ```
