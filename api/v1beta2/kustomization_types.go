@@ -22,7 +22,6 @@ import (
 	"github.com/fluxcd/pkg/apis/kustomize"
 	"github.com/fluxcd/pkg/apis/meta"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -234,78 +233,6 @@ type KustomizationStatus struct {
 	// Inventory contains the list of Kubernetes resource object references that have been successfully applied.
 	// +optional
 	Inventory *ResourceInventory `json:"inventory,omitempty"`
-}
-
-// KustomizationProgressing resets the conditions of the given Kustomization to a single
-// ReadyCondition with status ConditionUnknown.
-func KustomizationProgressing(k Kustomization, message string) Kustomization {
-	newCondition := metav1.Condition{
-		Type:    meta.ReadyCondition,
-		Status:  metav1.ConditionUnknown,
-		Reason:  meta.ProgressingReason,
-		Message: trimString(message, MaxConditionMessageLength),
-	}
-	apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
-	return k
-}
-
-// SetKustomizationHealthiness sets the HealthyCondition status for a Kustomization.
-func SetKustomizationHealthiness(k *Kustomization, status metav1.ConditionStatus, reason, message string) {
-	if !k.Spec.Wait && len(k.Spec.HealthChecks) == 0 {
-		apimeta.RemoveStatusCondition(k.GetStatusConditions(), HealthyCondition)
-	} else {
-		newCondition := metav1.Condition{
-			Type:    HealthyCondition,
-			Status:  status,
-			Reason:  reason,
-			Message: trimString(message, MaxConditionMessageLength),
-		}
-		apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
-	}
-
-}
-
-// SetKustomizationReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision, on the Kustomization.
-func SetKustomizationReadiness(k *Kustomization, status metav1.ConditionStatus, reason, message string, revision string) {
-	newCondition := metav1.Condition{
-		Type:    meta.ReadyCondition,
-		Status:  status,
-		Reason:  reason,
-		Message: trimString(message, MaxConditionMessageLength),
-	}
-	apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
-
-	k.Status.ObservedGeneration = k.Generation
-	k.Status.LastAttemptedRevision = revision
-}
-
-// KustomizationNotReady registers a failed apply attempt of the given Kustomization.
-func KustomizationNotReady(k Kustomization, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
-	if revision != "" {
-		k.Status.LastAttemptedRevision = revision
-	}
-	return k
-}
-
-// KustomizationNotReadyInventory registers a failed apply attempt of the given Kustomization.
-func KustomizationNotReadyInventory(k Kustomization, inventory *ResourceInventory, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
-	SetKustomizationHealthiness(&k, metav1.ConditionFalse, reason, reason)
-	if revision != "" {
-		k.Status.LastAttemptedRevision = revision
-	}
-	k.Status.Inventory = inventory
-	return k
-}
-
-// KustomizationReadyInventory registers a successful apply attempt of the given Kustomization.
-func KustomizationReadyInventory(k Kustomization, inventory *ResourceInventory, revision, reason, message string) Kustomization {
-	SetKustomizationReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision)
-	SetKustomizationHealthiness(&k, metav1.ConditionTrue, reason, reason)
-	k.Status.Inventory = inventory
-	k.Status.LastAppliedRevision = revision
-	return k
 }
 
 // GetTimeout returns the timeout with default.

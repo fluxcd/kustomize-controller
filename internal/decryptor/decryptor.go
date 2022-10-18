@@ -117,7 +117,7 @@ type Decryptor struct {
 	client client.Client
 	// kustomization is the v1beta2.Kustomization we are decrypting for.
 	// The v1beta2.Decryption of the object is used to ImportKeys().
-	kustomization kustomizev1.Kustomization
+	kustomization *kustomizev1.Kustomization
 	// maxFileSize is the max size in bytes a file is allowed to have to be
 	// decrypted. Defaults to maxEncryptedFileSize.
 	maxFileSize int64
@@ -154,7 +154,7 @@ type Decryptor struct {
 
 // NewDecryptor creates a new Decryptor for the given kustomization.
 // gnuPGHome can be empty, in which case the systems' keyring is used.
-func NewDecryptor(root string, client client.Client, kustomization kustomizev1.Kustomization, maxFileSize int64, gnuPGHome string) *Decryptor {
+func NewDecryptor(root string, client client.Client, kustomization *kustomizev1.Kustomization, maxFileSize int64, gnuPGHome string) *Decryptor {
 	return &Decryptor{
 		root:          root,
 		client:        client,
@@ -166,7 +166,7 @@ func NewDecryptor(root string, client client.Client, kustomization kustomizev1.K
 
 // NewTempDecryptor creates a new Decryptor, with a temporary GnuPG
 // home directory to Decryptor.ImportKeys() into.
-func NewTempDecryptor(root string, client client.Client, kustomization kustomizev1.Kustomization) (*Decryptor, func(), error) {
+func NewTempDecryptor(root string, client client.Client, kustomization *kustomizev1.Kustomization) (*Decryptor, func(), error) {
 	gnuPGHome, err := pgp.NewGnuPGHome()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot create decryptor: %w", err)

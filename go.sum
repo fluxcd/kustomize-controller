@@ -294,8 +294,8 @@ github.com/fluxcd/pkg/http/fetch v0.1.0 h1:Ig/kZuM0+jHBJnwHn5UUseTKIYD5w8X4bInJy
 github.com/fluxcd/pkg/http/fetch v0.1.0/go.mod h1:1CjOSfn7aOeHf2ZRA2+GTKHg442zN6X/fSys3a0KLC0=
 github.com/fluxcd/pkg/kustomize v0.8.0 h1:8AdEvp6y38ISZzoi0H82Si5zkmLXClbeX10W7HevB00=
 github.com/fluxcd/pkg/kustomize v0.8.0/go.mod h1:zGtCZF6V3hMWcf46SqrQc10fS9yUlKzi2UcFUeabDAE=
-github.com/fluxcd/pkg/runtime v0.20.0 h1:F9q9wap0BhjQszboUroJrYOB1C831zkQwTAk2tlMIQc=
-github.com/fluxcd/pkg/runtime v0.20.0/go.mod h1:KVHNQMhccuLTjMDFVCr/SF+4Z554bcMH1LncC4sQf8o=
+github.com/fluxcd/pkg/runtime v0.22.0 h1:4YV/An41b+OGdSWDogwFfHr22CEE/in+lBLEK0fr1yc=
+github.com/fluxcd/pkg/runtime v0.22.0/go.mod h1:Cm6jIhltzXIM3CRRY6SFASDn+z2m/1yPqOWwD73c3io=
 github.com/fluxcd/pkg/ssa v0.21.0 h1:aeoTohPNf5x7jQjHidyLJAOHw3EyHOQoQN3mN2i+4cc=
 github.com/fluxcd/pkg/ssa v0.21.0/go.mod h1:jumyhUbEMDnduN7anSlKfxl2fEoyeyv+Ta5hWCbxI5Q=
 github.com/fluxcd/pkg/tar v0.1.0 h1:ObyUml8NJtGQtz/cRgexd7HU2mQsTmgjz2dtX4xdnng=

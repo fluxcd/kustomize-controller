@@ -31,10 +31,9 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	kuberecorder "k8s.io/client-go/tools/record"
-	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	"sigs.k8s.io/cli-utils/pkg/object"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -45,7 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/ratelimiter"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apiacl "github.com/fluxcd/pkg/apis/acl"
@@ -53,8 +51,10 @@ import (
 	"github.com/fluxcd/pkg/http/fetch"
 	"github.com/fluxcd/pkg/runtime/acl"
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
+	"github.com/fluxcd/pkg/runtime/conditions"
+	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/events"
-	"github.com/fluxcd/pkg/runtime/metrics"
+	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/fluxcd/pkg/runtime/predicates"
 	"github.com/fluxcd/pkg/ssa"
 	"github.com/fluxcd/pkg/tar"
@@ -77,11 +77,11 @@ import (
 // KustomizationReconciler reconciles a Kustomization object
 type KustomizationReconciler struct {
 	client.Client
+	kuberecorder.EventRecorder
+	runtimeCtrl.Metrics
+
 	artifactFetcher       *fetch.ArchiveFetcher
 	requeueDependency     time.Duration
-	Scheme                *runtime.Scheme
-	EventRecorder         kuberecorder.EventRecorder
-	MetricsRecorder       *metrics.Recorder
 	StatusPoller          *polling.StatusPoller
 	PollingOpts           polling.Options
 	ControllerName        string
@@ -156,382 +156,311 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 		Complete(r)
 }
 
-func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, retErr error) {
 	log := ctrl.LoggerFrom(ctx)
 	reconcileStart := time.Now()
 
-	var kustomization kustomizev1.Kustomization
-	if err := r.Get(ctx, req.NamespacedName, &kustomization); err != nil {
+	obj := &kustomizev1.Kustomization{}
+	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Record suspended status metric
-	defer r.recordSuspension(ctx, kustomization)
+	// Initialize the runtime patcher with the current version of the object.
+	patcher := patch.NewSerialPatcher(obj, r.Client)
 
-	// Add our finalizer if it does not exist
-	if !controllerutil.ContainsFinalizer(&kustomization, kustomizev1.KustomizationFinalizer) {
-		patch := client.MergeFrom(kustomization.DeepCopy())
-		controllerutil.AddFinalizer(&kustomization, kustomizev1.KustomizationFinalizer)
-		if err := r.Patch(ctx, &kustomization, patch, client.FieldOwner(r.statusManager)); err != nil {
-			log.Error(err, "unable to register finalizer")
-			return ctrl.Result{}, err
+	// Finalise the reconciliation and report the results.
+	defer func() {
+		retErr = r.finalizeStatus(ctx, obj, patcher)
+
+		// Record Prometheus metrics.
+		r.Metrics.RecordReadiness(ctx, obj)
+		r.Metrics.RecordDuration(ctx, obj, reconcileStart)
+		r.Metrics.RecordSuspend(ctx, obj, obj.Spec.Suspend)
+
+		// Log and emit success event.
+		if conditions.IsReady(obj) {
+			msg := fmt.Sprintf("Reconciliation finished in %s, next run in %s",
+				time.Since(reconcileStart).String(),
+				obj.Spec.Interval.Duration.String())
+			log.Info(msg, "revision", obj.Status.LastAttemptedRevision)
+			r.event(obj, obj.Status.LastAppliedRevision, events.EventSeverityInfo,
+				msg, map[string]string{kustomizev1.GroupVersion.Group + "/commit_status": "update"})
 		}
+	}()
+
+	// Add finalizer first if it doesn't exist to avoid the race condition
+	// between init and delete.
+	if !controllerutil.ContainsFinalizer(obj, kustomizev1.KustomizationFinalizer) {
+		controllerutil.AddFinalizer(obj, kustomizev1.KustomizationFinalizer)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Examine if the object is under deletion
-	if !kustomization.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.finalize(ctx, kustomization)
+	// Prune managed resources if the object is under deletion.
+	if !obj.ObjectMeta.DeletionTimestamp.IsZero() {
+		return r.finalize(ctx, obj)
 	}
 
-	// Return early if the Kustomization is suspended.
-	if kustomization.Spec.Suspend {
+	// Skip reconciliation if the object is suspended.
+	if obj.Spec.Suspend {
 		log.Info("Reconciliation is suspended for this object")
 		return ctrl.Result{}, nil
 	}
 
-	// resolve source reference
-	source, err := r.getSource(ctx, kustomization)
+	// Resolve the source reference and requeue the reconciliation if the source is not found.
+	artifactSource, err := r.getSource(ctx, obj)
 	if err != nil {
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
+
 		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("Source '%s' not found", kustomization.Spec.SourceRef.String())
-			kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
-			if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
-				return ctrl.Result{Requeue: true}, err
-			}
-			r.recordReadiness(ctx, kustomization)
+			msg := fmt.Sprintf("Source '%s' not found", obj.Spec.SourceRef.String())
 			log.Info(msg)
-			// do not requeue immediately, when the source is created the watcher should trigger a reconciliation
-			return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, nil
+			return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
 		}
 
 		if acl.IsAccessDenied(err) {
-			kustomization = kustomizev1.KustomizationNotReady(kustomization, "", apiacl.AccessDeniedReason, err.Error())
-			if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
-				return ctrl.Result{Requeue: true}, err
-			}
-			log.Error(err, "access denied to cross-namespace source")
-			r.recordReadiness(ctx, kustomization)
-			r.event(ctx, kustomization, "unknown", events.EventSeverityError, err.Error(), nil)
-			return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, nil
+			conditions.MarkFalse(obj, meta.ReadyCondition, apiacl.AccessDeniedReason, err.Error())
+			log.Error(err, "Access denied to cross-namespace source")
+			r.event(obj, "unknown", events.EventSeverityError, err.Error(), nil)
+			return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
 		}
 
-		// retry on transient errors
+		// Retry with backoff on transient errors.
 		return ctrl.Result{Requeue: true}, err
-
 	}
 
-	if source.GetArtifact() == nil {
+	// Requeue the reconciliation if the source artifact is not found.
+	if artifactSource.GetArtifact() == nil {
 		msg := "Source is not ready, artifact not found"
-		kustomization = kustomizev1.KustomizationNotReady(kustomization, "", kustomizev1.ArtifactFailedReason, msg)
-		if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
-			log.Error(err, "unable to update status for artifact not found")
-			return ctrl.Result{Requeue: true}, err
-		}
-		r.recordReadiness(ctx, kustomization)
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, msg)
 		log.Info(msg)
-		// do not requeue immediately, when the artifact is created the watcher should trigger a reconciliation
-		return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, nil
+		return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
 	}
 
-	// check dependencies
-	if len(kustomization.Spec.DependsOn) > 0 {
-		if err := r.checkDependencies(source, kustomization); err != nil {
-			kustomization = kustomizev1.KustomizationNotReady(
-				kustomization, source.GetArtifact().Revision, kustomizev1.DependencyNotReadyReason, err.Error())
-			if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
-				log.Error(err, "unable to update status for dependency not ready")
-				return ctrl.Result{Requeue: true}, err
-			}
-			// we can't rely on exponential backoff because it will prolong the execution too much,
-			// instead we requeue on a fix interval.
+	// Check dependencies and requeue the reconciliation if the check fails.
+	if len(obj.Spec.DependsOn) > 0 {
+		if err := r.checkDependencies(ctx, obj, artifactSource); err != nil {
+			conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.DependencyNotReadyReason, err.Error())
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Info(msg)
-			r.event(ctx, kustomization, source.GetArtifact().Revision, events.EventSeverityInfo, msg, nil)
-			r.recordReadiness(ctx, kustomization)
+			r.event(obj, artifactSource.GetArtifact().Revision, events.EventSeverityInfo, msg, nil)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
 		log.Info("All dependencies are ready, proceeding with reconciliation")
 	}
 
-	// record reconciliation duration
-	if r.MetricsRecorder != nil {
-		objRef, err := reference.GetReference(r.Scheme, &kustomization)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		defer r.MetricsRecorder.RecordDuration(*objRef, reconcileStart)
-	}
+	// Reconcile the latest revision.
+	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher)
 
-	// set the reconciliation status to progressing
-	kustomization = kustomizev1.KustomizationProgressing(kustomization, "reconciliation in progress")
-	if err := r.patchStatus(ctx, req, kustomization.Status); err != nil {
-		return ctrl.Result{Requeue: true}, err
-	}
-	r.recordReadiness(ctx, kustomization)
-
-	// reconcile kustomization by applying the latest revision
-	reconciledKustomization, reconcileErr := r.reconcile(ctx, *kustomization.DeepCopy(), source)
-
-	// requeue if the artifact is not found
+	// Requeue at the specified retry interval if the artifact tarball is not found.
 	if reconcileErr == fetch.FileNotFoundError {
 		msg := fmt.Sprintf("Source is not ready, artifact not found, retrying in %s", r.requeueDependency.String())
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, msg)
 		log.Info(msg)
-		if err := r.patchStatus(ctx, req, kustomizev1.KustomizationProgressing(kustomization, msg).Status); err != nil {
-			log.Error(err, "unable to update status for artifact not found")
-			return ctrl.Result{Requeue: true}, err
-		}
 		return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 	}
 
-	if err := r.patchStatus(ctx, req, reconciledKustomization.Status); err != nil {
-		return ctrl.Result{Requeue: true}, err
-	}
-	r.recordReadiness(ctx, reconciledKustomization)
-
-	// broadcast the reconciliation failure and requeue at the specified retry interval
+	// Broadcast the reconciliation failure and requeue at the specified retry interval.
 	if reconcileErr != nil {
 		log.Error(reconcileErr, fmt.Sprintf("Reconciliation failed after %s, next try in %s",
 			time.Since(reconcileStart).String(),
-			kustomization.GetRetryInterval().String()),
+			obj.GetRetryInterval().String()),
 			"revision",
-			source.GetArtifact().Revision)
-		r.event(ctx, reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityError,
+			artifactSource.GetArtifact().Revision)
+		r.event(obj, artifactSource.GetArtifact().Revision, events.EventSeverityError,
 			reconcileErr.Error(), nil)
-		return ctrl.Result{RequeueAfter: kustomization.GetRetryInterval()}, nil
+		return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
 	}
 
-	// broadcast the reconciliation result and requeue at the specified interval
-	msg := fmt.Sprintf("Reconciliation finished in %s, next run in %s",
-		time.Since(reconcileStart).String(),
-		kustomization.Spec.Interval.Duration.String())
-	log.Info(msg, "revision", source.GetArtifact().Revision)
-	r.event(ctx, reconciledKustomization, source.GetArtifact().Revision, events.EventSeverityInfo,
-		msg, map[string]string{kustomizev1.GroupVersion.Group + "/commit_status": "update"})
-	return ctrl.Result{RequeueAfter: kustomization.Spec.Interval.Duration}, nil
+	// Requeue the reconciliation at the specified interval.
+	return ctrl.Result{RequeueAfter: obj.Spec.Interval.Duration}, nil
 }
 
 func (r *KustomizationReconciler) reconcile(
 	ctx context.Context,
-	kustomization kustomizev1.Kustomization,
-	source sourcev1.Source) (kustomizev1.Kustomization, error) {
-	// record the value of the reconciliation request, if any
-	if v, ok := meta.ReconcileAnnotationValue(kustomization.GetAnnotations()); ok {
-		kustomization.Status.SetLastHandledReconcileRequest(v)
+	obj *kustomizev1.Kustomization,
+	src sourcev1.Source,
+	patcher *patch.SerialPatcher) error {
+
+	revision := src.GetArtifact().Revision
+	isNewRevision := obj.Status.LastAppliedRevision != revision
+
+	// Update status with the reconciliation progress.
+	progressingMsg := fmt.Sprintf("Fetching manifests for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
+	conditions.MarkUnknown(obj, meta.ReadyCondition, meta.ProgressingReason, "Reconciliation in progress")
+	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
+	if err := r.patch(ctx, obj, patcher); err != nil {
+		return fmt.Errorf("failed to update status, error: %w", err)
 	}
 
-	revision := source.GetArtifact().Revision
+	// Create a snapshot of the current inventory.
+	oldInventory := inventory.New()
+	if obj.Status.Inventory != nil {
+		obj.Status.Inventory.DeepCopyInto(oldInventory)
+	}
 
-	// create tmp dir
+	// Create tmp dir.
 	tmpDir, err := MkdirTempAbs("", "kustomization-")
 	if err != nil {
 		err = fmt.Errorf("tmp dir error: %w", err)
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			revision,
-			sourcev1.DirCreationFailedReason,
-			err.Error(),
-		), err
+		conditions.MarkFalse(obj, meta.ReadyCondition, sourcev1.DirCreationFailedReason, err.Error())
+		return err
 	}
+
 	defer os.RemoveAll(tmpDir)
 
-	// download artifact and extract files
-	err = r.artifactFetcher.Fetch(source.GetArtifact().URL, source.GetArtifact().Checksum, tmpDir)
+	// Download artifact and extract files to the tmp dir.
+	err = r.artifactFetcher.Fetch(src.GetArtifact().URL, src.GetArtifact().Checksum, tmpDir)
 	if err != nil {
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			revision,
-			kustomizev1.ArtifactFailedReason,
-			err.Error(),
-		), err
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
+		return err
 	}
 
 	// check build path exists
-	dirPath, err := securejoin.SecureJoin(tmpDir, kustomization.Spec.Path)
+	dirPath, err := securejoin.SecureJoin(tmpDir, obj.Spec.Path)
 	if err != nil {
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			revision,
-			kustomizev1.ArtifactFailedReason,
-			err.Error(),
-		), err
-	}
-	if _, err := os.Stat(dirPath); err != nil {
-		err = fmt.Errorf("kustomization path not found: %w", err)
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			revision,
-			kustomizev1.ArtifactFailedReason,
-			err.Error(),
-		), err
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
+		return err
 	}
 
-	// setup the Kubernetes client for impersonation
+	if _, err := os.Stat(dirPath); err != nil {
+		err = fmt.Errorf("kustomization path not found: %w", err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
+		return err
+	}
+
+	// Report progress and set last attempted revision in status.
+	obj.Status.LastAttemptedRevision = revision
+	progressingMsg = fmt.Sprintf("Building manifests for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
+	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
+	if err := r.patch(ctx, obj, patcher); err != nil {
+		return fmt.Errorf("failed to update status, error: %w", err)
+	}
+
+	// Configure the Kubernetes client for impersonation.
 	impersonation := runtimeClient.NewImpersonator(
 		r.Client,
 		r.StatusPoller,
 		r.PollingOpts,
-		kustomization.Spec.KubeConfig,
+		obj.Spec.KubeConfig,
 		r.KubeConfigOpts,
 		r.DefaultServiceAccount,
-		kustomization.Spec.ServiceAccountName,
-		kustomization.GetNamespace(),
+		obj.Spec.ServiceAccountName,
+		obj.GetNamespace(),
 	)
+
+	// Create the Kubernetes client that runs under impersonation.
 	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
 	if err != nil {
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			revision,
-			kustomizev1.ReconciliationFailedReason,
-			err.Error(),
-		), fmt.Errorf("failed to build kube client: %w", err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ReconciliationFailedReason, err.Error())
+		return fmt.Errorf("failed to build kube client: %w", err)
 	}
 
-	// generate kustomization.yaml if needed
-	err = r.generate(kustomization, tmpDir, dirPath)
+	// Generate kustomization.yaml if needed.
+	err = r.generate(obj, tmpDir, dirPath)
 	if err != nil {
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			revision,
-			kustomizev1.BuildFailedReason,
-			err.Error(),
-		), err
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
+		return err
 	}
 
-	// build the kustomization
-	resources, err := r.build(ctx, tmpDir, kustomization, dirPath)
+	// Build the Kustomize overlay and decrypt secrets if needed.
+	resources, err := r.build(ctx, obj, tmpDir, dirPath)
 	if err != nil {
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			revision,
-			kustomizev1.BuildFailedReason,
-			err.Error(),
-		), err
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
+		return err
 	}
 
-	// convert the build result into Kubernetes unstructured objects
+	// Convert the build result into Kubernetes unstructured objects.
 	objects, err := ssa.ReadObjects(bytes.NewReader(resources))
 	if err != nil {
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			revision,
-			kustomizev1.BuildFailedReason,
-			err.Error(),
-		), err
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
+		return err
 	}
 
-	// create a snapshot of the current inventory
-	oldStatus := kustomization.Status.DeepCopy()
-
-	// create the server-side apply manager
+	// Create the server-side apply manager.
 	resourceManager := ssa.NewResourceManager(kubeClient, statusPoller, ssa.Owner{
 		Field: r.ControllerName,
 		Group: kustomizev1.GroupVersion.Group,
 	})
-	resourceManager.SetOwnerLabels(objects, kustomization.GetName(), kustomization.GetNamespace())
+	resourceManager.SetOwnerLabels(objects, obj.GetName(), obj.GetNamespace())
 
-	// validate and apply resources in stages
-	drifted, changeSet, err := r.apply(ctx, resourceManager, kustomization, revision, objects)
-	if err != nil {
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			revision,
-			kustomizev1.ReconciliationFailedReason,
-			err.Error(),
-		), err
+	// Update status with the reconciliation progress.
+	progressingMsg = fmt.Sprintf("Detecting drift for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
+	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
+	if err := r.patch(ctx, obj, patcher); err != nil {
+		return fmt.Errorf("failed to update status, error: %w", err)
 	}
 
-	// create an inventory of objects to be reconciled
+	// Validate and apply resources in stages.
+	drifted, changeSet, err := r.apply(ctx, resourceManager, obj, revision, objects)
+	if err != nil {
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ReconciliationFailedReason, err.Error())
+		return err
+	}
+
+	// Create an inventory from the reconciled resources.
 	newInventory := inventory.New()
 	err = inventory.AddChangeSet(newInventory, changeSet)
 	if err != nil {
-		return kustomizev1.KustomizationNotReady(
-			kustomization,
-			revision,
-			kustomizev1.ReconciliationFailedReason,
-			err.Error(),
-		), err
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ReconciliationFailedReason, err.Error())
+		return err
 	}
 
-	// detect stale objects which are subject to garbage collection
-	var staleObjects []*unstructured.Unstructured
-	if oldStatus.Inventory != nil {
-		diffObjects, err := inventory.Diff(oldStatus.Inventory, newInventory)
-		if err != nil {
-			return kustomizev1.KustomizationNotReady(
-				kustomization,
-				revision,
-				kustomizev1.ReconciliationFailedReason,
-				err.Error(),
-			), err
-		}
+	// Set last applied inventory in status.
+	obj.Status.Inventory = newInventory
 
-		// TODO: remove this workaround after kustomize-controller 0.18 release
-		// skip objects that were wrongly marked as namespaced
-		// https://github.com/fluxcd/kustomize-controller/issues/466
-		newObjects, _ := inventory.List(newInventory)
-		for _, obj := range diffObjects {
-			preserve := false
-			if obj.GetNamespace() != "" {
-				for _, newObj := range newObjects {
-					if newObj.GetNamespace() == "" &&
-						obj.GetKind() == newObj.GetKind() &&
-						obj.GetAPIVersion() == newObj.GetAPIVersion() &&
-						obj.GetName() == newObj.GetName() {
-						preserve = true
-						break
-					}
-				}
-			}
-			if !preserve {
-				staleObjects = append(staleObjects, obj)
-			}
-		}
+	// Detect stale resources which are subject to garbage collection.
+	staleObjects, err := inventory.Diff(oldInventory, newInventory)
+	if err != nil {
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ReconciliationFailedReason, err.Error())
+		return err
 	}
 
-	// run garbage collection for stale objects that do not have pruning disabled
-	if _, err := r.prune(ctx, resourceManager, kustomization, revision, staleObjects); err != nil {
-		return kustomizev1.KustomizationNotReadyInventory(
-			kustomization,
-			newInventory,
-			revision,
-			kustomizev1.PruneFailedReason,
-			err.Error(),
-		), err
+	// Run garbage collection for stale resources that do not have pruning disabled.
+	if _, err := r.prune(ctx, resourceManager, obj, revision, staleObjects); err != nil {
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.PruneFailedReason, err.Error())
+		return err
 	}
 
-	// health assessment
-	if err := r.checkHealth(ctx, resourceManager, kustomization, revision, drifted, changeSet.ToObjMetadataSet()); err != nil {
-		return kustomizev1.KustomizationNotReadyInventory(
-			kustomization,
-			newInventory,
-			revision,
-			kustomizev1.HealthCheckFailedReason,
-			err.Error(),
-		), err
-	}
-
-	return kustomizev1.KustomizationReadyInventory(
-		kustomization,
-		newInventory,
+	// Run the health checks for the last applied resources.
+	if err := r.checkHealth(ctx,
+		resourceManager,
+		patcher,
+		obj,
 		revision,
+		isNewRevision,
+		drifted,
+		changeSet.ToObjMetadataSet()); err != nil {
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
+		return err
+	}
+
+	// Set last applied revision.
+	obj.Status.LastAppliedRevision = revision
+
+	// Mark the object as ready.
+	conditions.MarkTrue(obj,
+		meta.ReadyCondition,
 		kustomizev1.ReconciliationSucceededReason,
-		fmt.Sprintf("Applied revision: %s", revision),
-	), nil
+		fmt.Sprintf("Applied revision: %s", revision))
+
+	return nil
 }
 
-func (r *KustomizationReconciler) checkDependencies(source sourcev1.Source, kustomization kustomizev1.Kustomization) error {
-	for _, d := range kustomization.Spec.DependsOn {
+func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
+	obj *kustomizev1.Kustomization,
+	source sourcev1.Source) error {
+	for _, d := range obj.Spec.DependsOn {
 		if d.Namespace == "" {
-			d.Namespace = kustomization.GetNamespace()
+			d.Namespace = obj.GetNamespace()
 		}
 		dName := types.NamespacedName{
 			Namespace: d.Namespace,
 			Name:      d.Name,
 		}
 		var k kustomizev1.Kustomization
-		err := r.Get(context.Background(), dName, &k)
+		err := r.Get(ctx, dName, &k)
 		if err != nil {
-			return fmt.Errorf("unable to get '%s' dependency: %w", dName, err)
+			return fmt.Errorf("dependency '%s' not found: %w", dName, err)
 		}
 
 		if len(k.Status.Conditions) == 0 || k.Generation != k.Status.ObservedGeneration {
@@ -542,76 +471,83 @@ func (r *KustomizationReconciler) checkDependencies(source sourcev1.Source, kust
 			return fmt.Errorf("dependency '%s' is not ready", dName)
 		}
 
-		if k.Spec.SourceRef.Name == kustomization.Spec.SourceRef.Name && k.Spec.SourceRef.Namespace == kustomization.Spec.SourceRef.Namespace && k.Spec.SourceRef.Kind == kustomization.Spec.SourceRef.Kind && source.GetArtifact().Revision != k.Status.LastAppliedRevision {
-			return fmt.Errorf("dependency '%s' is not updated yet", dName)
+		if k.Spec.SourceRef.Name == obj.Spec.SourceRef.Name &&
+			k.Spec.SourceRef.Namespace == obj.Spec.SourceRef.Namespace &&
+			k.Spec.SourceRef.Kind == obj.Spec.SourceRef.Kind &&
+			source.GetArtifact().Revision != k.Status.LastAppliedRevision {
+			return fmt.Errorf("dependency '%s' revision is not up to date", dName)
 		}
 	}
 
 	return nil
 }
 
-func (r *KustomizationReconciler) getSource(ctx context.Context, kustomization kustomizev1.Kustomization) (sourcev1.Source, error) {
-	var source sourcev1.Source
-	sourceNamespace := kustomization.GetNamespace()
-	if kustomization.Spec.SourceRef.Namespace != "" {
-		sourceNamespace = kustomization.Spec.SourceRef.Namespace
+func (r *KustomizationReconciler) getSource(ctx context.Context,
+	obj *kustomizev1.Kustomization) (sourcev1.Source, error) {
+	var src sourcev1.Source
+	sourceNamespace := obj.GetNamespace()
+	if obj.Spec.SourceRef.Namespace != "" {
+		sourceNamespace = obj.Spec.SourceRef.Namespace
 	}
 	namespacedName := types.NamespacedName{
 		Namespace: sourceNamespace,
-		Name:      kustomization.Spec.SourceRef.Name,
+		Name:      obj.Spec.SourceRef.Name,
 	}
 
-	if r.NoCrossNamespaceRefs && sourceNamespace != kustomization.GetNamespace() {
-		return source, acl.AccessDeniedError(
+	if r.NoCrossNamespaceRefs && sourceNamespace != obj.GetNamespace() {
+		return src, acl.AccessDeniedError(
 			fmt.Sprintf("can't access '%s/%s', cross-namespace references have been blocked",
-				kustomization.Spec.SourceRef.Kind, namespacedName))
+				obj.Spec.SourceRef.Kind, namespacedName))
 	}
 
-	switch kustomization.Spec.SourceRef.Kind {
+	switch obj.Spec.SourceRef.Kind {
 	case sourcev1.OCIRepositoryKind:
 		var repository sourcev1.OCIRepository
 		err := r.Client.Get(ctx, namespacedName, &repository)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				return source, err
+				return src, err
 			}
-			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
+			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
-		source = &repository
+		src = &repository
 	case sourcev1.GitRepositoryKind:
 		var repository sourcev1.GitRepository
 		err := r.Client.Get(ctx, namespacedName, &repository)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				return source, err
+				return src, err
 			}
-			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
+			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
-		source = &repository
+		src = &repository
 	case sourcev1.BucketKind:
 		var bucket sourcev1.Bucket
 		err := r.Client.Get(ctx, namespacedName, &bucket)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				return source, err
+				return src, err
 			}
-			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
+			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
-		source = &bucket
+		src = &bucket
 	default:
-		return source, fmt.Errorf("source `%s` kind '%s' not supported",
-			kustomization.Spec.SourceRef.Name, kustomization.Spec.SourceRef.Kind)
+		return src, fmt.Errorf("source `%s` kind '%s' not supported",
+			obj.Spec.SourceRef.Name, obj.Spec.SourceRef.Kind)
 	}
-	return source, nil
+	return src, nil
 }
 
-func (r *KustomizationReconciler) generate(kustomization kustomizev1.Kustomization, workDir string, dirPath string) error {
-	_, err := generator.NewGenerator(workDir, kustomization).WriteFile(dirPath)
+func (r *KustomizationReconciler) generate(obj *kustomizev1.Kustomization,
+	workDir string, dirPath string) error {
+	_, err := generator.NewGenerator(workDir, obj).WriteFile(dirPath)
 	return err
 }
 
-func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kustomization kustomizev1.Kustomization, dirPath string) ([]byte, error) {
-	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, kustomization)
+func (r *KustomizationReconciler) build(ctx context.Context,
+	obj *kustomizev1.Kustomization,
+	workDir, dirPath string) ([]byte, error) {
+	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -639,7 +575,7 @@ func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kus
 		}
 
 		// check if resources are encrypted and decrypt them before generating the final YAML
-		if kustomization.Spec.Decryption != nil {
+		if obj.Spec.Decryption != nil {
 			outRes, err := dec.DecryptResource(res)
 			if err != nil {
 				return nil, fmt.Errorf("decryption failed for '%s': %w", res.GetName(), err)
@@ -654,8 +590,8 @@ func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kus
 		}
 
 		// run variable substitutions
-		if kustomization.Spec.PostBuild != nil {
-			outRes, err := generator.SubstituteVariables(ctx, r.Client, kustomization, res)
+		if obj.Spec.PostBuild != nil {
+			outRes, err := generator.SubstituteVariables(ctx, r.Client, obj, res)
 			if err != nil {
 				return nil, fmt.Errorf("var substitution failed for '%s': %w", res.GetName(), err)
 			}
@@ -677,7 +613,11 @@ func (r *KustomizationReconciler) build(ctx context.Context, workDir string, kus
 	return resources, nil
 }
 
-func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, objects []*unstructured.Unstructured) (bool, *ssa.ChangeSet, error) {
+func (r *KustomizationReconciler) apply(ctx context.Context,
+	manager *ssa.ResourceManager,
+	obj *kustomizev1.Kustomization,
+	revision string,
+	objects []*unstructured.Unstructured) (bool, *ssa.ChangeSet, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	if err := ssa.SetNativeKindsDefaults(objects); err != nil {
@@ -685,7 +625,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	}
 
 	applyOpts := ssa.DefaultApplyOptions()
-	applyOpts.Force = kustomization.Spec.Force
+	applyOpts.Force = obj.Spec.Force
 	applyOpts.Exclusions = map[string]string{
 		fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
 	}
@@ -779,7 +719,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 
 			if err := manager.WaitForSet(changeSet.ToObjMetadataSet(), ssa.WaitOptions{
 				Interval: 2 * time.Second,
-				Timeout:  kustomization.GetTimeout(),
+				Timeout:  obj.GetTimeout(),
 			}); err != nil {
 				return false, nil, err
 			}
@@ -804,7 +744,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 
 			if err := manager.WaitForSet(changeSet.ToObjMetadataSet(), ssa.WaitOptions{
 				Interval: 2 * time.Second,
-				Timeout:  kustomization.GetTimeout(),
+				Timeout:  obj.GetTimeout(),
 			}); err != nil {
 				return false, nil, err
 			}
@@ -821,7 +761,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 		resultSet.Append(changeSet.Entries)
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
-			log.Info("server-side apply completed", "output", changeSet.ToMap())
+			log.Info("server-side apply completed", "output", changeSet.ToMap(), "revision", revision)
 			for _, change := range changeSet.Entries {
 				if change.Action != string(ssa.UnchangedAction) {
 					changeSetLog.WriteString(change.String() + "\n")
@@ -833,71 +773,91 @@ func (r *KustomizationReconciler) apply(ctx context.Context, manager *ssa.Resour
 	// emit event only if the server-side apply resulted in changes
 	applyLog := strings.TrimSuffix(changeSetLog.String(), "\n")
 	if applyLog != "" {
-		r.event(ctx, kustomization, revision, events.EventSeverityInfo, applyLog, nil)
+		r.event(obj, revision, events.EventSeverityInfo, applyLog, nil)
 	}
 
 	return applyLog != "", resultSet, nil
 }
 
-func (r *KustomizationReconciler) checkHealth(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, drifted bool, objects object.ObjMetadataSet) error {
-	if len(kustomization.Spec.HealthChecks) == 0 && !kustomization.Spec.Wait {
+func (r *KustomizationReconciler) checkHealth(ctx context.Context,
+	manager *ssa.ResourceManager,
+	patcher *patch.SerialPatcher,
+	obj *kustomizev1.Kustomization,
+	revision string,
+	isNewRevision bool,
+	drifted bool,
+	objects object.ObjMetadataSet) error {
+	if len(obj.Spec.HealthChecks) == 0 && !obj.Spec.Wait {
+		conditions.Delete(obj, kustomizev1.HealthyCondition)
 		return nil
 	}
 
 	checkStart := time.Now()
 	var err error
-	if !kustomization.Spec.Wait {
-		objects, err = inventory.ReferenceToObjMetadataSet(kustomization.Spec.HealthChecks)
+	if !obj.Spec.Wait {
+		objects, err = inventory.ReferenceToObjMetadataSet(obj.Spec.HealthChecks)
 		if err != nil {
 			return err
 		}
 	}
 
 	if len(objects) == 0 {
+		conditions.Delete(obj, kustomizev1.HealthyCondition)
 		return nil
 	}
 
-	// guard against deadlock (waiting on itself)
+	// Guard against deadlock (waiting on itself).
 	var toCheck []object.ObjMetadata
-	for _, object := range objects {
-		if object.GroupKind.Kind == kustomizev1.KustomizationKind &&
-			object.Name == kustomization.GetName() &&
-			object.Namespace == kustomization.GetNamespace() {
+	for _, o := range objects {
+		if o.GroupKind.Kind == kustomizev1.KustomizationKind &&
+			o.Name == obj.GetName() &&
+			o.Namespace == obj.GetNamespace() {
 			continue
 		}
-		toCheck = append(toCheck, object)
+		toCheck = append(toCheck, o)
 	}
 
-	// find the previous health check result
-	wasHealthy := apimeta.IsStatusConditionTrue(kustomization.Status.Conditions, kustomizev1.HealthyCondition)
+	// Find the previous health check result.
+	wasHealthy := apimeta.IsStatusConditionTrue(obj.Status.Conditions, kustomizev1.HealthyCondition)
 
-	// set the Healthy and Ready conditions to progressing
-	message := fmt.Sprintf("running health checks with a timeout of %s", kustomization.GetTimeout().String())
-	k := kustomizev1.KustomizationProgressing(kustomization, message)
-	kustomizev1.SetKustomizationHealthiness(&k, metav1.ConditionUnknown, meta.ProgressingReason, message)
-	if err := r.patchStatus(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&kustomization)}, k.Status); err != nil {
+	// Update status with the reconciliation progress.
+	message := fmt.Sprintf("Running health checks for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
+	conditions.MarkReconciling(obj, meta.ProgressingReason, message)
+	conditions.MarkUnknown(obj, kustomizev1.HealthyCondition, meta.ProgressingReason, message)
+	if err := r.patch(ctx, obj, patcher); err != nil {
 		return fmt.Errorf("unable to update the healthy status to progressing, error: %w", err)
 	}
 
-	// check the health with a default timeout of 30sec shorter than the reconciliation interval
+	// Check the health with a default timeout of 30sec shorter than the reconciliation interval.
 	if err := manager.WaitForSet(toCheck, ssa.WaitOptions{
 		Interval: 5 * time.Second,
-		Timeout:  kustomization.GetTimeout(),
+		Timeout:  obj.GetTimeout(),
 	}); err != nil {
-		return fmt.Errorf("Health check failed after %s, %w", time.Since(checkStart).String(), err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
+		conditions.MarkFalse(obj, kustomizev1.HealthyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
+		return fmt.Errorf("Health check failed after %s: %w", time.Since(checkStart).String(), err)
 	}
 
-	// emit event if the previous health check failed
-	if !wasHealthy || (kustomization.Status.LastAppliedRevision != revision && drifted) {
-		r.event(ctx, kustomization, revision, events.EventSeverityInfo,
-			fmt.Sprintf("Health check passed in %s", time.Since(checkStart).String()), nil)
+	// Emit recovery event if the previous health check failed.
+	msg := fmt.Sprintf("Health check passed in %s", time.Since(checkStart).String())
+	if !wasHealthy || (isNewRevision && drifted) {
+		r.event(obj, revision, events.EventSeverityInfo, msg, nil)
+	}
+
+	conditions.MarkTrue(obj, kustomizev1.HealthyCondition, meta.SucceededReason, msg)
+	if err := r.patch(ctx, obj, patcher); err != nil {
+		return fmt.Errorf("unable to update the healthy status to progressing, error: %w", err)
 	}
 
 	return nil
 }
 
-func (r *KustomizationReconciler) prune(ctx context.Context, manager *ssa.ResourceManager, kustomization kustomizev1.Kustomization, revision string, objects []*unstructured.Unstructured) (bool, error) {
-	if !kustomization.Spec.Prune {
+func (r *KustomizationReconciler) prune(ctx context.Context,
+	manager *ssa.ResourceManager,
+	obj *kustomizev1.Kustomization,
+	revision string,
+	objects []*unstructured.Unstructured) (bool, error) {
+	if !obj.Spec.Prune {
 		return false, nil
 	}
 
@@ -905,7 +865,7 @@ func (r *KustomizationReconciler) prune(ctx context.Context, manager *ssa.Resour
 
 	opts := ssa.DeleteOptions{
 		PropagationPolicy: metav1.DeletePropagationBackground,
-		Inclusions:        manager.GetOwnerLabels(kustomization.Name, kustomization.Namespace),
+		Inclusions:        manager.GetOwnerLabels(obj.Name, obj.Namespace),
 		Exclusions: map[string]string{
 			fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group):     kustomizev1.DisabledValue,
 			fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
@@ -920,30 +880,31 @@ func (r *KustomizationReconciler) prune(ctx context.Context, manager *ssa.Resour
 	// emit event only if the prune operation resulted in changes
 	if changeSet != nil && len(changeSet.Entries) > 0 {
 		log.Info(fmt.Sprintf("garbage collection completed: %s", changeSet.String()))
-		r.event(ctx, kustomization, revision, events.EventSeverityInfo, changeSet.String(), nil)
+		r.event(obj, revision, events.EventSeverityInfo, changeSet.String(), nil)
 		return true, nil
 	}
 
 	return false, nil
 }
 
-func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization kustomizev1.Kustomization) (ctrl.Result, error) {
+func (r *KustomizationReconciler) finalize(ctx context.Context,
+	obj *kustomizev1.Kustomization) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
-	if kustomization.Spec.Prune &&
-		!kustomization.Spec.Suspend &&
-		kustomization.Status.Inventory != nil &&
-		kustomization.Status.Inventory.Entries != nil {
-		objects, _ := inventory.List(kustomization.Status.Inventory)
+	if obj.Spec.Prune &&
+		!obj.Spec.Suspend &&
+		obj.Status.Inventory != nil &&
+		obj.Status.Inventory.Entries != nil {
+		objects, _ := inventory.List(obj.Status.Inventory)
 
 		impersonation := runtimeClient.NewImpersonator(
 			r.Client,
 			r.StatusPoller,
 			r.PollingOpts,
-			kustomization.Spec.KubeConfig,
+			obj.Spec.KubeConfig,
 			r.KubeConfigOpts,
 			r.DefaultServiceAccount,
-			kustomization.Spec.ServiceAccountName,
-			kustomization.GetNamespace(),
+			obj.Spec.ServiceAccountName,
+			obj.GetNamespace(),
 		)
 		if impersonation.CanImpersonate(ctx) {
 			kubeClient, _, err := impersonation.GetClient(ctx)
@@ -958,7 +919,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 
 			opts := ssa.DeleteOptions{
 				PropagationPolicy: metav1.DeletePropagationBackground,
-				Inclusions:        resourceManager.GetOwnerLabels(kustomization.Name, kustomization.Namespace),
+				Inclusions:        resourceManager.GetOwnerLabels(obj.Name, obj.Namespace),
 				Exclusions: map[string]string{
 					fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group):     kustomizev1.DisabledValue,
 					fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
@@ -967,36 +928,31 @@ func (r *KustomizationReconciler) finalize(ctx context.Context, kustomization ku
 
 			changeSet, err := resourceManager.DeleteAll(ctx, objects, opts)
 			if err != nil {
-				r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
+				r.event(obj, obj.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
 				// Return the error so we retry the failed garbage collection
 				return ctrl.Result{}, err
 			}
 
 			if changeSet != nil && len(changeSet.Entries) > 0 {
-				r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityInfo, changeSet.String(), nil)
+				r.event(obj, obj.Status.LastAppliedRevision, events.EventSeverityInfo, changeSet.String(), nil)
 			}
 		} else {
 			// when the account to impersonate is gone, log the stale objects and continue with the finalization
 			msg := fmt.Sprintf("unable to prune objects: \n%s", ssa.FmtUnstructuredList(objects))
 			log.Error(fmt.Errorf("skiping pruning, failed to find account to impersonate"), msg)
-			r.event(ctx, kustomization, kustomization.Status.LastAppliedRevision, events.EventSeverityError, msg, nil)
+			r.event(obj, obj.Status.LastAppliedRevision, events.EventSeverityError, msg, nil)
 		}
 	}
 
-	// Record deleted status
-	r.recordReadiness(ctx, kustomization)
-
 	// Remove our finalizer from the list and update it
-	controllerutil.RemoveFinalizer(&kustomization, kustomizev1.KustomizationFinalizer)
-	if err := r.Update(ctx, &kustomization, client.FieldOwner(r.statusManager)); err != nil {
-		return ctrl.Result{}, err
-	}
-
+	controllerutil.RemoveFinalizer(obj, kustomizev1.KustomizationFinalizer)
 	// Stop reconciliation as the object is being deleted
 	return ctrl.Result{}, nil
 }
 
-func (r *KustomizationReconciler) event(ctx context.Context, kustomization kustomizev1.Kustomization, revision, severity, msg string, metadata map[string]string) {
+func (r *KustomizationReconciler) event(obj *kustomizev1.Kustomization,
+	revision, severity, msg string,
+	metadata map[string]string) {
 	if metadata == nil {
 		metadata = map[string]string{}
 	}
@@ -1005,8 +961,9 @@ func (r *KustomizationReconciler) event(ctx context.Context, kustomization kusto
 	}
 
 	reason := severity
-	if c := apimeta.FindStatusCondition(kustomization.Status.Conditions, meta.ReadyCondition); c != nil {
-		reason = c.Reason
+	conditions.GetReason(obj, meta.ReadyCondition)
+	if r := conditions.GetReason(obj, meta.ReadyCondition); r != "" {
+		reason = r
 	}
 
 	eventtype := "Normal"
@@ -1014,56 +971,65 @@ func (r *KustomizationReconciler) event(ctx context.Context, kustomization kusto
 		eventtype = "Warning"
 	}
 
-	r.EventRecorder.AnnotatedEventf(&kustomization, metadata, eventtype, reason, msg)
+	r.EventRecorder.AnnotatedEventf(obj, metadata, eventtype, reason, msg)
 }
 
-func (r *KustomizationReconciler) recordReadiness(ctx context.Context, kustomization kustomizev1.Kustomization) {
-	if r.MetricsRecorder == nil {
-		return
+func (r *KustomizationReconciler) finalizeStatus(ctx context.Context,
+	obj *kustomizev1.Kustomization,
+	patcher *patch.SerialPatcher) error {
+	// Set the value of the reconciliation request in status.
+	if v, ok := meta.ReconcileAnnotationValue(obj.GetAnnotations()); ok {
+		obj.Status.LastHandledReconcileAt = v
 	}
-	log := ctrl.LoggerFrom(ctx)
 
-	objRef, err := reference.GetReference(r.Scheme, &kustomization)
-	if err != nil {
-		log.Error(err, "unable to record readiness metric")
-		return
+	// Remove the Reconciling condition and update the observed generation
+	// if the reconciliation was successful.
+	if conditions.IsTrue(obj, meta.ReadyCondition) {
+		conditions.Delete(obj, meta.ReconcilingCondition)
+		obj.Status.ObservedGeneration = obj.Generation
 	}
-	if rc := apimeta.FindStatusCondition(kustomization.Status.Conditions, meta.ReadyCondition); rc != nil {
-		r.MetricsRecorder.RecordCondition(*objRef, *rc, !kustomization.DeletionTimestamp.IsZero())
-	} else {
-		r.MetricsRecorder.RecordCondition(*objRef, metav1.Condition{
-			Type:   meta.ReadyCondition,
-			Status: metav1.ConditionUnknown,
-		}, !kustomization.DeletionTimestamp.IsZero())
+
+	// Set the Reconciling reason to ProgressingWithRetry if the
+	// reconciliation has failed.
+	if conditions.IsFalse(obj, meta.ReadyCondition) &&
+		conditions.Has(obj, meta.ReconcilingCondition) {
+		rc := conditions.Get(obj, meta.ReconcilingCondition)
+		rc.Reason = kustomizev1.ProgressingWithRetryReason
+		conditions.Set(obj, rc)
 	}
+
+	// Patch finalizers, status and conditions.
+	return r.patch(ctx, obj, patcher)
 }
 
-func (r *KustomizationReconciler) recordSuspension(ctx context.Context, kustomization kustomizev1.Kustomization) {
-	if r.MetricsRecorder == nil {
-		return
-	}
-	log := ctrl.LoggerFrom(ctx)
+func (r *KustomizationReconciler) patch(ctx context.Context,
+	obj *kustomizev1.Kustomization,
+	patcher *patch.SerialPatcher) (retErr error) {
 
-	objRef, err := reference.GetReference(r.Scheme, &kustomization)
-	if err != nil {
-		log.Error(err, "unable to record suspended metric")
-		return
+	// Configure the runtime patcher.
+	patchOpts := []patch.Option{}
+	ownedConditions := []string{
+		kustomizev1.HealthyCondition,
+		meta.ReadyCondition,
+		meta.ReconcilingCondition,
+		meta.StalledCondition,
+	}
+	patchOpts = append(patchOpts,
+		patch.WithOwnedConditions{Conditions: ownedConditions},
+		patch.WithForceOverwriteConditions{},
+		patch.WithFieldOwner(r.statusManager),
+	)
+
+	// Patch the object status, conditions and finalizers.
+	if err := patcher.Patch(ctx, obj, patchOpts...); err != nil {
+		if !obj.GetDeletionTimestamp().IsZero() {
+			err = kerrors.FilterOut(err, func(e error) bool { return apierrors.IsNotFound(e) })
+		}
+		retErr = kerrors.NewAggregate([]error{retErr, err})
+		if retErr != nil {
+			return retErr
+		}
 	}
 
-	if !kustomization.DeletionTimestamp.IsZero() {
-		r.MetricsRecorder.RecordSuspend(*objRef, false)
-	} else {
-		r.MetricsRecorder.RecordSuspend(*objRef, kustomization.Spec.Suspend)
-	}
-}
-
-func (r *KustomizationReconciler) patchStatus(ctx context.Context, req ctrl.Request, newStatus kustomizev1.KustomizationStatus) error {
-	var kustomization kustomizev1.Kustomization
-	if err := r.Get(ctx, req.NamespacedName, &kustomization); err != nil {
-		return err
-	}
-
-	patch := client.MergeFrom(kustomization.DeepCopy())
-	kustomization.Status = newStatus
-	return r.Status().Patch(ctx, &kustomization, patch, client.FieldOwner(r.statusManager))
+	return nil
 }

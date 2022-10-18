@@ -80,7 +80,7 @@ func TestGenerator_WriteFile(t *testing.T) {
 					},
 				},
 			}
-			kfile, err := NewGenerator(filepath.Join(tmpDir, tt.dir), ks).WriteFile(filepath.Join(tmpDir, tt.dir))
+			kfile, err := NewGenerator(filepath.Join(tmpDir, tt.dir), &ks).WriteFile(filepath.Join(tmpDir, tt.dir))
 			g.Expect(err).ToNot(HaveOccurred())
 
 			kfileYAML, err := os.ReadFile(kfile)

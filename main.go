@@ -29,15 +29,13 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/engine"
 	ctrl "sigs.k8s.io/controller-runtime"
-	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/fluxcd/pkg/runtime/acl"
-	"github.com/fluxcd/pkg/runtime/client"
-	helper "github.com/fluxcd/pkg/runtime/controller"
+	runtimeClient "github.com/fluxcd/pkg/runtime/client"
+	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/leaderelection"
 	"github.com/fluxcd/pkg/runtime/logger"
-	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/pprof"
 	"github.com/fluxcd/pkg/runtime/probes"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
@@ -70,11 +68,11 @@ func main() {
 		healthAddr            string
 		concurrent            int
 		requeueDependency     time.Duration
-		clientOptions         client.Options
-		kubeConfigOpts        client.KubeConfigOptions
+		clientOptions         runtimeClient.Options
+		kubeConfigOpts        runtimeClient.KubeConfigOptions
 		logOptions            logger.Options
 		leaderElectionOptions leaderelection.Options
-		rateLimiterOptions    helper.RateLimiterOptions
+		rateLimiterOptions    runtimeCtrl.RateLimiterOptions
 		aclOptions            acl.Options
 		watchAllNamespaces    bool
 		noRemoteBases         bool
@@ -103,15 +101,12 @@ func main() {
 
 	ctrl.SetLogger(logger.NewLogger(logOptions))
 
-	metricsRecorder := metrics.NewRecorder()
-	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
-
 	watchNamespace := ""
 	if !watchAllNamespaces {
 		watchNamespace = os.Getenv("RUNTIME_NAMESPACE")
 	}
 
-	restConfig := client.GetConfigOrDie(clientOptions)
+	restConfig := runtimeClient.GetConfigOrDie(clientOptions)
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                        scheme,
 		MetricsBindAddress:            metricsAddr,
@@ -140,6 +135,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	metricsH := runtimeCtrl.MustMakeMetrics(mgr)
+
 	jobStatusReader := statusreaders.NewCustomJobStatusReader(mgr.GetRESTMapper())
 	pollingOpts := polling.Options{
 		CustomStatusReaders: []engine.StatusReader{jobStatusReader},
@@ -148,9 +145,8 @@ func main() {
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,
 		Client:                mgr.GetClient(),
-		Scheme:                mgr.GetScheme(),
+		Metrics:               metricsH,
 		EventRecorder:         eventRecorder,
-		MetricsRecorder:       metricsRecorder,
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
 		NoRemoteBases:         noRemoteBases,
 		KubeConfigOpts:        kubeConfigOpts,
@@ -160,7 +156,7 @@ func main() {
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,
-		RateLimiter:               helper.GetRateLimiter(rateLimiterOptions),
+		RateLimiter:               runtimeCtrl.GetRateLimiter(rateLimiterOptions),
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", controllerName)
 		os.Exit(1)

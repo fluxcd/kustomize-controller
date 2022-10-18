@@ -23,15 +23,10 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/yaml"
 	"testing"
 	"time"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/controller"
-	"github.com/fluxcd/pkg/runtime/testenv"
-	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	"github.com/hashicorp/vault/api"
 	"github.com/ory/dockertest"
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +38,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	controllerLog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/conditions"
+	kcheck "github.com/fluxcd/pkg/runtime/conditions/check"
+	"github.com/fluxcd/pkg/runtime/controller"
+	"github.com/fluxcd/pkg/runtime/testenv"
+	"github.com/fluxcd/pkg/testserver"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
+
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
 
 func init() {
@@ -65,6 +70,7 @@ var (
 	testMetricsH controller.Metrics
 	ctx          = ctrl.SetupSignalHandler()
 	kubeConfig   []byte
+	kstatusCheck *kcheck.Checker
 	debugMode    = os.Getenv("DEBUG_TEST") != ""
 )
 
@@ -156,11 +162,15 @@ func TestMain(m *testing.M) {
 	runInContext(func(testEnv *testenv.Environment) {
 		controllerName := "kustomize-controller"
 		testMetricsH = controller.MustMakeMetrics(testEnv)
+		kstatusCheck = kcheck.NewChecker(testEnv.Client,
+			&kcheck.Conditions{
+				NegativePolarity: []string{meta.StalledCondition, meta.ReconcilingCondition},
+			})
 		reconciler = &KustomizationReconciler{
-			ControllerName:  controllerName,
-			Client:          testEnv,
-			EventRecorder:   testEnv.GetEventRecorderFor(controllerName),
-			MetricsRecorder: testMetricsH.MetricsRecorder,
+			ControllerName: controllerName,
+			Client:         testEnv,
+			EventRecorder:  testEnv.GetEventRecorderFor(controllerName),
+			Metrics:        testMetricsH,
 		}
 		if err := (reconciler).SetupWithManager(testEnv, KustomizationReconcilerOptions{
 			MaxConcurrentReconciles:   4,
@@ -184,6 +194,39 @@ func randStringRunes(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func isReconcileRunning(k *kustomizev1.Kustomization) bool {
+	return conditions.IsReconciling(k) &&
+		conditions.GetReason(k, meta.ReconcilingCondition) != kustomizev1.ProgressingWithRetryReason
+}
+
+func isReconcileSuccess(k *kustomizev1.Kustomization) bool {
+	return conditions.IsReady(k) &&
+		conditions.GetObservedGeneration(k, meta.ReadyCondition) == k.Generation &&
+		k.Status.ObservedGeneration == k.Generation &&
+		k.Status.LastAppliedRevision == k.Status.LastAttemptedRevision
+}
+
+func isReconcileFailure(k *kustomizev1.Kustomization) bool {
+	if conditions.IsStalled(k) {
+		return true
+	}
+
+	isHandled := true
+	if v, ok := meta.ReconcileAnnotationValue(k.GetAnnotations()); ok {
+		isHandled = k.Status.LastHandledReconcileAt == v
+	}
+
+	return isHandled && conditions.IsReconciling(k) &&
+		conditions.IsFalse(k, meta.ReadyCondition) &&
+		conditions.GetObservedGeneration(k, meta.ReadyCondition) == k.Generation &&
+		conditions.GetReason(k, meta.ReconcilingCondition) == kustomizev1.ProgressingWithRetryReason
+}
+
+func logStatus(t *testing.T, k *kustomizev1.Kustomization) {
+	sts, _ := yaml.Marshal(k.Status)
+	t.Log(string(sts))
 }
 
 func getEvents(objName string, annotations map[string]string) []corev1.Event {

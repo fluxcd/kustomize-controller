@@ -43,7 +43,7 @@ const varsubRegex = "^[_[:alpha:]][_[:alpha:][:digit:]]*$"
 func SubstituteVariables(
 	ctx context.Context,
 	kubeClient client.Client,
-	kustomization kustomizev1.Kustomization,
+	kustomization *kustomizev1.Kustomization,
 	res *resource.Resource) (*resource.Resource, error) {
 	resData, err := res.AsYAML()
 	if err != nil {
