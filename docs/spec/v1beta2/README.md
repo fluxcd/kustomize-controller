@@ -6,6 +6,8 @@ of Kubernetes objects generated with Kustomize.
 ## Specification
 
 - [Kustomization CRD](kustomization.md)
+    + [Example](kustomization.md#example)
+    + [Recommended settings](kustomization.md#recommended-settings)
     + [Source reference](kustomization.md#source-reference)
     + [Generate kustomization.yaml](kustomization.md#generate-kustomizationyaml)
     + [Reconciliation](kustomization.md#reconciliation)

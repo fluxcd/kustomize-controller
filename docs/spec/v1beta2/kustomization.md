@@ -127,7 +127,7 @@ spec:
   timeout: 3m0s # give up waiting after three minutes
   retryInterval: 2m0s # retry every two minutes on apply or waiting failures
   prune: true # remove stale resources from cluster
-  force: true # recreate resources on immutable fields changes
+  force: false # enable this to recreate resources on immutable fields changes
   targetNamespace: apps # set the namespace for all resources
   sourceRef:
     kind: GitRepository
@@ -135,6 +135,8 @@ spec:
     namespace: apps
   path: "./deploy/production"
 ```
+
+### Disable Kustomize remote bases
 
 For security and performance reasons, it is advised to disallow the usage of
 [remote bases](https://github.com/kubernetes-sigs/kustomize/blob/a7f4db7fb41e17b2c826a524f545e6174b4dc6ac/examples/remoteBuild.md)
@@ -149,14 +151,15 @@ changes, it generates a Kubernetes event that triggers a kustomize build and app
 
 Source supported types:
 
-* [GitRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/gitrepositories.md)
-* [OCIRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/ocirepositories.md)
-* [Bucket](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/buckets.md)
+- [GitRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/gitrepositories.md)
+- [OCIRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/ocirepositories.md)
+- [Bucket](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/buckets.md)
 
-> **Note** that the source should contain the kustomization.yaml and all the
-> Kubernetes manifests and configuration files referenced in the kustomization.yaml.
-> If your Git repository or S3 bucket contains only plain manifests,
-> then a kustomization.yaml will be automatically generated.
+**Note:** If the source contains a `kustomization.yaml` file, then it should also contain
+all the Kubernetes manifests and configuration files referenced in the Kustomize config file.
+If your Git, OCI repository or S3 bucket contains **plain manifests**,
+then a kustomization.yaml will be [automatically generated](#generate-kustomizationyaml)
+by the controller.
 
 ### Cross-namespace references
 
@@ -187,12 +190,12 @@ If your repository contains plain Kubernetes manifests, the
 manifests in the directory tree specified in the `spec.path` field of the Flux `Kustomization`.
 All YAML files present under that path must be valid Kubernetes
 manifests, unless they're excluded either by way of the `.sourceignore`
-file or the `spec.ignore` field on the corresponding `GitRepository` object.
+file or the `spec.ignore` field on the corresponding source object.
 
 Example of excluding CI workflows and SOPS config files:
 
 ```yaml
-apiVersion: source.toolkit.fluxcd.io/v1beta1
+apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: GitRepository
 metadata:
   name: podinfo
@@ -201,7 +204,6 @@ spec:
   interval: 5m
   url: https://github.com/stefanprodan/podinfo
   ignore: |
-    .git/
     .github/
     .sops.yaml
     .gitlab-ci.yml
@@ -209,16 +211,13 @@ spec:
 
 It is recommended to generate the `kustomization.yaml` on your own and store it in Git, this way you can
 validate your manifests in CI (example script [here](https://github.com/fluxcd/flux2-multi-tenancy/blob/main/scripts/validate.sh)).
-Assuming your manifests are inside `./clusters/my-cluster`, you can generate a `kustomization.yaml` with:
+Assuming your manifests are inside `apps/my-app`, you can generate a `kustomization.yaml` with:
 
 ```sh
-cd clusters/my-cluster
+cd apps/my-app
 
-# create kustomization
+# create kustomization.yaml
 kustomize create --autodetect --recursive
-
-# validate kustomization
-kustomize build | kubeconform -ignore-missing-schemas
 ```
 
 ## Reconciliation
@@ -260,7 +259,7 @@ You can configure the controller to ignore in-cluster resources by labeling or a
 kustomize.toolkit.fluxcd.io/reconcile: disabled
 ```
 
-Note that when the `kustomize.toolkit.fluxcd.io/reconcile` annotation is set to `disabled`,
+**Note:** When the `kustomize.toolkit.fluxcd.io/reconcile` annotation is set to `disabled`,
 the controller will no longer apply changes from source, nor will it prune the resource.
 To resume reconciliation, set the annotation to `enabled` or remove it.
 
@@ -279,7 +278,7 @@ Another option is to annotate or label objects with:
 kustomize.toolkit.fluxcd.io/ssa: merge
 ```
 
-Note that the fields defined in manifests will always be overridden,
+**Note:** The fields defined in manifests will always be overridden,
 the above procedure works only for adding new fields that don’t overlap with the desired state.
 
 ## Garbage collection
@@ -329,18 +328,20 @@ spec:
 ```
 
 If you wish to select only certain resources, list them under `spec.healthChecks`.
-Note that when `spec.wait` is enabled, the `spec.healthChecks` field is ignored.
+
+**Note:** When `spec.wait` is enabled, the `spec.healthChecks` field is ignored.
 
 A health check entry can reference one of the following types:
 
-* Kubernetes builtin kinds: Deployment, DaemonSet, StatefulSet, PersistentVolumeClaim, Pod, PodDisruptionBudget, Job, CronJob, Service, Secret, ConfigMap, CustomResourceDefinition
-* Toolkit kinds: HelmRelease, HelmRepository, GitRepository, etc
-* Custom resources that are compatible with [kstatus](https://github.com/kubernetes-sigs/cli-utils/tree/master/pkg/kstatus)
+- Kubernetes builtin kinds: Deployment, DaemonSet, StatefulSet, PersistentVolumeClaim, Pod, PodDisruptionBudget, Job, CronJob, Service, Secret, ConfigMap, CustomResourceDefinition
+- Toolkit kinds: HelmRelease, HelmRepository, GitRepository, etc
+- Custom resources that are compatible with [kstatus](https://github.com/kubernetes-sigs/cli-utils/tree/master/pkg/kstatus)
 
 Assuming the Kustomization source contains a Kubernetes Deployment named `backend`,
 a health check can be defined as follows:
 
 ```yaml
+---
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -371,6 +372,7 @@ When a Kustomization contains HelmRelease objects, instead of checking the under
 define a health check that waits for the HelmReleases to be reconciled with:
 
 ```yaml
+---
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -410,12 +412,13 @@ its last apply status condition.
 
 Assuming two Kustomizations:
 
-* `cert-manager` - reconciles the cert-manager CRDs and controller
-* `certs` - reconciles the cert-manager custom resources
+- `cert-manager` - reconciles the cert-manager CRDs and controller
+- `certs` - reconciles the cert-manager custom resources
 
 You can instruct the controller to apply the `cert-manager` Kustomization before `certs`:
 
 ```yaml
+---
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -453,8 +456,8 @@ spec:
 When combined with health assessment, a Kustomization will run after all its dependencies health checks are passing.
 For example, a service mesh proxy injector should be running before deploying applications inside the mesh.
 
-> **Note** that circular dependencies between Kustomizations must be avoided, otherwise the
-> interdependent Kustomizations will never be applied on the cluster.
+**Note:** Circular dependencies between Kustomizations must be avoided, otherwise the
+interdependent Kustomizations will never be applied on the cluster.
 
 ## Role-based access control
 
@@ -468,6 +471,7 @@ Assuming you want to restrict a group of Kustomizations to a single namespace, y
 with a role binding that grants access only to that namespace:
 
 ```yaml
+---
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -504,13 +508,14 @@ subjects:
   namespace: webapp
 ```
 
-> **Note** that the namespace, RBAC and service account manifests should be
-> placed in a Git source and applied with a Kustomization. The Kustomizations that
-> are running under that service account should depend-on the one that contains the account.
+**Note:** The namespace, RBAC and service account manifests should be
+placed in a Git source and applied with a Kustomization. The Kustomizations that
+are running under that service account should depend-on the one that contains the account.
 
 Create a Kustomization that prevents altering the cluster state outside of the `webapp` namespace:
 
 ```yaml
+---
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -580,6 +585,7 @@ patch or a [JSON6902](https://kubectl.docs.kubernetes.io/references/kustomize/gl
 The patch can target a single resource or multiple resources:
 
 ```yaml
+---
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -675,13 +681,14 @@ for [bash string replacement functions](https://github.com/drone/envsubst) e.g.:
 - `${var:position:length}`
 - `${var/substring/replacement}`
 
-Note that the name of a variable can contain only alphanumeric and underscore characters.
+**Note:** The name of a variable can contain only alphanumeric and underscore characters.
 The controller validates the var names using this regular expression:
 `^[_[:alpha:]][_[:alpha:][:digit:]]*$`.
 
 Assuming you have manifests with the following variables:
 
 ```yaml
+---
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -695,6 +702,7 @@ You can specify the variables and their values in the Kustomization definition u
 `substitute` and/or `substituteFrom` post build section:
 
 ```yaml
+---
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -716,9 +724,10 @@ spec:
         # Fail if this Secret does not exist.
 ```
 
-Note that for substituting variables in a secret, `spec.stringData` field must be used i.e
+**Note:** For substituting variables in a secret, `spec.stringData` field must be used i.e
 
 ```yaml
+---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -732,7 +741,7 @@ stringData:
 The var values which are specified in-line with `substitute`
 take precedence over the ones in `substituteFrom`.
 
-Note that if you want to avoid var substitutions in scripts embedded in ConfigMaps or container commands,
+**Note:** If you want to avoid var substitutions in scripts embedded in ConfigMaps or container commands,
 you must use the format `$var` instead of `${var}`. If you want to keep the curly braces you can use `$${var}`
 which will print out `${var}`. 
 
@@ -854,11 +863,11 @@ kubectl create secret generic prod-kubeconfig \
     --from-file=value.yaml=./kubeconfig
 ```
 
-> **Note** that the KubeConfig should be self-contained and not rely on binaries, environment,
-> or credential files from the kustomize-controller Pod.
-> This matches the constraints of KubeConfigs from current Cluster API providers.
-> KubeConfigs with `cmd-path` in them likely won't work without a custom,
-> per-provider installation of kustomize-controller.
+**Note:** The KubeConfig should be self-contained and not rely on binaries, environment,
+or credential files from the kustomize-controller Pod.
+This matches the constraints of KubeConfigs from current Cluster API providers.
+KubeConfigs with `cmd-path` in them likely won't work without a custom,
+per-provider installation of kustomize-controller.
 
 When both `spec.kubeConfig` and `spec.ServiceAccountName` are specified,
 the controller will impersonate the service account on the target cluster.
@@ -871,10 +880,10 @@ and encrypt your Kubernetes Secrets data with [age](https://age-encryption.org/v
 and [OpenPGP](https://www.openpgp.org) keys, or using provider
 implementations like Azure Key Vault, GCP KMS or Hashicorp Vault.
 
-> **Note:** You should encrypt only the `data` section of the Kubernetes
-> Secret, encrypting the `metadata`, `kind` or `apiVersion` fields is not
-> supported. An easy way to do this is by appending
-> `--encrypted-regex '^(data|stringData)$'` to your `sops --encrypt` command.
+**Note:** You should encrypt only the `data` section of the Kubernetes
+Secret, encrypting the `metadata`, `kind` or `apiVersion` fields is not
+supported. An easy way to do this is by appending
+`--encrypted-regex '^(data|stringData)$'` to your `sops --encrypt` command.
 
 ### Decryption Secret reference
 
@@ -1171,9 +1180,9 @@ In addition to this, the
 [general SOPS documentation around KMS AWS applies](https://github.com/mozilla/sops#27kms-aws-profiles),
 allowing you to specify e.g. a `SOPS_KMS_ARN` environment variable.
 
-> **Note:**: If you're mounting a secret containing the AWS credentials as a file in the `kustomize-controller` pod,
-> you'd need to specify an environment variable `$HOME`, since the AWS credentials file is expected to be present
-> at `~/.aws`, like so:
+**Note:**: If you're mounting a secret containing the AWS credentials as a file in the `kustomize-controller` pod,
+you'd need to specify an environment variable `$HOME`, since the AWS credentials file is expected to be present
+at `~/.aws`, like so:
 ```yaml
 env:
   - name: HOME
@@ -1422,7 +1431,7 @@ status:
   lastAttemptedRevision: master/7c500d302e38e7e4a3f327343a8a5c21acaaeb87
 ```
 
-> **Note** that the last applied revision is updated only on a successful reconciliation.
+**Note:** The last applied revision is updated only on a successful reconciliation.
 
 When a reconciliation fails, the controller logs the error and issues a Kubernetes event:
 
