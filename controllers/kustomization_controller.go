@@ -127,7 +127,12 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 
 	r.requeueDependency = opts.DependencyRequeueInterval
 	r.statusManager = fmt.Sprintf("gotk-%s", r.ControllerName)
-	r.artifactFetcher = fetch.NewArchiveFetcher(opts.HTTPRetry, tar.UnlimitedUntarSize, os.Getenv("SOURCE_CONTROLLER_LOCALHOST"))
+	r.artifactFetcher = fetch.NewArchiveFetcher(
+		opts.HTTPRetry,
+		tar.UnlimitedUntarSize,
+		tar.UnlimitedUntarSize,
+		os.Getenv("SOURCE_CONTROLLER_LOCALHOST"),
+	)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
