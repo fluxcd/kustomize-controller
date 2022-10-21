@@ -973,7 +973,7 @@ spec:
               timeout:
                 description: Timeout for validation, apply and health checking operations.
                   Defaults to 'Interval' duration.
-                pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m))+$
+                pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               validation:
                 description: 'Deprecated: Not used in v1beta2.'
