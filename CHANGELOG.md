@@ -2,6 +2,42 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.30.0
+
+**Release date:** 2022-10-21
+
+This prerelease comes with new status condition named `Reconciling` which improves
+the observability for the actions performed by the controller during a reconciliation run.
+The `Kustomization.status.conditions` have been aligned with Kubernetes
+standard conditions and kstatus.
+
+In addition, the controller memory usage was reduced by 90% when performing artifact
+operations and can now better handle the reconciliation of large sources in-parallel.
+
+Improvements:
+- Optimise the memory usage of artifact operations
+  [#747](https://github.com/fluxcd/kustomize-controller/pull/747)
+- Refactor: Adopt Flux runtime conditions and status standards
+  [#745](https://github.com/fluxcd/kustomize-controller/pull/745)
+- Refactor: Remove docs which overlap with Flux website
+  [#746](https://github.com/fluxcd/kustomize-controller/pull/746)
+- Refactor: Move inventory helpers to internal package
+  [#744](https://github.com/fluxcd/kustomize-controller/pull/744)
+- Refactor: Acquire artifacts with `fluxcd/pkg/http/fetch`
+  [#743](https://github.com/fluxcd/kustomize-controller/pull/743)
+- Refactor: Use impersonation from `fluxcd/pkg/runtime/client`
+  [#742](https://github.com/fluxcd/kustomize-controller/pull/742)
+- Refactor: Extract generator to internal package
+  [#740](https://github.com/fluxcd/kustomize-controller/pull/740)
+- Refactor: Extract decrytor to internal package
+  [#739](https://github.com/fluxcd/kustomize-controller/pull/739)
+- Support alternative kustomization file names
+  [#738](https://github.com/fluxcd/kustomize-controller/pull/738)
+- API: allow configuration of `h` unit for timeouts
+  [#749](https://github.com/fluxcd/kustomize-controller/pull/749)
+- Update dependencies
+  [#750](https://github.com/fluxcd/kustomize-controller/pull/750)
+
 ## 0.29.0
 
 **Release date:** 2022-09-29
