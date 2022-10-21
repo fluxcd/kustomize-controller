@@ -134,7 +134,7 @@ type KustomizationSpec struct {
 	// Timeout for validation, apply and health checking operations.
 	// Defaults to 'Interval' duration.
 	// +kubebuilder:validation:Type=string
-	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m))+$"
+	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
