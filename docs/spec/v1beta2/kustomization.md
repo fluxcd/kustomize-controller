@@ -556,6 +556,7 @@ offering support for the following Kustomize directives:
 - [namespace](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/namespace/)
 - [patches](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patches/)
 - [images](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/images/)
+- [components](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/components/)
 
 ### Target namespace
 
@@ -653,6 +654,31 @@ spec:
   - name: podinfo
     digest: sha256:24a0c4b4a4c0eb97a1aabb8e29f18e917d05abfe1b7a7c07857230879ce7d3d3
 ```
+
+### Components
+
+To add [Kustomize `components` entries](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/components/)
+to the configuration, and use reusable pieces of configuration logic that can
+be included from multiple overlays, `spec.components` can be defined:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: flux-system
+spec:
+  # ...omitted for brevity
+  components:
+  - ingress
+  - tls
+```
+
+**Note:** The component paths must be local and relative.
+
+**Warning:** Components are a alpha feature in Kustomize and are therefore
+considered experimental in Flux. No guarantees are provided and the feature may
+be modified in backwards incompatible ways or removed without warning.
 
 ## Variable substitution
 

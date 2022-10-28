@@ -585,6 +585,12 @@ spec:
             description: KustomizationSpec defines the configuration to calculate
               the desired state from a Source using Kustomize.
             properties:
+              components:
+                description: Components specifies relative paths to specifications
+                  of other Components
+                items:
+                  type: string
+                type: array
               decryption:
                 description: Decrypt Kubernetes secrets before applying them on the
                   cluster.
