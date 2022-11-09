@@ -33,7 +33,9 @@ RUN xx-go build -trimpath -a -o kustomize-controller main.go
 
 FROM alpine:3.16
 
-RUN apk add --no-cache ca-certificates tini git openssh-client gnupg
+# Uses GnuPG from edge to patch CVE-2022-3515.
+RUN apk add --no-cache ca-certificates tini git openssh-client && \
+	apk add --no-cache gnupg --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
 
 COPY --from=builder /workspace/kustomize-controller /usr/local/bin/
 
