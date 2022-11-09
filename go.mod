@@ -8,9 +8,9 @@ require (
 	cloud.google.com/go/kms v1.4.0
 	filippo.io/age v1.0.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20221007124625-37f5449ff7df
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.22.0
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v0.13.2
-	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.4.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.2.0
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.2.0
+	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.9.0
 	github.com/aws/aws-sdk-go v1.44.120
 	github.com/aws/aws-sdk-go-v2 v1.16.16
 	github.com/aws/aws-sdk-go-v2/config v1.17.8
@@ -79,8 +79,8 @@ require (
 	cloud.google.com/go/compute v1.10.0 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
 	github.com/Azure/azure-sdk-for-go v63.3.0+incompatible // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v0.9.1 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/keyvault/internal v0.2.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.0.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/keyvault/internal v0.7.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.27 // indirect
@@ -92,7 +92,7 @@ require (
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
-	github.com/AzureAD/microsoft-authentication-library-for-go v0.4.0 // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v0.7.0 // indirect
 	github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
@@ -132,8 +132,7 @@ require (
 	github.com/go-openapi/jsonreference v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.14 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
-	github.com/golang-jwt/jwt/v4 v4.3.0 // indirect
+	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -213,7 +212,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
-	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
+	golang.org/x/crypto v0.0.0-20220511200225-c6db032c6c88 // indirect
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783 // indirect
 	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/term v0.1.0 // indirect

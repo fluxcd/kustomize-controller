@@ -16,7 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys/crypto"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys"
 	. "github.com/onsi/gomega"
 	"go.mozilla.org/sops/v3/azkv"
 )
@@ -55,9 +56,12 @@ func TestMasterKey_Decrypt(t *testing.T) {
 	token.ApplyToMasterKey(key)
 
 	dataKey := []byte("this is super secret data")
-	c, err := crypto.NewClient(key.ToString(), key.token, nil)
+	c, err := azkeys.NewClient(key.VaultURL, key.token, nil)
 	g.Expect(err).ToNot(HaveOccurred())
-	resp, err := c.Encrypt(context.Background(), crypto.EncryptionAlgorithmRSAOAEP256, dataKey, nil)
+	resp, err := c.Encrypt(context.Background(), key.Name, key.Version, azkeys.KeyOperationsParameters{
+		Algorithm: to.Ptr(azkeys.JSONWebKeyEncryptionAlgorithmRSAOAEP256),
+		Value:     dataKey,
+	}, nil)
 	g.Expect(err).ToNot(HaveOccurred())
 	key.EncryptedKey = base64.RawURLEncoding.EncodeToString(resp.Result)
 	g.Expect(key.EncryptedKey).ToNot(BeEmpty())
