@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	. "github.com/onsi/gomega"
 )
@@ -161,11 +162,14 @@ func TestTokenFromAADConfig(t *testing.T) {
 	}
 }
 
-func TestAADConfig_GetAuthorityHost(t *testing.T) {
+func TestAADConfig_GetCloudConfig(t *testing.T) {
 	g := NewWithT(t)
 
-	g.Expect((AADConfig{}).GetAuthorityHost()).To(Equal(azidentity.AzurePublicCloud))
-	g.Expect((AADConfig{AuthorityHost: "https://example.com"}).GetAuthorityHost()).To(Equal(azidentity.AuthorityHost("https://example.com")))
+	g.Expect((AADConfig{}).GetCloudConfig()).To(Equal(cloud.AzurePublic))
+	g.Expect((AADConfig{AuthorityHost: "https://example.com"}).GetCloudConfig()).To(Equal(cloud.Configuration{
+		ActiveDirectoryAuthorityHost: "https://example.com",
+		Services:                     map[cloud.ServiceName]cloud.ServiceConfiguration{},
+	}))
 }
 
 func validTLS(t *testing.T) []byte {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"sigs.k8s.io/yaml"
 )
@@ -68,7 +69,9 @@ func TokenFromAADConfig(c AADConfig) (_ *Token, err error) {
 	if c.TenantID != "" && c.ClientID != "" {
 		if c.ClientSecret != "" {
 			if token, err = azidentity.NewClientSecretCredential(c.TenantID, c.ClientID, c.ClientSecret, &azidentity.ClientSecretCredentialOptions{
-				AuthorityHost: c.GetAuthorityHost(),
+				ClientOptions: azcore.ClientOptions{
+					Cloud: c.GetCloudConfig(),
+				},
 			}); err != nil {
 				return
 			}
@@ -81,7 +84,9 @@ func TokenFromAADConfig(c AADConfig) (_ *Token, err error) {
 			}
 			if token, err = azidentity.NewClientCertificateCredential(c.TenantID, c.ClientID, certs, pk, &azidentity.ClientCertificateCredentialOptions{
 				SendCertificateChain: c.ClientCertificateSendChain,
-				AuthorityHost:        c.GetAuthorityHost(),
+				ClientOptions: azcore.ClientOptions{
+					Cloud: c.GetCloudConfig(),
+				},
 			}); err != nil {
 				return nil, err
 			}
@@ -92,7 +97,9 @@ func TokenFromAADConfig(c AADConfig) (_ *Token, err error) {
 	switch {
 	case c.Tenant != "" && c.AppID != "" && c.Password != "":
 		if token, err = azidentity.NewClientSecretCredential(c.Tenant, c.AppID, c.Password, &azidentity.ClientSecretCredentialOptions{
-			AuthorityHost: c.GetAuthorityHost(),
+			ClientOptions: azcore.ClientOptions{
+				Cloud: c.GetCloudConfig(),
+			},
 		}); err != nil {
 			return
 		}
@@ -110,11 +117,14 @@ func TokenFromAADConfig(c AADConfig) (_ *Token, err error) {
 	}
 }
 
-// GetAuthorityHost returns the AuthorityHost, or the Azure Public Cloud
-// default.
-func (s AADConfig) GetAuthorityHost() azidentity.AuthorityHost {
+// GetCloudConfig returns a cloud.Configuration with the AuthorityHost, or the
+// Azure Public Cloud default.
+func (s AADConfig) GetCloudConfig() cloud.Configuration {
 	if s.AuthorityHost != "" {
-		return azidentity.AuthorityHost(s.AuthorityHost)
+		return cloud.Configuration{
+			ActiveDirectoryAuthorityHost: s.AuthorityHost,
+			Services:                     map[cloud.ServiceName]cloud.ServiceConfiguration{},
+		}
 	}
-	return azidentity.AzurePublicCloud
+	return cloud.AzurePublic
 }

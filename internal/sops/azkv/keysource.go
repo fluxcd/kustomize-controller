@@ -17,7 +17,8 @@ import (
 	"unicode/utf16"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys/crypto"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys"
 	"github.com/dimchansky/utfbom"
 )
 
@@ -73,11 +74,14 @@ func (t Token) ApplyToMasterKey(key *MasterKey) {
 // Encrypt takes a SOPS data key, encrypts it with Azure Key Vault, and stores
 // the result in the EncryptedKey field.
 func (key *MasterKey) Encrypt(dataKey []byte) error {
-	c, err := crypto.NewClient(key.ToString(), key.token, nil)
+	c, err := azkeys.NewClient(key.VaultURL, key.token, nil)
 	if err != nil {
 		return fmt.Errorf("failed to construct Azure Key Vault crypto client to encrypt data: %w", err)
 	}
-	resp, err := c.Encrypt(context.Background(), crypto.EncryptionAlgorithmRSAOAEP256, dataKey, nil)
+	resp, err := c.Encrypt(context.Background(), key.Name, key.Version, azkeys.KeyOperationsParameters{
+		Algorithm: to.Ptr(azkeys.JSONWebKeyEncryptionAlgorithmRSAOAEP256),
+		Value:     dataKey,
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt sops data key with Azure Key Vault key '%s': %w", key.ToString(), err)
 	}
@@ -111,7 +115,7 @@ func (key *MasterKey) EncryptIfNeeded(dataKey []byte) error {
 // Decrypt decrypts the EncryptedKey field with Azure Key Vault and returns
 // the result.
 func (key *MasterKey) Decrypt() ([]byte, error) {
-	c, err := crypto.NewClient(key.ToString(), key.token, nil)
+	c, err := azkeys.NewClient(key.VaultURL, key.token, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct Azure Key Vault crypto client to decrypt data: %w", err)
 	}
@@ -122,7 +126,10 @@ func (key *MasterKey) Decrypt() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to base64 decode Azure Key Vault encrypted key: %w", err)
 	}
-	resp, err := c.Decrypt(context.Background(), crypto.EncryptionAlgorithmRSAOAEP256, rawEncryptedKey, nil)
+	resp, err := c.Decrypt(context.Background(), key.Name, key.Version, azkeys.KeyOperationsParameters{
+		Algorithm: to.Ptr(azkeys.JSONWebKeyEncryptionAlgorithmRSAOAEP256),
+		Value:     rawEncryptedKey,
+	}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt sops data key with Azure Key Vault key '%s': %w", key.ToString(), err)
 	}
