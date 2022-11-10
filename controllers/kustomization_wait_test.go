@@ -154,14 +154,11 @@ parameters:
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			return isReconcileRunning(resultK)
+			return isReconcileRunning(resultK) && conditions.IsUnknown(resultK, kustomizev1.HealthyCondition)
 		}, timeout, time.Second).Should(BeTrue())
 		logStatus(t, resultK)
 
 		expectedMessage := "Running health checks"
-		g.Expect(conditions.IsUnknown(resultK, kustomizev1.HealthyCondition)).To(BeTrue())
-		g.Expect(conditions.IsUnknown(resultK, meta.ReadyCondition)).To(BeTrue())
-
 		for _, c := range []string{meta.ReconcilingCondition, kustomizev1.HealthyCondition} {
 			g.Expect(conditions.GetReason(resultK, c)).To(BeIdenticalTo(meta.ProgressingReason))
 			g.Expect(conditions.GetMessage(resultK, c)).To(ContainSubstring(expectedMessage))

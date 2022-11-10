@@ -175,7 +175,10 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Finalise the reconciliation and report the results.
 	defer func() {
-		retErr = r.finalizeStatus(ctx, obj, patcher)
+		// Patch finalizers, status and conditions.
+		if err := r.finalizeStatus(ctx, obj, patcher); err != nil {
+			retErr = kerrors.NewAggregate([]error{retErr, err})
+		}
 
 		// Record Prometheus metrics.
 		r.Metrics.RecordReadiness(ctx, obj)
