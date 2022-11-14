@@ -39,10 +39,6 @@ RUN apk add --no-cache ca-certificates tini git openssh-client && \
 
 COPY --from=builder /workspace/kustomize-controller /usr/local/bin/
 
-# Create minimal nsswitch.conf file to prioritize the usage of /etc/hosts over DNS queries.
-# https://github.com/gliderlabs/docker-alpine/issues/367#issuecomment-354316460
-RUN [ ! -e /etc/nsswitch.conf ] && echo 'hosts: files dns' > /etc/nsswitch.conf
-
 USER 65534:65534
 
 ENV GNUPGHOME=/tmp
