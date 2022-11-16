@@ -1,7 +1,0 @@
----
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - github.com/fluxcd/kustomize-controller//config/crd?ref=main
-  - git::https://github.com/fluxcd/kustomize-controller//config/rbac?ref=main
-  - https://github.com/fluxcd/kustomize-controller//config/manager?ref=main

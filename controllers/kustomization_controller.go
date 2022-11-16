@@ -31,6 +31,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	kuberecorder "k8s.io/client-go/tools/record"
@@ -62,8 +63,8 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/kustomize-controller/internal/decryptor"
-	"github.com/fluxcd/kustomize-controller/internal/generator"
 	"github.com/fluxcd/kustomize-controller/internal/inventory"
+	generator "github.com/fluxcd/pkg/kustomize"
 )
 
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
@@ -366,14 +367,19 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Generate kustomization.yaml if needed.
-	err = r.generate(obj, tmpDir, dirPath)
+	k, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
+		return err
+	}
+	err = r.generate(unstructured.Unstructured{Object: k}, tmpDir, dirPath)
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
 		return err
 	}
 
 	// Build the Kustomize overlay and decrypt secrets if needed.
-	resources, err := r.build(ctx, obj, tmpDir, dirPath)
+	resources, err := r.build(ctx, obj, unstructured.Unstructured{Object: k}, tmpDir, dirPath)
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
 		return err
@@ -548,14 +554,14 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 	return src, nil
 }
 
-func (r *KustomizationReconciler) generate(obj *kustomizev1.Kustomization,
+func (r *KustomizationReconciler) generate(obj unstructured.Unstructured,
 	workDir string, dirPath string) error {
 	_, err := generator.NewGenerator(workDir, obj).WriteFile(dirPath)
 	return err
 }
 
 func (r *KustomizationReconciler) build(ctx context.Context,
-	obj *kustomizev1.Kustomization,
+	obj *kustomizev1.Kustomization, u unstructured.Unstructured,
 	workDir, dirPath string) ([]byte, error) {
 	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, obj)
 	if err != nil {
@@ -573,7 +579,7 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 		return nil, fmt.Errorf("error decrypting env sources: %w", err)
 	}
 
-	m, err := generator.Build(workDir, dirPath, !r.NoRemoteBases)
+	m, err := generator.SecureBuild(workDir, dirPath, !r.NoRemoteBases)
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
@@ -601,7 +607,7 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 
 		// run variable substitutions
 		if obj.Spec.PostBuild != nil {
-			outRes, err := generator.SubstituteVariables(ctx, r.Client, obj, res)
+			outRes, err := generator.SubstituteVariables(ctx, r.Client, u, res, false)
 			if err != nil {
 				return nil, fmt.Errorf("var substitution failed for '%s': %w", res.GetName(), err)
 			}
