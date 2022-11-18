@@ -2,6 +2,41 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.31.0
+
+**Release date:** 2022-11-18
+
+This prerelease comes with improvements to the manifests
+generation component. The Kustomize overlay build logic has been
+factored out into `github.com/fluxcd/pkg/kustomize` so that both
+the controller and the Flux CLI (`flux buid kustomization`)
+share the same code base.
+
+In addition, the controller dependencies have been updated to
+Kubernetes v1.25.4 and controller-runtime v0.13.1.
+The Azure Vault SDK used for secrets decryption has been updated
+to match the latest stable release form upstream.
+
+Improvements:
+- Refactor: Generate manifests with `flux/pkg/kustomize`
+  [#763](https://github.com/fluxcd/kustomize-controller/pull/763)
+- Update `keyvault/azkeys` Azure SDK to v0.9.0
+  [#759](https://github.com/fluxcd/kustomize-controller/pull/759)
+- Update Source API to v0.32.1
+  [#768](https://github.com/fluxcd/kustomize-controller/pull/768)
+- Update dependencies
+  [#767](https://github.com/fluxcd/kustomize-controller/pull/767)
+- Use Flux Event API v1beta1
+  [#758](https://github.com/fluxcd/kustomize-controller/pull/758)
+- build: Bump gpg to alpine's edge
+  [#760](https://github.com/fluxcd/kustomize-controller/pull/760)
+- build: Remove nsswitch.conf creation
+  [#765](https://github.com/fluxcd/kustomize-controller/pull/765)
+
+Fixes:
+- Don't override the reconcile error on status patching
+  [#761](https://github.com/fluxcd/kustomize-controller/pull/761)
+
 ## 0.30.0
 
 **Release date:** 2022-10-21
