@@ -1,5 +1,5 @@
-//go:build gofuzz
-// +build gofuzz
+//go:build gofuzz_libfuzzer
+// +build gofuzz_libfuzzer
 
 /*
 Copyright 2021 The Flux authors
@@ -20,28 +20,47 @@ limitations under the License.
 package controllers
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
+	"crypto/sha1"
+	"crypto/sha256"
+	"embed"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
-	"embed"
-	"io/fs"
-
 	securejoin "github.com/cyphar/filepath-securejoin"
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/testenv"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
+	"github.com/hashicorp/vault/api"
+	"github.com/ory/dockertest"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	controllerLog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/controller"
+	"github.com/fluxcd/pkg/runtime/testenv"
+	"github.com/fluxcd/pkg/testserver"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
 
 var (
