@@ -367,6 +367,18 @@ string
 <p>Deprecated: Not used in v1beta2.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>components</code><br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Components specifies relative paths to specifications of other Components</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -814,6 +826,18 @@ string
 <td>
 <em>(Optional)</em>
 <p>Deprecated: Not used in v1beta2.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>components</code><br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Components specifies relative paths to specifications of other Components</p>
 </td>
 </tr>
 </tbody>

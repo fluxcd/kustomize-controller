@@ -153,6 +153,10 @@ type KustomizationSpec struct {
 	// +kubebuilder:validation:Enum=none;client;server
 	// +optional
 	Validation string `json:"validation,omitempty"`
+
+	// Components specifies relative paths to specifications of other Components
+	// +optional
+	Components []string `json:"components,omitempty"`
 }
 
 // Decryption defines how decryption is handled for Kubernetes manifests.
