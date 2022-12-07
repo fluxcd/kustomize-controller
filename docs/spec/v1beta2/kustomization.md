@@ -281,6 +281,11 @@ kustomize.toolkit.fluxcd.io/ssa: merge
 **Note:** The fields defined in manifests will always be overridden,
 the above procedure works only for adding new fields that don’t overlap with the desired state.
 
+For lists fields which are atomic (e.g `spec.tolerations` in PodSpec), Kubernetes doesn't allow different managers 
+for such fields, therefore any changes to these fields will be undone, even if you specify a manager. 
+For more context, please see the Kubernetes enhancement doc:
+[555-server-side-apply](https://github.com/kubernetes/enhancements/blob/master/keps/sig-api-machinery/555-server-side-apply/README.md#lists).
+
 ## Garbage collection
 
 To enable garbage collection, set `spec.prune` to `true`.
