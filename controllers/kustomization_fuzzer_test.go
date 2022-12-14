@@ -41,7 +41,7 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/hashicorp/vault/api"
-	"github.com/ory/dockertest"
+	"github.com/ory/dockertest/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

@@ -25,7 +25,7 @@ import (
 	sessionv1 "github.com/aws/aws-sdk-go/aws/session"
 	kmsv1 "github.com/aws/aws-sdk-go/service/kms"
 	. "github.com/onsi/gomega"
-	"github.com/ory/dockertest"
+	"github.com/ory/dockertest/v3"
 )
 
 var (

@@ -16,7 +16,7 @@ import (
 
 	"github.com/hashicorp/vault/api"
 	. "github.com/onsi/gomega"
-	"github.com/ory/dockertest"
+	"github.com/ory/dockertest/v3"
 	"go.mozilla.org/sops/v3/hcvault"
 )
 
