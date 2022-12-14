@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/vault/api"
-	"github.com/ory/dockertest"
+	"github.com/ory/dockertest/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
