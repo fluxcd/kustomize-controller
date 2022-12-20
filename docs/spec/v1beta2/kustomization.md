@@ -679,10 +679,10 @@ spec:
   - tls
 ```
 
-**Note:** The component paths must be local and relative.
+**Note:** The component paths must be local and relative to the source root.
 
-**Warning:** Components are a alpha feature in Kustomize and are therefore
-considered experimental in Flux. No guarantees are provided and the feature may
+**Warning:** Components are an alpha feature in Kustomize and are therefore
+considered experimental in Flux. No guarantees are provided as the feature may
 be modified in backwards incompatible ways or removed without warning.
 
 ## Variable substitution
