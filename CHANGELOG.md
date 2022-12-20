@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.32.0
+
+**Release date:** 2022-12-20
+
+This prerelease comes with experimental support for
+[Kustomize components](https://github.com/fluxcd/kustomize-controller/blob/v0.32.0/docs/spec/v1beta2/kustomization.md#components).
+
+In addition, the AWS and Google Cloud KMS dependencies have been updated
+to match the latest stable release from upstream.
+
+Improvements:
+- Add support for Kustomize components
+  [#754](https://github.com/fluxcd/kustomize-controller/pull/754)
+- Update dependencies
+  [#780](https://github.com/fluxcd/kustomize-controller/pull/780)
+- Document the behaviour of atomic fields with server-side apply
+  [#774](https://github.com/fluxcd/kustomize-controller/pull/774)
+- fuzz: Use build script from upstream and fix fuzzers
+  [#777](https://github.com/fluxcd/kustomize-controller/pull/777)
+- build: Fix cifuzz tests and improve fuzz tests' reliability
+  [#771](https://github.com/fluxcd/kustomize-controller/pull/771)
+- build: update dockertest to Go Mod compatible v3
+  [#776](https://github.com/fluxcd/kustomize-controller/pull/776)
+
 ## 0.31.0
 
 **Release date:** 2022-11-18
@@ -15,7 +39,7 @@ share the same code base.
 In addition, the controller dependencies have been updated to
 Kubernetes v1.25.4 and controller-runtime v0.13.1.
 The Azure Vault SDK used for secrets decryption has been updated
-to match the latest stable release form upstream.
+to match the latest stable release from upstream.
 
 Improvements:
 - Refactor: Generate manifests with `flux/pkg/kustomize`
