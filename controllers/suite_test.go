@@ -23,7 +23,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sigs.k8s.io/yaml"
 	"testing"
 	"time"
 
@@ -38,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	controllerLog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/yaml"
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
@@ -63,15 +63,16 @@ const (
 const vaultVersion = "1.2.2"
 
 var (
-	reconciler   *KustomizationReconciler
-	k8sClient    client.Client
-	testEnv      *testenv.Environment
-	testServer   *testserver.ArtifactServer
-	testMetricsH controller.Metrics
-	ctx          = ctrl.SetupSignalHandler()
-	kubeConfig   []byte
-	kstatusCheck *kcheck.Checker
-	debugMode    = os.Getenv("DEBUG_TEST") != ""
+	reconciler             *KustomizationReconciler
+	k8sClient              client.Client
+	testEnv                *testenv.Environment
+	testServer             *testserver.ArtifactServer
+	testMetricsH           controller.Metrics
+	ctx                    = ctrl.SetupSignalHandler()
+	kubeConfig             []byte
+	kstatusCheck           *kcheck.Checker
+	kstatusInProgressCheck *kcheck.Checker
+	debugMode              = os.Getenv("DEBUG_TEST") != ""
 )
 
 func runInContext(registerControllers func(*testenv.Environment), run func() error, crdPath string) error {
@@ -166,6 +167,12 @@ func TestMain(m *testing.M) {
 			&kcheck.Conditions{
 				NegativePolarity: []string{meta.StalledCondition, meta.ReconcilingCondition},
 			})
+		// Disable fetch for the in-progress kstatus checker so that it can be
+		// asked to evaluate snapshot of an object. This is needed to prevent
+		// the object status from changing right before the checker fetches it
+		// for inspection.
+		kstatusInProgressCheck = kcheck.NewInProgressChecker(testEnv.Client)
+		kstatusInProgressCheck.DisableFetch = true
 		reconciler = &KustomizationReconciler{
 			ControllerName: controllerName,
 			Client:         testEnv,
