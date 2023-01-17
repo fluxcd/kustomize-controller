@@ -34,6 +34,15 @@ BUILD_PLATFORMS ?= linux/amd64
 # Architecture to use envtest with
 ENVTEST_ARCH ?= amd64
 
+# Paths to download the CRD dependencies at.
+GITREPO_CRD ?= config/crd/bases/gitrepositories.yaml
+BUCKET_CRD ?= config/crd/bases/buckets.yaml
+OCIREPO_CRD ?= config/crd/bases/ocirepositories.yaml
+
+# Keep a record of the version of the downloaded source CRDs. It is used to
+# detect and download new CRDs when the SOURCE_VER changes.
+SOURCE_CRD_VER=$(BUILD_DIR)/.src-crd-$(SOURCE_VER)
+
 all: manager
 
 # Download the envtest binaries to testbin
@@ -60,11 +69,28 @@ manager: generate fmt vet
 run: generate fmt vet manifests
 	go run ./main.go --metrics-addr=:8089
 
+# Delete previously downloaded CRDs and record the new version of the source
+# CRDs.
+$(SOURCE_CRD_VER):
+	rm -f $(BUILD_DIR)/.src-crd*
+	$(MAKE) cleanup-crd-deps
+	touch $(SOURCE_CRD_VER)
+
+$(GITREPO_CRD):
+	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_gitrepositories.yaml -o $(GITREPO_CRD)
+
+$(BUCKET_CRD):
+	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_buckets.yaml -o $(BUCKET_CRD)
+
+$(OCIREPO_CRD):
+	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_ocirepositories.yaml -o $(OCIREPO_CRD)
+
 # Download the CRDs the controller depends on
-download-crd-deps:
-	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_gitrepositories.yaml > config/crd/bases/gitrepositories.yaml
-	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_buckets.yaml > config/crd/bases/buckets.yaml
-	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_ocirepositories.yaml > config/crd/bases/ocirepositories.yaml
+download-crd-deps: $(SOURCE_CRD_VER) $(GITREPO_CRD) $(BUCKET_CRD) $(OCIREPO_CRD)
+
+# Delete the downloaded CRD dependencies.
+cleanup-crd-deps:
+	rm -f $(GITREPO_CRD) $(BUCKET_CRD) $(OCIREPO_CRD)
 
 # Install CRDs into a cluster
 install: manifests
