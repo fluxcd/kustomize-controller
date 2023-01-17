@@ -125,8 +125,11 @@ func Fuzz_Controllers(f *testing.F) {
 				ControllerName: controllerName,
 				Client:         testEnv,
 			}
-			if err := (reconciler).SetupWithManager(testEnv, KustomizationReconcilerOptions{MaxConcurrentReconciles: 1}); err != nil {
-				panic(fmt.Sprintf("Failed to start GitRepositoryReconciler: %v", err))
+			if err := (reconciler).SetupWithManager(testEnv, KustomizationReconcilerOptions{
+				MaxConcurrentReconciles: 1,
+				RateLimiter:             controller.GetDefaultRateLimiter(),
+			}); err != nil {
+				panic(fmt.Sprintf("Failed to start KustomizationReconciler: %v", err))
 			}
 		}, func() error {
 			dname, err := os.MkdirTemp("", "artifact-dir")

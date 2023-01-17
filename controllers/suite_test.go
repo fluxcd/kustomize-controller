@@ -182,6 +182,7 @@ func TestMain(m *testing.M) {
 		if err := (reconciler).SetupWithManager(testEnv, KustomizationReconcilerOptions{
 			MaxConcurrentReconciles:   4,
 			DependencyRequeueInterval: 2 * time.Second,
+			RateLimiter:               controller.GetDefaultRateLimiter(),
 		}); err != nil {
 			panic(fmt.Sprintf("Failed to start KustomizationReconciler: %v", err))
 		}
