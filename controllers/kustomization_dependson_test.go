@@ -57,10 +57,10 @@ metadata:
 data:
   key: "%[2]s"
 ---
-apiVersion: autoscaling/v2beta2
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: "v2beta2-%[1]s"
+  name: "v2-%[1]s"
   namespace: "%[2]s"
 spec:
   scaleTargetRef:
