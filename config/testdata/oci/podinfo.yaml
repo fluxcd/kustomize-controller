@@ -7,7 +7,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/stefanprodan/manifests/podinfo
   ref:
-    tag: "6.1.6"
+    tag: "6.3.0"
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
@@ -26,7 +26,7 @@ spec:
   timeout: 2m
   patches:
     - patch: |-
-        apiVersion: autoscaling/v2beta2
+        apiVersion: autoscaling/v2
         kind: HorizontalPodAutoscaler
         metadata:
           name: podinfo
