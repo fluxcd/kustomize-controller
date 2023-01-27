@@ -137,7 +137,7 @@ stringData:
 		}, timeout, time.Second).Should(BeTrue())
 		logStatus(t, resultK)
 
-		//kstatusCheck.CheckErr(ctx, resultK)
+		kstatusCheck.CheckErr(ctx, resultK)
 
 		t.Run("emits validation error event", func(t *testing.T) {
 			events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
@@ -166,7 +166,7 @@ stringData:
 		}, timeout, time.Second).Should(BeTrue())
 		logStatus(t, resultK)
 
-		//kstatusCheck.CheckErr(ctx, resultK)
+		kstatusCheck.CheckErr(ctx, resultK)
 
 		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, kustomizev1.HealthyCondition)).To(BeTrue())
 	})
