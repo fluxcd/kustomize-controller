@@ -131,7 +131,7 @@ parameters:
 
 		g.Expect(resultK.Status.ObservedGeneration).To(BeIdenticalTo(resultK.Generation))
 
-		//kstatusCheck.CheckErr(ctx, resultK)
+		kstatusCheck.CheckErr(ctx, resultK)
 	})
 
 	t.Run("reports progressing status", func(t *testing.T) {
@@ -164,6 +164,7 @@ parameters:
 			g.Expect(conditions.GetMessage(resultK, c)).To(ContainSubstring(expectedMessage))
 			g.Expect(conditions.GetObservedGeneration(resultK, c)).To(BeIdenticalTo(resultK.Generation))
 		}
+		kstatusInProgressCheck.CheckErr(ctx, resultK)
 	})
 
 	t.Run("reports unhealthy status", func(t *testing.T) {
@@ -186,7 +187,7 @@ parameters:
 		g.Expect(resultK.Status.LastHandledReconcileAt).To(BeIdenticalTo(reconcileRequestAt))
 		g.Expect(resultK.Status.ObservedGeneration).To(BeIdenticalTo(resultK.Generation - 1))
 
-		//kstatusCheck.CheckErr(ctx, resultK)
+		kstatusCheck.CheckErr(ctx, resultK)
 	})
 
 	t.Run("emits unhealthy event", func(t *testing.T) {
@@ -222,7 +223,7 @@ parameters:
 
 		g.Expect(resultK.Status.ObservedGeneration).To(BeIdenticalTo(resultK.Generation))
 
-		//kstatusCheck.CheckErr(ctx, resultK)
+		kstatusCheck.CheckErr(ctx, resultK)
 	})
 
 	t.Run("emits recovery event", func(t *testing.T) {
@@ -252,7 +253,7 @@ parameters:
 
 		g.Expect(resultK.Status.LastAttemptedRevision).To(BeIdenticalTo(resultK.Status.LastAppliedRevision))
 
-		//kstatusCheck.CheckErr(ctx, resultK)
+		kstatusCheck.CheckErr(ctx, resultK)
 	})
 
 	t.Run("emits event for the new revision", func(t *testing.T) {
