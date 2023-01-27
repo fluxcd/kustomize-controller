@@ -228,9 +228,6 @@ The interval time units are `s` and `m` e.g. `interval: 5m`, the minimum value s
 
 The Kustomization execution can be suspended by setting `spec.suspend` to `true`.
 
-With `spec.force` you can tell the controller to replace the resources in-cluster if the
-patching fails due to immutable fields changes.
-
 The controller can be told to reconcile the Kustomization outside of the specified interval
 by annotating the Kustomization object with:
 
@@ -253,7 +250,16 @@ kubectl get all --all-namespaces \
 -l=kustomize.toolkit.fluxcd.io/namespace="<Kustomization namespace>"
 ```
 
-You can configure the controller to ignore in-cluster resources by labeling or annotating them:
+With `spec.force` you can tell the controller to replace the resources in-cluster if the
+patching fails due to immutable fields changes.
+
+You can enable force apply for specific resources by labeling or annotating them with:
+
+```yaml
+kustomize.toolkit.fluxcd.io/force: enabled
+```
+
+You can configure the controller to ignore in-cluster resources by labeling or annotating them with:
 
 ```yaml
 kustomize.toolkit.fluxcd.io/reconcile: disabled
@@ -261,7 +267,8 @@ kustomize.toolkit.fluxcd.io/reconcile: disabled
 
 **Note:** When the `kustomize.toolkit.fluxcd.io/reconcile` annotation is set to `disabled`,
 the controller will no longer apply changes from source, nor will it prune the resource.
-To resume reconciliation, set the annotation to `enabled` or remove it.
+To resume reconciliation, set the annotation to `enabled` in source
+and remove it from the in-cluster object.
 
 If you use kubectl to edit an object managed by Flux, all changes will be undone when
 the controller reconciles a Flux Kustomization containing that object.

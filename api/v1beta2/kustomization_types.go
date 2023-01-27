@@ -29,6 +29,7 @@ const (
 	KustomizationKind         = "Kustomization"
 	KustomizationFinalizer    = "finalizers.fluxcd.io"
 	MaxConditionMessageLength = 20000
+	EnabledValue              = "enabled"
 	DisabledValue             = "disabled"
 	MergeValue                = "merge"
 )
