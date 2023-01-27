@@ -135,6 +135,7 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 		os.Getenv("SOURCE_CONTROLLER_LOCALHOST"),
 	)
 
+	recoverPanic := true
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
 			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
@@ -157,7 +158,7 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: opts.MaxConcurrentReconciles,
 			RateLimiter:             opts.RateLimiter,
-			RecoverPanic:            true,
+			RecoverPanic:            &recoverPanic,
 		}).
 		Complete(r)
 }
@@ -642,9 +643,13 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 
 	applyOpts := ssa.DefaultApplyOptions()
 	applyOpts.Force = obj.Spec.Force
-	applyOpts.Exclusions = map[string]string{
+	applyOpts.ExclusionSelector = map[string]string{
 		fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
 	}
+	applyOpts.ForceSelector = map[string]string{
+		fmt.Sprintf("%s/force", kustomizev1.GroupVersion.Group): kustomizev1.EnabledValue,
+	}
+
 	applyOpts.Cleanup = ssa.ApplyCleanupOptions{
 		Annotations: []string{
 			// remove the kubectl annotation

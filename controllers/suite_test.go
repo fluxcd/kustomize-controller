@@ -327,7 +327,14 @@ func applyGitRepository(objKey client.ObjectKey, artifactName string, revision s
 
 	repo.ManagedFields = nil
 	repo.Status = status
-	if err := k8sClient.Status().Patch(context.Background(), repo, client.Apply, opt...); err != nil {
+
+	statusOpts := &client.SubResourcePatchOptions{
+		PatchOptions: client.PatchOptions{
+			FieldManager: "source-controller",
+		},
+	}
+
+	if err := k8sClient.Status().Patch(context.Background(), repo, client.Apply, statusOpts); err != nil {
 		return err
 	}
 	return nil
