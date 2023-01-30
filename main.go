@@ -22,6 +22,7 @@ import (
 	"time"
 
 	flag "github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure"
@@ -29,11 +30,13 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/engine"
 	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/fluxcd/pkg/runtime/acl"
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/events"
+	feathelper "github.com/fluxcd/pkg/runtime/features"
 	"github.com/fluxcd/pkg/runtime/leaderelection"
 	"github.com/fluxcd/pkg/runtime/logger"
 	"github.com/fluxcd/pkg/runtime/pprof"
@@ -42,6 +45,7 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/kustomize-controller/controllers"
+	"github.com/fluxcd/kustomize-controller/internal/features"
 	"github.com/fluxcd/kustomize-controller/internal/statusreaders"
 	// +kubebuilder:scaffold:imports
 )
@@ -78,6 +82,7 @@ func main() {
 		noRemoteBases         bool
 		httpRetry             int
 		defaultServiceAccount string
+		featureGates          feathelper.FeatureGates
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -91,19 +96,37 @@ func main() {
 		"Disallow remote bases usage in Kustomize overlays. When this flag is enabled, all resources must refer to local files included in the source artifact.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
 	flag.StringVar(&defaultServiceAccount, "default-service-account", "", "Default service account used for impersonation.")
+
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)
 	leaderElectionOptions.BindFlags(flag.CommandLine)
 	aclOptions.BindFlags(flag.CommandLine)
 	kubeConfigOpts.BindFlags(flag.CommandLine)
 	rateLimiterOptions.BindFlags(flag.CommandLine)
+	featureGates.BindFlags(flag.CommandLine)
+
 	flag.Parse()
+
+	if err := featureGates.WithLogger(setupLog).SupportedFeatures(features.FeatureGates()); err != nil {
+		setupLog.Error(err, "unable to load feature gates")
+		os.Exit(1)
+	}
 
 	ctrl.SetLogger(logger.NewLogger(logOptions))
 
 	watchNamespace := ""
 	if !watchAllNamespaces {
 		watchNamespace = os.Getenv("RUNTIME_NAMESPACE")
+	}
+
+	var disableCacheFor []ctrlclient.Object
+	shouldCache, err := features.Enabled(features.CacheSecretsAndConfigMaps)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.CacheSecretsAndConfigMaps)
+		os.Exit(1)
+	}
+	if !shouldCache {
+		disableCacheFor = append(disableCacheFor, &corev1.Secret{}, &corev1.ConfigMap{})
 	}
 
 	restConfig := runtimeClient.GetConfigOrDie(clientOptions)
@@ -120,6 +143,7 @@ func main() {
 		LeaderElectionID:              fmt.Sprintf("%s-leader-election", controllerName),
 		Namespace:                     watchNamespace,
 		Logger:                        ctrl.Log,
+		ClientDisableCacheFor:         disableCacheFor,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
