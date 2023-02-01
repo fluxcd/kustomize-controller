@@ -2,6 +2,36 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.33.0
+
+**Release date:** 2023-02-01
+
+This prerelease comes with support for recreating immutable resources (e.g. Kubernetes Jobs)
+by annotating or labeling them with `kustomize.toolkit.fluxcd.io/force: enabled`.
+
+The caching of Secret and ConfigMap resources has been disabled to improve memory usage.
+To opt-out from this behavior, start the controller with: `--feature-gates=CacheSecretsAndConfigMaps=true`.
+
+In addition, the controller dependencies have been updated to
+Kubernetes v1.26.1 and controller-runtime v0.14.2. The controller base image has 
+been updated to Alpine 3.17 (which contains CVE fixes for OS packages).
+
+Improvements:
+- Allow force apply to be configured in metadata
+  [#787](https://github.com/fluxcd/kustomize-controller/pull/787)
+- Disable caching of Secrets and ConfigMaps
+  [#789](https://github.com/fluxcd/kustomize-controller/pull/789)
+- build: Enable SBOM and SLSA Provenance
+  [#787](https://github.com/fluxcd/kustomize-controller/pull/788)
+- build: Update Alpine to 3.17
+  [#786](https://github.com/fluxcd/kustomize-controller/pull/786)
+- build: pdate source-controller/api to v0.34.0
+  [#790](https://github.com/fluxcd/kustomize-controller/pull/790)
+- build: Download CRD deps only when necessary
+  [#783](https://github.com/fluxcd/kustomize-controller/pull/783)
+- test: Enable kstatus checks
+  [#784](https://github.com/fluxcd/kustomize-controller/pull/784)
+
 ## 0.32.0
 
 **Release date:** 2022-12-20
