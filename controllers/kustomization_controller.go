@@ -293,10 +293,8 @@ func (r *KustomizationReconciler) reconcile(
 	src sourcev1.Source,
 	patcher *patch.SerialPatcher) error {
 
-	revision := src.GetArtifact().Revision
-	isNewRevision := obj.Status.LastAppliedRevision != revision
-
 	// Update status with the reconciliation progress.
+	revision := src.GetArtifact().Revision
 	progressingMsg := fmt.Sprintf("Fetching manifests for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
 	conditions.MarkUnknown(obj, meta.ReadyCondition, meta.ProgressingReason, "Reconciliation in progress")
 	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
@@ -439,6 +437,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Run the health checks for the last applied resources.
+	isNewRevision := !src.GetArtifact().HasRevision(obj.Status.LastAppliedRevision)
 	if err := r.checkHealth(ctx,
 		resourceManager,
 		patcher,
@@ -491,7 +490,7 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 		if k.Spec.SourceRef.Name == obj.Spec.SourceRef.Name &&
 			k.Spec.SourceRef.Namespace == obj.Spec.SourceRef.Namespace &&
 			k.Spec.SourceRef.Kind == obj.Spec.SourceRef.Kind &&
-			source.GetArtifact().Revision != k.Status.LastAppliedRevision {
+			!source.GetArtifact().HasRevision(k.Status.LastAppliedRevision) {
 			return fmt.Errorf("dependency '%s' revision is not up to date", dName)
 		}
 	}

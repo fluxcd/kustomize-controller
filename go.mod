@@ -30,7 +30,7 @@ require (
 	github.com/fluxcd/pkg/ssa v0.23.1
 	github.com/fluxcd/pkg/tar v0.2.0
 	github.com/fluxcd/pkg/testserver v0.4.0
-	github.com/fluxcd/source-controller/api v0.34.0
+	github.com/fluxcd/source-controller/api v0.35.1
 	github.com/hashicorp/vault/api v1.9.0
 	github.com/onsi/gomega v1.26.0
 	github.com/ory/dockertest/v3 v3.9.1
