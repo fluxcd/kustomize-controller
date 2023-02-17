@@ -227,7 +227,7 @@ type KustomizationStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// The last successfully applied revision.
-	// The revision format for Git sources is <branch|tag>/<commit-sha>.
+	// Equals the Revision of the applied Artifact from the referenced Source.
 	// +optional
 	LastAppliedRevision string `json:"lastAppliedRevision,omitempty"`
 
@@ -318,12 +318,4 @@ type KustomizationList struct {
 
 func init() {
 	SchemeBuilder.Register(&Kustomization{}, &KustomizationList{})
-}
-
-func trimString(str string, limit int) string {
-	if len(str) <= limit {
-		return str
-	}
-
-	return str[0:limit] + "..."
 }
