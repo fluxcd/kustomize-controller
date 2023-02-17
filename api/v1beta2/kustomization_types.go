@@ -319,11 +319,3 @@ type KustomizationList struct {
 func init() {
 	SchemeBuilder.Register(&Kustomization{}, &KustomizationList{})
 }
-
-func trimString(str string, limit int) string {
-	if len(str) <= limit {
-		return str
-	}
-
-	return str[0:limit] + "..."
-}
