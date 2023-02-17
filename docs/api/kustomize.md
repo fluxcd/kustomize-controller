@@ -911,7 +911,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>The last successfully applied revision.
-The revision format for Git sources is <branch|tag>/<commit-sha>.</p>
+Equals the Revision of the applied Artifact from the referenced Source.</p>
 </td>
 </tr>
 <tr>
