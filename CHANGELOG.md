@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.34.0
+
+**Release date:** 2023-02-17
+
+This prerelease adds support for parsing the
+[RFC-0005](https://github.com/fluxcd/flux2/tree/main/rfcs/0005-artifact-revision-and-digest)
+revision format produced by source-controller `>=v0.35.0`.
+
+In addition, the controller dependencies have been updated to their latest
+versions.
+
+Improvements:
+- Support RFC-0005 revision format
+  [#793](https://github.com/fluxcd/kustomize-controller/pull/793)
+- Update dependencies
+  [#796](https://github.com/fluxcd/kustomize-controller/pull/796)
+
 ## 0.33.0
 
 **Release date:** 2023-02-01
