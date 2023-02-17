@@ -61,14 +61,14 @@ You can run this example by saving the manifest into `podinfo.yaml`.
 
    ```console
    NAME      URL                                       READY   STATUS                                                                        
-   podinfo   https://github.com/stefanprodan/podinfo   True    stored artifact for revision 'master/450796ddb2ab6724ee1cc32a4be56da032d1cca0'
+   podinfo   https://github.com/stefanprodan/podinfo   True    stored artifact for revision 'master@sha1:450796ddb2ab6724ee1cc32a4be56da032d1cca0'
    ```
 
 3. Run `kubectl get kustomizations` to see the reconciliation status:
 
    ```console
    NAME      READY   STATUS
-   podinfo   True    Applied revision: master/450796ddb2ab6724ee1cc32a4be56da032d1cca0
+   podinfo   True    Applied revision: master@sha1:450796ddb2ab6724ee1cc32a4be56da032d1cca0
    ```
 
 4. Run `kubectl describe kustomization podinfo` to see the reconciliation status conditions and events:
@@ -78,7 +78,7 @@ You can run this example by saving the manifest into `podinfo.yaml`.
     Status:
       Conditions:
         Last Transition Time:  2022-06-07T11:14:41Z
-        Message:               Applied revision: master/450796ddb2ab6724ee1cc32a4be56da032d1cca0
+        Message:               Applied revision: master@sha1:450796ddb2ab6724ee1cc32a4be56da032d1cca0
         Reason:                ReconciliationSucceeded
         Status:                True
         Type:                  Ready
@@ -1398,7 +1398,7 @@ updates its message to report the action performed during a reconciliation run:
 ```yaml
 conditions:
 - lastTransitionTime: "2022-10-17T13:40:21Z"
-  message: Detecting drift for revision main/a1afe267b54f38b46b487f6e938a6fd508278c07 with a timeout of 50s
+  message: Detecting drift for revision main@sha1:a1afe267b54f38b46b487f6e938a6fd508278c07 with a timeout of 50s
   observedGeneration: 2
   reason: Progressing
   status: "True"
@@ -1418,12 +1418,12 @@ and the `Ready` condition is set to `True`:
 status:
   conditions:
   - lastTransitionTime: "2022-10-17T13:40:21Z"
-    message: "Applied revision: main/a1afe267b54f38b46b487f6e938a6fd508278c07"
+    message: "Applied revision: main@sha1:a1afe267b54f38b46b487f6e938a6fd508278c07"
     reason: ReconciliationSucceeded
     status: "True"
     type: Ready
-  lastAppliedRevision: main/a1afe267b54f38b46b487f6e938a6fd508278c07
-  lastAttemptedRevision: main/a1afe267b54f38b46b487f6e938a6fd508278c07
+  lastAppliedRevision: main@sha1:a1afe267b54f38b46b487f6e938a6fd508278c07
+  lastAttemptedRevision: main@sha1:a1afe267b54f38b46b487f6e938a6fd508278c07
 ```
 
 If `spec.wait` or `spec.healthChecks` is enabled, the health assessment result
@@ -1446,7 +1446,7 @@ The controller logs the Kubernetes objects:
   "msg": "server-side apply completed",
   "name": "backend",
   "namespace": "default",
-  "revision": "main/a1afe267b54f38b46b487f6e938a6fd508278c07",
+  "revision": "main@sha1:a1afe267b54f38b46b487f6e938a6fd508278c07",
   "output": {
     "service/backend": "created",
     "deployment.apps/backend": "created",
@@ -1465,8 +1465,8 @@ status:
     reason: ValidationFailed
     status: "False"
     type: Ready
-  lastAppliedRevision: master/a1afe267b54f38b46b487f6e938a6fd508278c07
-  lastAttemptedRevision: master/7c500d302e38e7e4a3f327343a8a5c21acaaeb87
+  lastAppliedRevision: master@sha1:a1afe267b54f38b46b487f6e938a6fd508278c07
+  lastAttemptedRevision: master@sha1:7c500d302e38e7e4a3f327343a8a5c21acaaeb87
 ```
 
 **Note:** The last applied revision is updated only on a successful reconciliation.
@@ -1481,7 +1481,7 @@ When a reconciliation fails, the controller logs the error and issues a Kubernet
   "msg": "server-side apply completed",
   "name": "backend",
   "namespace": "default",
-  "revision": "main/a1afe267b54f38b46b487f6e938a6fd508278c07",
+  "revision": "main@sha1:a1afe267b54f38b46b487f6e938a6fd508278c07",
   "error": "The Service 'backend' is invalid: spec.type: Unsupported value: 'Ingress'"
 }
 ```
