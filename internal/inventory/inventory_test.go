@@ -84,7 +84,7 @@ func readManifest(manifest string) (*ssa.ChangeSet, error) {
 			ObjMetadata:  object.UnstructuredToObjMetadata(o),
 			GroupVersion: o.GroupVersionKind().Version,
 			Subject:      ssa.FmtUnstructured(o),
-			Action:       string(ssa.CreatedAction),
+			Action:       ssa.CreatedAction,
 		}
 		cs.Add(cse)
 	}
