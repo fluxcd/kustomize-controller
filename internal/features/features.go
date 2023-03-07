@@ -27,12 +27,23 @@ const (
 	// When enabled, it will cache both object types, resulting in increased
 	// memory usage and cluster-wide RBAC permissions (list and watch).
 	CacheSecretsAndConfigMaps = "CacheSecretsAndConfigMaps"
+
+	// DisableStatusPollerCache controls whether the status polling cache
+	// should be disabled.
+	//
+	// This may be useful when the controller is running in a cluster with a
+	// large number of resources, as it will potentially reduce the amount of
+	// memory used by the controller.
+	DisableStatusPollerCache = "DisableStatusPollerCache"
 )
 
 var features = map[string]bool{
 	// CacheSecretsAndConfigMaps
 	// opt-in from v0.33
 	CacheSecretsAndConfigMaps: false,
+	// DisableStatusPollerCache
+	// opt-in from v0.35
+	DisableStatusPollerCache: false,
 }
 
 // FeatureGates contains a list of all supported feature gates and
