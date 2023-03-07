@@ -108,12 +108,12 @@ func main() {
 
 	flag.Parse()
 
+	logger.SetLogger(logger.NewLogger(logOptions))
+
 	if err := featureGates.WithLogger(setupLog).SupportedFeatures(features.FeatureGates()); err != nil {
 		setupLog.Error(err, "unable to load feature gates")
 		os.Exit(1)
 	}
-
-	ctrl.SetLogger(logger.NewLogger(logOptions))
 
 	watchNamespace := ""
 	if !watchAllNamespaces {

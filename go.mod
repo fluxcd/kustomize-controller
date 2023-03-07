@@ -26,7 +26,7 @@ require (
 	github.com/fluxcd/pkg/apis/meta v0.19.1
 	github.com/fluxcd/pkg/http/fetch v0.3.1
 	github.com/fluxcd/pkg/kustomize v0.13.2
-	github.com/fluxcd/pkg/runtime v0.29.0
+	github.com/fluxcd/pkg/runtime v0.31.0
 	github.com/fluxcd/pkg/ssa v0.24.1
 	github.com/fluxcd/pkg/tar v0.2.0
 	github.com/fluxcd/pkg/testserver v0.4.0
