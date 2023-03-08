@@ -169,7 +169,7 @@ type Decryption struct {
 
 	// The secret name containing the private OpenPGP keys used for decryption.
 	// +optional
-	SecretRef *meta.LocalObjectReference `json:"secretRef,omitempty"`
+	SecretRef *meta.NamespacedObjectReference `json:"secretRef,omitempty"`
 }
 
 // PostBuild describes which actions to perform on the YAML manifest

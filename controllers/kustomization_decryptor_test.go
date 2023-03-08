@@ -137,7 +137,7 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 			},
 			Decryption: &kustomizev1.Decryption{
 				Provider: "sops",
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: sopsSecretKey.Name,
 				},
 			},

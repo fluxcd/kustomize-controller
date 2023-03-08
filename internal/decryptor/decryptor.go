@@ -202,8 +202,12 @@ func (d *Decryptor) ImportKeys(ctx context.Context) error {
 	provider := d.kustomization.Spec.Decryption.Provider
 	switch provider {
 	case DecryptionProviderSOPS:
+		var secretNamespace = d.kustomization.Spec.Decryption.SecretRef.Namespace
+		if secretNamespace == "" {
+			secretNamespace = d.kustomization.GetNamespace()
+		}
 		secretName := types.NamespacedName{
-			Namespace: d.kustomization.GetNamespace(),
+			Namespace: secretNamespace,
 			Name:      d.kustomization.Spec.Decryption.SecretRef.Name,
 		}
 

@@ -92,7 +92,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 			name: "PGP key",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "pgp-secret",
 				},
 			},
@@ -110,7 +110,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 			name: "PGP key import error",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "pgp-secret",
 				},
 			},
@@ -129,7 +129,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 			name: "age key",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "age-secret",
 				},
 			},
@@ -150,7 +150,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 			name: "age key import error",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "age-secret",
 				},
 			},
@@ -172,7 +172,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 			name: "HC Vault token",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "hcvault-secret",
 				},
 			},
@@ -193,7 +193,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 			name: "AWS KMS credentials",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "awskms-secret",
 				},
 			},
@@ -216,7 +216,7 @@ aws_session_token: test-token`),
 			name: "GCP Service Account key",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "gcpkms-secret",
 				},
 			},
@@ -239,7 +239,7 @@ aws_session_token: test-token`),
 			name: "Azure Key Vault token",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "azkv-secret",
 				},
 			},
@@ -262,7 +262,7 @@ clientSecret: some-client-secret`),
 			name: "Azure Key Vault token load config error",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "azkv-secret",
 				},
 			},
@@ -284,7 +284,7 @@ clientSecret: some-client-secret`),
 			name: "Azure Key Vault unsupported config",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "azkv-secret",
 				},
 			},
@@ -306,7 +306,7 @@ clientSecret: some-client-secret`),
 			name: "multiple Secret data entries",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "multiple-secret",
 				},
 			},
@@ -341,7 +341,7 @@ clientSecret: some-client-secret`),
 			name: "non-existing Decryption Secret",
 			decryption: &kustomizev1.Decryption{
 				Provider: DecryptionProviderSOPS,
-				SecretRef: &meta.LocalObjectReference{
+				SecretRef: &meta.NamespacedObjectReference{
 					Name: "does-not-exist",
 				},
 			},
