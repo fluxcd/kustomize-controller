@@ -49,7 +49,7 @@ func (in *Decryption) DeepCopyInto(out *Decryption) {
 	*out = *in
 	if in.SecretRef != nil {
 		in, out := &in.SecretRef, &out.SecretRef
-		*out = new(meta.LocalObjectReference)
+		*out = new(meta.NamespacedObjectReference)
 		**out = **in
 	}
 }

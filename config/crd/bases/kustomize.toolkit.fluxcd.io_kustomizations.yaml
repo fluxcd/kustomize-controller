@@ -607,6 +607,10 @@ spec:
                       name:
                         description: Name of the referent.
                         type: string
+                      namespace:
+                        description: Namespace of the referent, when not specified
+                          it acts as LocalObjectReference.
+                        type: string
                     required:
                     - name
                     type: object

@@ -498,8 +498,8 @@ string
 <td>
 <code>secretRef</code><br>
 <em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
-github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectReference">
+github.com/fluxcd/pkg/apis/meta.NamespacedObjectReference
 </a>
 </em>
 </td>
