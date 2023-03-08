@@ -181,36 +181,6 @@ func TestServer_EncryptDecrypt_azkv(t *testing.T) {
 
 }
 
-func TestServer_EncryptDecrypt_azkv_Fallback(t *testing.T) {
-	g := NewWithT(t)
-
-	fallback := NewMockKeyServer()
-	s := NewServer(WithDefaultServer{Server: fallback})
-
-	key := KeyFromMasterKey(azkv.MasterKeyFromURL("", "", ""))
-	encReq := &keyservice.EncryptRequest{
-		Key:       &key,
-		Plaintext: []byte("some data key"),
-	}
-	_, err := s.Encrypt(context.TODO(), encReq)
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(fallback.encryptReqs).To(HaveLen(1))
-	g.Expect(fallback.encryptReqs).To(ContainElement(encReq))
-	g.Expect(fallback.decryptReqs).To(HaveLen(0))
-
-	fallback = NewMockKeyServer()
-	s = NewServer(WithDefaultServer{Server: fallback})
-
-	decReq := &keyservice.DecryptRequest{
-		Key:        &key,
-		Ciphertext: []byte("some ciphertext"),
-	}
-	_, err = s.Decrypt(context.TODO(), decReq)
-	g.Expect(fallback.decryptReqs).To(HaveLen(1))
-	g.Expect(fallback.decryptReqs).To(ContainElement(decReq))
-	g.Expect(fallback.encryptReqs).To(HaveLen(0))
-}
-
 func TestServer_EncryptDecrypt_gcpkms(t *testing.T) {
 	g := NewWithT(t)
 

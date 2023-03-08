@@ -11,13 +11,17 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
 	"time"
 	"unicode/utf16"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys"
 	"github.com/dimchansky/utfbom"
 )
@@ -74,7 +78,11 @@ func (t Token) ApplyToMasterKey(key *MasterKey) {
 // Encrypt takes a SOPS data key, encrypts it with Azure Key Vault, and stores
 // the result in the EncryptedKey field.
 func (key *MasterKey) Encrypt(dataKey []byte) error {
-	c, err := azkeys.NewClient(key.VaultURL, key.token, nil)
+	creds, err := key.getTokenCredential()
+	if err != nil {
+		return fmt.Errorf("failed to get Azure token credential to encrypt: %w", err)
+	}
+	c, err := azkeys.NewClient(key.VaultURL, creds, nil)
 	if err != nil {
 		return fmt.Errorf("failed to construct Azure Key Vault crypto client to encrypt data: %w", err)
 	}
@@ -115,7 +123,11 @@ func (key *MasterKey) EncryptIfNeeded(dataKey []byte) error {
 // Decrypt decrypts the EncryptedKey field with Azure Key Vault and returns
 // the result.
 func (key *MasterKey) Decrypt() ([]byte, error) {
-	c, err := azkeys.NewClient(key.VaultURL, key.token, nil)
+	creds, err := key.getTokenCredential()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Azure token credential to decrypt: %w", err)
+	}
+	c, err := azkeys.NewClient(key.VaultURL, creds, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct Azure Key Vault crypto client to decrypt data: %w", err)
 	}
@@ -176,4 +188,88 @@ func decode(b []byte) ([]byte, error) {
 		return []byte(string(utf16.Decode(u16))), nil
 	}
 	return ioutil.ReadAll(reader)
+}
+
+// getTokenCredential returns the tokenCredential of the MasterKey, or
+// azidentity.NewDefaultAzureCredential.
+func (key *MasterKey) getTokenCredential() (azcore.TokenCredential, error) {
+	if key.token == nil {
+		return getDefaultAzureCredential()
+	}
+	return key.token, nil
+}
+
+// getDefaultAzureCredentials is a modification of
+// azidentity.NewDefaultAzureCredential, specifically adapted to not shell out
+// to the Azure CLI.
+//
+// It attemps to return an azcore.TokenCredential based on the following order:
+//
+//   - azidentity.NewEnvironmentCredential if environment variables AZURE_CLIENT_ID,
+//     AZURE_CLIENT_ID is set with either one of the following: (AZURE_CLIENT_SECRET)
+//     or (AZURE_CLIENT_CERTIFICATE_PATH and AZURE_CLIENT_CERTIFICATE_PATH) or
+//     (AZURE_USERNAME, AZURE_PASSWORD)
+//   - azidentity.WorkloadIdentity if environment variable configuration
+//     (AZURE_AUTHORITY_HOST, AZURE_CLIENT_ID, AZURE_FEDERATED_TOKEN_FILE, AZURE_TENANT_ID)
+//     is set by the Azure workload identity webhook.
+//   - azidentity.ManagedIdentity if only AZURE_CLIENT_ID env variable is set.
+func getDefaultAzureCredential() (azcore.TokenCredential, error) {
+	var (
+		azureClientID           = "AZURE_CLIENT_ID"
+		azureFederatedTokenFile = "AZURE_FEDERATED_TOKEN_FILE"
+		azureAuthorityHost      = "AZURE_AUTHORITY_HOST"
+		azureTenantID           = "AZURE_TENANT_ID"
+	)
+
+	var errorMessages []string
+	var creds []azcore.TokenCredential
+	options := &azidentity.DefaultAzureCredentialOptions{}
+
+	envCred, err := azidentity.NewEnvironmentCredential(&azidentity.EnvironmentCredentialOptions{
+		ClientOptions: options.ClientOptions, DisableInstanceDiscovery: options.DisableInstanceDiscovery},
+	)
+	if err == nil {
+		creds = append(creds, envCred)
+	} else {
+		errorMessages = append(errorMessages, "EnvironmentCredential: "+err.Error())
+	}
+
+	// workload identity requires values for AZURE_AUTHORITY_HOST, AZURE_CLIENT_ID, AZURE_FEDERATED_TOKEN_FILE, AZURE_TENANT_ID
+	haveWorkloadConfig := false
+	clientID, haveClientID := os.LookupEnv(azureClientID)
+	if haveClientID {
+		if file, ok := os.LookupEnv(azureFederatedTokenFile); ok {
+			if _, ok := os.LookupEnv(azureAuthorityHost); ok {
+				if tenantID, ok := os.LookupEnv(azureTenantID); ok {
+					haveWorkloadConfig = true
+					workloadCred, err := azidentity.NewWorkloadIdentityCredential(tenantID, clientID, file, &azidentity.WorkloadIdentityCredentialOptions{
+						ClientOptions:            options.ClientOptions,
+						DisableInstanceDiscovery: options.DisableInstanceDiscovery,
+					})
+					if err == nil {
+						return workloadCred, nil
+					} else {
+						errorMessages = append(errorMessages, "Workload Identity"+": "+err.Error())
+					}
+				}
+			}
+		}
+	}
+	if !haveWorkloadConfig {
+		err := errors.New("missing environment variables for workload identity. Check webhook and pod configuration")
+		errorMessages = append(errorMessages, fmt.Sprintf("Workload Identity: %s", err))
+	}
+
+	o := &azidentity.ManagedIdentityCredentialOptions{ClientOptions: options.ClientOptions}
+	if haveClientID {
+		o.ID = azidentity.ClientID(clientID)
+	}
+	miCred, err := azidentity.NewManagedIdentityCredential(o)
+	if err == nil {
+		return miCred, nil
+	} else {
+		errorMessages = append(errorMessages, "ManagedIdentity"+": "+err.Error())
+	}
+
+	return nil, errors.New(strings.Join(errorMessages, "\n"))
 }
