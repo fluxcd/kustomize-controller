@@ -2,6 +2,37 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.35.0
+
+**Release date:** 2023-03-08
+
+This prerelease adds support for disabling the cache of the `kstatus` status
+poller, which is used to determine the health of the resources applied by the
+controller. To disable the cache, configure the Deployment of the controller
+with `--feature-gates=DisableStatusPollerCache=true`.
+
+This may have a positive impact on memory usage on large clusters with many
+objects, at the cost of an increased number of API calls.
+
+In addition, `klog` has been configured to log using the same logger as the
+rest of the controller (providing a consistent log format), and the controller
+will reveal validation errors when force applying resources with immutable field
+changes.
+
+Lastly, the controller is now built using Go `1.20`, and the dependencies have
+been updated to their latest versions.
+
+Improvements:
+- api: update description LastAppliedRevision
+  [#798](https://github.com/fluxcd/kustomize-controller/pull/798)
+- Update Go to 1.20
+  [#806](https://github.com/fluxcd/kustomize-controller/pull/806)
+- Update dependencies
+  [#807](https://github.com/fluxcd/kustomize-controller/pull/807)
+  [#811](https://github.com/fluxcd/kustomize-controller/pull/811)
+- Use `logger.SetLogger` to also configure `klog`
+  [#809](https://github.com/fluxcd/kustomize-controller/pull/809)
+
 ## 0.34.0
 
 **Release date:** 2023-02-17
