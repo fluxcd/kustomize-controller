@@ -147,6 +147,28 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 			},
 		},
 		{
+			name: "age key in another namespace",
+			decryption: &kustomizev1.Decryption{
+				Provider: provider,
+				SecretRef: &meta.NamespacedObjectReference{
+					Name:      "age-secret",
+					Namespace: "other",
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "age-secret",
+					Namespace: "other",
+				},
+				Data: map[string][]byte{
+					"age" + DecryptionAgeExt: ageKey,
+				},
+			},
+			inspectFunc: func(g *GomegaWithT, decryptor *Decryptor) {
+				g.Expect(decryptor.ageIdentities).To(HaveLen(1))
+			},
+		},
+		{
 			name: "age key import error",
 			decryption: &kustomizev1.Decryption{
 				Provider: provider,
