@@ -19,7 +19,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.18.6
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/dimchansky/utfbom v1.1.1
-	github.com/fluxcd/kustomize-controller/api v0.35.0
+	github.com/fluxcd/kustomize-controller/api v0.35.1
 	github.com/fluxcd/pkg/apis/acl v0.1.0
 	github.com/fluxcd/pkg/apis/event v0.4.1
 	github.com/fluxcd/pkg/apis/kustomize v0.8.1

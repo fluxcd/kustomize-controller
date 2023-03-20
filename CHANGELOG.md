@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.35.1
+
+**Release date:** 2023-03-20
+
+This prerelease comes with a fix to error reporting.
+The controller will now reveal validation errors when force applying
+resources with immutable field changes.
+
+In addition, the controller dependencies have been updated to their latest
+versions.
+
+Improvements:
+- Update dependencies
+  [#814](https://github.com/fluxcd/kustomize-controller/pull/814)
+
 ## 0.35.0
 
 **Release date:** 2023-03-08
@@ -15,9 +30,7 @@ This may have a positive impact on memory usage on large clusters with many
 objects, at the cost of an increased number of API calls.
 
 In addition, `klog` has been configured to log using the same logger as the
-rest of the controller (providing a consistent log format), and the controller
-will reveal validation errors when force applying resources with immutable field
-changes.
+rest of the controller (providing a consistent log format).
 
 Lastly, the controller is now built using Go `1.20`, and the dependencies have
 been updated to their latest versions.
