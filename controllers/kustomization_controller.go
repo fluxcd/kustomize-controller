@@ -640,6 +640,10 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		return false, nil, err
 	}
 
+	if meta := obj.Spec.CommonMetadata; meta != nil {
+		ssa.SetCommonMetadata(objects, meta.Labels, meta.Annotations)
+	}
+
 	applyOpts := ssa.DefaultApplyOptions()
 	applyOpts.Force = obj.Spec.Force
 	applyOpts.ExclusionSelector = map[string]string{

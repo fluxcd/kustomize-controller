@@ -31,7 +31,7 @@ require (
 	github.com/fluxcd/pkg/http/fetch v0.4.0
 	github.com/fluxcd/pkg/kustomize v0.13.2
 	github.com/fluxcd/pkg/runtime v0.32.0
-	github.com/fluxcd/pkg/ssa v0.25.0
+	github.com/fluxcd/pkg/ssa v0.26.0
 	github.com/fluxcd/pkg/tar v0.2.0
 	github.com/fluxcd/pkg/testserver v0.4.0
 	github.com/fluxcd/source-controller/api v0.36.0
