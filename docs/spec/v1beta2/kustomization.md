@@ -566,6 +566,7 @@ patches and namespace on all the Kubernetes objects reconciled by the resource,
 offering support for the following Kustomize directives:
 
 - [namespace](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/namespace/)
+- common [labels](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/commonlabels/) and [annotations](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/commonannotations/)
 - [patches](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patches/)
 - [images](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/images/)
 - [components](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/components/)
@@ -587,7 +588,36 @@ spec:
   targetNamespace: test
 ```
 
-While the field `targetNamespace` in a Kustomization is optional, if this field is non-empty then the Kubernetes namespace pointed to by `targetNamespace` must exist prior to the Kustomization being applied, kustomize-controller will not create the namespace.
+While the field `targetNamespace` in a Kustomization is optional,
+if this field is non-empty then the Kubernetes namespace pointed to by `targetNamespace`
+must exist prior to the Kustomization being applied, kustomize-controller will not create the namespace.
+
+### Common Metadata
+
+With `spec.commonMetadata` you can set common labels and annotations to all resources.
+
+The main difference to the Kustomize
+[commonLabels](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/commonlabels/)
+and [commonAnnotations](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/commonannotations/),
+is that the controller sets the labels and annotations only to the top level `metadata` field,
+without patching the Kubernetes Deployment `spec.template` or the Service `spec.selector`.
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: my-app
+  namespace: apps
+spec:
+  # ...omitted for brevity
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: my-app
+    annotations:
+      a8r.io/owner: my-team
+```
+
+**Note:** Any existing label or annotation will be overridden if its key matches a common one.
 
 ### Patches
 

@@ -19,14 +19,13 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/fluxcd/pkg/testserver"
 	"strings"
 	"testing"
 	"time"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/pkg/apis/kustomize"
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -35,6 +34,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
 
 func TestKustomizationReconciler_CommonMetadata(t *testing.T) {
