@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"math/rand"
 	"os"
@@ -27,6 +26,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/vault/api"
+	"github.com/opencontainers/go-digest"
 	"github.com/ory/dockertest/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -294,7 +294,7 @@ func applyGitRepository(objKey client.ObjectKey, artifactName string, revision s
 	}
 
 	b, _ := os.ReadFile(filepath.Join(testServer.Root(), artifactName))
-	checksum := fmt.Sprintf("%x", sha256.Sum256(b))
+	dig := digest.SHA256.FromBytes(b)
 
 	url := fmt.Sprintf("%s/%s", testServer.URL(), artifactName)
 
@@ -311,7 +311,7 @@ func applyGitRepository(objKey client.ObjectKey, artifactName string, revision s
 			Path:           url,
 			URL:            url,
 			Revision:       revision,
-			Checksum:       checksum,
+			Digest:         dig.String(),
 			LastUpdateTime: metav1.Now(),
 		},
 	}
