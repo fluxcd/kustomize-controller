@@ -319,7 +319,7 @@ func (r *KustomizationReconciler) reconcile(
 	defer os.RemoveAll(tmpDir)
 
 	// Download artifact and extract files to the tmp dir.
-	err = r.artifactFetcher.Fetch(src.GetArtifact().URL, src.GetArtifact().Checksum, tmpDir)
+	err = r.artifactFetcher.Fetch(src.GetArtifact().URL, src.GetArtifact().Digest, tmpDir)
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
 		return err
