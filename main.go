@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/engine"
 	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/fluxcd/pkg/runtime/acl"
@@ -78,8 +79,8 @@ func main() {
 		logOptions            logger.Options
 		leaderElectionOptions leaderelection.Options
 		rateLimiterOptions    runtimeCtrl.RateLimiterOptions
+		watchOptions          runtimeCtrl.WatchOptions
 		aclOptions            acl.Options
-		watchAllNamespaces    bool
 		noRemoteBases         bool
 		httpRetry             int
 		defaultServiceAccount string
@@ -91,8 +92,6 @@ func main() {
 	flag.StringVar(&healthAddr, "health-addr", ":9440", "The address the health endpoint binds to.")
 	flag.IntVar(&concurrent, "concurrent", 4, "The number of concurrent kustomize reconciles.")
 	flag.DurationVar(&requeueDependency, "requeue-dependency", 30*time.Second, "The interval at which failing dependencies are reevaluated.")
-	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
-		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
 	flag.BoolVar(&noRemoteBases, "no-remote-bases", false,
 		"Disallow remote bases usage in Kustomize overlays. When this flag is enabled, all resources must refer to local files included in the source artifact.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
@@ -105,6 +104,7 @@ func main() {
 	kubeConfigOpts.BindFlags(flag.CommandLine)
 	rateLimiterOptions.BindFlags(flag.CommandLine)
 	featureGates.BindFlags(flag.CommandLine)
+	watchOptions.BindFlags(flag.CommandLine)
 
 	flag.Parse()
 
@@ -116,8 +116,14 @@ func main() {
 	}
 
 	watchNamespace := ""
-	if !watchAllNamespaces {
+	if !watchOptions.AllNamespaces {
 		watchNamespace = os.Getenv("RUNTIME_NAMESPACE")
+	}
+
+	watchSelector, err := runtimeCtrl.GetWatchSelector(watchOptions)
+	if err != nil {
+		setupLog.Error(err, "unable to configure watch label selector for manager")
+		os.Exit(1)
 	}
 
 	var disableCacheFor []ctrlclient.Object
@@ -128,6 +134,11 @@ func main() {
 	}
 	if !shouldCache {
 		disableCacheFor = append(disableCacheFor, &corev1.Secret{}, &corev1.ConfigMap{})
+	}
+
+	leaderElectionId := fmt.Sprintf("%s-%s", controllerName, "leader-election")
+	if watchOptions.LabelSelector != "" {
+		leaderElectionId = leaderelection.GenerateID(leaderElectionId, watchOptions.LabelSelector)
 	}
 
 	restConfig := runtimeClient.GetConfigOrDie(clientOptions)
@@ -141,10 +152,15 @@ func main() {
 		LeaseDuration:                 &leaderElectionOptions.LeaseDuration,
 		RenewDeadline:                 &leaderElectionOptions.RenewDeadline,
 		RetryPeriod:                   &leaderElectionOptions.RetryPeriod,
-		LeaderElectionID:              fmt.Sprintf("%s-leader-election", controllerName),
+		LeaderElectionID:              leaderElectionId,
 		Namespace:                     watchNamespace,
 		Logger:                        ctrl.Log,
 		ClientDisableCacheFor:         disableCacheFor,
+		NewCache: ctrlcache.BuilderWithOptions(ctrlcache.Options{
+			SelectorsByObject: ctrlcache.SelectorsByObject{
+				&kustomizev1.Kustomization{}: {Label: watchSelector},
+			},
+		}),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -166,9 +182,11 @@ func main() {
 	pollingOpts := polling.Options{
 		CustomStatusReaders: []engine.StatusReader{jobStatusReader},
 	}
+
 	if ok, _ := features.Enabled(features.DisableStatusPollerCache); ok {
 		pollingOpts.ClusterReaderFactory = engine.ClusterReaderFactoryFunc(clusterreader.NewDirectClusterReader)
 	}
+
 	if err = (&controllers.KustomizationReconciler{
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,

@@ -176,7 +176,9 @@ func (in *KustomizationSpec) DeepCopyInto(out *KustomizationSpec) {
 	if in.Patches != nil {
 		in, out := &in.Patches, &out.Patches
 		*out = make([]kustomize.Patch, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.PatchesStrategicMerge != nil {
 		in, out := &in.PatchesStrategicMerge, &out.PatchesStrategicMerge
