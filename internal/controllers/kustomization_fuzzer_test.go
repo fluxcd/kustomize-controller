@@ -60,6 +60,7 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
 

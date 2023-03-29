@@ -45,7 +45,7 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	"github.com/fluxcd/kustomize-controller/controllers"
+	"github.com/fluxcd/kustomize-controller/internal/controllers"
 	"github.com/fluxcd/kustomize-controller/internal/features"
 	"github.com/fluxcd/kustomize-controller/internal/statusreaders"
 	// +kubebuilder:scaffold:imports

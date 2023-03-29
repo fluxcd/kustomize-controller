@@ -188,7 +188,7 @@ func TestMain(m *testing.M) {
 	}, func() error {
 		code = m.Run()
 		return nil
-	}, filepath.Join("..", "config", "crd", "bases"))
+	}, filepath.Join("..", "..", "config", "crd", "bases"))
 
 	os.Exit(code)
 }
