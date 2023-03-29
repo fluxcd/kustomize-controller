@@ -11,15 +11,16 @@ on:
 permissions:
   contents: read # for actions/checkout to fetch code
   security-events: write # for codeQL to write security events
-  
+
 jobs:
   fossa:
     name: FOSSA
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
       - name: Run FOSSA scan and upload build data
-        uses: fossa-contrib/fossa-action@v2
+        uses: fossa-contrib/fossa-action@6728dc6fe9a068c648d080c33829ffbe56565023 # v2.0.0
         with:
           # FOSSA Push-Only API Token
           fossa-api-key: 5ee8bf422db1471e0bcf2bcb289185de
@@ -29,17 +30,20 @@ jobs:
     name: CodeQL
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
           go-version: 1.20.x
+          cache-dependency-path: |
+            **/go.sum
+            **/go.mod
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@04df1262e6247151b5ac09cd2c303ac36ad3f62b # v2.2.9
         with:
           languages: go
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
+        uses: github/codeql-action/autobuild@04df1262e6247151b5ac09cd2c303ac36ad3f62b # v2.2.9
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@04df1262e6247151b5ac09cd2c303ac36ad3f62b # v2.2.9
