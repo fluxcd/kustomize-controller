@@ -70,6 +70,21 @@ KustomizationSpec
 <table>
 <tr>
 <td>
+<code>commonMetadata</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.CommonMetadata">
+CommonMetadata
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CommonMetadata specifies the common labels and annotations that are applied to all resources.
+Any existing label or annotation will be overridden if its key matches a common one.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>dependsOn</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectReference">
@@ -357,6 +372,18 @@ When enabled, the HealthChecks are ignored. Defaults to false.</p>
 </tr>
 <tr>
 <td>
+<code>components</code><br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Components specifies relative paths to specifications of other Components.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>validation</code><br>
 <em>
 string
@@ -365,18 +392,6 @@ string
 <td>
 <em>(Optional)</em>
 <p>Deprecated: Not used in v1beta2.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>components</code><br>
-<em>
-[]string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Components specifies relative paths to specifications of other Components</p>
 </td>
 </tr>
 </table>
@@ -392,6 +407,51 @@ KustomizationStatus
 </em>
 </td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.CommonMetadata">CommonMetadata
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec</a>)
+</p>
+<p>CommonMetadata defines the common labels and annotations.</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>annotations</code><br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Annotations to be added to the object&rsquo;s metadata.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labels</code><br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Labels to be added to the object&rsquo;s metadata.</p>
 </td>
 </tr>
 </tbody>
@@ -531,6 +591,21 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 <tbody>
 <tr>
 <td>
+<code>commonMetadata</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1beta2.CommonMetadata">
+CommonMetadata
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CommonMetadata specifies the common labels and annotations that are applied to all resources.
+Any existing label or annotation will be overridden if its key matches a common one.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>dependsOn</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectReference">
@@ -818,6 +893,18 @@ When enabled, the HealthChecks are ignored. Defaults to false.</p>
 </tr>
 <tr>
 <td>
+<code>components</code><br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Components specifies relative paths to specifications of other Components.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>validation</code><br>
 <em>
 string
@@ -826,18 +913,6 @@ string
 <td>
 <em>(Optional)</em>
 <p>Deprecated: Not used in v1beta2.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>components</code><br>
-<em>
-[]string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Components specifies relative paths to specifications of other Components</p>
 </td>
 </tr>
 </tbody>

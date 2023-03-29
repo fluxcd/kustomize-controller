@@ -226,8 +226,8 @@ github.com/fluxcd/pkg/kustomize v0.13.2 h1:isA9yi+m7sSIxdTrFR1U7+LyS2BraG07ZkKLH
 github.com/fluxcd/pkg/kustomize v0.13.2/go.mod h1:1H9qednPxL/JvZE5at/f6wVHTH4WmxJYqfgVOZJ3uAk=
 github.com/fluxcd/pkg/runtime v0.32.0 h1:GwPyl27qs0jg95o8lGQD+FiAAxFPJMKs58L63AQRk50=
 github.com/fluxcd/pkg/runtime v0.32.0/go.mod h1:toGOOubMo4ZC1aWhB8C3drdTglr1/A1dETeNwjiIv0g=
-github.com/fluxcd/pkg/ssa v0.25.0 h1:hjQKX9UgT29204eQwN32LcQNKXJv70jxGRaiOi5qJ10=
-github.com/fluxcd/pkg/ssa v0.25.0/go.mod h1:6I32LDAhyr5GoMwhlnW2sS1n+LzSRvqaDdxRAEoHcXM=
+github.com/fluxcd/pkg/ssa v0.26.0 h1:xqAPF9wA4a3HVeUL1bMsrk1pJDjo5IEqL3+Vjts6vTM=
+github.com/fluxcd/pkg/ssa v0.26.0/go.mod h1:GEzdW/IkhD/EGvhRerwipp5IrLVkWjhVFsB4Y7MnnMI=
 github.com/fluxcd/pkg/tar v0.2.0 h1:HEUHgONQYsJGeZZ4x6h5nQU9Aox1I4T3bOp1faWTqf8=
 github.com/fluxcd/pkg/tar v0.2.0/go.mod h1:w0/TOC7kwBJhnSJn7TCABkc/I7ib1f2Yz6vOsbLBnhw=
 github.com/fluxcd/pkg/testserver v0.4.0 h1:pDZ3gistqYhwlf3sAjn1Q8NzN4Qe6I1BEmHMHi46lMg=
