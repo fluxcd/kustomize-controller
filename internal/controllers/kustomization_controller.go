@@ -51,6 +51,7 @@ import (
 	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/http/fetch"
+	generator "github.com/fluxcd/pkg/kustomize"
 	"github.com/fluxcd/pkg/runtime/acl"
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/fluxcd/pkg/runtime/conditions"
@@ -64,7 +65,6 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	"github.com/fluxcd/kustomize-controller/internal/decryptor"
 	"github.com/fluxcd/kustomize-controller/internal/inventory"
-	generator "github.com/fluxcd/pkg/kustomize"
 )
 
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
