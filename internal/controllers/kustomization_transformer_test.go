@@ -456,14 +456,14 @@ func TestKustomizationReconciler_FluxTransformers(t *testing.T) {
   path: /metadata/labels/patch1
   value: inline-json
 						`,
-					Target: kustomize.Selector{
+					Target: &kustomize.Selector{
 						LabelSelector: "app=podinfo",
 					},
 				},
 				{
 					Patch: `
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: podinfo
   labels:
