@@ -45,7 +45,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/probes"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/kustomize-controller/internal/controllers"
 	"github.com/fluxcd/kustomize-controller/internal/features"
 	"github.com/fluxcd/kustomize-controller/internal/statusreaders"

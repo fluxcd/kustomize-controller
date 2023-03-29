@@ -61,7 +61,7 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
 
 var (

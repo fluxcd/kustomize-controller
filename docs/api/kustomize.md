@@ -2,16 +2,16 @@
 <p>Packages:</p>
 <ul class="simple">
 <li>
-<a href="#kustomize.toolkit.fluxcd.io%2fv1beta2">kustomize.toolkit.fluxcd.io/v1beta2</a>
+<a href="#kustomize.toolkit.fluxcd.io%2fv1">kustomize.toolkit.fluxcd.io/v1</a>
 </li>
 </ul>
-<h2 id="kustomize.toolkit.fluxcd.io/v1beta2">kustomize.toolkit.fluxcd.io/v1beta2</h2>
-<p>Package v1beta2 contains API Schema definitions for the kustomize.toolkit.fluxcd.io v1beta2 API group.</p>
+<h2 id="kustomize.toolkit.fluxcd.io/v1">kustomize.toolkit.fluxcd.io/v1</h2>
+<p>Package v1 contains API Schema definitions for the kustomize.toolkit.fluxcd.io v1 API group.</p>
 Resource Types:
 <ul class="simple"><li>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Kustomization">Kustomization</a>
+<a href="#kustomize.toolkit.fluxcd.io/v1.Kustomization">Kustomization</a>
 </li></ul>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.Kustomization">Kustomization
+<h3 id="kustomize.toolkit.fluxcd.io/v1.Kustomization">Kustomization
 </h3>
 <p>Kustomization is the Schema for the kustomizations API.</p>
 <div class="md-typeset__scrollwrap">
@@ -29,7 +29,7 @@ Resource Types:
 <code>apiVersion</code><br>
 string</td>
 <td>
-<code>kustomize.toolkit.fluxcd.io/v1beta2</code>
+<code>kustomize.toolkit.fluxcd.io/v1</code>
 </td>
 </tr>
 <tr>
@@ -59,7 +59,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">
+<a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationSpec">
 KustomizationSpec
 </a>
 </em>
@@ -72,7 +72,7 @@ KustomizationSpec
 <td>
 <code>commonMetadata</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.CommonMetadata">
+<a href="#kustomize.toolkit.fluxcd.io/v1.CommonMetadata">
 CommonMetadata
 </a>
 </em>
@@ -103,7 +103,7 @@ Kustomization can be reconciled.</p>
 <td>
 <code>decryption</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Decryption">
+<a href="#kustomize.toolkit.fluxcd.io/v1.Decryption">
 Decryption
 </a>
 </em>
@@ -180,7 +180,7 @@ Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceR
 <td>
 <code>postBuild</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.PostBuild">
+<a href="#kustomize.toolkit.fluxcd.io/v1.PostBuild">
 PostBuild
 </a>
 </em>
@@ -233,36 +233,6 @@ capable of targeting objects based on kind, label and annotation selectors.</p>
 </tr>
 <tr>
 <td>
-<code>patchesStrategicMerge</code><br>
-<em>
-<a href="https://pkg.go.dev/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1?tab=doc#JSON">
-[]Kubernetes pkg/apis/apiextensions/v1.JSON
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Strategic merge patches, defined as inline YAML objects.
-Deprecated: Use Patches instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>patchesJson6902</code><br>
-<em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#JSON6902Patch">
-[]github.com/fluxcd/pkg/apis/kustomize.JSON6902Patch
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>JSON 6902 patches, defined as inline YAML objects.
-Deprecated: Use Patches instead.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>images</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#Image">
@@ -294,7 +264,7 @@ when reconciling this Kustomization.</p>
 <td>
 <code>sourceRef</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.CrossNamespaceSourceReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1.CrossNamespaceSourceReference">
 CrossNamespaceSourceReference
 </a>
 </em>
@@ -382,18 +352,6 @@ When enabled, the HealthChecks are ignored. Defaults to false.</p>
 <p>Components specifies relative paths to specifications of other Components.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>validation</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Deprecated: Not used in v1beta2.</p>
-</td>
-</tr>
 </table>
 </td>
 </tr>
@@ -401,7 +359,7 @@ string
 <td>
 <code>status</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationStatus">
+<a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationStatus">
 KustomizationStatus
 </a>
 </em>
@@ -413,11 +371,11 @@ KustomizationStatus
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.CommonMetadata">CommonMetadata
+<h3 id="kustomize.toolkit.fluxcd.io/v1.CommonMetadata">CommonMetadata
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>CommonMetadata defines the common labels and annotations.</p>
 <div class="md-typeset__scrollwrap">
@@ -458,11 +416,11 @@ map[string]string
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.CrossNamespaceSourceReference">CrossNamespaceSourceReference
+<h3 id="kustomize.toolkit.fluxcd.io/v1.CrossNamespaceSourceReference">CrossNamespaceSourceReference
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>CrossNamespaceSourceReference contains enough information to let you locate the
 typed Kubernetes resource object at cluster level.</p>
@@ -526,11 +484,11 @@ string
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.Decryption">Decryption
+<h3 id="kustomize.toolkit.fluxcd.io/v1.Decryption">Decryption
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>Decryption defines how decryption is handled for Kubernetes manifests.</p>
 <div class="md-typeset__scrollwrap">
@@ -572,11 +530,11 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec
+<h3 id="kustomize.toolkit.fluxcd.io/v1.KustomizationSpec">KustomizationSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Kustomization">Kustomization</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1.Kustomization">Kustomization</a>)
 </p>
 <p>KustomizationSpec defines the configuration to calculate the desired state from a Source using Kustomize.</p>
 <div class="md-typeset__scrollwrap">
@@ -593,7 +551,7 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 <td>
 <code>commonMetadata</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.CommonMetadata">
+<a href="#kustomize.toolkit.fluxcd.io/v1.CommonMetadata">
 CommonMetadata
 </a>
 </em>
@@ -624,7 +582,7 @@ Kustomization can be reconciled.</p>
 <td>
 <code>decryption</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Decryption">
+<a href="#kustomize.toolkit.fluxcd.io/v1.Decryption">
 Decryption
 </a>
 </em>
@@ -701,7 +659,7 @@ Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceR
 <td>
 <code>postBuild</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.PostBuild">
+<a href="#kustomize.toolkit.fluxcd.io/v1.PostBuild">
 PostBuild
 </a>
 </em>
@@ -754,36 +712,6 @@ capable of targeting objects based on kind, label and annotation selectors.</p>
 </tr>
 <tr>
 <td>
-<code>patchesStrategicMerge</code><br>
-<em>
-<a href="https://pkg.go.dev/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1?tab=doc#JSON">
-[]Kubernetes pkg/apis/apiextensions/v1.JSON
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Strategic merge patches, defined as inline YAML objects.
-Deprecated: Use Patches instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>patchesJson6902</code><br>
-<em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#JSON6902Patch">
-[]github.com/fluxcd/pkg/apis/kustomize.JSON6902Patch
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>JSON 6902 patches, defined as inline YAML objects.
-Deprecated: Use Patches instead.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>images</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#Image">
@@ -815,7 +743,7 @@ when reconciling this Kustomization.</p>
 <td>
 <code>sourceRef</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.CrossNamespaceSourceReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1.CrossNamespaceSourceReference">
 CrossNamespaceSourceReference
 </a>
 </em>
@@ -903,27 +831,15 @@ When enabled, the HealthChecks are ignored. Defaults to false.</p>
 <p>Components specifies relative paths to specifications of other Components.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>validation</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Deprecated: Not used in v1beta2.</p>
-</td>
-</tr>
 </tbody>
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.KustomizationStatus">KustomizationStatus
+<h3 id="kustomize.toolkit.fluxcd.io/v1.KustomizationStatus">KustomizationStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.Kustomization">Kustomization</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1.Kustomization">Kustomization</a>)
 </p>
 <p>KustomizationStatus defines the observed state of a kustomization.</p>
 <div class="md-typeset__scrollwrap">
@@ -1005,7 +921,7 @@ string
 <td>
 <code>inventory</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.ResourceInventory">
+<a href="#kustomize.toolkit.fluxcd.io/v1.ResourceInventory">
 ResourceInventory
 </a>
 </em>
@@ -1019,11 +935,11 @@ ResourceInventory
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.PostBuild">PostBuild
+<h3 id="kustomize.toolkit.fluxcd.io/v1.PostBuild">PostBuild
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationSpec">KustomizationSpec</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationSpec">KustomizationSpec</a>)
 </p>
 <p>PostBuild describes which actions to perform on the YAML manifest
 generated by building the kustomize overlay.</p>
@@ -1058,7 +974,7 @@ e.g. ${var:=default}, ${var:position} and ${var/substring/replacement}.</p>
 <td>
 <code>substituteFrom</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.SubstituteReference">
+<a href="#kustomize.toolkit.fluxcd.io/v1.SubstituteReference">
 []SubstituteReference
 </a>
 </em>
@@ -1075,11 +991,11 @@ must match the vars declared in the manifests for the substitution to happen.</p
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.ResourceInventory">ResourceInventory
+<h3 id="kustomize.toolkit.fluxcd.io/v1.ResourceInventory">ResourceInventory
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.KustomizationStatus">KustomizationStatus</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationStatus">KustomizationStatus</a>)
 </p>
 <p>ResourceInventory contains a list of Kubernetes resource object references that have been applied by a Kustomization.</p>
 <div class="md-typeset__scrollwrap">
@@ -1096,7 +1012,7 @@ must match the vars declared in the manifests for the substitution to happen.</p
 <td>
 <code>entries</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.ResourceRef">
+<a href="#kustomize.toolkit.fluxcd.io/v1.ResourceRef">
 []ResourceRef
 </a>
 </em>
@@ -1109,11 +1025,11 @@ must match the vars declared in the manifests for the substitution to happen.</p
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.ResourceRef">ResourceRef
+<h3 id="kustomize.toolkit.fluxcd.io/v1.ResourceRef">ResourceRef
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.ResourceInventory">ResourceInventory</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1.ResourceInventory">ResourceInventory</a>)
 </p>
 <p>ResourceRef contains the information necessary to locate a resource within a cluster.</p>
 <div class="md-typeset__scrollwrap">
@@ -1153,11 +1069,11 @@ string
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1beta2.SubstituteReference">SubstituteReference
+<h3 id="kustomize.toolkit.fluxcd.io/v1.SubstituteReference">SubstituteReference
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1beta2.PostBuild">PostBuild</a>)
+<a href="#kustomize.toolkit.fluxcd.io/v1.PostBuild">PostBuild</a>)
 </p>
 <p>SubstituteReference contains a reference to a resource containing
 the variables name and value.</p>
