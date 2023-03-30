@@ -1,5 +1,7 @@
 # Kustomization
 
+<!-- menuweight:10 -->
+
 The `Kustomization` API defines a pipeline for fetching, decrypting, building,
 validating and applying Kustomize overlays or plain Kubernetes manifests.
 The `Kustomization` Custom Resource Definition is the
@@ -82,7 +84,7 @@ You can run this example by saving the manifest into `podinfo.yaml`.
    ...
     Status:
       Conditions:
-        Last Transition Time:  2022-06-07T11:14:41Z
+        Last Transition Time:  2023-03-07T11:14:41Z
         Message:               Applied revision: master@sha1:450796ddb2ab6724ee1cc32a4be56da032d1cca0
         Reason:                ReconciliationSucceeded
         Status:                True
@@ -117,8 +119,9 @@ Artifact containing the YAML manifests. It has two required fields:
 * `name`: The Name of the referred Source object.
 
 #### Cross-namespace references
+
 By default, the Source object is assumed to be in the same namespace as the
-Kustomization. To refer to a Source object in a different namesapce, specify
+Kustomization. To refer to a Source object in a different namespace, specify
 the namespace using `spec.sourceRef.namespace`.
 
 ```yaml
@@ -231,6 +234,7 @@ A health check entry can reference one of the following types:
 
 Assuming the Kustomization source contains a Kubernetes Deployment named
 `backend`, a health check can be defined as follows:
+
 ```yaml
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -317,6 +321,7 @@ installing objects of a certain custom resource kind, the CRDs and the related
 controller must exist in the cluster.
 
 Assuming two Kustomizations:
+
 * cert-manager - reconciles the cert-manager CRDs and controller
 * certs - reconciles the cert-manager custom resources
 
@@ -381,7 +386,7 @@ should be applied to all the Kustomization's resources. It has two optional fiel
    on an object. Any existing label will be overriden if it matches a key in
    this map.
 * `annotations`: A map used for setting [annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
-   on an object. Any existing annotation will be overriden if it matches a key
+   on an object. Any existing annotation will be overridden if it matches a key
    in this map.
 
 ### Patches
@@ -441,6 +446,7 @@ spec:
 ```
 
 ### Images
+
 `spec.images` is an optional list used to specify
 [Kustomize `images`](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/images/).
 This allows overwriting the name, tag or digest of container images without creating patches.
@@ -466,6 +472,7 @@ spec:
 ```
 
 ### Components
+
 `spec.components` is an optional list used to specify
 [Kustomize `components`](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/components/).
 This allows using reusable pieces of configuration logic that can be included
@@ -561,7 +568,7 @@ spec:
         # Fail if this Secret does not exist.
 ```
 
-**Note:** For substituting variables in a secret, `spec.stringData` field must be used i.e
+**Note:** For substituting variables in a secret, `spec.stringData` field must be used i.e:
 
 ```yaml
 ---
@@ -678,7 +685,7 @@ per-provider installation of kustomize-controller.
 When both `spec.kubeConfig` and `spec.ServiceAccountName` are specified,
 the controller will impersonate the service account on the target cluster.
 
-For more information, see [Remote Clusters/Cluster-API](#remote-clusters--cluster-api).
+For more information, see [Remote Clusters/Cluster-API](#remote-clusterscluster-api).
 
 ### Decryption
 
@@ -690,7 +697,7 @@ private Git repository. In order to store them safely, you can use
 Secrets data with [age](https://age-encryption.org/v1/) and [OpenPGP](https://www.openpgp.org)
 keys, or with provider implementations like Azure Key Vault, GCP KMS or Hashicorp Vault.
 
-**Note:** You should encrypt only the `data` section of the Kubernetes Secret,
+**Note:** You should encrypt only the `data/stringData` section of the Kubernetes Secret,
 encrypting the `metadata`, `kind` or `apiVersion` fields is not supported.
 An easy way to do this is by appending `--encrypted-regex '^(data|stringData)$'`
 to your `sops --encrypt` command.
@@ -1540,7 +1547,6 @@ Using `flux`:
 flux resume kustomization <kustomization-name>
 ```
 
-
 ### Debugging a Kustomization
 
 There are several ways to gather information about a Kustomization for
@@ -1683,7 +1689,7 @@ Kustomization without completing. This can occur due to some of the following fa
 * Running a health check failed.
 
 When this happens, the controller sets the `Ready` Condition status to False
-and adds a Condition with the following attributes to the `Kustomization`’s
+and adds a Condition with the following attributes to the Kustomization’s
 `.status.conditions`:
 
 - `type: Ready | HealthyCondition`

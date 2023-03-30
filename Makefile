@@ -130,7 +130,7 @@ manifests: controller-gen
 
 # Generate API reference documentation
 api-docs: gen-crd-api-reference-docs
-	$(GEN_CRD_API_REFERENCE_DOCS) -api-dir=./api/v1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/api/kustomize.md
+	$(GEN_CRD_API_REFERENCE_DOCS) -api-dir=./api/v1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/api/v1/kustomize.md
 
 # Run go mod tidy
 tidy:

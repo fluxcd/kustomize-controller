@@ -1,4 +1,4 @@
-<h1>Kustomize API reference</h1>
+<h1>Kustomize API reference v1</h1>
 <p>Packages:</p>
 <ul class="simple">
 <li>
