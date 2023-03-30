@@ -27,4 +27,4 @@ spec:
   interval: 5m
   url: https://github.com/stefanprodan/podinfo
   ref:
-    semver: ">=3.2.3"
+    semver: ">=6.3.5"
