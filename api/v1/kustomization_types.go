@@ -281,12 +281,6 @@ func (in *Kustomization) SetConditions(conditions []metav1.Condition) {
 	in.Status.Conditions = conditions
 }
 
-// GetStatusConditions returns a pointer to the Status.Conditions slice.
-// Deprecated: use GetConditions instead.
-func (in *Kustomization) GetStatusConditions() *[]metav1.Condition {
-	return &in.Status.Conditions
-}
-
 // +genclient
 // +genclient:Namespaced
 // +kubebuilder:storageversion

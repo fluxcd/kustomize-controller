@@ -48,8 +48,4 @@ const (
 	// ReconciliationFailedReason represents the fact that
 	// the reconciliation failed.
 	ReconciliationFailedReason string = "ReconciliationFailed"
-
-	// ProgressingWithRetryReason represents the fact that
-	// the reconciliation encountered an error that will be retried.
-	ProgressingWithRetryReason string = "ProgressingWithRetry"
 )

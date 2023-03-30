@@ -207,7 +207,7 @@ func randStringRunes(n int) string {
 
 func isReconcileRunning(k *kustomizev1.Kustomization) bool {
 	return conditions.IsReconciling(k) &&
-		conditions.GetReason(k, meta.ReconcilingCondition) != kustomizev1.ProgressingWithRetryReason
+		conditions.GetReason(k, meta.ReconcilingCondition) != meta.ProgressingWithRetryReason
 }
 
 func isReconcileSuccess(k *kustomizev1.Kustomization) bool {
@@ -230,7 +230,7 @@ func isReconcileFailure(k *kustomizev1.Kustomization) bool {
 	return isHandled && conditions.IsReconciling(k) &&
 		conditions.IsFalse(k, meta.ReadyCondition) &&
 		conditions.GetObservedGeneration(k, meta.ReadyCondition) == k.Generation &&
-		conditions.GetReason(k, meta.ReconcilingCondition) == kustomizev1.ProgressingWithRetryReason
+		conditions.GetReason(k, meta.ReconcilingCondition) == meta.ProgressingWithRetryReason
 }
 
 func logStatus(t *testing.T, k *kustomizev1.Kustomization) {
