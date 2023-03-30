@@ -32,7 +32,7 @@ import (
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
@@ -43,6 +43,7 @@ func TestKustomizationReconciler_WaitConditions(t *testing.T) {
 	revision := "v1.0.0"
 	resultK := &kustomizev1.Kustomization{}
 	reconcileRequestAt := metav1.Now().String()
+	timeout := 60 * time.Second
 
 	err := createNamespace(id)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")

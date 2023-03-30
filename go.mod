@@ -34,7 +34,7 @@ require (
 	github.com/fluxcd/pkg/ssa v0.27.0
 	github.com/fluxcd/pkg/tar v0.2.0
 	github.com/fluxcd/pkg/testserver v0.4.0
-	github.com/fluxcd/source-controller/api v0.36.1
+	github.com/fluxcd/source-controller/api v1.0.0-rc.1
 	github.com/hashicorp/vault/api v1.9.0
 	github.com/onsi/gomega v1.27.5
 	github.com/opencontainers/go-digest v1.0.0
