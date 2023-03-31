@@ -6,7 +6,8 @@
 </li>
 </ul>
 <h2 id="kustomize.toolkit.fluxcd.io/v1">kustomize.toolkit.fluxcd.io/v1</h2>
-<p>Package v1 contains API Schema definitions for the kustomize.toolkit.fluxcd.io v1 API group.</p>
+<p>Package v1 contains API Schema definitions for the kustomize.toolkit.fluxcd.io
+v1 API group.</p>
 Resource Types:
 <ul class="simple"><li>
 <a href="#kustomize.toolkit.fluxcd.io/v1.Kustomization">Kustomization</a>
@@ -79,8 +80,9 @@ CommonMetadata
 </td>
 <td>
 <em>(Optional)</em>
-<p>CommonMetadata specifies the common labels and annotations that are applied to all resources.
-Any existing label or annotation will be overridden if its key matches a common one.</p>
+<p>CommonMetadata specifies the common labels and annotations that are
+applied to all resources. Any existing label or annotation will be
+overridden if its key matches a common one.</p>
 </td>
 </tr>
 <tr>
@@ -336,8 +338,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Wait instructs the controller to check the health of all the reconciled resources.
-When enabled, the HealthChecks are ignored. Defaults to false.</p>
+<p>Wait instructs the controller to check the health of all the reconciled
+resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
 </td>
 </tr>
 <tr>
@@ -477,7 +479,8 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Namespace of the referent, defaults to the namespace of the Kubernetes resource object that contains the reference.</p>
+<p>Namespace of the referent, defaults to the namespace of the Kubernetes
+resource object that contains the reference.</p>
 </td>
 </tr>
 </tbody>
@@ -536,7 +539,8 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 (<em>Appears on:</em>
 <a href="#kustomize.toolkit.fluxcd.io/v1.Kustomization">Kustomization</a>)
 </p>
-<p>KustomizationSpec defines the configuration to calculate the desired state from a Source using Kustomize.</p>
+<p>KustomizationSpec defines the configuration to calculate the desired state
+from a Source using Kustomize.</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -558,8 +562,9 @@ CommonMetadata
 </td>
 <td>
 <em>(Optional)</em>
-<p>CommonMetadata specifies the common labels and annotations that are applied to all resources.
-Any existing label or annotation will be overridden if its key matches a common one.</p>
+<p>CommonMetadata specifies the common labels and annotations that are
+applied to all resources. Any existing label or annotation will be
+overridden if its key matches a common one.</p>
 </td>
 </tr>
 <tr>
@@ -815,8 +820,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Wait instructs the controller to check the health of all the reconciled resources.
-When enabled, the HealthChecks are ignored. Defaults to false.</p>
+<p>Wait instructs the controller to check the health of all the reconciled
+resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
 </td>
 </tr>
 <tr>
@@ -928,7 +933,8 @@ ResourceInventory
 </td>
 <td>
 <em>(Optional)</em>
-<p>Inventory contains the list of Kubernetes resource object references that have been successfully applied.</p>
+<p>Inventory contains the list of Kubernetes resource object references that
+have been successfully applied.</p>
 </td>
 </tr>
 </tbody>
@@ -963,9 +969,8 @@ map[string]string
 <td>
 <em>(Optional)</em>
 <p>Substitute holds a map of key/value pairs.
-The variables defined in your YAML manifests
-that match any of the keys defined in the map
-will be substituted with the set value.
+The variables defined in your YAML manifests that match any of the keys
+defined in the map will be substituted with the set value.
 Includes support for bash string replacement functions
 e.g. ${var:=default}, ${var:position} and ${var/substring/replacement}.</p>
 </td>
@@ -983,8 +988,9 @@ e.g. ${var:=default}, ${var:position} and ${var/substring/replacement}.</p>
 <em>(Optional)</em>
 <p>SubstituteFrom holds references to ConfigMaps and Secrets containing
 the variables and their values to be substituted in the YAML manifests.
-The ConfigMap and the Secret data keys represent the var names and they
-must match the vars declared in the manifests for the substitution to happen.</p>
+The ConfigMap and the Secret data keys represent the var names, and they
+must match the vars declared in the manifests for the substitution to
+happen.</p>
 </td>
 </tr>
 </tbody>
@@ -997,7 +1003,8 @@ must match the vars declared in the manifests for the substitution to happen.</p
 (<em>Appears on:</em>
 <a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationStatus">KustomizationStatus</a>)
 </p>
-<p>ResourceInventory contains a list of Kubernetes resource object references that have been applied by a Kustomization.</p>
+<p>ResourceInventory contains a list of Kubernetes resource object references
+that have been applied by a Kustomization.</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>

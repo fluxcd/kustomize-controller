@@ -280,7 +280,7 @@ spec:
                     description: SubstituteFrom holds references to ConfigMaps and
                       Secrets containing the variables and their values to be substituted
                       in the YAML manifests. The ConfigMap and the Secret data keys
-                      represent the var names and they must match the vars declared
+                      represent the var names, and they must match the vars declared
                       in the manifests for the substitution to happen.
                     items:
                       description: SubstituteReference contains a reference to a resource

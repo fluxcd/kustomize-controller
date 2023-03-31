@@ -34,7 +34,8 @@ type CrossNamespaceSourceReference struct {
 	// +required
 	Name string `json:"name"`
 
-	// Namespace of the referent, defaults to the namespace of the Kubernetes resource object that contains the reference.
+	// Namespace of the referent, defaults to the namespace of the Kubernetes
+	// resource object that contains the reference.
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 }

@@ -105,8 +105,7 @@ var (
 	}
 )
 
-// Decryptor performs decryption operations for a
-// v1beta2.Kustomization.
+// Decryptor performs decryption operations for a v1.Kustomization.
 // The only supported decryption provider at present is
 // DecryptionProviderSOPS.
 type Decryptor struct {
@@ -115,8 +114,8 @@ type Decryptor struct {
 	root string
 	// client is the Kubernetes client used to e.g. retrieve Secrets with.
 	client client.Client
-	// kustomization is the v1beta2.Kustomization we are decrypting for.
-	// The v1beta2.Decryption of the object is used to ImportKeys().
+	// kustomization is the v1.Kustomization we are decrypting for.
+	// The v1.Decryption of the object is used to ImportKeys().
 	kustomization *kustomizev1.Kustomization
 	// maxFileSize is the max size in bytes a file is allowed to have to be
 	// decrypted. Defaults to maxEncryptedFileSize.
@@ -187,7 +186,7 @@ func IsEncryptedSecret(object *unstructured.Unstructured) bool {
 }
 
 // ImportKeys imports the DecryptionProviderSOPS keys from the data values of
-// the Secret referenced in the Kustomization's v1beta2.Decryption spec.
+// the Secret referenced in the Kustomization's v1.Decryption spec.
 // It returns an error if the Secret cannot be retrieved, or if one of the
 // imports fails.
 // Imports do not have an effect after the first call to SopsDecryptWithFormat(),

@@ -45,16 +45,16 @@ In the above example:
 - A Flux GitRepository named `podinfo` is created that clones the `master`
   branch and makes the repository content available as an Artifact inside the cluster.
 - A Flux Kustomization named `podinfo` is created that watches the
-  GitRepository for artifact changes.
-- The Kustomization builds the YAML manifests located at the specified `spec.path`,
-  sets the namespace of all objects to the `spec.targetNamespace`,
+  GitRepository for Artifact changes.
+- The Kustomization builds the YAML manifests located at the specified `.spec.path`,
+  sets the namespace of all objects to the `.spec.targetNamespace`,
   validates the objects against the Kubernetes API and finally applies them on
   the cluster.
-- As specified by `spec.interval`, every ten minutes, the Kustomization runs a
+- As specified by `.spec.interval`, every ten minutes, the Kustomization runs a
   server-side apply dry-run to detect and correct drift inside the cluster.
 - When the Git revision changes, the manifests are reconciled automatically. If
   previously applied objects are missing from the current revision, these
-  objects are deleted from the cluster when `spec.prune` is enabled.
+  objects are deleted from the cluster when `.spec.prune` is enabled.
 
 You can run this example by saving the manifest into `podinfo.yaml`.
 
@@ -78,7 +78,8 @@ You can run this example by saving the manifest into `podinfo.yaml`.
    podinfo   True    Applied revision: master@sha1:450796ddb2ab6724ee1cc32a4be56da032d1cca0
    ```
 
-4. Run `kubectl describe kustomization podinfo` to see the reconciliation status conditions and events:
+4. Run `kubectl describe kustomization podinfo` to see the reconciliation status
+   conditions and events:
 
    ```console
    ...
@@ -109,20 +110,20 @@ A Kustomization also needs a
 
 ### Source reference
 
-`spec.sourceRef` is used to refer to the Source object which has the required
+`.spec.sourceRef` is used to refer to the Source object which has the required
 Artifact containing the YAML manifests. It has two required fields:
 
-* `kind`: The Kind of the referred Source object. Supported Source types:
-    * [GitRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1/gitrepositories.md)
-    * [OCIRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/ocirepositories.md)
-    * [Bucket](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/buckets.md)
-* `name`: The Name of the referred Source object.
+- `kind`: The Kind of the referred Source object. Supported Source types:
+  + [GitRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1/gitrepositories.md)
+  + [OCIRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/ocirepositories.md)
+  + [Bucket](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/buckets.md)
+- `name`: The Name of the referred Source object.
 
 #### Cross-namespace references
 
 By default, the Source object is assumed to be in the same namespace as the
 Kustomization. To refer to a Source object in a different namespace, specify
-the namespace using `spec.sourceRef.namespace`.
+the namespace using `.spec.sourceRef.namespace`.
 
 ```yaml
 ---
@@ -145,15 +146,16 @@ by starting kustomize-controller with the `--no-cross-namespace-refs=true` flag.
 
 ### Prune
 
-`spec.prune` is a required boolean field to enable/disable garbage collection
+`.spec.prune` is a required boolean field to enable/disable garbage collection
 for a Kustomization.
 
 Garbage collection means that the Kubernetes objects that were previously
 applied on the cluster but are missing from the current source revision, are
 removed from the cluster automatically. Garbage collection is also performed
 when a Kustomization object is deleted, triggering a removal of all Kubernetes
-objects previously applied on the cluster. The removal of the Kubernetes objects
-is done in the background, i.e it doesn't block the reconciliation of the Kustomization.
+objects previously applied on the cluster. The removal of the Kubernetes
+objects is done in the background, i.e. it doesn't block the reconciliation of
+the Kustomization.
 
 To enable garbage collection for a Kustomization, set this field to `true`.
 
@@ -164,17 +166,18 @@ annotating them with:
 kustomize.toolkit.fluxcd.io/prune: disabled
 ```
 
-For info on how the controller tracks Kubernetes objects and determines what to
-garbage collect, see [`.status.inventory`](#inventory).
+For details on how the controller tracks Kubernetes objects and determines what
+to garbage collect, see [`.status.inventory`](#inventory).
 
 ### Interval
 
-`spec.interval` is a required field that specifies the interval at which the
+`.spec.interval` is a required field that specifies the interval at which the
 Kustomization is reconciled, i.e. the controller fetches the source with the
 Kubernetes manifests, builds the Kustomization and applies it on the cluster,
-correcting any existing drift in the process.  The minimum value should be over 60 seconds.
+correcting any existing drift in the process. The minimum value should be 60
+seconds.
 
-After successfully reconciling the object, kustomize-controller requeues it for
+After successfully reconciling the object, the controller requeues it for
 inspection after the specified interval. The value must be in a
 [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration),
 e.g. `10m0s` to reconcile the object every 10 minutes.
@@ -185,41 +188,43 @@ this is handled instantly outside the interval window.
 
 ### Retry interval
 
-`spec.retryInterval` is an optional field to specify the interval at which to
-retry a failed reconciliation. Unlike `spec.interval`, this field is
-exclusively meant for failure retries. If not specified, it defaults to `spec.interval`.
+`.spec.retryInterval` is an optional field to specify the interval at which to
+retry a failed reconciliation. Unlike `.spec.interval`, this field is
+exclusively meant for failure retries. If not specified, it defaults to
+`.spec.interval`.
 
 ### Path
 
-`spec.path` is an optional field to specify the path to the directory in the
-Source Artifact containing the kustomization.yaml file, or the set of plain
-YAMLs for which a kustomization.yaml should be generated.
+`.spec.path` is an optional field to specify the path to the directory in the
+Source Artifact containing the `kustomization.yaml` file, or the set of plain
+YAMLs for which a `kustomization.yaml` should be generated.
 It defaults to blank, which translates to the root of the Source Artifact.
 
-Further reading: [Generate kustomization.yaml](#generate-kustomizationyaml)
+For more details on the generation of the file, see [generating a
+`kustomization.yaml` file](#generating-a-kustomizationyaml-file).
 
 ### Target namespace
 
-`spec.targetNamespace` is an optional field to specify the target namespace for
+`.spec.targetNamespace` is an optional field to specify the target namespace for
 all the objects that are part of the Kustomization. It either configures or
 overrides the [Kustomize `namespace`](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/namespace/).
 
-While `spec.targetNamespace` is optional, if this field is non-empty then the
+While `.spec.targetNamespace` is optional, if this field is non-empty then the
 Kubernetes namespace being pointed to must exist prior to the Kustomization
 being applied, kustomize-controller will not create the namespace.
 
 ### Suspend
 
-`spec.suspend` is an optional boolean field to suspend the reconciliation of the
+`.spec.suspend` is an optional boolean field to suspend the reconciliation of the
 Kustomization. When a Kustomization is suspended, new Source revisions are not
 applied to the cluster and drift detection/correction is paused.
 To resume normal reconciliation, set it back to `false` or remove the field.
 
-For more info, see [Suspending and resuming](#suspending-and-resuming).
+For more information, see [suspending and resuming](#suspending-and-resuming).
 
 ### Health checks
 
-`spec.healthChecks` is an optional list used to refer to resources for which the
+`.spec.healthChecks` is an optional list used to refer to resources for which the
 controller will perform health checks used to determine the rollout status of
 [deployed workloads](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#deployment-status)
 and the `Ready` status of custom resources.
@@ -257,10 +262,10 @@ spec:
 
 After applying the kustomize build output, the controller verifies if the
 rollout was completed successfully. If the deployment was successful, the
-Kustomization `Ready` condition is marked as `true`, if the rollout failed, or if
-it takes more than the specified timeout to complete, then the Kustomization
-`Ready` condition is set to false. If the deployment becomes healthy on the
-next execution, then the Kustomization is marked as ready.
+Kustomization `Ready` condition is marked as `True`, if the rollout failed,
+or if it takes more than the specified timeout to complete, then the
+Kustomization `Ready` condition is set to `False`. If the deployment becomes
+healthy on the next execution, then the Kustomization is marked as ready.
 
 When a Kustomization contains HelmRelease objects, instead of checking the
 underlying Deployments, you can define a health check that waits for the
@@ -297,35 +302,36 @@ the Kustomization will be marked as ready.
 
 ### Wait
 
-`spec.wait` is an optional boolean field to perform health checks for __all__
+`.spec.wait` is an optional boolean field to perform health checks for __all__
 reconciled resources as part of the Kustomization. If set to `true`,
-`spec.healthChecks` is ignored.
+`.spec.healthChecks` is ignored.
 
 ### Timeout
 
-`spec.timeout` is an optional field to specify a timeout duration for any
+`.spec.timeout` is an optional field to specify a timeout duration for any
 operation like building, applying, health checking, etc. performed during the
 reconciliation process.
 
 ### Dependencies
 
-`spec.dependsOn` is an optional list used to refer to other Kustomization
+`.spec.dependsOn` is an optional list used to refer to other Kustomization
 objects that the Kustomization depends on. If specified, then the Kustomization
 is only applied after the referred Kustomizations are ready, i.e. have the
-`Ready` condition marked as `true`. The readiness state of a Kustomization is
+`Ready` condition marked as `True`. The readiness state of a Kustomization is
 determined by its last applied status condition.
 
-This is helpful when need to make sure other resources exist before the
-workloads defined in a Kustomization are deployed. For example, before
+This is helpful when there is a need to make sure other resources exist before
+the workloads defined in a Kustomization are deployed. For example, before
 installing objects of a certain custom resource kind, the CRDs and the related
 controller must exist in the cluster.
 
-Assuming two Kustomizations:
+For example, assuming we have two Kustomizations:
 
-* cert-manager - reconciles the cert-manager CRDs and controller
-* certs - reconciles the cert-manager custom resources
+- cert-manager: reconciles the cert-manager CRDs and controller
+- certs: reconciles the cert-manager custom resources
 
-You can instruct the controller to apply the cert-manager Kustomization before certs:
+You can instruct the controller to apply the `cert-manager` Kustomization before
+`certs` by defining a `dependsOn` relationship between the two:
 
 ```yaml
 ---
@@ -363,43 +369,43 @@ spec:
     name: flux-system
 ```
 
-If `spec.healthChecks` is non-empty or `spec.wait` is set to `true`, a
-Kustomization will be applied after all its dependencies' health checks are
-passing. For example, a service mesh proxy injector should be running before
-deploying applications inside the mesh.
+If `.spec.healthChecks` is non-empty or `.spec.wait` is set to `true`, a
+Kustomization will be applied after all its dependencies' health checks have
+passed. For example, this can be used to ensure a service mesh proxy injector
+is running before deploying applications inside the mesh.
 
 **Note:** Circular dependencies between Kustomizations must be avoided,
 otherwise the interdependent Kustomizations will never be applied on the cluster.
 
 ### Service Account reference
 
-`spec.serviceAccountName` is an optional field used to specify the
+`.spec.serviceAccountName` is an optional field used to specify the
 ServiceAccount to be impersonated while reconciling the Kustomization. For more
 details, see [Role-based Access Control](#role-based-access-control).
 
 ### Common metadata
 
-`spec.commonMetadata` is an optional field used to specify any metadata that
+`.spec.commonMetadata` is an optional field used to specify any metadata that
 should be applied to all the Kustomization's resources. It has two optional fields:
 
-* `labels`: A map used for setting [labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/)
-   on an object. Any existing label will be overriden if it matches a key in
-   this map.
-* `annotations`: A map used for setting [annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
-   on an object. Any existing annotation will be overridden if it matches a key
-   in this map.
+- `labels`: A map used for setting [labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/)
+  on an object. Any existing label will be overridden if it matches with a key in
+  this map.
+- `annotations`: A map used for setting [annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+  on an object. Any existing annotation will be overridden if it matches with a key
+  in this map.
 
 ### Patches
 
-`spec.patches` is an optional list used to specify [Kustomize `patches`](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patches/)
+`.spec.patches` is an optional list used to specify [Kustomize `patches`](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patches/)
 as inline YAML objects. This enables patching resources using either a
 [strategic merge](https://kubectl.docs.kubernetes.io/references/kustomize/glossary#patchstrategicmerge)
 patch or a [JSON6902](https://kubectl.docs.kubernetes.io/references/kustomize/glossary#patchjson6902)
 patch. A patch can target a single resource or multiple resources. Each item in
 the list must have the two fields mentioned below:
 
-* `patch`: Patch contains an inline strategic merge patch or an inline JSON6902 patch with an array of operation objects.
-* `target`: Target points to the resources that the patch document should be applied to.
+- `patch`: Patch contains an inline strategic merge patch or an inline JSON6902 patch with an array of operation objects.
+- `target`: Target points to the resources that the patch document should be applied to.
 
 ```yaml
 ---
@@ -447,7 +453,7 @@ spec:
 
 ### Images
 
-`spec.images` is an optional list used to specify
+`.spec.images` is an optional list used to specify
 [Kustomize `images`](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/images/).
 This allows overwriting the name, tag or digest of container images without creating patches.
 
@@ -473,7 +479,7 @@ spec:
 
 ### Components
 
-`spec.components` is an optional list used to specify
+`.spec.components` is an optional list used to specify
 [Kustomize `components`](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/components/).
 This allows using reusable pieces of configuration logic that can be included
 from multiple overlays.
@@ -497,20 +503,20 @@ spec:
 considered experimental in Flux. No guarantees are provided as the feature may
 be modified in backwards incompatible ways or removed without warning.
 
-### Postbuild Variable Substitution
+### Post build variable substitution
 
-With `spec.postBuild.substitute` you can provide a map of key/value pairs
+With `.spec.postBuild.substitute` you can provide a map of key-value pairs
 holding the variables to be substituted in the final YAML manifest, after
 kustomize build.
 
-With `spec.postBuild.substituteFrom` you can provide a list of ConfigMaps and
-Secrets from which the variables are loaded.
-The ConfigMap and Secret data keys are used as the var names.
+With `.spec.postBuild.substituteFrom` you can provide a list of ConfigMaps and
+Secrets from which the variables are loaded. The ConfigMap and Secret data keys
+are used as the variable names.
 
-The `spec.postBuild.substituteFrom.optional` field indicates how the
+The `.spec.postBuild.substituteFrom.optional` field indicates how the
 controller should handle a referenced ConfigMap or Secret being absent
 at reconciliation time. The controller's default behavior ― with
-`optional` unspecified or set to `false` ― has it fail reconciliation if
+`optional` unspecified or set to `false` ― it has failed reconciliation if
 the referenced object is missing. By setting the `optional` field to
 `true`, you can indicate that the controller should use the referenced
 object if it's there, but also tolerate its absence, treating that
@@ -526,10 +532,10 @@ for [bash string replacement functions](https://github.com/drone/envsubst) e.g.:
 - `${var/substring/replacement}`
 
 **Note:** The name of a variable can contain only alphanumeric and underscore
-characters. The controller validates the var names using this regular expression:
-`^[_[:alpha:]][_[:alpha:][:digit:]]*$`.
+characters. The controller validates the variable names using this regular
+expression: `^[_[:alpha:]][_[:alpha:][:digit:]]*$`.
 
-Assuming you have manifests with the following variables:
+For example, assuming we have manifests with the following variables:
 
 ```yaml
 ---
@@ -543,7 +549,7 @@ metadata:
 ```
 
 You can specify the variables and their values in the Kustomization definition using
-`spec.postBuild.substitute` and/or `spec.postBuild.substituteFrom`:
+`.spec.postBuild.substitute` and/or `.spec.postBuild.substituteFrom`:
 
 ```yaml
 ---
@@ -568,7 +574,7 @@ spec:
         # Fail if this Secret does not exist.
 ```
 
-**Note:** For substituting variables in a secret, `spec.stringData` field must be used i.e:
+**Note:** For substituting variables in a secret, `.spec.stringData` field must be used i.e:
 
 ```yaml
 ---
@@ -639,11 +645,12 @@ metadata:
 
 ### Force
 
-`spec.force` is an optional boolean. If set to `true`, the controller will
-replace the resources in-cluster if the patching fails due to immutable field
-changes.
+`.spec.force` is an optional boolean field. If set to `true`, the controller
+will replace the resources in-cluster if the patching fails due to immutable
+field changes.
 
-You can enable force apply for specific resources by labelling or annotating them with:
+It can also be enabled for specific resources by labelling or annotating them
+with:
 
 ```yaml
 kustomize.toolkit.fluxcd.io/force: enabled
@@ -651,7 +658,7 @@ kustomize.toolkit.fluxcd.io/force: enabled
 
 ### KubeConfig reference
 
-`spec.kubeConfig.secretRef.Name` is an optional field to specify the name of
+`.spec.kubeConfig.secretRef.Name` is an optional field to specify the name of
 the secret containing a KubeConfig. If specified, objects will be applied,
 health-checked, pruned, and deleted for the default cluster specified in that
 KubeConfig instead of using the in-cluster ServiceAccount.
@@ -663,17 +670,17 @@ of the Secret’s data , and the Secret can thus be regularly updated if
 cluster-access-tokens have to rotate due to expiration.
 
 ```yaml
+---
 apiVersion: v1
-stringData:
-  value.yaml: |
-      apiVersion: v1
-      kind: Config
-      # ...omitted for brevity
 kind: Secret
 metadata:
   name: prod-kubeconfig
 type: Opaque
-
+stringData:
+  value.yaml: |
+    apiVersion: v1
+    kind: Config
+    # ...omitted for brevity
 ```
 
 **Note:** The KubeConfig should be self-contained and not rely on binaries,
@@ -682,29 +689,33 @@ This matches the constraints of KubeConfigs from current Cluster API providers.
 KubeConfigs with `cmd-path` in them likely won't work without a custom,
 per-provider installation of kustomize-controller.
 
-When both `spec.kubeConfig` and `spec.ServiceAccountName` are specified,
+When both `.spec.kubeConfig` and `.spec.ServiceAccountName` are specified,
 the controller will impersonate the service account on the target cluster.
 
-For more information, see [Remote Clusters/Cluster-API](#remote-clusterscluster-api).
+For more information, see [remote clusters/Cluster-API](#remote-clusterscluster-api).
 
 ### Decryption
 
-`spec.decryption` holds the decryption configuration to decrypt Secrets that
-are a part of the Kustomization. Since, Secrets are either plain text or
-`base64` encoded, its extremely unsafe to store them as it is in a public or
-private Git repository. In order to store them safely, you can use
-[Mozilla SOPS](https://github.com/mozilla/sops) and encrypt your Kubernetes
-Secrets data with [age](https://age-encryption.org/v1/) and [OpenPGP](https://www.openpgp.org)
-keys, or with provider implementations like Azure Key Vault, GCP KMS or Hashicorp Vault.
+`.spec.decryption` is an optional field to specify the configuration to decrypt
+Secrets that are a part of the Kustomization.
 
-**Note:** You should encrypt only the `data/stringData` section of the Kubernetes Secret,
-encrypting the `metadata`, `kind` or `apiVersion` fields is not supported.
+Since Secrets are either plain text or `base64` encoded, it's unsafe to store
+them in plain text in a public or private Git repository. In order to store
+them safely, you can use [Mozilla SOPS](https://github.com/mozilla/sops) and
+encrypt your Kubernetes Secret data with [age](https://age-encryption.org/v1/)
+and/or [OpenPGP](https://www.openpgp.org) keys, or with provider implementations
+like Azure Key Vault, GCP KMS or Hashicorp Vault.
+
+**Note:** You should encrypt only the `data/stringData` section of the Kubernetes
+Secret, encrypting the `metadata`, `kind` or `apiVersion` fields is not supported.
 An easy way to do this is by appending `--encrypted-regex '^(data|stringData)$'`
 to your `sops --encrypt` command.
 
 It has two required fields:
-* `secretRef.name`: The name of the secret that contains the keys to be used for decryption.
-* `provider`: The secrets decryption provider to be used. The only supported
+
+- `.secretRef.name`: The name of the secret that contains the keys to be used for
+   decryption.
+- `.provider`: The secrets decryption provider to be used. The only supported
    value at the moment is `sops`.
 
 ```yaml
@@ -726,8 +737,8 @@ spec:
       name: sops-keys
 ```
 
-**Note:** For info on Secrets decryption at a controller level, please see
-[Controller global decryption](#controller-global-decryption).
+**Note:** For information on Secrets decryption at a controller level, please
+refer to [controller global decryption](#controller-global-decryption).
 
 The Secret's `.data` section is expected to contain entries with decryption
 keys (for age and OpenPGP), or credentials (for any of the supported provider
@@ -744,7 +755,7 @@ metadata:
 data:
   # Exemplary age private key
   identity.agekey: <BASE64>
-  # Examplary Hashicorp Vault token
+  # Exemplary Hashicorp Vault token
   sops.vault-token: <BASE64>
 ```
 
@@ -782,7 +793,7 @@ data:
   identity.asc: <BASE64>
 ```
 
-#### AWS KMS Secret Entry
+#### AWS KMS Secret entry
 
 To specify credentials for an AWS user account linked to the IAM role with access
 to KMS, append a `.data` entry with a fixed `sops.aws-kms` key.
@@ -811,9 +822,9 @@ YAML formats depending on the authentication method you want to utilize.
 
 To configure a Service Principal with Secret credentials to access the Azure
 Key Vault, a JSON or YAML object with `tenantId`, `clientId` and `clientSecret`
-fields must be configured as the `sops.azure-kv` value. It
-optionally supports `authorityHost` to configure an authority host other than
-the Azure Public Cloud endpoint.
+fields must be configured as the `sops.azure-kv` value. It optionally supports
+`authorityHost` to configure an authority host other than the Azure Public Cloud
+endpoint.
 
 ```yaml
 ---
@@ -939,10 +950,13 @@ data:
   sops.vault-token: <BASE64>
 ```
 
-## Recommended settings
+## Working with Kustomizations
+
+### Recommended settings
 
 When deploying applications to production environments, it is recommended
-to configure the following fields, while adjusting them to your desires for responsiveness:
+to configure the following fields, while adjusting them to your desires for
+responsiveness:
 
 ```yaml
 apiVersion: source.toolkit.fluxcd.io/v1
@@ -983,16 +997,16 @@ spec:
   path: "./deploy/production"
 ```
 
-## Working with Kustomizations
+### Generating a `kustomization.yaml` file
 
-### Generate kustomization.yaml
+If your repository contains plain Kubernetes manifests without a
+`kustomization.yaml`, the file is automatically generated for all the
+Kubernetes manifests in the directory tree specified in [`.spec.path`](#path).
 
-If your repository contains plain Kubernetes manifests, the
-`kustomization.yaml` file is automatically generated (if it doesn't already exist)
-for all the Kubernetes manifests in the directory tree specified in [`spec.path`](#path).
 All YAML files present under that path must be valid Kubernetes manifests,
 unless they're excluded either by way of the [`.sourceignore`](https://fluxcd.io/flux/components/source/gitrepositories/#sourceignore-file)
-file or the [`spec.ignore`](https://fluxcd.io/flux/components/source/gitrepositories/#ignore) field on the corresponding Source object.
+file or the [`.spec.ignore`](https://fluxcd.io/flux/components/source/gitrepositories/#ignore)
+field on the corresponding Source object.
 
 Example of excluding CI workflows and SOPS config files:
 
@@ -1013,7 +1027,7 @@ spec:
 
 It is recommended to generate the `kustomization.yaml` on your own and store it
 in Git, this way you can validate your manifests in CI
-(example script [here](https://github.com/fluxcd/flux2-multi-tenancy/blob/main/scripts/validate.sh)).
+([example script](https://github.com/fluxcd/flux2-multi-tenancy/blob/main/scripts/validate.sh)).
 Assuming your manifests are inside `apps/my-app`, you can generate a
 `kustomization.yaml` with:
 
@@ -1032,7 +1046,7 @@ namespaced objects (deployments, ingresses, etc). For certain Kustomizations a
 cluster admin may wish to control what types of Kubernetes objects can be
 reconciled and under which namespaces.
 To restrict a Kustomization, one can assign a service account under which the
-reconciliation is performed using [`spec.serviceAccountName`](#service-account-reference).
+reconciliation is performed using [`.spec.serviceAccountName`](#service-account-reference).
 
 Assuming you want to restrict a group of Kustomizations to a single namespace,
 you can create an account with a role binding that grants access only to that namespace:
@@ -1079,7 +1093,7 @@ subjects:
 placed in a Git source and applied with a Kustomization. The Kustomizations that
 are running under that service account should depend on the one that contains the account.
 
-Create a Kustomization that prevents altering the cluster state outside of the
+Create a Kustomization that prevents altering the cluster state outside the
 `webapp` namespace:
 
 ```yaml
@@ -1105,20 +1119,20 @@ When the controller reconciles the `backend` Kustomization, it will impersonate
 the `flux` ServiceAccount. If the Kustomization contains cluster level objects
 like CRDs or objects belonging to a different namespace, the reconciliation will
 fail since the account it runs under has no permissions to alter objects outside
-of the `webapp` namespace.
+the `webapp` namespace.
 
-#### Enforce impersonation
+#### Enforcing impersonation
 
 On multi-tenant clusters, platform admins can enforce impersonation with the
 `--default-service-account` flag.
 
-When the flag is set, all Kustomizations which don't have [`spec.serviceAccountName`](#service-account-reference)
+When the flag is set, all Kustomizations which don't have [`.spec.serviceAccountName`](#service-account-reference)
 specified will use the service account name provided by
 `--default-service-account=<SA Name>` in the namespace of the object.
 
 ### Remote clusters/Cluster-API
 
-With the [`spec.kubeConfig` field](#kubeconfig-reference) a Kustomization can be fully
+With the [`.spec.kubeConfig` field](#kubeconfig-reference) a Kustomization can be fully
 reconciled on a remote cluster. This composes well with Cluster API bootstrap
 providers such as CAPBK (kubeadm), CAPA (AWS) and others.
 
@@ -1176,7 +1190,8 @@ The Kustomization will eventually reconcile once the cluster is available.
 
 If you wish to target clusters created by other means than CAPI, you can create
 a ServiceAccount on the remote cluster, generate a KubeConfig for that account
-and then create a secret on the cluster where kustomize-controller is running e.g.:
+and then create a secret on the cluster where kustomize-controller is running.
+For example:
 
 ```sh
 kubectl create secret generic prod-kubeconfig \
@@ -1206,8 +1221,8 @@ kubectl -n flux-system annotate serviceaccount kustomize-controller \
 ```
 
 Furthermore, you can also use the usual [environment variables used for specifying AWS
-credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html#envvars-list)
-, by patching the kustomize-controller deployment:
+credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html#envvars-list),
+by patching the kustomize-controller Deployment:
 
 ```yaml
 ---
@@ -1243,9 +1258,11 @@ In addition to this, the
 [general SOPS documentation around KMS AWS applies](https://github.com/mozilla/sops#27kms-aws-profiles),
 allowing you to specify e.g. a `SOPS_KMS_ARN` environment variable.
 
-**Note:**: If you're mounting a secret containing the AWS credentials as a file in the `kustomize-controller` pod,
-you'd need to specify an environment variable `$HOME`, since the AWS credentials file is expected to be present
-at `~/.aws`, like so:
+**Note:**: If you are mounting a secret containing the AWS credentials as a
+file in the `kustomize-controller` Pod, you need to specify an environment
+variable `$HOME`, since the AWS credentials file is expected to be present at
+`~/.aws`. For example:
+
 ```yaml
 env:
   - name: HOME
@@ -1440,21 +1457,22 @@ flux reconcile kustomization <kustomization-name>
 
 ### Customizing reconciliation
 
-You can configure the controller to ignore in-cluster resources by labelling or annotating them with:
+You can configure the controller to ignore in-cluster resources by labelling or
+annotating them with:
 
 ```yaml
 kustomize.toolkit.fluxcd.io/reconcile: disabled
 ```
 
-**Note:** When the `kustomize.toolkit.fluxcd.io/reconcile` annotation is set to `disabled`,
-the controller will no longer apply changes from the source, nor will it prune the resource.
-To resume reconciliation, set the annotation to `enabled` in the source
-or remove it from the in-cluster object.
+**Note:** When the `kustomize.toolkit.fluxcd.io/reconcile` annotation is set to
+`disabled`, the controller will no longer apply changes from the source, nor
+will it prune the resource. To resume reconciliation, set the annotation to
+`enabled` in the source or remove it from the in-cluster object.
 
-If you use kubectl to edit an object managed by Flux, all changes will be undone when
-the controller reconciles a Flux Kustomization containing that object.
-In order to preserve fields added with kubectl, you have to specify a field manager
-named `flux-client-side-apply` e.g.:
+If you use `kubectl` to edit an object managed by Flux, all changes will be
+reverted when the controller reconciles a Flux Kustomization containing that
+object. In order to preserve fields added with `kubectl`, you have to specify
+a field manager named `flux-client-side-apply` e.g.:
 
 ```sh
 kubectl apply --field-manager=flux-client-side-apply
@@ -1466,15 +1484,18 @@ Another option is to annotate or label objects with:
 kustomize.toolkit.fluxcd.io/ssa: merge
 ```
 
-**Note:** The fields defined in manifests will always be overridden,
-the above procedure works only for adding new fields that don’t overlap with the desired state.
+**Note:** The fields defined in manifests will always be overridden, the above
+procedure works only for adding new fields that don’t overlap with the desired
+state.
 
-For lists fields which are atomic (e.g `spec.tolerations` in PodSpec), Kubernetes doesn't allow different managers
-for such fields, therefore any changes to these fields will be undone, even if you specify a manager.
-For more context, please see the Kubernetes enhancement doc:
+For lists fields which are atomic (e.g. `.spec.tolerations` in PodSpec), Kubernetes
+doesn't allow different managers for such fields, therefore any changes to these
+fields will be undone, even if you specify a manager. For more context, please
+see the Kubernetes enhancement document:
 [555-server-side-apply](https://github.com/kubernetes/enhancements/blob/master/keps/sig-api-machinery/555-server-side-apply/README.md#lists).
 
-To learn how to handle patching failures due to immutable field changes, see [`spec.force`](#force).
+To learn how to handle patching failures due to immutable field changes, refer
+to [`.spec.force`](#force).
 
 ### Waiting for `Ready`
 
@@ -1482,13 +1503,13 @@ When a change is applied, it is possible to wait for the Kustomization to reach
 a `Ready` state using `kubectl`:
 
 ```sh
-kubectl wait gitrepository/<kustomization-name> --for=condition=ready --timeout=1m
+kubectl wait kustomization/<kustomization-name> --for=condition=ready --timeout=1m
 ```
 
 ### Suspending and resuming
 
 When you find yourself in a situation where you temporarily want to pause the
-reconciliation of a Kustomization, you can suspend it using [`spec.suspend`](#suspend).
+reconciliation of a Kustomization, you can suspend it using [`.spec.suspend`](#suspend).
 
 #### Suspend a Kustomization
 
@@ -1516,7 +1537,7 @@ Using `flux`:
 flux suspend kustomization <kustomization-name>
 ```
 
-#### Resume a GitRepository
+#### Resume a Kustomization
 
 In your YAML declaration, comment out (or remove) the field:
 
@@ -1606,13 +1627,15 @@ LAST SEEN   TYPE     REASON                    OBJECT                  MESSAGE
 9s          Normal   ReconciliationSucceeded   kustomization/podinfo   Reconciliation finished in 75.190237ms, next run in 5m0s
 ```
 
-You can also use use the `flux events` command to view all events for a Kustomization and its related Source. For example,
+You can also use the `flux events` command to view all events for a
+Kustomization and its related Source. For example,
 
 ```sh
 flux events --for Kustomization/podinfo
 ```
 
-will list all events for the `podinfo` Kustomization in the `flux-system` namesapce and its related Source object, the `podinfo` GitRepository.
+will list all events for the `podinfo` Kustomization in the `flux-system`
+namespace and its related Source object, the `podinfo` GitRepository.
 
 ```console
 LAST SEEN               TYPE    REASON                          OBJECT                  MESSAGE
@@ -1629,7 +1652,7 @@ LAST SEEN               TYPE    REASON                          OBJECT          
 
 Besides being reported in Events, the reconciliation errors are also logged by
 the controller. The Flux CLI offer commands for filtering the logs for a
-specific GitRepository, e.g.
+specific Kustomization, e.g.
 `flux logs --level=error --kind=Kustomization --name=<kustomization-name>`.
 
 ## Kustomization Status
@@ -1680,13 +1703,13 @@ following attributes in the Kustomization’s `.status.conditions`:
 The kustomize-controller may get stuck trying to reconcile and apply a
 Kustomization without completing. This can occur due to some of the following factors:
 
-* The Source object does not exist on the cluster.
-* The Source has not produced an Artifact yet.
-* The Kustomization's dependencies aren't ready yet.
-* The specified path does not exist in the Artifact.
-* Building the kustomization fails.
-* Garbage collection fails.
-* Running a health check failed.
+- The Source object does not exist on the cluster.
+- The Source has not produced an Artifact yet.
+- The Kustomization's dependencies aren't ready yet.
+- The specified path does not exist in the Artifact.
+- Building the kustomization fails.
+- Garbage collection fails.
+- Running a health check failed.
 
 When this happens, the controller sets the `Ready` Condition status to False
 and adds a Condition with the following attributes to the Kustomization’s
@@ -1713,7 +1736,7 @@ reconciliation is performed again after the failure, the `reason` is updated to 
 
 In order to perform operations such as drift detection, garbage collection, etc.
 kustomize-controller needs to keep track of all Kubernetes objects that are
-reconciled as part of a Kustomziation. To do this, it maintains an inventory
+reconciled as part of a Kustomization. To do this, it maintains an inventory
 containing the list of Kubernetes resource object references that have been
 successfully applied and records it in `.status.inventory`. The inventory
 records are in the format `<namespace>_<name>_<group>_<kind>_<version>`.

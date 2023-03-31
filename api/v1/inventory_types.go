@@ -16,7 +16,8 @@ limitations under the License.
 
 package v1
 
-// ResourceInventory contains a list of Kubernetes resource object references that have been applied by a Kustomization.
+// ResourceInventory contains a list of Kubernetes resource object references
+// that have been applied by a Kustomization.
 type ResourceInventory struct {
 	// Entries of Kubernetes resource object references.
 	Entries []ResourceRef `json:"entries"`
