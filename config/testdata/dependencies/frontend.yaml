@@ -12,7 +12,6 @@ spec:
   sourceRef:
     kind: GitRepository
     name: webapp
-  validation: server
   healthChecks:
     - kind: Deployment
       name: frontend

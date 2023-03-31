@@ -9,7 +9,6 @@ spec:
   sourceRef:
     kind: GitRepository
     name: webapp-releases
-  validation: client
   healthChecks:
     - kind: Deployment
       name: backend
