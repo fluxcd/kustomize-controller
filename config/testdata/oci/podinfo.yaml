@@ -17,7 +17,7 @@ metadata:
 spec:
   targetNamespace: oci
   interval: 10m
-  path: "./kustomize"
+  path: "./"
   prune: true
   sourceRef:
     kind: OCIRepository
