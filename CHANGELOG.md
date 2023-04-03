@@ -2,6 +2,81 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.0.0-rc.1
+
+**Release date:** 2023-04-03
+
+This release candidate promotes the `Kustomization` API from `v1beta2` to `v1`.
+The controller now supports horizontal scaling using
+sharding based on a label selector.
+
+In addition, the controller now supports Workload Identity when
+decrypting secrets with SOPS and Azure Vault.
+
+### Highlights
+
+This release candidate requires the `GitRepository` API version `v1`,
+first shipped with [source-controller](https://github.com/fluxcd/source-controller)
+v1.0.0-rc.1.
+
+#### API changes
+
+The `Kustomization` kind was promoted from v1beta2 to v1 (GA) and deprecated fields were removed.
+
+A new optional field called `CommonMetadata` was added to the API
+for setting labels and/or annotations to all resources part of a Kustomization.
+The main difference to the Kustomize
+[commonLabels](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/commonlabels/) and
+[commonAnnotations](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/commonannotations/),
+is that the controller sets the labels and annotations only to the top level `metadata` field,
+without patching the Kubernetes Deployment `spec.template` or the Service `spec.selector`.
+
+The `kustomizations.kustomize.toolkit.fluxcd.io` CRD contains the following versions:
+- v1 (storage version)
+- v1beta2 (deprecated)
+- v1beta1 (deprecated)
+
+#### Upgrade procedure
+
+The `Kustomization` v1 API is backwards compatible with v1beta2, except for the following:
+- the deprecated field `.spec.validation` was removed
+- the deprecated field `.spec.patchesStrategicMerge` was removed (replaced by `.spec.patches`)
+- the deprecated field `.spec.patchesJson6902 ` was removed (replaced by `.spec.patches`)
+
+To upgrade from v1beta2, after deploying the new CRD and controller,
+set  `apiVersion: kustomize.toolkit.fluxcd.io/v1` in the YAML files that contain
+`Kustomization` definitions and remove the deprecated fields if any.
+Bumping the API version in manifests can be done gradually.
+It is advised to not delay this procedure as the beta versions will be removed after 6 months.
+
+#### Sharding
+
+Starting with this release, the controller can be configured with
+`--watch-label-selector`, after which only objects with this label will
+be reconciled by the controller.
+
+This allows for horizontal scaling, where kustomize-controller
+can be deployed multiple times with a unique label selector
+which is used as the sharding key.
+
+### Full changelog
+
+Improvements:
+- GA: Promote Kustomization API to `kustomize.toolkit.fluxcd.io/v1`
+  [#822](https://github.com/fluxcd/kustomize-controller/pull/822)
+- Add common labels and annotations patching capabilities
+  [#817](https://github.com/fluxcd/kustomize-controller/pull/817)
+- Add reconciler sharding capability based on label selector
+  [#821](https://github.com/fluxcd/kustomize-controller/pull/821)
+- Support Workload Identity for Azure Vault
+  [#813](https://github.com/fluxcd/kustomize-controller/pull/813)
+- Verify Digest of Artifact
+  [#818](https://github.com/fluxcd/kustomize-controller/pull/818)
+- Move `controllers` to `internal/controllers`
+  [#820](https://github.com/fluxcd/kustomize-controller/pull/820)
+- build(deps): bump github.com/opencontainers/runc from 1.1.2 to 1.1.5
+  [#824](https://github.com/fluxcd/kustomize-controller/pull/824)
+
 ## 0.35.1
 
 **Release date:** 2023-03-20

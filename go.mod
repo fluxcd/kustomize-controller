@@ -23,13 +23,13 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.18.7
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/dimchansky/utfbom v1.1.1
-	github.com/fluxcd/kustomize-controller/api v0.35.1
+	github.com/fluxcd/kustomize-controller/api v1.0.0-rc.1
 	github.com/fluxcd/pkg/apis/acl v0.1.0
 	github.com/fluxcd/pkg/apis/event v0.4.1
 	github.com/fluxcd/pkg/apis/kustomize v1.0.0
 	github.com/fluxcd/pkg/apis/meta v1.0.0
 	github.com/fluxcd/pkg/http/fetch v0.4.0
-	github.com/fluxcd/pkg/kustomize v0.14.0
+	github.com/fluxcd/pkg/kustomize v1.1.0
 	github.com/fluxcd/pkg/runtime v0.35.0
 	github.com/fluxcd/pkg/ssa v0.27.0
 	github.com/fluxcd/pkg/tar v0.2.0
@@ -86,7 +86,8 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
-	github.com/ProtonMail/go-crypto v0.0.0-20220407094043-a94812496cf5 // indirect
+	github.com/ProtonMail/go-crypto v0.0.0-20221026131551-cf6655e29de4 // indirect
+	github.com/acomagu/bufpipe v1.0.3 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.1 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.31 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.25 // indirect
@@ -101,6 +102,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
+	github.com/cloudflare/circl v1.1.0 // indirect
 	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/cli v20.10.14+incompatible // indirect
@@ -113,8 +115,12 @@ require (
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/color v1.13.0 // indirect
+	github.com/fluxcd/go-git/v5 v5.0.0-20221219190809-2e5c9d01cfc4 // indirect
+	github.com/fluxcd/pkg/sourceignore v0.3.3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
+	github.com/go-git/gcfg v1.5.0 // indirect
+	github.com/go-git/go-billy/v5 v5.3.1 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/zapr v1.2.3 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
@@ -146,6 +152,7 @@ require (
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
+	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -202,6 +209,7 @@ require (
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
+	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.26.3 // indirect
