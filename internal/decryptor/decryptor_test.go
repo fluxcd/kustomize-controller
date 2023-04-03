@@ -45,9 +45,10 @@ import (
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/pkg/apis/meta"
+
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
+	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 )
 
 func TestIsEncryptedSecret(t *testing.T) {

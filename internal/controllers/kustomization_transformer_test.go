@@ -26,16 +26,15 @@ import (
 	"github.com/fluxcd/pkg/apis/kustomize"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
 
 func TestKustomizationReconciler_CommonMetadata(t *testing.T) {
@@ -471,25 +470,6 @@ metadata:
 						`,
 				},
 			},
-			PatchesJSON6902: []kustomize.JSON6902Patch{
-				{
-					Patch: []kustomize.JSON6902{
-						{Op: "add", Path: "/metadata/labels/patch3", Value: &apiextensionsv1.JSON{Raw: []byte(`"json6902"`)}},
-						{Op: "replace", Path: "/spec/replicas", Value: &apiextensionsv1.JSON{Raw: []byte("2")}},
-					},
-					Target: kustomize.Selector{
-						Group:   "apps",
-						Version: "v1",
-						Kind:    "Deployment",
-						Name:    "podinfo",
-					},
-				},
-			},
-			PatchesStrategicMerge: []apiextensionsv1.JSON{
-				{
-					Raw: []byte(`{"kind":"Deployment","apiVersion":"apps/v1","metadata":{"name":"podinfo","labels":{"patch4":"strategic-merge"}}}`),
-				},
-			},
 		},
 	}
 
@@ -507,9 +487,6 @@ metadata:
 	t.Run("applies patches", func(t *testing.T) {
 		g.Expect(deployment.ObjectMeta.Labels["patch1"]).To(Equal("inline-json"))
 		g.Expect(deployment.ObjectMeta.Labels["patch2"]).To(Equal("inline-yaml"))
-		g.Expect(deployment.ObjectMeta.Labels["patch3"]).To(Equal("json6902"))
-		g.Expect(deployment.ObjectMeta.Labels["patch4"]).To(Equal("strategic-merge"))
-		g.Expect(*deployment.Spec.Replicas).To(Equal(int32(2)))
 		g.Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring("5.2.0"))
 		g.Expect(deployment.Spec.Template.Spec.Containers[1].Image).To(ContainSubstring("sha256:2832f53c577d44753e97b0ed5f00e7e3a06979c9fab77d0e78bdac4b612b14fb"))
 	})

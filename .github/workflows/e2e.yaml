@@ -99,7 +99,7 @@ jobs:
       - name: Run tests for removing kubectl managed fields
         run: |
           kubectl create ns managed-fields
-          kustomize build github.com/stefanprodan/podinfo//kustomize?ref=6.0.0 > /tmp/podinfo.yaml
+          kustomize build github.com/stefanprodan/podinfo//kustomize?ref=6.3.5 > /tmp/podinfo.yaml
           kubectl -n managed-fields apply -f /tmp/podinfo.yaml
           kubectl -n managed-fields apply -f ./config/testdata/managed-fields
           kubectl -n managed-fields wait kustomization/podinfo --for=condition=ready --timeout=4m

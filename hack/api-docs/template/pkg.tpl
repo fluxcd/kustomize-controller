@@ -1,5 +1,10 @@
 {{ define "packages" }}
-    <h1>Kustomize API reference</h1>
+    <h1>Kustomize API reference
+        {{- with (index .packages 0) -}}
+            {{ with (index .GoPackages 0 ) -}}
+                {{ printf " %s" .Name -}}
+            {{ end -}}
+        {{ end }}</h1>
 
     {{ with .packages}}
         <p>Packages:</p>

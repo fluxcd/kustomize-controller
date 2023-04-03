@@ -45,9 +45,10 @@ import (
 	"github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
+	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
 
 func init() {
@@ -77,8 +78,9 @@ var (
 
 func runInContext(registerControllers func(*testenv.Environment), run func() error, crdPath string) error {
 	var err error
-	utilruntime.Must(sourcev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(kustomizev1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(sourcev1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(sourcev1b2.AddToScheme(scheme.Scheme))
 
 	if debugMode {
 		controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))
@@ -205,7 +207,7 @@ func randStringRunes(n int) string {
 
 func isReconcileRunning(k *kustomizev1.Kustomization) bool {
 	return conditions.IsReconciling(k) &&
-		conditions.GetReason(k, meta.ReconcilingCondition) != kustomizev1.ProgressingWithRetryReason
+		conditions.GetReason(k, meta.ReconcilingCondition) != meta.ProgressingWithRetryReason
 }
 
 func isReconcileSuccess(k *kustomizev1.Kustomization) bool {
@@ -228,7 +230,7 @@ func isReconcileFailure(k *kustomizev1.Kustomization) bool {
 	return isHandled && conditions.IsReconciling(k) &&
 		conditions.IsFalse(k, meta.ReadyCondition) &&
 		conditions.GetObservedGeneration(k, meta.ReadyCondition) == k.Generation &&
-		conditions.GetReason(k, meta.ReconcilingCondition) == kustomizev1.ProgressingWithRetryReason
+		conditions.GetReason(k, meta.ReconcilingCondition) == meta.ProgressingWithRetryReason
 }
 
 func logStatus(t *testing.T, k *kustomizev1.Kustomization) {

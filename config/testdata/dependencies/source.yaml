@@ -1,4 +1,4 @@
-apiVersion: source.toolkit.fluxcd.io/v1beta1
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
   name: webapp
@@ -6,4 +6,4 @@ spec:
   interval: 10m
   url: https://github.com/stefanprodan/podinfo
   ref:
-    semver: ">=3.2.3"
+    semver: ">=6.3.5"

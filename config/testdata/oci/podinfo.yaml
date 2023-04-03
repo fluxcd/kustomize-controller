@@ -7,9 +7,9 @@ spec:
   interval: 10m
   url: oci://ghcr.io/stefanprodan/manifests/podinfo
   ref:
-    tag: "6.3.0"
+    tag: "6.3.5"
 ---
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: oci
@@ -17,7 +17,7 @@ metadata:
 spec:
   targetNamespace: oci
   interval: 10m
-  path: "./kustomize"
+  path: "./"
   prune: true
   sourceRef:
     kind: OCIRepository

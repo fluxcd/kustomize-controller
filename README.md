@@ -34,7 +34,7 @@ the controller performs actions to reconcile the cluster current state with the 
 
 ## Specifications
 
-* [API](docs/spec/v1beta2/README.md)
+* [API](docs/spec/v1/README.md)
 * [Controller](docs/spec/README.md)
 
 ## Guides
