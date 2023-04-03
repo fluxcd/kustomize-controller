@@ -119,15 +119,13 @@ func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*
 			Ciphertext: cipherText,
 		}, nil
 	case *keyservice.Key_AzureKeyvaultKey:
-		if ks.azureToken != nil {
-			ciphertext, err := ks.encryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Plaintext)
-			if err != nil {
-				return nil, err
-			}
-			return &keyservice.EncryptResponse{
-				Ciphertext: ciphertext,
-			}, nil
+		ciphertext, err := ks.encryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Plaintext)
+		if err != nil {
+			return nil, err
 		}
+		return &keyservice.EncryptResponse{
+			Ciphertext: ciphertext,
+		}, nil
 	case *keyservice.Key_GcpKmsKey:
 		ciphertext, err := ks.encryptWithGCPKMS(k.GcpKmsKey, req.Plaintext)
 		if err != nil {
@@ -183,15 +181,13 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 			Plaintext: plaintext,
 		}, nil
 	case *keyservice.Key_AzureKeyvaultKey:
-		if ks.azureToken != nil {
-			plaintext, err := ks.decryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Ciphertext)
-			if err != nil {
-				return nil, err
-			}
-			return &keyservice.DecryptResponse{
-				Plaintext: plaintext,
-			}, nil
+		plaintext, err := ks.decryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Ciphertext)
+		if err != nil {
+			return nil, err
 		}
+		return &keyservice.DecryptResponse{
+			Plaintext: plaintext,
+		}, nil
 	case *keyservice.Key_GcpKmsKey:
 		plaintext, err := ks.decryptWithGCPKMS(k.GcpKmsKey, req.Ciphertext)
 		if err != nil {
@@ -321,7 +317,9 @@ func (ks *Server) encryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, pla
 		Name:     key.Name,
 		Version:  key.Version,
 	}
-	ks.azureToken.ApplyToMasterKey(&azureKey)
+	if ks.azureToken != nil {
+		ks.azureToken.ApplyToMasterKey(&azureKey)
+	}
 	if err := azureKey.Encrypt(plaintext); err != nil {
 		return nil, err
 	}
@@ -334,7 +332,9 @@ func (ks *Server) decryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, cip
 		Name:     key.Name,
 		Version:  key.Version,
 	}
-	ks.azureToken.ApplyToMasterKey(&azureKey)
+	if ks.azureToken != nil {
+		ks.azureToken.ApplyToMasterKey(&azureKey)
+	}
 	azureKey.EncryptedKey = string(ciphertext)
 	plaintext, err := azureKey.Decrypt()
 	return plaintext, err

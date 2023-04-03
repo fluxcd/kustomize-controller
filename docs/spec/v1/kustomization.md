@@ -1271,12 +1271,53 @@ env:
 
 #### Azure Key Vault
 
+##### Workload Identity
+
+If you have Workload Identity set up on your AKS cluster, you can establish
+a federated identity between the kustomize-controller ServiceAccount and an
+identity that has "Decrypt" role on the Azure Key Vault. Once, this is done
+you can label and annotate the kustomize-controller ServiceAccount and Pod
+with the patch shown below:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - gotk-components.yaml
+  - gotk-sync.yaml
+patches:
+  - patch: |-
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: kustomize-controller
+        namespace: flux-system
+        annotations:
+          azure.workload.identity/client-id: <AZURE_CLIENT_ID>
+        labels:
+          azure.workload.identity/use: "true"
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: kustomize-controller
+        namespace: flux-system
+        labels:
+          azure.workload.identity/use: "true"
+      spec:
+        template:
+          metadata:
+            labels:
+              azure.workload.identity/use: "true"
+```
+
+##### AAD Pod Identity
+
 While making use of [AAD Pod Identity](https://github.com/Azure/aad-pod-identity),
 you can bind a Managed Identity to Flux's kustomize-controller. Once the
 `AzureIdentity` and `AzureIdentityBinding` for this are created, you can patch
 the controller's Deployment with the `aadpodidbinding` label set to the
-selector of the binding, and the `AZURE_AUTH_METHOD` environment variable set
-to `msi`.
+selector of the binding.
 
 ```yaml
 ---
@@ -1290,17 +1331,17 @@ spec:
     metadata:
       labels:
         aadpodidbinding: sops-akv-decryptor  # match the AzureIdentityBinding selector
-    spec:
-      containers:
-      - name: manager
-        env:
-        - name: AZURE_AUTH_METHOD
-          value: msi
 ```
 
 In addition to this, the [default SOPS Azure Key Vault flow is
 followed](https://github.com/mozilla/sops#encrypting-using-azure-key-vault),
 allowing you to specify a variety of other environment variables.
+
+##### Kubelet Identity
+
+If the kubelet managed identity has `Decrypt` permissions on Azure Key Vault,
+no additional configuration is required for the kustomize-controller to decrypt
+data.
 
 #### GCP KMS
 
