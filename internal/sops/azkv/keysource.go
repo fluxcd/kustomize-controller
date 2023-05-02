@@ -222,14 +222,13 @@ func getDefaultAzureCredential() (azcore.TokenCredential, error) {
 	)
 
 	var errorMessages []string
-	var creds []azcore.TokenCredential
 	options := &azidentity.DefaultAzureCredentialOptions{}
 
 	envCred, err := azidentity.NewEnvironmentCredential(&azidentity.EnvironmentCredentialOptions{
 		ClientOptions: options.ClientOptions, DisableInstanceDiscovery: options.DisableInstanceDiscovery},
 	)
 	if err == nil {
-		creds = append(creds, envCred)
+		return envCred, nil
 	} else {
 		errorMessages = append(errorMessages, "EnvironmentCredential: "+err.Error())
 	}
