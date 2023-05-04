@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/fluxcd/pkg/runtime/dependency"
@@ -29,24 +31,27 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
 
-func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) func(obj client.Object) []reconcile.Request {
-	return func(obj client.Object) []reconcile.Request {
+func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) handler.MapFunc {
+	return func(ctx context.Context, obj client.Object) []reconcile.Request {
+		log := ctrl.LoggerFrom(ctx)
 		repo, ok := obj.(interface {
 			GetArtifact() *sourcev1.Artifact
 		})
 		if !ok {
-			panic(fmt.Sprintf("Expected an object conformed with GetArtifact() method, but got a %T", obj))
+			log.Error(fmt.Errorf("expected an object conformed with GetArtifact() method, but got a %T", obj),
+				"failed to get reconcile requests for revision change")
+			return nil
 		}
 		// If we do not have an artifact, we have no requests to make
 		if repo.GetArtifact() == nil {
 			return nil
 		}
 
-		ctx := context.Background()
 		var list kustomizev1.KustomizationList
 		if err := r.List(ctx, &list, client.MatchingFields{
 			indexKey: client.ObjectKeyFromObject(obj).String(),
 		}); err != nil {
+			log.Error(err, "failed to list objects for revision change")
 			return nil
 		}
 		var dd []dependency.Dependent
@@ -60,6 +65,7 @@ func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) f
 		}
 		sorted, err := dependency.Sort(dd)
 		if err != nil {
+			log.Error(err, "failed to sort dependencies for revision change")
 			return nil
 		}
 		reqs := make([]reconcile.Request, len(sorted))
