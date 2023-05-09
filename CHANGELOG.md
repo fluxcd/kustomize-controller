@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.0.0-rc.2
+
+**Release date:** 2023-05-09
+
+This release candidate fixes secrets decryption when using Azure Key Vault.
+
+In addition, the controller dependencies have been updated to their latest
+versions.
+
+Improvements:
+- Fix SOPS azkv envCred
+  [#838](https://github.com/fluxcd/kustomize-controller/pull/838)
+- Update dependencies
+  [#853](https://github.com/fluxcd/kustomize-controller/pull/853)
+
 ## 1.0.0-rc.1
 
 **Release date:** 2023-04-03
