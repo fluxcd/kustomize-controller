@@ -31,7 +31,7 @@ COPY internal/ internal/
 ENV CGO_ENABLED=0
 RUN xx-go build -trimpath -a -o kustomize-controller main.go
 
-FROM alpine:3.17
+FROM alpine:3.18
 
 # Uses GnuPG from edge to patch CVE-2022-3515.
 RUN apk add --no-cache ca-certificates tini git openssh-client && \
