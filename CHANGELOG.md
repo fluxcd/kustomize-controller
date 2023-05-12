@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.0.0-rc.3
+
+**Release date:** 2023-05-12
+
+This release candidate comes with improved error reporting for when
+the controller fails to fetch an artifact due to a checksum mismatch.
+
+In addition, the controller dependencies have been updated to patch
+CVE-2023-1732 and the base image has been updated to Alpine 3.18.
+
+Improvements:
+- Update Alpine to 3.18
+  [#855](https://github.com/fluxcd/kustomize-controller/pull/855)
+- Update dependencies
+  [#862](https://github.com/fluxcd/kustomize-controller/pull/862)
+- build(deps): bump github.com/cloudflare/circl from 1.1.0 to 1.3.3
+  [#860](https://github.com/fluxcd/kustomize-controller/pull/860)
+- docs: Clarify the Kustomize components relative paths requirement
+  [#861](https://github.com/fluxcd/kustomize-controller/pull/861)
+
 ## 1.0.0-rc.2
 
 **Release date:** 2023-05-09
