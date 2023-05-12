@@ -15,7 +15,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.5.0-beta.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.0-beta.4
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.9.0
-	github.com/aws/aws-sdk-go v1.44.259
+	github.com/aws/aws-sdk-go v1.44.262
 	github.com/aws/aws-sdk-go-v2 v1.18.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.24
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.23
@@ -28,13 +28,13 @@ require (
 	github.com/fluxcd/pkg/apis/event v0.4.1
 	github.com/fluxcd/pkg/apis/kustomize v1.0.0
 	github.com/fluxcd/pkg/apis/meta v1.0.0
-	github.com/fluxcd/pkg/http/fetch v0.4.0
+	github.com/fluxcd/pkg/http/fetch v0.5.0
 	github.com/fluxcd/pkg/kustomize v1.1.1
 	github.com/fluxcd/pkg/runtime v0.35.0
 	github.com/fluxcd/pkg/ssa v0.27.0
 	github.com/fluxcd/pkg/tar v0.2.0
 	github.com/fluxcd/pkg/testserver v0.4.0
-	github.com/fluxcd/source-controller/api v1.0.0-rc.2
+	github.com/fluxcd/source-controller/api v1.0.0-rc.3
 	github.com/hashicorp/vault/api v1.9.1
 	github.com/onsi/gomega v1.27.6
 	github.com/opencontainers/go-digest v1.0.0
@@ -42,7 +42,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.3
 	golang.org/x/net v0.10.0
-	google.golang.org/api v0.121.0
+	google.golang.org/api v0.122.0
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1
 	google.golang.org/grpc v1.55.0
 	google.golang.org/protobuf v1.30.0
