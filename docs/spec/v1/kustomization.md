@@ -493,11 +493,11 @@ metadata:
 spec:
   # ...omitted for brevity
   components:
-  - ingress
-  - tls
+  - ../ingress
+  - ../tls
 ```
 
-**Note:** The component paths must be local and relative to the source root.
+**Note:** The components paths must be local and relative to the path specified by `.spec.path`.
 
 **Warning:** Components are an alpha feature in Kustomize and are therefore
 considered experimental in Flux. No guarantees are provided as the feature may
