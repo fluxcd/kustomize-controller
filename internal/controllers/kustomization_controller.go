@@ -45,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/ratelimiter"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
@@ -136,30 +135,28 @@ func (r *KustomizationReconciler) SetupWithManager(mgr ctrl.Manager, opts Kustom
 		os.Getenv("SOURCE_CONTROLLER_LOCALHOST"),
 	)
 
-	recoverPanic := true
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
 			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
 		)).
 		Watches(
-			&source.Kind{Type: &sourcev1b2.OCIRepository{}},
+			&sourcev1b2.OCIRepository{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(ociRepositoryIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
-			&source.Kind{Type: &sourcev1.GitRepository{}},
+			&sourcev1.GitRepository{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(gitRepositoryIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
-			&source.Kind{Type: &sourcev1b2.Bucket{}},
+			&sourcev1b2.Bucket{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(bucketIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: opts.MaxConcurrentReconciles,
 			RateLimiter:             opts.RateLimiter,
-			RecoverPanic:            &recoverPanic,
 		}).
 		Complete(r)
 }
@@ -697,7 +694,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	var defStage []*unstructured.Unstructured
 
 	// contains only Kubernetes Class types e.g.: RuntimeClass, PriorityClass,
-	// StorageClas, VolumeSnapshotClass, IngressClass, GatewayClass, ClusterClass, etc
+	// StorageClass, VolumeSnapshotClass, IngressClass, GatewayClass, ClusterClass, etc
 	var classStage []*unstructured.Unstructured
 
 	// contains all objects except for CRDs, Namespaces and Class type objects
