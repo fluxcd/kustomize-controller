@@ -241,7 +241,10 @@ func getDefaultAzureCredential() (azcore.TokenCredential, error) {
 			if _, ok := os.LookupEnv(azureAuthorityHost); ok {
 				if tenantID, ok := os.LookupEnv(azureTenantID); ok {
 					haveWorkloadConfig = true
-					workloadCred, err := azidentity.NewWorkloadIdentityCredential(tenantID, clientID, file, &azidentity.WorkloadIdentityCredentialOptions{
+					workloadCred, err := azidentity.NewWorkloadIdentityCredential(&azidentity.WorkloadIdentityCredentialOptions{
+						ClientID:                 clientID,
+						TenantID:                 tenantID,
+						TokenFilePath:            file,
 						ClientOptions:            options.ClientOptions,
 						DisableInstanceDiscovery: options.DisableInstanceDiscovery,
 					})
