@@ -114,6 +114,8 @@ func main() {
 
 	logger.SetLogger(logger.NewLogger(logOptions))
 
+	ctx := ctrl.SetupSignalHandler()
+
 	if err := featureGates.WithLogger(setupLog).SupportedFeatures(features.FeatureGates()); err != nil {
 		setupLog.Error(err, "unable to load feature gates")
 		os.Exit(1)
@@ -169,7 +171,8 @@ func main() {
 			Namespaces: []string{watchNamespace},
 		},
 		Controller: ctrlcfg.Controller{
-			RecoverPanic: pointer.Bool(true),
+			MaxConcurrentReconciles: concurrent,
+			RecoverPanic:            pointer.Bool(true),
 		},
 	})
 	if err != nil {
@@ -208,8 +211,7 @@ func main() {
 		KubeConfigOpts:        kubeConfigOpts,
 		PollingOpts:           pollingOpts,
 		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), pollingOpts),
-	}).SetupWithManager(mgr, controllers.KustomizationReconcilerOptions{
-		MaxConcurrentReconciles:   concurrent,
+	}).SetupWithManager(ctx, mgr, controllers.KustomizationReconcilerOptions{
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,
 		RateLimiter:               runtimeCtrl.GetRateLimiter(rateLimiterOptions),
@@ -220,7 +222,7 @@ func main() {
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

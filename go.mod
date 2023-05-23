@@ -29,9 +29,9 @@ require (
 	github.com/fluxcd/pkg/apis/kustomize v1.1.0
 	github.com/fluxcd/pkg/apis/meta v1.1.0
 	github.com/fluxcd/pkg/http/fetch v0.5.1
-	github.com/fluxcd/pkg/kustomize v1.3.0
-	github.com/fluxcd/pkg/runtime v0.37.0
-	github.com/fluxcd/pkg/ssa v0.28.0
+	github.com/fluxcd/pkg/kustomize v1.3.1
+	github.com/fluxcd/pkg/runtime v0.38.1
+	github.com/fluxcd/pkg/ssa v0.28.1
 	github.com/fluxcd/pkg/tar v0.2.0
 	github.com/fluxcd/pkg/testserver v0.4.0
 	github.com/fluxcd/source-controller/api v1.0.0-rc.3
@@ -51,7 +51,7 @@ require (
 	k8s.io/client-go v0.27.2
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
 	sigs.k8s.io/cli-utils v0.34.0
-	sigs.k8s.io/controller-runtime v0.15.0-beta.0
+	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/kustomize/api v0.13.4
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -207,7 +207,7 @@ require (
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
-	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
+	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect

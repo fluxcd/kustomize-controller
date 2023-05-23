@@ -51,17 +51,12 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 const (
 	timeout                = time.Second * 30
 	interval               = time.Second * 1
 	reconciliationInterval = time.Second * 5
+	vaultVersion           = "1.13.2"
 )
-
-const vaultVersion = "1.2.2"
 
 var (
 	reconciler             *KustomizationReconciler
@@ -76,7 +71,7 @@ var (
 	debugMode              = os.Getenv("DEBUG_TEST") != ""
 )
 
-func runInContext(registerControllers func(*testenv.Environment), run func() error, crdPath string) error {
+func runInContext(registerControllers func(*testenv.Environment), run func() int) (code int) {
 	var err error
 	utilruntime.Must(kustomizev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(sourcev1.AddToScheme(scheme.Scheme))
@@ -86,7 +81,10 @@ func runInContext(registerControllers func(*testenv.Environment), run func() err
 		controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))
 	}
 
-	testEnv = testenv.New(testenv.WithCRDPath(crdPath))
+	testEnv = testenv.New(
+		testenv.WithCRDPath(filepath.Join("..", "..", "config", "crd", "bases")),
+		testenv.WithMaxConcurrentReconciles(4),
+	)
 
 	testServer, err = testserver.NewTempArtifactServer()
 	if err != nil {
@@ -133,7 +131,7 @@ func runInContext(registerControllers func(*testenv.Environment), run func() err
 		pool.Purge(resource)
 	}()
 
-	runErr := run()
+	code = run()
 
 	if debugMode {
 		events := &corev1.EventList{}
@@ -156,13 +154,11 @@ func runInContext(registerControllers func(*testenv.Environment), run func() err
 		panic(fmt.Sprintf("Failed to remove storage server dir: %v", err))
 	}
 
-	return runErr
+	return code
 }
 
 func TestMain(m *testing.M) {
-	code := 0
-
-	runInContext(func(testEnv *testenv.Environment) {
+	code := runInContext(func(testEnv *testenv.Environment) {
 		controllerName := "kustomize-controller"
 		testMetricsH = controller.MustMakeMetrics(testEnv)
 		kstatusCheck = kcheck.NewChecker(testEnv.Client,
@@ -181,16 +177,12 @@ func TestMain(m *testing.M) {
 			EventRecorder:  testEnv.GetEventRecorderFor(controllerName),
 			Metrics:        testMetricsH,
 		}
-		if err := (reconciler).SetupWithManager(testEnv, KustomizationReconcilerOptions{
-			MaxConcurrentReconciles:   4,
+		if err := (reconciler).SetupWithManager(ctx, testEnv, KustomizationReconcilerOptions{
 			DependencyRequeueInterval: 2 * time.Second,
 		}); err != nil {
 			panic(fmt.Sprintf("Failed to start KustomizationReconciler: %v", err))
 		}
-	}, func() error {
-		code = m.Run()
-		return nil
-	}, filepath.Join("..", "..", "config", "crd", "bases"))
+	}, m.Run)
 
 	os.Exit(code)
 }
@@ -346,13 +338,13 @@ func createVaultTestInstance() (*dockertest.Pool, *dockertest.Resource, error) {
 	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
 	pool, err := dockertest.NewPool("")
 	if err != nil {
-		return nil, nil, fmt.Errorf("Could not connect to docker: %s", err)
+		return nil, nil, fmt.Errorf("could not connect to docker: %s", err)
 	}
 
 	// pulls an image, creates a container based on it and runs it
 	resource, err := pool.Run("vault", vaultVersion, []string{"VAULT_DEV_ROOT_TOKEN_ID=secret"})
 	if err != nil {
-		return nil, nil, fmt.Errorf("Could not start resource: %s", err)
+		return nil, nil, fmt.Errorf("could not start resource: %s", err)
 	}
 
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1:%v", resource.GetPort("8200/tcp")))
@@ -361,24 +353,24 @@ func createVaultTestInstance() (*dockertest.Pool, *dockertest.Resource, error) {
 	if err := pool.Retry(func() error {
 		cli, err := api.NewClient(api.DefaultConfig())
 		if err != nil {
-			return fmt.Errorf("Cannot create Vault Client: %w", err)
+			return fmt.Errorf("cannot create Vault Client: %w", err)
 		}
 		status, err := cli.Sys().InitStatus()
 		if err != nil {
 			return err
 		}
 		if status != true {
-			return fmt.Errorf("Vault not ready yet")
+			return fmt.Errorf("vault not ready yet")
 		}
 		if err := cli.Sys().Mount("sops", &api.MountInput{
 			Type: "transit",
 		}); err != nil {
-			return fmt.Errorf("Cannot create Vault Transit Engine: %w", err)
+			return fmt.Errorf("cannot create Vault Transit Engine: %w", err)
 		}
 
 		return nil
 	}); err != nil {
-		return nil, nil, fmt.Errorf("Could not connect to docker: %w", err)
+		return nil, nil, fmt.Errorf("could not connect to docker: %w", err)
 	}
 
 	return pool, resource, nil

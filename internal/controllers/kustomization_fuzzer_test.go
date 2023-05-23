@@ -76,7 +76,7 @@ var (
 	debugMode    = os.Getenv("DEBUG_TEST") != ""
 )
 
-const vaultVersion = "1.2.2"
+const vaultVersion = "1.13.2"
 const defaultBinVersion = "1.24"
 
 //go:embed testdata/crd/*.yaml
@@ -126,7 +126,7 @@ func Fuzz_Controllers(f *testing.F) {
 				ControllerName: controllerName,
 				Client:         testEnv,
 			}
-			if err := (reconciler).SetupWithManager(testEnv, KustomizationReconcilerOptions{MaxConcurrentReconciles: 1}); err != nil {
+			if err := (reconciler).SetupWithManager(ctx, testEnv, KustomizationReconcilerOptions{}); err != nil {
 				panic(fmt.Sprintf("Failed to start GitRepositoryReconciler: %v", err))
 			}
 		}, func() error {
