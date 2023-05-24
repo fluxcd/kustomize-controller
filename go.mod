@@ -12,9 +12,9 @@ require (
 	cloud.google.com/go/kms v1.10.2
 	filippo.io/age v1.1.1
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230106234847-43070de90fa1
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.5.0-beta.1
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.0-beta.4
-	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.9.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.6.0
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.0
+	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.10.0
 	github.com/aws/aws-sdk-go v1.44.267
 	github.com/aws/aws-sdk-go-v2 v1.18.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.25
@@ -29,9 +29,9 @@ require (
 	github.com/fluxcd/pkg/apis/kustomize v1.1.0
 	github.com/fluxcd/pkg/apis/meta v1.1.0
 	github.com/fluxcd/pkg/http/fetch v0.5.1
-	github.com/fluxcd/pkg/kustomize v1.3.0
-	github.com/fluxcd/pkg/runtime v0.37.0
-	github.com/fluxcd/pkg/ssa v0.28.0
+	github.com/fluxcd/pkg/kustomize v1.3.1
+	github.com/fluxcd/pkg/runtime v0.38.1
+	github.com/fluxcd/pkg/ssa v0.28.1
 	github.com/fluxcd/pkg/tar v0.2.0
 	github.com/fluxcd/pkg/testserver v0.4.0
 	github.com/fluxcd/source-controller/api v1.0.0-rc.3
@@ -49,9 +49,9 @@ require (
 	k8s.io/api v0.27.2
 	k8s.io/apimachinery v0.27.2
 	k8s.io/client-go v0.27.2
-	k8s.io/utils v0.0.0-20230209194617-a36077c30491
+	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 	sigs.k8s.io/cli-utils v0.34.0
-	sigs.k8s.io/controller-runtime v0.15.0-beta.0
+	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/kustomize/api v0.13.4
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -70,8 +70,8 @@ require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v0.13.0 // indirect
 	github.com/Azure/azure-sdk-for-go v63.3.0+incompatible // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.2.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/keyvault/internal v0.7.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.3.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/keyvault/internal v0.7.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.27 // indirect
@@ -83,7 +83,7 @@ require (
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
-	github.com/AzureAD/microsoft-authentication-library-for-go v0.9.0 // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v1.0.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
@@ -207,7 +207,7 @@ require (
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
-	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
+	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
