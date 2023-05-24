@@ -21,5 +21,5 @@ set -euxo pipefail
 
 # Some tests requires embedded resources. Embedding does not allow
 # for traversing into ascending dirs, therefore we copy those contents here:
-mkdir -p internal/controllers/testdata/crd
-cp config/crd/bases/*.yaml internal/controllers/testdata/crd
+mkdir -p internal/controller/testdata/crd
+cp config/crd/bases/*.yaml internal/controller/testdata/crd
