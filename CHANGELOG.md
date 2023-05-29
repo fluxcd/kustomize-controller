@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.0.0-rc.4
+
+**Release date:** 2023-05-29
+
+This release candidate comes with support for Kustomize v5.0.3.
+
+⚠️ Note that Kustomize v5 contains breaking changes, please consult their
+[changelog](https://github.com/kubernetes-sigs/kustomize/releases/tag/kustomize%2Fv5.0.0)
+for more details.
+
+In addition, the controller dependencies have been updated to
+Kubernetes v1.27.2 and controller-runtime v0.15.0.
+
+Improvements:
+- Update Kubernetes to v1.27 and Kustomize to v5
+  [#850](https://github.com/fluxcd/kustomize-controller/pull/850)
+- Update controller-runtime to v0.15.0
+  [#869](https://github.com/fluxcd/kustomize-controller/pull/869)
+- Update CA certificates
+  [#872](https://github.com/fluxcd/kustomize-controller/pull/872)
+- Update source-controller to v1.0.0-rc.4
+  [#873](https://github.com/fluxcd/kustomize-controller/pull/873)
+
 ## 1.0.0-rc.3
 
 **Release date:** 2023-05-12
