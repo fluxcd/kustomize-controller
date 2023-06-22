@@ -211,7 +211,8 @@ overrides the [Kustomize `namespace`](https://kubectl.docs.kubernetes.io/referen
 
 While `.spec.targetNamespace` is optional, if this field is non-empty then the
 Kubernetes namespace being pointed to must exist prior to the Kustomization
-being applied, kustomize-controller will not create the namespace.
+being applied or be defined by a manifest included in the Kustomization.
+kustomize-controller will not create the namespace automatically.
 
 ### Suspend
 
