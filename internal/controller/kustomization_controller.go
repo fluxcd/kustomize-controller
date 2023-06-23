@@ -483,8 +483,17 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 			return fmt.Errorf("dependency '%s' is not ready", dName)
 		}
 
+		srcNamespace := k.Spec.SourceRef.Namespace
+		if srcNamespace == "" {
+			srcNamespace = k.GetNamespace()
+		}
+		dSrcNamespace := obj.Spec.SourceRef.Namespace
+		if dSrcNamespace == "" {
+			dSrcNamespace = obj.GetNamespace()
+		}
+
 		if k.Spec.SourceRef.Name == obj.Spec.SourceRef.Name &&
-			k.Spec.SourceRef.Namespace == obj.Spec.SourceRef.Namespace &&
+			srcNamespace == dSrcNamespace &&
 			k.Spec.SourceRef.Kind == obj.Spec.SourceRef.Kind &&
 			!source.GetArtifact().HasRevision(k.Status.LastAppliedRevision) {
 			return fmt.Errorf("dependency '%s' revision is not up to date", dName)
