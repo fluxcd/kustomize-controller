@@ -1,6 +1,6 @@
 module github.com/fluxcd/kustomize-controller
 
-go 1.18
+go 1.20
 
 replace github.com/fluxcd/kustomize-controller/api => ./api
 
