@@ -2,20 +2,20 @@
 # Ref: https://github.com/EndBug/label-sync#Config-files
 
 - name: area/kustomize
-  description: Kustomize related issues and PRs
+  description: Kustomize related issues and pull requests
   color: '#00e54d'
 - name: area/kstatus
-  description: Health checking related issues and PRs
+  description: Health checking related issues and pull requests
   color: '#25D5CA'
   aliases: ['area/health-checks']
 - name: area/sops
-  description: SOPS related issues and PRs
+  description: SOPS related issues and pull requests
   color: '#FEE5D1'
 - name: area/server-side-apply
-  description: SSA related issues and PRs
+  description: SSA related issues and pull requests
   color: '#2819CB'
 - name: area/varsub
-  description: Post-build variable substitution related issues and PRs
+  description: Post-build variable substitution related issues and pull requests
   color: '#8D195D'
 - name: backport:release/v1.0.x
   description: To be backported to release/v1.0.x
