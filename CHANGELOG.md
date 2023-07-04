@@ -2,6 +2,35 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.0.0
+
+**Release date:** 2023-07-04
+
+This is the first stable release of the controller. From now on, this controller
+follows the [Flux 2 release cadence and support pledge](https://fluxcd.io/flux/releases/).
+
+Starting with this version, the build, release and provenance portions of the
+Flux project supply chain [provisionally meet SLSA Build Level 3](https://fluxcd.io/flux/security/slsa-assessment/).
+
+This release includes several bug fixes. In addition, dependencies have been updated
+to their latest version, including an update of Kubernetes to v1.27.3.
+
+For a comprehensive list of changes since `v0.35.x`, please refer to the
+changelog for [v1.0.0-rc.1](#100-rc1), [v1.0.0-rc.2](#100-rc2),
+[v1.0.0-rc.3](#100-rc3) and [`v1.0.0-rc.4](#100-rc4).
+
+Improvements:
+- Update dependencies
+  [#908](https://github.com/fluxcd/kustomize-controller/pull/908)
+- Align `go.mod` version with Kubernetes (Go 1.20)
+  [#900](https://github.com/fluxcd/kustomize-controller/pull/900)
+
+Fixes:
+- Use kustomization namespace for empty dependency source namespace
+  [#897](https://github.com/fluxcd/kustomize-controller/pull/897)
+- docs: Clarify that targetNamespace namespace can be part of resources
+  [#896](https://github.com/fluxcd/kustomize-controller/pull/896)
+
 ## 1.0.0-rc.4
 
 **Release date:** 2023-05-29
