@@ -24,7 +24,7 @@ jobs:
         # xref: https://github.com/korthout/backport-action#inputs
         with:
           # Use token to allow workflows to be triggered for the created PR
-          token: ${{ secrets.BOT_GITHUB_TOKEN }}
+          github_token: ${{ secrets.BOT_GITHUB_TOKEN }}
           # Match labels with a pattern `backport:<target-branch>`
           label_pattern: '^backport:([^ ]+)$'
           # A bit shorter pull-request title than the default
