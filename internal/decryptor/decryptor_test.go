@@ -88,6 +88,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 		secret      *corev1.Secret
 		wantErr     bool
 		inspectFunc func(g *GomegaWithT, decryptor *Decryptor)
+		env         map[string]string
 	}{
 		{
 			name: "PGP key",
@@ -167,6 +168,54 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 			wantErr: true,
 			inspectFunc: func(g *GomegaWithT, decryptor *Decryptor) {
 				g.Expect(decryptor.ageIdentities).To(HaveLen(0))
+			},
+		},
+		{
+			name: "age key from env",
+			decryption: &kustomizev1.Decryption{
+				Provider: provider,
+			},
+			env: map[string]string{
+				"FLUX_SOPS_AGE_KEY": string(ageKey),
+			},
+			inspectFunc: func(g *GomegaWithT, decryptor *Decryptor) {
+				g.Expect(decryptor.ageIdentities).To(HaveLen(1))
+			},
+		},
+		{
+			name: "age key from env invalid",
+			decryption: &kustomizev1.Decryption{
+				Provider: provider,
+			},
+			env: map[string]string{
+				"FLUX_SOPS_AGE_KEY": "invalid-key",
+			},
+			inspectFunc: func(g *GomegaWithT, decryptor *Decryptor) {
+				g.Expect(decryptor.ageIdentities).To(HaveLen(0))
+			},
+		},
+		{
+			name: "age key from env and secret",
+			decryption: &kustomizev1.Decryption{
+				Provider: provider,
+				SecretRef: &meta.LocalObjectReference{
+					Name: "age-secret",
+				},
+			},
+			env: map[string]string{
+				"FLUX_SOPS_AGE_KEY": string(ageKey),
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "age-secret",
+					Namespace: provider,
+				},
+				Data: map[string][]byte{
+					"age" + DecryptionAgeExt: ageKey,
+				},
+			},
+			inspectFunc: func(g *GomegaWithT, decryptor *Decryptor) {
+				g.Expect(decryptor.ageIdentities).To(HaveLen(2))
 			},
 		},
 		{
@@ -374,6 +423,19 @@ clientSecret: some-client-secret`),
 					Path:       "./",
 					Decryption: tt.decryption,
 				},
+			}
+
+			for envName, envVal := range tt.env {
+				cleanName := envName
+				prevValue, wasPresent := os.LookupEnv(envName)
+				t.Cleanup(func() {
+					if wasPresent {
+						os.Setenv(cleanName, prevValue)
+					} else {
+						os.Unsetenv(cleanName)
+					}
+				})
+				os.Setenv(envName, envVal)
 			}
 
 			d, cleanup, err := NewTempDecryptor("", cb.Build(), &kustomization)
