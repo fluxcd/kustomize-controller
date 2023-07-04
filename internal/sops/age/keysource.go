@@ -11,11 +11,31 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"filippo.io/age"
 	"filippo.io/age/armor"
 )
+
+const (
+	// SopsAgeKeyEnv can be set as an environment variable to provide
+	// an additional key to use for decryption.
+	SopsAgeKeyEnv = "FLUX_SOPS_AGE_KEY"
+)
+
+// GlobalIdentities loads age identities from the [SopsAgeKeyEnv] environment variable.
+func GlobalIdentities() ([]age.Identity, error) {
+	if globalKey, ok := os.LookupEnv(SopsAgeKeyEnv); ok {
+		parsed, err := age.ParseIdentities(strings.NewReader(globalKey))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse age identities from env var: %w", err)
+		}
+		return parsed, nil
+	}
+
+	return nil, nil
+}
 
 // MasterKey is an age key used to Encrypt and Decrypt SOPS' data key.
 //
