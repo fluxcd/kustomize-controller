@@ -63,7 +63,7 @@ jobs:
         with:
           #fluxcd/${{ env.CONTROLLER }}
           images: |
-            ghcr.io/fluxcd/${{ env.CONTROLLER }}
+            ghcr.io/sparebank1utvikling/kustomize-controller
           tags: |
             type=raw,value=${{ steps.prep.outputs.VERSION }}
       - name: Publish images
