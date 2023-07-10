@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.0.1
+
+**Release date:** 2023-07-10
+
+This is a patch release that fixes spurious events emitted for skipped resources.
+
+Fixes:
+- Exclude skipped resources from apply events
+  [#920](https://github.com/fluxcd/kustomize-controller/pull/920)
+
 ## 1.0.0
 
 **Release date:** 2023-07-04
