@@ -5,4 +5,4 @@ resources:
 images:
   - name: fluxcd/kustomize-controller
     newName: fluxcd/kustomize-controller
-    newTag: v1.0.0
+    newTag: v1.0.1
