@@ -50,19 +50,19 @@ jobs:
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: ghcr.io
-          username: fluxcdbot
-          password: ${{ secrets.GHCR_TOKEN }}
-      - name: Login to Docker Hub
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
-        with:
-          username: fluxcdbot
-          password: ${{ secrets.DOCKER_FLUXCD_PASSWORD }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      #- name: Login to Docker Hub
+      #  uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+      #  with:
+      #    username: fluxcdbot
+      #    password: ${{ secrets.DOCKER_FLUXCD_PASSWORD }}
       - name: Generate images meta
         id: meta
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
         with:
+          #fluxcd/${{ env.CONTROLLER }}
           images: |
-            fluxcd/${{ env.CONTROLLER }}
             ghcr.io/fluxcd/${{ env.CONTROLLER }}
           tags: |
             type=raw,value=${{ steps.prep.outputs.VERSION }}
@@ -79,82 +79,82 @@ jobs:
           platforms: linux/amd64,linux/arm/v7,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
-      - name: Sign images
-        env:
-          COSIGN_EXPERIMENTAL: 1
-        run: |
-          cosign sign --yes fluxcd/${{ env.CONTROLLER }}@${{ steps.build-push.outputs.digest }}
-          cosign sign --yes ghcr.io/fluxcd/${{ env.CONTROLLER }}@${{ steps.build-push.outputs.digest }}
-      - name: Generate release artifacts
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          mkdir -p config/release
-          kustomize build ./config/crd > ./config/release/${{ env.CONTROLLER }}.crds.yaml
-          kustomize build ./config/manager > ./config/release/${{ env.CONTROLLER }}.deployment.yaml
-      - uses: anchore/sbom-action/download-syft@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
-      - name: Create release and SBOM
-        id: run-goreleaser
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # v6.3.0
-        with:
-          version: latest
-          args: release --clean --skip=validate
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Generate SLSA metadata
-        id: slsa
-        env:
-          ARTIFACTS: "${{ steps.run-goreleaser.outputs.artifacts }}"
-        run: |
-          hashes=$(echo $ARTIFACTS | jq --raw-output '.[] | {name, "digest": (.extra.Digest // .extra.Checksum)} | select(.digest) | {digest} + {name} | join("  ") | sub("^sha256:";"")' | base64 -w0)
-          echo "hashes=$hashes" >> $GITHUB_OUTPUT
-          
-          image_url=fluxcd/${{ env.CONTROLLER }}:${{ steps.prep.outputs.version }}
-          echo "image_url=$image_url" >> $GITHUB_OUTPUT
-          
-          image_digest=${{ steps.build-push.outputs.digest }}
-          echo "image_digest=$image_digest" >> $GITHUB_OUTPUT
+#      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+#      - name: Sign images
+#        env:
+#          COSIGN_EXPERIMENTAL: 1
+#        run: |
+#          cosign sign --yes fluxcd/${{ env.CONTROLLER }}@${{ steps.build-push.outputs.digest }}
+#          cosign sign --yes ghcr.io/fluxcd/${{ env.CONTROLLER }}@${{ steps.build-push.outputs.digest }}
+#      - name: Generate release artifacts
+#        if: startsWith(github.ref, 'refs/tags/v')
+#        run: |
+#          mkdir -p config/release
+#          kustomize build ./config/crd > ./config/release/${{ env.CONTROLLER }}.crds.yaml
+#          kustomize build ./config/manager > ./config/release/${{ env.CONTROLLER }}.deployment.yaml
+#      - uses: anchore/sbom-action/download-syft@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
+#      - name: Create release and SBOM
+#        id: run-goreleaser
+#        if: startsWith(github.ref, 'refs/tags/v')
+#        uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # v6.3.0
+#        with:
+#          version: latest
+#          args: release --clean --skip=validate
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      - name: Generate SLSA metadata
+#        id: slsa
+#        env:
+#          ARTIFACTS: "${{ steps.run-goreleaser.outputs.artifacts }}"
+#        run: |
+#          hashes=$(echo $ARTIFACTS | jq --raw-output '.[] | {name, "digest": (.extra.Digest // .extra.Checksum)} | select(.digest) | {digest} + {name} | join("  ") | sub("^sha256:";"")' | base64 -w0)
+#          echo "hashes=$hashes" >> $GITHUB_OUTPUT
+#          
+#          image_url=fluxcd/${{ env.CONTROLLER }}:${{ steps.prep.outputs.version }}
+#          echo "image_url=$image_url" >> $GITHUB_OUTPUT
+#          
+#          image_digest=${{ steps.build-push.outputs.digest }}
+#          echo "image_digest=$image_digest" >> $GITHUB_OUTPUT
 
-  release-provenance:
-    needs: [release]
-    permissions:
-      actions: read # for detecting the Github Actions environment.
-      id-token: write # for creating OIDC tokens for signing.
-      contents: write # for uploading attestations to GitHub releases.
-    if: startsWith(github.ref, 'refs/tags/v')
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-    with:
-      provenance-name: "provenance.intoto.jsonl"
-      base64-subjects: "${{ needs.release.outputs.hashes }}"
-      upload-assets: true
-
-  dockerhub-provenance:
-    needs: [release]
-    permissions:
-      actions: read # for detecting the Github Actions environment.
-      id-token: write # for creating OIDC tokens for signing.
-      packages: write # for uploading attestations.
-    if: startsWith(github.ref, 'refs/tags/v')
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
-    with:
-      image: ${{ needs.release.outputs.image_url }}
-      digest: ${{ needs.release.outputs.image_digest }}
-      registry-username: fluxcdbot
-    secrets:
-      registry-password: ${{ secrets.DOCKER_FLUXCD_PASSWORD }}
-
-  ghcr-provenance:
-    needs: [release]
-    permissions:
-      actions: read # for detecting the Github Actions environment.
-      id-token: write # for creating OIDC tokens for signing.
-      packages: write # for uploading attestations.
-    if: startsWith(github.ref, 'refs/tags/v')
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
-    with:
-      image: ghcr.io/${{ needs.release.outputs.image_url }}
-      digest: ${{ needs.release.outputs.image_digest }}
-      registry-username: fluxcdbot
-    secrets:
-      registry-password: ${{ secrets.GHCR_TOKEN }}
+#  release-provenance:
+#    needs: [release]
+#    permissions:
+#      actions: read # for detecting the Github Actions environment.
+#      id-token: write # for creating OIDC tokens for signing.
+#      contents: write # for uploading attestations to GitHub releases.
+#    if: startsWith(github.ref, 'refs/tags/v')
+#    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+#    with:
+#      provenance-name: "provenance.intoto.jsonl"
+#      base64-subjects: "${{ needs.release.outputs.hashes }}"
+#      upload-assets: true
+#
+#  dockerhub-provenance:
+#    needs: [release]
+#    permissions:
+#      actions: read # for detecting the Github Actions environment.
+#      id-token: write # for creating OIDC tokens for signing.
+#      packages: write # for uploading attestations.
+#    if: startsWith(github.ref, 'refs/tags/v')
+#    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+#    with:
+#      image: ${{ needs.release.outputs.image_url }}
+#      digest: ${{ needs.release.outputs.image_digest }}
+#      registry-username: fluxcdbot
+#    secrets:
+#      registry-password: ${{ secrets.DOCKER_FLUXCD_PASSWORD }}
+#
+#  ghcr-provenance:
+#    needs: [release]
+#    permissions:
+#      actions: read # for detecting the Github Actions environment.
+#      id-token: write # for creating OIDC tokens for signing.
+#      packages: write # for uploading attestations.
+#    if: startsWith(github.ref, 'refs/tags/v')
+#    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+#    with:
+#      image: ghcr.io/${{ needs.release.outputs.image_url }}
+#      digest: ${{ needs.release.outputs.image_digest }}
+#      registry-username: fluxcdbot
+#    secrets:
+#      registry-password: ${{ secrets.GHCR_TOKEN }}
