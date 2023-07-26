@@ -196,16 +196,18 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}()
 
-	// Add finalizer first if it doesn't exist to avoid the race condition
-	// between init and delete.
-	if !controllerutil.ContainsFinalizer(obj, kustomizev1.KustomizationFinalizer) {
-		controllerutil.AddFinalizer(obj, kustomizev1.KustomizationFinalizer)
-		return ctrl.Result{Requeue: true}, nil
-	}
-
 	// Prune managed resources if the object is under deletion.
 	if !obj.ObjectMeta.DeletionTimestamp.IsZero() {
 		return r.finalize(ctx, obj)
+	}
+
+	// Add finalizer first if it doesn't exist to avoid the race condition
+	// between init and delete.
+	// Note: Finalizers in general can only be added when the deletionTimestamp
+	// is not set.
+	if !controllerutil.ContainsFinalizer(obj, kustomizev1.KustomizationFinalizer) {
+		controllerutil.AddFinalizer(obj, kustomizev1.KustomizationFinalizer)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Skip reconciliation if the object is suspended.
