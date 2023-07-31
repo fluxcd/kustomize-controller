@@ -200,6 +200,11 @@ func main() {
 		pollingOpts.ClusterReaderFactory = engine.ClusterReaderFactoryFunc(clusterreader.NewDirectClusterReader)
 	}
 
+	failFast := true
+	if ok, _ := features.Enabled(features.DisableFailFastBehavior); ok {
+		failFast = false
+	}
+
 	if err = (&controller.KustomizationReconciler{
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,
@@ -208,6 +213,7 @@ func main() {
 		EventRecorder:         eventRecorder,
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
 		NoRemoteBases:         noRemoteBases,
+		FailFast:              failFast,
 		KubeConfigOpts:        kubeConfigOpts,
 		PollingOpts:           pollingOpts,
 		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), pollingOpts),

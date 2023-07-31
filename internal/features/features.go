@@ -35,6 +35,10 @@ const (
 	// large number of resources, as it will potentially reduce the amount of
 	// memory used by the controller.
 	DisableStatusPollerCache = "DisableStatusPollerCache"
+
+	// DisableFailFastBehavior controls whether the fail-fast behavior when
+	// waiting for resources to become ready should be disabled.
+	DisableFailFastBehavior = "DisableFailFastBehavior"
 )
 
 var features = map[string]bool{
@@ -44,6 +48,9 @@ var features = map[string]bool{
 	// DisableStatusPollerCache
 	// opt-in from v0.35
 	DisableStatusPollerCache: false,
+	// DisableFailFastBehavior
+	// opt-in from v1.1
+	DisableFailFastBehavior: false,
 }
 
 // FeatureGates contains a list of all supported feature gates and

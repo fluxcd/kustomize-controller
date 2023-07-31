@@ -89,6 +89,7 @@ type KustomizationReconciler struct {
 	statusManager         string
 	NoCrossNamespaceRefs  bool
 	NoRemoteBases         bool
+	FailFast              bool
 	DefaultServiceAccount string
 	KubeConfigOpts        runtimeClient.KubeConfigOptions
 }
@@ -863,6 +864,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	if err := manager.WaitForSet(toCheck, ssa.WaitOptions{
 		Interval: 5 * time.Second,
 		Timeout:  obj.GetTimeout(),
+		FailFast: r.FailFast,
 	}); err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
 		conditions.MarkFalse(obj, kustomizev1.HealthyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
