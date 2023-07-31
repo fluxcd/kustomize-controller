@@ -52,8 +52,8 @@ require (
 
 // Pin kustomize to v5.6.0
 replace (
-	sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.19.0
-	sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.19.0
+	sigs.k8s.io/kustomize/api => github.com/chlunde/kustomize/api v0.0.0-20241007194522-e5d19a7c5738
+	sigs.k8s.io/kustomize/kyaml => github.com/chlunde/kustomize/kyaml v0.0.0-20241007194522-e5d19a7c5738
 )
 
 // Fix CVE-2022-28948
