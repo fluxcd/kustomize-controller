@@ -444,12 +444,14 @@ func (r *KustomizationReconciler) reconcile(
 		return err
 	}
 
+	t := time.Now()
 	// Build the Kustomize overlay and decrypt secrets if needed.
 	resources, err := r.build(ctx, obj, unstructured.Unstructured{Object: k}, tmpDir, dirPath)
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, "%s", err)
 		return err
 	}
+	log.Info("build", "duration", time.Since(t).Seconds())
 
 	// Convert the build result into Kubernetes unstructured objects.
 	objects, err := ssautil.ReadObjects(bytes.NewReader(resources))
@@ -829,7 +831,9 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 
 	// validate, apply and wait for CRDs and Namespaces to register
 	if len(defStage) > 0 {
+		t := time.Now()
 		changeSet, err := manager.ApplyAll(ctx, defStage, applyOpts)
+		log.Info("ApplyAll defStage", "duration", time.Since(t).Seconds())
 		if err != nil {
 			return false, nil, err
 		}
@@ -859,7 +863,10 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 
 	// validate, apply and wait for Class type objects to register
 	if len(classStage) > 0 {
+		t := time.Now()
 		changeSet, err := manager.ApplyAll(ctx, classStage, applyOpts)
+		log.Info("ApplyAll classStage", "duration", time.Since(t).Seconds())
+
 		if err != nil {
 			return false, nil, err
 		}
@@ -890,7 +897,10 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	// sort by kind, validate and apply all the others objects
 	sort.Sort(ssa.SortableUnstructureds(resStage))
 	if len(resStage) > 0 {
+		t := time.Now()
 		changeSet, err := manager.ApplyAll(ctx, resStage, applyOpts)
+		log.Info("ApplyAll resStage", "duration", time.Since(t).Seconds())
+
 		if err != nil {
 			return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String())
 		}
