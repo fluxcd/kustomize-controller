@@ -40,6 +40,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/api/konfig"
 	"sigs.k8s.io/kustomize/api/resource"
@@ -194,13 +195,26 @@ func IsEncryptedSecret(object *unstructured.Unstructured) bool {
 // For the import of PGP keys, the Decryptor must be configured with
 // an absolute GnuPG home directory path.
 func (d *Decryptor) ImportKeys(ctx context.Context) error {
-	if d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.SecretRef == nil {
+	if d.kustomization.Spec.Decryption == nil {
 		return nil
 	}
 
 	provider := d.kustomization.Spec.Decryption.Provider
 	switch provider {
 	case DecryptionProviderSOPS:
+		// load age key from env variable
+		globalAgeIdentities, err := age.GlobalIdentities()
+		if err != nil {
+			log := ctrl.LoggerFrom(ctx)
+			log.Info("failed to decrypt age identity from environment, ignoring", "error", err)
+		} else {
+			d.ageIdentities = append(d.ageIdentities, globalAgeIdentities...)
+		}
+
+		if d.kustomization.Spec.Decryption.SecretRef == nil {
+			return nil
+		}
+
 		secretName := types.NamespacedName{
 			Namespace: d.kustomization.GetNamespace(),
 			Name:      d.kustomization.Spec.Decryption.SecretRef.Name,
@@ -214,7 +228,6 @@ func (d *Decryptor) ImportKeys(ctx context.Context) error {
 			return fmt.Errorf("cannot get %s decryption Secret '%s': %w", provider, secretName, err)
 		}
 
-		var err error
 		for name, value := range secret.Data {
 			switch filepath.Ext(name) {
 			case DecryptionPGPExt:
