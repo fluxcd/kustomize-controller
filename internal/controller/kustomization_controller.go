@@ -19,6 +19,7 @@ package controller
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -55,6 +56,7 @@ import (
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
+	"github.com/fluxcd/pkg/runtime/jitter"
 	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/fluxcd/pkg/runtime/predicates"
 	"github.com/fluxcd/pkg/ssa"
@@ -263,7 +265,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher)
 
 	// Requeue at the specified retry interval if the artifact tarball is not found.
-	if reconcileErr == fetch.FileNotFoundError {
+	if errors.Is(reconcileErr, fetch.FileNotFoundError) {
 		msg := fmt.Sprintf("Source is not ready, artifact not found, retrying in %s", r.requeueDependency.String())
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, msg)
 		log.Info(msg)
@@ -283,7 +285,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Requeue the reconciliation at the specified interval.
-	return ctrl.Result{RequeueAfter: obj.Spec.Interval.Duration}, nil
+	return ctrl.Result{RequeueAfter: jitter.JitteredIntervalDuration(obj.GetRequeueAfter())}, nil
 }
 
 func (r *KustomizationReconciler) reconcile(

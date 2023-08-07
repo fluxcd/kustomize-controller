@@ -186,6 +186,11 @@ If the `.metadata.generation` of a resource changes (due to e.g. a change to
 the spec) or the Source revision changes (which generates a Kubernetes event),
 this is handled instantly outside the interval window.
 
+**Note:** The controller can be configured to apply a jitter to the interval in
+order to distribute the load more evenly when multiple Kustomization objects are
+set up with the same interval. For more information, please refer to the
+[kustomize-controller configuration options](https://fluxcd.io/flux/components/kustomize/options/).
+
 ### Retry interval
 
 `.spec.retryInterval` is an optional field to specify the interval at which to

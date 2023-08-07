@@ -125,7 +125,9 @@ Kubernetes meta/v1.Duration
 </em>
 </td>
 <td>
-<p>The interval at which to reconcile the Kustomization.</p>
+<p>The interval at which to reconcile the Kustomization.
+This interval is approximate and may be subject to jitter to ensure
+efficient use of resources.</p>
 </td>
 </tr>
 <tr>
@@ -607,7 +609,9 @@ Kubernetes meta/v1.Duration
 </em>
 </td>
 <td>
-<p>The interval at which to reconcile the Kustomization.</p>
+<p>The interval at which to reconcile the Kustomization.
+This interval is approximate and may be subject to jitter to ensure
+efficient use of resources.</p>
 </td>
 </tr>
 <tr>

@@ -41,6 +41,7 @@ import (
 	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/events"
 	feathelper "github.com/fluxcd/pkg/runtime/features"
+	"github.com/fluxcd/pkg/runtime/jitter"
 	"github.com/fluxcd/pkg/runtime/leaderelection"
 	"github.com/fluxcd/pkg/runtime/logger"
 	"github.com/fluxcd/pkg/runtime/pprof"
@@ -84,6 +85,7 @@ func main() {
 		leaderElectionOptions leaderelection.Options
 		rateLimiterOptions    runtimeCtrl.RateLimiterOptions
 		watchOptions          runtimeCtrl.WatchOptions
+		intervalJitterOptions jitter.IntervalOptions
 		aclOptions            acl.Options
 		noRemoteBases         bool
 		httpRetry             int
@@ -109,6 +111,7 @@ func main() {
 	rateLimiterOptions.BindFlags(flag.CommandLine)
 	featureGates.BindFlags(flag.CommandLine)
 	watchOptions.BindFlags(flag.CommandLine)
+	intervalJitterOptions.BindFlags(flag.CommandLine)
 
 	flag.Parse()
 
@@ -118,6 +121,11 @@ func main() {
 
 	if err := featureGates.WithLogger(setupLog).SupportedFeatures(features.FeatureGates()); err != nil {
 		setupLog.Error(err, "unable to load feature gates")
+		os.Exit(1)
+	}
+
+	if err := intervalJitterOptions.SetGlobalJitter(nil); err != nil {
+		setupLog.Error(err, "unable to set global jitter")
 		os.Exit(1)
 	}
 
