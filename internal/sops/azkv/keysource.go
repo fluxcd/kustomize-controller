@@ -22,7 +22,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys"
+	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys"
 	"github.com/dimchansky/utfbom"
 )
 
@@ -86,8 +86,8 @@ func (key *MasterKey) Encrypt(dataKey []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to construct Azure Key Vault crypto client to encrypt data: %w", err)
 	}
-	resp, err := c.Encrypt(context.Background(), key.Name, key.Version, azkeys.KeyOperationsParameters{
-		Algorithm: to.Ptr(azkeys.JSONWebKeyEncryptionAlgorithmRSAOAEP256),
+	resp, err := c.Encrypt(context.Background(), key.Name, key.Version, azkeys.KeyOperationParameters{
+		Algorithm: to.Ptr(azkeys.EncryptionAlgorithmRSAOAEP256),
 		Value:     dataKey,
 	}, nil)
 	if err != nil {
@@ -138,8 +138,8 @@ func (key *MasterKey) Decrypt() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to base64 decode Azure Key Vault encrypted key: %w", err)
 	}
-	resp, err := c.Decrypt(context.Background(), key.Name, key.Version, azkeys.KeyOperationsParameters{
-		Algorithm: to.Ptr(azkeys.JSONWebKeyEncryptionAlgorithmRSAOAEP256),
+	resp, err := c.Decrypt(context.Background(), key.Name, key.Version, azkeys.KeyOperationParameters{
+		Algorithm: to.Ptr(azkeys.EncryptionAlgorithmRSAOAEP256),
 		Value:     rawEncryptedKey,
 	}, nil)
 	if err != nil {
