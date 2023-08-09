@@ -196,8 +196,8 @@ github.com/fluxcd/pkg/runtime v0.41.0 h1:hjWUwVRCKDuGEUhovWrygt/6PRry4p278yKuJNg
 github.com/fluxcd/pkg/runtime v0.41.0/go.mod h1:1GN+nxoQ7LmSsLJwjH8JW8pA27tBSO+KLH43HpywCDM=
 github.com/fluxcd/pkg/sourceignore v0.3.4 h1:0cfS2Pj7xp2qpaerMjYqOBr82LC+/mGHl6v6pRbi5hs=
 github.com/fluxcd/pkg/sourceignore v0.3.4/go.mod h1:ejLx+/uIrPUgqVzMTR5JiWuUnzs+zTkoEf9gS92LqaE=
-github.com/fluxcd/pkg/ssa v0.29.0 h1:s2M6507YlYRLsPuXuGhXez/EqA5LFLhI13TZe31sm10=
-github.com/fluxcd/pkg/ssa v0.29.0/go.mod h1:wvmBGQC47669GqhOvi0Ec0HTMziqMSNkPIsyIPBtGTQ=
+github.com/fluxcd/pkg/ssa v0.30.0 h1:SYf8EBXevbTNwdHoKqRuU00YdnmqqUuR5xcciRrIi0E=
+github.com/fluxcd/pkg/ssa v0.30.0/go.mod h1:eUcni/amc2fM9rJ3ZR3oPeAW/ZYk3mOGO1TW9RFmAuI=
 github.com/fluxcd/pkg/tar v0.2.0 h1:HEUHgONQYsJGeZZ4x6h5nQU9Aox1I4T3bOp1faWTqf8=
 github.com/fluxcd/pkg/tar v0.2.0/go.mod h1:w0/TOC7kwBJhnSJn7TCABkc/I7ib1f2Yz6vOsbLBnhw=
 github.com/fluxcd/pkg/testserver v0.4.0 h1:pDZ3gistqYhwlf3sAjn1Q8NzN4Qe6I1BEmHMHi46lMg=
@@ -737,7 +737,7 @@ sigs.k8s.io/kustomize/api v0.13.4 h1:E38Hfx0G9R9v7vRgKshviPotJQETG0S2gD3JdHLCAsI
 sigs.k8s.io/kustomize/api v0.13.4/go.mod h1:Bkaavz5RKK6ZzP0zgPrB7QbpbBJKiHuD3BB0KujY7Ls=
 sigs.k8s.io/kustomize/kyaml v0.14.2 h1:9WSwztbzwGszG1bZTziQUmVMrJccnyrLb5ZMKpJGvXw=
 sigs.k8s.io/kustomize/kyaml v0.14.2/go.mod h1:AN1/IpawKilWD7V+YvQwRGUvuUOOWpjsHu6uHwonSF4=
-sigs.k8s.io/structured-merge-diff/v4 v4.2.3 h1:PRbqxJClWWYMNV1dhaG4NsibJbArud9kFxnAMREiWFE=
-sigs.k8s.io/structured-merge-diff/v4 v4.2.3/go.mod h1:qjx8mGObPmV2aSZepjQjbmb2ihdVs8cGKBraizNC69E=
+sigs.k8s.io/structured-merge-diff/v4 v4.3.0 h1:UZbZAZfX0wV2zr7YZorDz6GXROfDFj6LvqCRm4VUVKk=
+sigs.k8s.io/structured-merge-diff/v4 v4.3.0/go.mod h1:N8hJocpFajUSSeSJ9bOZ77VzejKZaXsTtZo4/u7Io08=
 sigs.k8s.io/yaml v1.3.0 h1:a2VclLzOGrwOHDiV8EfBGhvjHvP46CtW5j6POvhYGGo=
 sigs.k8s.io/yaml v1.3.0/go.mod h1:GeOyir5tyXNByN85N/dRIT9es5UQNerPYEKK56eTBm8=
