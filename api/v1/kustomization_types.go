@@ -30,7 +30,9 @@ const (
 	MaxConditionMessageLength = 20000
 	EnabledValue              = "enabled"
 	DisabledValue             = "disabled"
-	MergeValue                = "merge"
+	MergeValue                = "Merge"
+	IfNotPresentValue         = "IfNotPresent"
+	IgnoreValue               = "Ignore"
 )
 
 // KustomizationSpec defines the configuration to calculate the desired state
