@@ -31,7 +31,7 @@ require (
 	github.com/fluxcd/pkg/http/fetch v0.5.2
 	github.com/fluxcd/pkg/kustomize v1.3.4
 	github.com/fluxcd/pkg/runtime v0.41.0
-	github.com/fluxcd/pkg/ssa v0.29.0
+	github.com/fluxcd/pkg/ssa v0.30.0
 	github.com/fluxcd/pkg/tar v0.2.0
 	github.com/fluxcd/pkg/testserver v0.4.0
 	github.com/fluxcd/source-controller/api v1.0.0
@@ -226,5 +226,5 @@ require (
 	k8s.io/kubectl v0.27.1 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/kyaml v0.14.2 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 )

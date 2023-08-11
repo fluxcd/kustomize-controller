@@ -1044,6 +1044,79 @@ cd apps/my-app
 kustomize create --autodetect --recursive
 ```
 
+### Controlling the apply behavior of resources
+
+To change the apply behaviour for specific Kubernetes resources, you can annotate them with:
+
+| Annotation                          | Default    | Values                                                         | Role            |
+|-------------------------------------|------------|----------------------------------------------------------------|-----------------|
+| `kustomize.toolkit.fluxcd.io/ssa`   | `Override` | - `Override`<br/>- `Merge`<br/>- `IfNotPresent`<br/>- `Ignore` | Apply policy    |
+| `kustomize.toolkit.fluxcd.io/force` | `Disabled` | - `Enabled`<br/>- `Disabled`                                   | Recreate policy |
+| `kustomize.toolkit.fluxcd.io/prune` | `Enabled`  | - `Enabled`<br/>- `Disabled`                                   | Delete policy   |
+
+**Note:** These annotations should be set in the Kubernetes YAML manifests included
+in the Flux Kustomization source (Git, OCI, Bucket).
+
+#### `kustomize.toolkit.fluxcd.io/ssa`
+
+##### Override
+
+The `Override` policy instructs the controller to reconcile the Kubernetes resources
+with the desired state (YAML manifests) defined in the Flux source (Git, OCI, Bucket).
+
+If you use `kubectl` to edit a Kubernetes resource managed by Flux, all changes will be
+reverted when the controller reconciles a Flux Kustomization containing that resource.
+In order to preserve fields added with `kubectl`, you have to specify
+a field manager named `flux-client-side-apply` e.g.:
+
+```sh
+kubectl apply --field-manager=flux-client-side-apply
+```
+
+##### Merge
+
+The `Merge` policy instructs the controller to preserve the fields added by other tools to the
+Kubernetes resources managed by Flux.
+
+The fields defined in the manifests applied by the controller will always be overridden,
+the `Merge` policy works only for adding new fields that don’t overlap with the desired
+state.
+
+For lists fields which are atomic (e.g. `.spec.tolerations` in PodSpec), Kubernetes
+doesn't allow different managers for such fields, therefore any changes to these
+fields will be reverted. For more context, please see the Kubernetes enhancement document:
+[555-server-side-apply](https://github.com/kubernetes/enhancements/blob/master/keps/sig-api-machinery/555-server-side-apply/README.md#lists).
+
+##### IfNotPresent
+
+The `IfNotPresent` policy instructs the controller to only apply the Kubernetes resources
+if they are not present on the cluster.
+
+This policy can be used for Kubernetes Secrets and ValidatingWebhookConfigurations managed by cert-manager,
+where Flux creates the resources with fields that are later on mutated by other controllers.
+
+##### Ignore
+
+The `Ignore` policy instructs the controller to skip applying Kubernetes resources
+even if they are included in a Flux source (Git, OCI, Bucket).
+
+#### `kustomize.toolkit.fluxcd.io/force`
+
+When set to `Enabled`, this policy instructs the controller to recreate the Kubernetes resources
+with changes to immutable fields.
+
+This policy can be used for Kubernetes Jobs to rerun them when their container image changes.
+
+**Note:** Using this policy for StatefulSets may result in potential data loss.
+
+#### `kustomize.toolkit.fluxcd.io/prune`
+
+When set to `Disabled`, this policy instructs the controller to skip the deletion of
+the Kubernetes resources subject to [garbage collection](#prune). 
+
+This policy can be used to protect sensitive resources such as Namespaces, PVCs and PVs
+from accidental deletion.
+
 ### Role-based access control
 
 By default, a Kustomization apply runs under the cluster admin account and can
@@ -1502,48 +1575,6 @@ Using `flux`:
 flux reconcile kustomization <kustomization-name>
 ```
 
-### Customizing reconciliation
-
-You can configure the controller to ignore in-cluster resources by labelling or
-annotating them with:
-
-```yaml
-kustomize.toolkit.fluxcd.io/reconcile: disabled
-```
-
-**Note:** When the `kustomize.toolkit.fluxcd.io/reconcile` annotation is set to
-`disabled`, the controller will no longer apply changes from the source, nor
-will it prune the resource. To resume reconciliation, set the annotation to
-`enabled` in the source or remove it from the in-cluster object.
-
-If you use `kubectl` to edit an object managed by Flux, all changes will be
-reverted when the controller reconciles a Flux Kustomization containing that
-object. In order to preserve fields added with `kubectl`, you have to specify
-a field manager named `flux-client-side-apply` e.g.:
-
-```sh
-kubectl apply --field-manager=flux-client-side-apply
-```
-
-Another option is to annotate or label objects with:
-
-```yaml
-kustomize.toolkit.fluxcd.io/ssa: merge
-```
-
-**Note:** The fields defined in manifests will always be overridden, the above
-procedure works only for adding new fields that don’t overlap with the desired
-state.
-
-For lists fields which are atomic (e.g. `.spec.tolerations` in PodSpec), Kubernetes
-doesn't allow different managers for such fields, therefore any changes to these
-fields will be undone, even if you specify a manager. For more context, please
-see the Kubernetes enhancement document:
-[555-server-side-apply](https://github.com/kubernetes/enhancements/blob/master/keps/sig-api-machinery/555-server-side-apply/README.md#lists).
-
-To learn how to handle patching failures due to immutable field changes, refer
-to [`.spec.force`](#force).
-
 ### Waiting for `Ready`
 
 When a change is applied, it is possible to wait for the Kustomization to reach
@@ -1557,6 +1588,18 @@ kubectl wait kustomization/<kustomization-name> --for=condition=ready --timeout=
 
 When you find yourself in a situation where you temporarily want to pause the
 reconciliation of a Kustomization, you can suspend it using [`.spec.suspend`](#suspend).
+
+To pause the reconciliation of a specific Kubernetes resource managed by a Flux Kustomization,
+you can annotate or label the resource in-cluster with:
+
+```yaml
+kustomize.toolkit.fluxcd.io/reconcile: disabled
+```
+
+**Note:** When the `kustomize.toolkit.fluxcd.io/reconcile` annotation is set to
+`disabled`, the controller will no longer apply changes, nor
+will it prune the resource. To resume reconciliation, set the annotation to
+`enabled` in the source or remove it from the in-cluster object.
 
 #### Suspend a Kustomization
 
