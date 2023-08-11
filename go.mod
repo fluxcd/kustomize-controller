@@ -30,7 +30,7 @@ require (
 	github.com/fluxcd/pkg/apis/meta v1.1.2
 	github.com/fluxcd/pkg/http/fetch v0.5.2
 	github.com/fluxcd/pkg/kustomize v1.3.4
-	github.com/fluxcd/pkg/runtime v0.41.0
+	github.com/fluxcd/pkg/runtime v0.42.0
 	github.com/fluxcd/pkg/ssa v0.30.0
 	github.com/fluxcd/pkg/tar v0.2.0
 	github.com/fluxcd/pkg/testserver v0.4.0
