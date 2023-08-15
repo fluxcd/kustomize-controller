@@ -33,6 +33,7 @@ import (
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/getsops/sops/v3"
 	"github.com/getsops/sops/v3/aes"
+	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/cmd/sops/common"
 	"github.com/getsops/sops/v3/cmd/sops/formats"
 	"github.com/getsops/sops/v3/keyservice"
@@ -47,7 +48,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"

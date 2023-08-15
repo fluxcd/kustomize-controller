@@ -31,7 +31,7 @@ import (
 
 	extage "filippo.io/age"
 	"github.com/getsops/sops/v3"
-	sopsage "github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/cmd/sops/formats"
 	. "github.com/onsi/gomega"
 	gt "github.com/onsi/gomega/types"
@@ -48,7 +48,6 @@ import (
 	"github.com/fluxcd/pkg/apis/meta"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 )
 
 func TestIsEncryptedSecret(t *testing.T) {
@@ -409,7 +408,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		data := []byte("[config]\nkey = value\n")
 		encData, err := kd.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
-				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
+				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
 		}, data, format, format)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -436,7 +435,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		data := []byte("{\"key\": \"value\"}\n")
 		encData, err := kd.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
-				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
+				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
 		}, data, inputFormat, inputFormat)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -468,7 +467,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		format := formats.Binary
 		encData, err := kd.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
-				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
+				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
 		}, []byte("foo bar"), format, format)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -495,7 +494,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		data := []byte("key=value\n")
 		encData, err := kd.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
-				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
+				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
 		}, data, format, format)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -570,7 +569,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
 			EncryptedRegex: "^(data|stringData)$",
 			KeyGroups: []sops.KeyGroup{
-				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
+				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
 		}, secretData, formats.Json, formats.Json)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -603,7 +602,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		plainData := []byte("[config]\napp = secret\n")
 		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
-				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
+				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
 		}, plainData, formats.Ini, formats.Yaml)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -638,7 +637,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		plainData := []byte("structured:\n    data:\n        key: value\n")
 		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
-				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
+				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
 		}, plainData, formats.Yaml, formats.Yaml)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -682,7 +681,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 }`)
 		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
-				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
+				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
 		}, plainData, formats.Json, formats.Yaml)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -901,7 +900,7 @@ func TestDecryptor_decryptKustomizationEnvSources(t *testing.T) {
 					}
 					data, err = d.sopsEncryptWithFormat(sops.Metadata{
 						KeyGroups: []sops.KeyGroup{
-							{&sopsage.MasterKey{Recipient: id.Recipient().String()}},
+							{&age.MasterKey{Recipient: id.Recipient().String()}},
 						},
 					}, f.data, format, format)
 					g.Expect(err).ToNot(HaveOccurred())
@@ -1043,7 +1042,7 @@ func TestDecryptor_decryptSopsFile(t *testing.T) {
 				if f.encrypt {
 					b, err := d.sopsEncryptWithFormat(sops.Metadata{
 						KeyGroups: []sops.KeyGroup{
-							{&sopsage.MasterKey{Recipient: id.Recipient().String()}},
+							{&age.MasterKey{Recipient: id.Recipient().String()}},
 						},
 					}, data, f.format, f.format)
 					g.Expect(err).ToNot(HaveOccurred())

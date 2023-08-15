@@ -8,12 +8,12 @@ package keyservice
 
 import (
 	extage "filippo.io/age"
-	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
+	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/keyservice"
 
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
+	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )

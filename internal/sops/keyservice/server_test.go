@@ -13,11 +13,11 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/keyservice"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
