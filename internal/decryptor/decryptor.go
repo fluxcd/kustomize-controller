@@ -37,6 +37,7 @@ import (
 	"github.com/getsops/sops/v3/cmd/sops/common"
 	"github.com/getsops/sops/v3/cmd/sops/formats"
 	"github.com/getsops/sops/v3/keyservice"
+	awskms "github.com/getsops/sops/v3/kms"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -48,7 +49,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
-	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
+	intawskms "github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -137,7 +138,7 @@ type Decryptor struct {
 	vaultToken string
 	// awsCredsProvider is the AWS credentials provider object used to authenticate
 	// towards any AWS KMS.
-	awsCredsProvider *awskms.CredsProvider
+	awsCredsProvider *awskms.CredentialsProvider
 	// azureToken is the Azure credential token used to authenticate towards
 	// any Azure Key Vault.
 	azureToken *azkv.Token
@@ -234,9 +235,11 @@ func (d *Decryptor) ImportKeys(ctx context.Context) error {
 				}
 			case filepath.Ext(DecryptionAWSKmsFile):
 				if name == DecryptionAWSKmsFile {
-					if d.awsCredsProvider, err = awskms.LoadCredsProviderFromYaml(value); err != nil {
+					awsCreds, err := intawskms.LoadStaticCredentialsFromYAML(value)
+					if err != nil {
 						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 					}
+					d.awsCredsProvider = awskms.NewCredentialsProvider(awsCreds)
 				}
 			case filepath.Ext(DecryptionAzureAuthFile):
 				// Make sure we have the absolute name

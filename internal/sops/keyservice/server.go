@@ -11,9 +11,9 @@ import (
 
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/keyservice"
+	awskms "github.com/getsops/sops/v3/kms"
 	"golang.org/x/net/context"
 
-	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
@@ -50,7 +50,7 @@ type Server struct {
 	// awsCredsProvider is the Credentials object used for Encrypt and Decrypt
 	// operations of AWS KMS requests.
 	// When nil, the request will be handled by defaultServer.
-	awsCredsProvider *awskms.CredsProvider
+	awsCredsProvider *awskms.CredentialsProvider
 
 	// gcpCredsJSON is the JSON credentials used for Decrypt and Encrypt
 	// operations of GCP KMS requests. When nil, a default client with
@@ -275,15 +275,7 @@ func (ks *Server) decryptWithHCVault(key *keyservice.VaultKey, ciphertext []byte
 }
 
 func (ks *Server) encryptWithAWSKMS(key *keyservice.KmsKey, plaintext []byte) ([]byte, error) {
-	context := make(map[string]string)
-	for key, val := range key.Context {
-		context[key] = val
-	}
-	awsKey := awskms.MasterKey{
-		Arn:               key.Arn,
-		Role:              key.Role,
-		EncryptionContext: context,
-	}
+	awsKey := kmsKeyToMasterKey(key)
 	if ks.awsCredsProvider != nil {
 		ks.awsCredsProvider.ApplyToMasterKey(&awsKey)
 	}
@@ -294,17 +286,8 @@ func (ks *Server) encryptWithAWSKMS(key *keyservice.KmsKey, plaintext []byte) ([
 }
 
 func (ks *Server) decryptWithAWSKMS(key *keyservice.KmsKey, cipherText []byte) ([]byte, error) {
-	context := make(map[string]string)
-	for key, val := range key.Context {
-		context[key] = val
-	}
-	awsKey := awskms.MasterKey{
-		Arn:               key.Arn,
-		Role:              key.Role,
-		EncryptionContext: context,
-	}
+	awsKey := kmsKeyToMasterKey(key)
 	awsKey.EncryptedKey = string(cipherText)
-
 	if ks.awsCredsProvider != nil {
 		ks.awsCredsProvider.ApplyToMasterKey(&awsKey)
 	}
@@ -359,4 +342,17 @@ func (ks *Server) decryptWithGCPKMS(key *keyservice.GcpKmsKey, ciphertext []byte
 	gcpKey.EncryptedKey = string(ciphertext)
 	plaintext, err := gcpKey.Decrypt()
 	return plaintext, err
+}
+
+func kmsKeyToMasterKey(key *keyservice.KmsKey) awskms.MasterKey {
+	ctx := make(map[string]*string)
+	for k, v := range key.Context {
+		value := v
+		ctx[k] = &value
+	}
+	return awskms.MasterKey{
+		Arn:               key.Arn,
+		Role:              key.Role,
+		EncryptionContext: ctx,
+	}
 }

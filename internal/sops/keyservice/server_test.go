@@ -15,10 +15,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/keyservice"
+	awskms "github.com/getsops/sops/v3/kms"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 
-	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
@@ -142,7 +142,7 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 func TestServer_EncryptDecrypt_awskms(t *testing.T) {
 	g := NewWithT(t)
 	s := NewServer(WithAWSKeys{
-		CredsProvider: awskms.NewCredsProvider(credentials.StaticCredentialsProvider{}),
+		CredsProvider: awskms.NewCredentialsProvider(credentials.StaticCredentialsProvider{}),
 	})
 
 	key := KeyFromMasterKey(awskms.NewMasterKeyFromArn("arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48", nil, ""))

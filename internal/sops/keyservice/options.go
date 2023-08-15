@@ -10,8 +10,8 @@ import (
 	extage "filippo.io/age"
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/keyservice"
+	awskms "github.com/getsops/sops/v3/kms"
 
-	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
@@ -50,7 +50,7 @@ func (o WithAgeIdentities) ApplyToServer(s *Server) {
 
 // WithAWSKeys configures the AWS credentials on the Server
 type WithAWSKeys struct {
-	CredsProvider *awskms.CredsProvider
+	CredsProvider *awskms.CredentialsProvider
 }
 
 // ApplyToServer applies this configuration to the given Server.
