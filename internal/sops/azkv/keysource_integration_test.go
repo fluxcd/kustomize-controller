@@ -18,8 +18,8 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys"
+	"github.com/getsops/sops/v3/azkv"
 	. "github.com/onsi/gomega"
-	"go.mozilla.org/sops/v3/azkv"
 )
 
 // The following values should be created based on the instructions in:

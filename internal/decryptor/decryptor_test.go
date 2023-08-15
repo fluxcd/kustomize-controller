@@ -30,11 +30,11 @@ import (
 	"time"
 
 	extage "filippo.io/age"
+	"github.com/getsops/sops/v3"
+	sopsage "github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/cmd/sops/formats"
 	. "github.com/onsi/gomega"
 	gt "github.com/onsi/gomega/types"
-	"go.mozilla.org/sops/v3"
-	sopsage "go.mozilla.org/sops/v3/age"
-	"go.mozilla.org/sops/v3/cmd/sops/formats"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -406,7 +406,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		}
 
 		format := formats.Ini
-		data := []byte("[config]\nkey = value\n\n")
+		data := []byte("[config]\nkey = value\n")
 		encData, err := kd.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
@@ -600,7 +600,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		d.ageIdentities = append(d.ageIdentities, ageID)
 
-		plainData := []byte("[config]\napp = secret\n\n")
+		plainData := []byte("[config]\napp = secret\n")
 		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},

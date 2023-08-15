@@ -16,8 +16,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/getsops/sops/v3/gcpkms"
 	. "github.com/onsi/gomega"
-	"go.mozilla.org/sops/v3/gcpkms"
 
 	"google.golang.org/api/option"
 	kmspb "google.golang.org/genproto/googleapis/cloud/kms/v1"

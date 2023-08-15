@@ -10,8 +10,8 @@ import (
 	"context"
 	"fmt"
 
-	"go.mozilla.org/sops/v3/keys"
-	"go.mozilla.org/sops/v3/keyservice"
+	"github.com/getsops/sops/v3/keys"
+	"github.com/getsops/sops/v3/keyservice"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"

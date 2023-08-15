@@ -9,7 +9,7 @@ package keyservice
 import (
 	extage "filippo.io/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
-	"go.mozilla.org/sops/v3/keyservice"
+	"github.com/getsops/sops/v3/keyservice"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"

@@ -31,11 +31,11 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"go.mozilla.org/sops/v3"
-	"go.mozilla.org/sops/v3/aes"
-	"go.mozilla.org/sops/v3/cmd/sops/common"
-	"go.mozilla.org/sops/v3/cmd/sops/formats"
-	"go.mozilla.org/sops/v3/keyservice"
+	"github.com/getsops/sops/v3"
+	"github.com/getsops/sops/v3/aes"
+	"github.com/getsops/sops/v3/cmd/sops/common"
+	"github.com/getsops/sops/v3/cmd/sops/formats"
+	"github.com/getsops/sops/v3/keyservice"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -302,7 +302,7 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 		// Compute the hash of the cleartext tree and compare it with
 		// the one that was stored in the document. If they match,
 		// integrity was preserved
-		// Ref: go.mozilla.org/sops/v3/decrypt/decrypt.go
+		// Ref: github.com/getsops/sops/v3/decrypt/decrypt.go
 		originalMac, err := cipher.Decrypt(
 			tree.Metadata.MessageAuthenticationCode,
 			metadataKey,

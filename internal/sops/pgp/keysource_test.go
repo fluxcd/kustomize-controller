@@ -16,8 +16,8 @@ import (
 	"time"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	"github.com/getsops/sops/v3/pgp"
 	. "github.com/onsi/gomega"
-	"go.mozilla.org/sops/v3/pgp"
 )
 
 var (

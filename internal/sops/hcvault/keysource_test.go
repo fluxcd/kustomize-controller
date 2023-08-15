@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getsops/sops/v3/hcvault"
 	"github.com/hashicorp/vault/api"
 	. "github.com/onsi/gomega"
 	"github.com/ory/dockertest/v3"
-	"go.mozilla.org/sops/v3/hcvault"
 )
 
 var (

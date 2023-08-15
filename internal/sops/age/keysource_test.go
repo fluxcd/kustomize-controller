@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	"github.com/getsops/sops/v3/age"
 	. "github.com/onsi/gomega"
-	"go.mozilla.org/sops/v3/age"
 )
 
 const (

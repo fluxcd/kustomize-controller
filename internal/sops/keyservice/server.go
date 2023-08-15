@@ -9,7 +9,7 @@ package keyservice
 import (
 	"fmt"
 
-	"go.mozilla.org/sops/v3/keyservice"
+	"github.com/getsops/sops/v3/keyservice"
 	"golang.org/x/net/context"
 
 	"github.com/fluxcd/kustomize-controller/internal/sops/age"
