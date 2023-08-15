@@ -15,6 +15,7 @@ import (
 	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
+	"github.com/getsops/sops/v3/logging"
 	"github.com/getsops/sops/v3/pgp"
 	"golang.org/x/net/context"
 
@@ -72,11 +73,17 @@ func NewServer(options ...ServerOption) keyservice.KeyServiceServer {
 	for _, opt := range options {
 		opt.ApplyToServer(s)
 	}
+
 	if s.defaultServer == nil {
 		s.defaultServer = &keyservice.Server{
 			Prompt: false,
 		}
 	}
+
+	// Effectively disable any logging from the key services.
+	// 0 equals to panic level, which should never be reached.
+	logging.SetLevel(0)
+
 	return s
 }
 
