@@ -12,12 +12,12 @@ import (
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/azkv"
 	"github.com/getsops/sops/v3/gcpkms"
+	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
 	"golang.org/x/net/context"
 
 	intazkv "github.com/fluxcd/kustomize-controller/internal/sops/azkv"
-	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
 
@@ -41,7 +41,7 @@ type Server struct {
 	// vaultToken is the token used for Encrypt and Decrypt operations of
 	// Hashicorp Vault requests.
 	// When empty, the request will be handled by defaultServer.
-	vaultToken hcvault.VaultToken
+	vaultToken hcvault.Token
 
 	// azureToken is the credential token used for Encrypt and Decrypt
 	// operations of Azure Key Vault requests.

@@ -13,11 +13,11 @@ import (
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/azkv"
 	"github.com/getsops/sops/v3/gcpkms"
+	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/keys"
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
 
-	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
 

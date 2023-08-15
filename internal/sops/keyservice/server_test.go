@@ -16,12 +16,12 @@ import (
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/azkv"
 	"github.com/getsops/sops/v3/gcpkms"
+	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 
-	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
 
@@ -96,7 +96,7 @@ func TestServer_EncryptDecrypt_HCVault(t *testing.T) {
 	g := NewWithT(t)
 
 	s := NewServer(WithVaultToken("token"))
-	key := KeyFromMasterKey(hcvault.MasterKeyFromAddress("https://example.com", "engine-path", "key-name"))
+	key := KeyFromMasterKey(hcvault.NewMasterKey("https://example.com", "engine-path", "key-name"))
 	_, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
 		Key: &key,
 	})
@@ -116,7 +116,7 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 	fallback := NewMockKeyServer()
 	s := NewServer(WithDefaultServer{Server: fallback})
 
-	key := KeyFromMasterKey(hcvault.MasterKeyFromAddress("https://example.com", "engine-path", "key-name"))
+	key := KeyFromMasterKey(hcvault.NewMasterKey("https://example.com", "engine-path", "key-name"))
 	encReq := &keyservice.EncryptRequest{
 		Key:       &key,
 		Plaintext: []byte("some data key"),
