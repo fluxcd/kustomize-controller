@@ -14,8 +14,7 @@ import (
 	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
-
-	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
+	"github.com/getsops/sops/v3/pgp"
 )
 
 // ServerOption is some configuration that modifies the Server.

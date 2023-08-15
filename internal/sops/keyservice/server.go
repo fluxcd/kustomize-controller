@@ -15,10 +15,10 @@ import (
 	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
+	"github.com/getsops/sops/v3/pgp"
 	"golang.org/x/net/context"
 
 	intazkv "github.com/fluxcd/kustomize-controller/internal/sops/azkv"
-	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
 
 // Server is a key service server that uses SOPS MasterKeys to fulfill
@@ -205,7 +205,7 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 }
 
 func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]byte, error) {
-	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint)
+	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint)
 	if ks.gnuPGHome != "" {
 		ks.gnuPGHome.ApplyToMasterKey(pgpKey)
 	}
@@ -217,7 +217,7 @@ func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]by
 }
 
 func (ks *Server) decryptWithPgp(key *keyservice.PgpKey, ciphertext []byte) ([]byte, error) {
-	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint)
+	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint)
 	if ks.gnuPGHome != "" {
 		ks.gnuPGHome.ApplyToMasterKey(pgpKey)
 	}

@@ -17,8 +17,7 @@ import (
 	"github.com/getsops/sops/v3/keys"
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
-
-	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
+	"github.com/getsops/sops/v3/pgp"
 )
 
 // KeyFromMasterKey converts a SOPS internal MasterKey to an RPC Key that can

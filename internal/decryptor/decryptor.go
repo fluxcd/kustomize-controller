@@ -39,6 +39,7 @@ import (
 	"github.com/getsops/sops/v3/cmd/sops/formats"
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
+	"github.com/getsops/sops/v3/pgp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -53,7 +54,6 @@ import (
 	intawskms "github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	intazkv "github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
-	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
 
 const (

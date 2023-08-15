@@ -19,16 +19,15 @@ import (
 	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
+	"github.com/getsops/sops/v3/pgp"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
-
-	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
 
 func TestServer_EncryptDecrypt_PGP(t *testing.T) {
 	const (
-		mockPublicKey   = "../pgp/testdata/public.gpg"
-		mockPrivateKey  = "../pgp/testdata/private.gpg"
+		mockPublicKey   = "testdata/public.gpg"
+		mockPrivateKey  = "testdata/private.gpg"
 		mockFingerprint = "B59DAF469E8C948138901A649732075EA221A7EA"
 	)
 
@@ -42,7 +41,7 @@ func TestServer_EncryptDecrypt_PGP(t *testing.T) {
 	g.Expect(gnuPGHome.ImportFile(mockPublicKey)).To(Succeed())
 
 	s := NewServer(WithGnuPGHome(gnuPGHome))
-	key := KeyFromMasterKey(pgp.MasterKeyFromFingerprint(mockFingerprint))
+	key := KeyFromMasterKey(pgp.NewMasterKeyFromFingerprint(mockFingerprint))
 	dataKey := []byte("some data key")
 	encResp, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
 		Key:       &key,
