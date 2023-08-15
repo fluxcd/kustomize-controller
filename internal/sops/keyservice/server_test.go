@@ -14,12 +14,12 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/azkv"
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 
-	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -164,9 +164,9 @@ func TestServer_EncryptDecrypt_azkv(t *testing.T) {
 
 	identity, err := azidentity.NewDefaultAzureCredential(nil)
 	g.Expect(err).ToNot(HaveOccurred())
-	s := NewServer(WithAzureToken{Token: azkv.NewToken(identity)})
+	s := NewServer(WithAzureToken{Token: azkv.NewTokenCredential(identity)})
 
-	key := KeyFromMasterKey(azkv.MasterKeyFromURL("", "", ""))
+	key := KeyFromMasterKey(azkv.NewMasterKey("", "", ""))
 	_, err = s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
 		Key: &key,
 	})

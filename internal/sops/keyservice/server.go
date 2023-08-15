@@ -10,11 +10,12 @@ import (
 	"fmt"
 
 	"github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/azkv"
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
 	"golang.org/x/net/context"
 
-	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
+	intazkv "github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
 	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
 	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
@@ -45,7 +46,7 @@ type Server struct {
 	// azureToken is the credential token used for Encrypt and Decrypt
 	// operations of Azure Key Vault requests.
 	// When nil, the request will be handled by defaultServer.
-	azureToken *azkv.Token
+	azureToken *azkv.TokenCredential
 
 	// awsCredsProvider is the Credentials object used for Encrypt and Decrypt
 	// operations of AWS KMS requests.
@@ -300,7 +301,15 @@ func (ks *Server) encryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, pla
 		Name:     key.Name,
 		Version:  key.Version,
 	}
-	if ks.azureToken != nil {
+	if ks.azureToken == nil {
+		// Ensure we use the default token credential if none is provided
+		// _without_ shelling out to `az`.
+		defaultToken, err := intazkv.DefaultTokenCredential()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Azure token credential to encrypt data: %w", err)
+		}
+		azkv.NewTokenCredential(defaultToken).ApplyToMasterKey(&azureKey)
+	} else {
 		ks.azureToken.ApplyToMasterKey(&azureKey)
 	}
 	if err := azureKey.Encrypt(plaintext); err != nil {
@@ -315,7 +324,15 @@ func (ks *Server) decryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, cip
 		Name:     key.Name,
 		Version:  key.Version,
 	}
-	if ks.azureToken != nil {
+	if ks.azureToken == nil {
+		// Ensure we use the default token credential if none is provided
+		// _without_ shelling out to `az`.
+		defaultToken, err := intazkv.DefaultTokenCredential()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Azure token credential to decrypt data: %w", err)
+		}
+		azkv.NewTokenCredential(defaultToken).ApplyToMasterKey(&azureKey)
+	} else {
 		ks.azureToken.ApplyToMasterKey(&azureKey)
 	}
 	azureKey.EncryptedKey = string(ciphertext)
