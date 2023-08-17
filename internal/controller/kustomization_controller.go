@@ -94,6 +94,7 @@ type KustomizationReconciler struct {
 	FailFast              bool
 	DefaultServiceAccount string
 	KubeConfigOpts        runtimeClient.KubeConfigOptions
+	ConcurrentSSA         int
 }
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
@@ -398,6 +399,7 @@ func (r *KustomizationReconciler) reconcile(
 		Group: kustomizev1.GroupVersion.Group,
 	})
 	resourceManager.SetOwnerLabels(objects, obj.GetName(), obj.GetNamespace())
+	resourceManager.SetConcurrency(r.ConcurrentSSA)
 
 	// Update status with the reconciliation progress.
 	progressingMsg = fmt.Sprintf("Detecting drift for revision %s with a timeout of %s", revision, obj.GetTimeout().String())

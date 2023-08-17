@@ -177,6 +177,7 @@ func TestMain(m *testing.M) {
 			Client:         testEnv,
 			EventRecorder:  testEnv.GetEventRecorderFor(controllerName),
 			Metrics:        testMetricsH,
+			ConcurrentSSA:  4,
 		}
 		if err := (reconciler).SetupWithManager(ctx, testEnv, KustomizationReconcilerOptions{
 			DependencyRequeueInterval: 2 * time.Second,
