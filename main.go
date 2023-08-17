@@ -79,6 +79,7 @@ func main() {
 		eventsAddr            string
 		healthAddr            string
 		concurrent            int
+		concurrentSSA         int
 		requeueDependency     time.Duration
 		clientOptions         runtimeClient.Options
 		kubeConfigOpts        runtimeClient.KubeConfigOptions
@@ -98,6 +99,7 @@ func main() {
 	flag.StringVar(&eventsAddr, "events-addr", "", "The address of the events receiver.")
 	flag.StringVar(&healthAddr, "health-addr", ":9440", "The address the health endpoint binds to.")
 	flag.IntVar(&concurrent, "concurrent", 4, "The number of concurrent kustomize reconciles.")
+	flag.IntVar(&concurrentSSA, "concurrent-ssa", 4, "The number of concurrent server-side apply operations.")
 	flag.DurationVar(&requeueDependency, "requeue-dependency", 30*time.Second, "The interval at which failing dependencies are reevaluated.")
 	flag.BoolVar(&noRemoteBases, "no-remote-bases", false,
 		"Disallow remote bases usage in Kustomize overlays. When this flag is enabled, all resources must refer to local files included in the source artifact.")
@@ -223,6 +225,7 @@ func main() {
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
 		NoRemoteBases:         noRemoteBases,
 		FailFast:              failFast,
+		ConcurrentSSA:         concurrentSSA,
 		KubeConfigOpts:        kubeConfigOpts,
 		PollingOpts:           pollingOpts,
 		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), pollingOpts),
