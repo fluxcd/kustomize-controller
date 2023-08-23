@@ -2,6 +2,64 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.1.0
+
+**Release date:** 2023-08-23
+
+This minor release comes with performance improvements, bug fixes and several new features.
+
+The apply behaviour has been extended with two policies `IfNotPresent` and `Ignore`.
+To change the apply behaviour for specific Kubernetes resources, you can annotate them with:
+
+| Annotation                          | Default    | Values                                                         | Role            |
+|-------------------------------------|------------|----------------------------------------------------------------|-----------------|
+| `kustomize.toolkit.fluxcd.io/ssa`   | `Override` | - `Override`<br/>- `Merge`<br/>- `IfNotPresent`<br/>- `Ignore` | Apply policy    |
+| `kustomize.toolkit.fluxcd.io/force` | `Disabled` | - `Enabled`<br/>- `Disabled`                                   | Recreate policy |
+| `kustomize.toolkit.fluxcd.io/prune` | `Enabled`  | - `Enabled`<br/>- `Disabled`                                   | Delete policy   |
+
+The `IfNotPresent` policy instructs the controller to only apply the Kubernetes resources if they are not present on the cluster.
+This policy can be used for Kubernetes `Secrets` and `ValidatingWebhookConfigurations` managed by cert-manager,
+where Flux creates the resources with fields that are later on mutated by other controllers.
+
+This version improves the health checking with fail-fast behaviour
+by detecting stalled Kubernetes rollouts.
+
+In addition, the controller now stops exporting an object's
+metrics as soon as the object has been deleted.
+
+Lastly, this release introduces two controller flags:
+
+- The `--concurrent-ssa` flag sets the number of concurrent server-side apply operations
+  performed by the controller. Defaults to 4 concurrent operations per reconciliation.
+- The `--interval-jitter-percentage` flag makes the
+  controller distribute the load more evenly when multiple objects are set up
+  with the same interval. The default of this flag is set to `5`, which means
+  that the interval will be jittered by a +/- 5% random value (e.g. if the
+  interval is 10 minutes, the actual reconciliation interval will be between 9.5
+  and 10.5 minutes).
+
+Improvements:
+- Add `--concurrent-ssa` flag
+  [#948](https://github.com/fluxcd/kustomize-controller/pull/948)
+- Add `IfNotPresent` and `Ignore` SSA policies
+  [#943](https://github.com/fluxcd/kustomize-controller/pull/943)
+- controller: jitter requeue interval
+  [#940](https://github.com/fluxcd/kustomize-controller/pull/940)
+- Enable fail-fast behavior for health checks
+  [#933](https://github.com/fluxcd/kustomize-controller/pull/933)
+- Bump `fluxcd/pkg/ssa` to improve immutable error detection
+  [#932](https://github.com/fluxcd/kustomize-controller/pull/932)
+- Update dependencies
+  [#939](https://github.com/fluxcd/kustomize-controller/pull/939)
+- Update Source API to v1.1.0
+  [#952](https://github.com/fluxcd/kustomize-controller/pull/952)
+
+Fixes:
+- Handle delete before adding finalizer
+  [#930](https://github.com/fluxcd/kustomize-controller/pull/930)
+- Delete stale metrics on object delete
+  [#944](https://github.com/fluxcd/kustomize-controller/pull/944)
+
 ## 1.0.1
 
 **Release date:** 2023-07-10
