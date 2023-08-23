@@ -144,7 +144,7 @@ stringData:
 			events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
 			g.Expect(len(events) > 0).To(BeTrue())
 			g.Expect(events[0].Type).To(BeIdenticalTo("Warning"))
-			g.Expect(events[0].Message).To(ContainSubstring("invalid, error: secret is immutable"))
+			g.Expect(events[0].Message).To(ContainSubstring("field is immutable"))
 		})
 	})
 
