@@ -31,11 +31,15 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"go.mozilla.org/sops/v3"
-	"go.mozilla.org/sops/v3/aes"
-	"go.mozilla.org/sops/v3/cmd/sops/common"
-	"go.mozilla.org/sops/v3/cmd/sops/formats"
-	"go.mozilla.org/sops/v3/keyservice"
+	"github.com/getsops/sops/v3"
+	"github.com/getsops/sops/v3/aes"
+	"github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/azkv"
+	"github.com/getsops/sops/v3/cmd/sops/common"
+	"github.com/getsops/sops/v3/cmd/sops/formats"
+	"github.com/getsops/sops/v3/keyservice"
+	awskms "github.com/getsops/sops/v3/kms"
+	"github.com/getsops/sops/v3/pgp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -47,11 +51,9 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
-	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
-	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
+	intawskms "github.com/fluxcd/kustomize-controller/internal/sops/awskms"
+	intazkv "github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
-	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
 
 const (
@@ -137,10 +139,10 @@ type Decryptor struct {
 	vaultToken string
 	// awsCredsProvider is the AWS credentials provider object used to authenticate
 	// towards any AWS KMS.
-	awsCredsProvider *awskms.CredsProvider
+	awsCredsProvider *awskms.CredentialsProvider
 	// azureToken is the Azure credential token used to authenticate towards
 	// any Azure Key Vault.
-	azureToken *azkv.Token
+	azureToken *azkv.TokenCredential
 	// gcpCredsJSON is the JSON credential file of the service account used to
 	// authenticate towards any GCP KMS.
 	gcpCredsJSON []byte
@@ -234,20 +236,24 @@ func (d *Decryptor) ImportKeys(ctx context.Context) error {
 				}
 			case filepath.Ext(DecryptionAWSKmsFile):
 				if name == DecryptionAWSKmsFile {
-					if d.awsCredsProvider, err = awskms.LoadCredsProviderFromYaml(value); err != nil {
+					awsCreds, err := intawskms.LoadStaticCredentialsFromYAML(value)
+					if err != nil {
 						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 					}
+					d.awsCredsProvider = awskms.NewCredentialsProvider(awsCreds)
 				}
 			case filepath.Ext(DecryptionAzureAuthFile):
 				// Make sure we have the absolute name
 				if name == DecryptionAzureAuthFile {
-					conf := azkv.AADConfig{}
-					if err = azkv.LoadAADConfigFromBytes(value, &conf); err != nil {
+					conf := intazkv.AADConfig{}
+					if err = intazkv.LoadAADConfigFromBytes(value, &conf); err != nil {
 						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 					}
-					if d.azureToken, err = azkv.TokenFromAADConfig(conf); err != nil {
+					azureToken, err := intazkv.TokenCredentialFromAADConfig(conf)
+					if err != nil {
 						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 					}
+					d.azureToken = azkv.NewTokenCredential(azureToken)
 				}
 			case filepath.Ext(DecryptionGCPCredsFile):
 				if name == DecryptionGCPCredsFile {
@@ -302,7 +308,7 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 		// Compute the hash of the cleartext tree and compare it with
 		// the one that was stored in the document. If they match,
 		// integrity was preserved
-		// Ref: go.mozilla.org/sops/v3/decrypt/decrypt.go
+		// Ref: github.com/getsops/sops/v3/decrypt/decrypt.go
 		originalMac, err := cipher.Decrypt(
 			tree.Metadata.MessageAuthenticationCode,
 			metadataKey,
@@ -551,19 +557,19 @@ func (d *Decryptor) sopsEncryptWithFormat(metadata sops.Metadata, data []byte, i
 }
 
 // keyServiceServer returns the SOPS (local) key service clients used to serve
-// decryption requests. loadKeyServiceServers() is only configured on the first
+// decryption requests. loadKeyServiceServer() is only configured on the first
 // call.
 func (d *Decryptor) keyServiceServer() []keyservice.KeyServiceClient {
 	d.localServiceOnce.Do(func() {
-		d.loadKeyServiceServers()
+		d.loadKeyServiceServer()
 	})
 	return d.keyServices
 }
 
-// loadKeyServiceServers loads the SOPS (local) key service clients used to
+// loadKeyServiceServer loads the SOPS (local) key service clients used to
 // serve decryption requests for the current set of Decryptor
 // credentials.
-func (d *Decryptor) loadKeyServiceServers() {
+func (d *Decryptor) loadKeyServiceServer() {
 	serverOpts := []intkeyservice.ServerOption{
 		intkeyservice.WithGnuPGHome(d.gnuPGHome),
 		intkeyservice.WithVaultToken(d.vaultToken),

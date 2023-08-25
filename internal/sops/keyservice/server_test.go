@@ -13,22 +13,21 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/azkv"
+	"github.com/getsops/sops/v3/gcpkms"
+	"github.com/getsops/sops/v3/hcvault"
+	"github.com/getsops/sops/v3/keyservice"
+	awskms "github.com/getsops/sops/v3/kms"
+	"github.com/getsops/sops/v3/pgp"
 	. "github.com/onsi/gomega"
-	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
-
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
-	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
-	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
-	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
-	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
-	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
 )
 
 func TestServer_EncryptDecrypt_PGP(t *testing.T) {
 	const (
-		mockPublicKey   = "../pgp/testdata/public.gpg"
-		mockPrivateKey  = "../pgp/testdata/private.gpg"
+		mockPublicKey   = "testdata/public.gpg"
+		mockPrivateKey  = "testdata/private.gpg"
 		mockFingerprint = "B59DAF469E8C948138901A649732075EA221A7EA"
 	)
 
@@ -42,7 +41,7 @@ func TestServer_EncryptDecrypt_PGP(t *testing.T) {
 	g.Expect(gnuPGHome.ImportFile(mockPublicKey)).To(Succeed())
 
 	s := NewServer(WithGnuPGHome(gnuPGHome))
-	key := KeyFromMasterKey(pgp.MasterKeyFromFingerprint(mockFingerprint))
+	key := KeyFromMasterKey(pgp.NewMasterKeyFromFingerprint(mockFingerprint))
 	dataKey := []byte("some data key")
 	encResp, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
 		Key:       &key,
@@ -96,7 +95,7 @@ func TestServer_EncryptDecrypt_HCVault(t *testing.T) {
 	g := NewWithT(t)
 
 	s := NewServer(WithVaultToken("token"))
-	key := KeyFromMasterKey(hcvault.MasterKeyFromAddress("https://example.com", "engine-path", "key-name"))
+	key := KeyFromMasterKey(hcvault.NewMasterKey("https://example.com", "engine-path", "key-name"))
 	_, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
 		Key: &key,
 	})
@@ -116,7 +115,7 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 	fallback := NewMockKeyServer()
 	s := NewServer(WithDefaultServer{Server: fallback})
 
-	key := KeyFromMasterKey(hcvault.MasterKeyFromAddress("https://example.com", "engine-path", "key-name"))
+	key := KeyFromMasterKey(hcvault.NewMasterKey("https://example.com", "engine-path", "key-name"))
 	encReq := &keyservice.EncryptRequest{
 		Key:       &key,
 		Plaintext: []byte("some data key"),
@@ -142,7 +141,7 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 func TestServer_EncryptDecrypt_awskms(t *testing.T) {
 	g := NewWithT(t)
 	s := NewServer(WithAWSKeys{
-		CredsProvider: awskms.NewCredsProvider(credentials.StaticCredentialsProvider{}),
+		CredsProvider: awskms.NewCredentialsProvider(credentials.StaticCredentialsProvider{}),
 	})
 
 	key := KeyFromMasterKey(awskms.NewMasterKeyFromArn("arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48", nil, ""))
@@ -164,9 +163,9 @@ func TestServer_EncryptDecrypt_azkv(t *testing.T) {
 
 	identity, err := azidentity.NewDefaultAzureCredential(nil)
 	g.Expect(err).ToNot(HaveOccurred())
-	s := NewServer(WithAzureToken{Token: azkv.NewToken(identity)})
+	s := NewServer(WithAzureToken{Token: azkv.NewTokenCredential(identity)})
 
-	key := KeyFromMasterKey(azkv.MasterKeyFromURL("", "", ""))
+	key := KeyFromMasterKey(azkv.NewMasterKey("", "", ""))
 	_, err = s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
 		Key: &key,
 	})
@@ -190,7 +189,7 @@ func TestServer_EncryptDecrypt_gcpkms(t *testing.T) {
 	s := NewServer(WithGCPCredsJSON([]byte(creds)))
 
 	resourceID := "projects/test-flux/locations/global/keyRings/test-flux/cryptoKeys/sops"
-	key := KeyFromMasterKey(gcpkms.MasterKeyFromResourceID(resourceID))
+	key := KeyFromMasterKey(gcpkms.NewMasterKeyFromResourceID(resourceID))
 	_, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
 		Key: &key,
 	})

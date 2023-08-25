@@ -8,14 +8,13 @@ package keyservice
 
 import (
 	extage "filippo.io/age"
-	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
-	"go.mozilla.org/sops/v3/keyservice"
-
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
-	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
-	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
-	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
-	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
+	"github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/azkv"
+	"github.com/getsops/sops/v3/gcpkms"
+	"github.com/getsops/sops/v3/hcvault"
+	"github.com/getsops/sops/v3/keyservice"
+	awskms "github.com/getsops/sops/v3/kms"
+	"github.com/getsops/sops/v3/pgp"
 )
 
 // ServerOption is some configuration that modifies the Server.
@@ -37,7 +36,7 @@ type WithVaultToken string
 
 // ApplyToServer applies this configuration to the given Server.
 func (o WithVaultToken) ApplyToServer(s *Server) {
-	s.vaultToken = hcvault.VaultToken(o)
+	s.vaultToken = hcvault.Token(o)
 }
 
 // WithAgeIdentities configures the parsed age identities on the Server.
@@ -50,7 +49,7 @@ func (o WithAgeIdentities) ApplyToServer(s *Server) {
 
 // WithAWSKeys configures the AWS credentials on the Server
 type WithAWSKeys struct {
-	CredsProvider *awskms.CredsProvider
+	CredsProvider *awskms.CredentialsProvider
 }
 
 // ApplyToServer applies this configuration to the given Server.
@@ -69,7 +68,7 @@ func (o WithGCPCredsJSON) ApplyToServer(s *Server) {
 
 // WithAzureToken configures the Azure credential token on the Server.
 type WithAzureToken struct {
-	Token *azkv.Token
+	Token *azkv.TokenCredential
 }
 
 // ApplyToServer applies this configuration to the given Server.

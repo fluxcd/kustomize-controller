@@ -10,15 +10,14 @@ import (
 	"context"
 	"fmt"
 
-	"go.mozilla.org/sops/v3/keys"
-	"go.mozilla.org/sops/v3/keyservice"
-
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
-	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
-	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
-	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
-	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
-	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
+	"github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/azkv"
+	"github.com/getsops/sops/v3/gcpkms"
+	"github.com/getsops/sops/v3/hcvault"
+	"github.com/getsops/sops/v3/keys"
+	"github.com/getsops/sops/v3/keyservice"
+	awskms "github.com/getsops/sops/v3/kms"
+	"github.com/getsops/sops/v3/pgp"
 )
 
 // KeyFromMasterKey converts a SOPS internal MasterKey to an RPC Key that can

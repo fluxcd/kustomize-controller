@@ -1,8 +1,18 @@
-// Copyright (C) 2022 The Flux authors
-//
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+/*
+Copyright 2023 The Flux authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package azkv
 
@@ -148,16 +158,16 @@ func TestTokenFromAADConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			got, err := TokenFromAADConfig(tt.config)
+			got, err := TokenCredentialFromAADConfig(tt.config)
 			if tt.wantErr {
 				g.Expect(err).To(HaveOccurred())
-				g.Expect(got.token).To(BeNil())
+				g.Expect(got).To(BeNil())
 				return
 			}
 
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(got.token).ToNot(BeNil())
-			g.Expect(got.token).To(BeAssignableToTypeOf(tt.want))
+			g.Expect(got).ToNot(BeNil())
+			g.Expect(got).To(BeAssignableToTypeOf(tt.want))
 		})
 	}
 }
