@@ -50,6 +50,23 @@ func TestNewGnuPGHome(t *testing.T) {
 	g.Expect(gnuPGHome.Validate()).ToNot(HaveOccurred())
 }
 
+func TestGnuPGHome_Import_With_Missing_Binary(t *testing.T) {
+	os.Setenv(SopsGpgExecEnv, "/does/not/exist")
+	g := NewWithT(t)
+
+	gnuPGHome, err := NewGnuPGHome()
+	g.Expect(err).NotTo(HaveOccurred())
+	t.Cleanup(func() {
+		_ = os.RemoveAll(gnuPGHome.String())
+		os.Unsetenv(SopsGpgExecEnv)
+	})
+
+	b, err := os.ReadFile(mockPublicKey)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(gnuPGHome.Import(b)).To(MatchError(HavePrefix(
+		"failed to import armored key data into GnuPG keyring: fork/exec /does/not/exist: no such file or directory")))
+}
+
 func TestGnuPGHome_Import(t *testing.T) {
 	g := NewWithT(t)
 
