@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -95,6 +96,7 @@ type KustomizationReconciler struct {
 	DefaultServiceAccount string
 	KubeConfigOpts        runtimeClient.KubeConfigOptions
 	ConcurrentSSA         int
+	ImplicitSubstitutions bool
 }
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
@@ -103,6 +105,10 @@ type KustomizationReconcilerOptions struct {
 	DependencyRequeueInterval time.Duration
 	RateLimiter               ratelimiter.RateLimiter
 }
+
+var (
+	refAndRevisionRE = regexp.MustCompile("([^@]+)@sha1:(.+)")
+)
 
 func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
 	const (
@@ -380,7 +386,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Build the Kustomize overlay and decrypt secrets if needed.
-	resources, err := r.build(ctx, obj, unstructured.Unstructured{Object: k}, tmpDir, dirPath)
+	resources, err := r.build(ctx, obj, src.GetArtifact(), unstructured.Unstructured{Object: k}, tmpDir, dirPath)
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
 		return err
@@ -573,7 +579,7 @@ func (r *KustomizationReconciler) generate(obj unstructured.Unstructured,
 }
 
 func (r *KustomizationReconciler) build(ctx context.Context,
-	obj *kustomizev1.Kustomization, u unstructured.Unstructured,
+	obj *kustomizev1.Kustomization, artifact *sourcev1.Artifact, u unstructured.Unstructured,
 	workDir, dirPath string) ([]byte, error) {
 	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, obj)
 	if err != nil {
@@ -614,6 +620,22 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 				if err != nil {
 					return nil, err
 				}
+			}
+		}
+
+		// add built-in substitutions
+		if r.ImplicitSubstitutions {
+			if obj.Spec.PostBuild == nil {
+				obj.Spec.PostBuild = &kustomizev1.PostBuild{}
+			}
+			if obj.Spec.PostBuild.Substitute == nil {
+				obj.Spec.PostBuild.Substitute = make(map[string]string)
+			}
+			obj.Spec.PostBuild.Substitute["FLUX_ARTIFACT_REVISION"] = artifact.Revision
+			matches := refAndRevisionRE.FindStringSubmatch(artifact.Revision)
+			if len(matches) == 3 {
+				obj.Spec.PostBuild.Substitute["FLUX_ARTIFACT_REF"] = matches[1]
+				obj.Spec.PostBuild.Substitute["FLUX_ARTIFACT_SHA"] = matches[2]
 			}
 		}
 
