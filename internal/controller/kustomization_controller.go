@@ -95,6 +95,7 @@ type KustomizationReconciler struct {
 	DefaultServiceAccount string
 	KubeConfigOpts        runtimeClient.KubeConfigOptions
 	ConcurrentSSA         int
+	ImplicitSubstitutions bool
 }
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
@@ -615,6 +616,17 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 					return nil, err
 				}
 			}
+		}
+
+		// add built-in substitutions
+		if r.ImplicitSubstitutions {
+			if obj.Spec.PostBuild == nil {
+				obj.Spec.PostBuild = &kustomizev1.PostBuild{}
+			}
+			if obj.Spec.PostBuild.Substitute == nil {
+				obj.Spec.PostBuild.Substitute = make(map[string]string)
+			}
+			obj.Spec.PostBuild.Substitute["FLUX_LAST_ATTEMPTED_REVISION"] = obj.Status.LastAttemptedRevision
 		}
 
 		// run variable substitutions
