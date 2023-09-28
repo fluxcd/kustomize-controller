@@ -5,12 +5,12 @@ of Kubernetes objects generated with Kustomize.
 
 ## Specification
 
-- [Kustomization CRD](kustomization.md)
-    + [Example](kustomization.md#example)
-    + [Writing a Kustomization spec](kustomization.md#writing-a-kustomization-spec)
-    + [Working with Kustomizations](kustomization.md#working-with-kustomizations)
-      * [Recommended settings](kustomization.md#recommended-settings)
-    + [Kustomization Status](kustomization.md#kustomization-status)
+- [Kustomization CRD](kustomizations.md)
+    + [Example](kustomizations.md#example)
+    + [Writing a Kustomization spec](kustomizations.md#writing-a-kustomization-spec)
+    + [Working with Kustomizations](kustomizations.md#working-with-kustomizations)
+      * [Recommended settings](kustomizations.md#recommended-settings)
+    + [Kustomization Status](kustomizations.md#kustomization-status)
 
 ## Implementation
 
