@@ -5,16 +5,16 @@ of Kubernetes objects generated with Kustomize.
 
 ## Specification
 
-- [Kustomization CRD](kustomization.md)
-    + [Source reference](kustomization.md#source-reference)
-    + [Generate kustomization.yaml](kustomization.md#generate-kustomizationyaml)
-    + [Reconciliation](kustomization.md#reconciliation)
-    + [Garbage collection](kustomization.md#garbage-collection)
-    + [Health assessment](kustomization.md#health-assessment)
-    + [Kustomization dependencies](kustomization.md#kustomization-dependencies)
-    + [Role-based access control](kustomization.md#role-based-access-control)
-    + [Secrets decryption](kustomization.md#secrets-decryption)
-    + [Status](kustomization.md#status)
+- [Kustomization CRD](kustomizations.md)
+    + [Source reference](kustomizations.md#source-reference)
+    + [Generate kustomization.yaml](kustomizations.md#generate-kustomizationyaml)
+    + [Reconciliation](kustomizations.md#reconciliation)
+    + [Garbage collection](kustomizations.md#garbage-collection)
+    + [Health assessment](kustomizations.md#health-assessment)
+    + [Kustomization dependencies](kustomizations.md#kustomization-dependencies)
+    + [Role-based access control](kustomizations.md#role-based-access-control)
+    + [Secrets decryption](kustomizations.md#secrets-decryption)
+    + [Status](kustomizations.md#status)
 
 ## Implementation
 
