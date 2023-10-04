@@ -244,10 +244,10 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Requeue the reconciliation if the source artifact is not found.
 	if artifactSource.GetArtifact() == nil {
-		msg := "Source is not ready, artifact not found"
+		msg := fmt.Sprintf("Source artifact not found, retrying in %s", r.requeueDependency.String())
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, msg)
 		log.Info(msg)
-		return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
+		return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 	}
 
 	// Check dependencies and requeue the reconciliation if the check fails.
