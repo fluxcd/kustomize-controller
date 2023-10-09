@@ -21,11 +21,11 @@ require (
 	github.com/fluxcd/pkg/apis/event v0.5.2
 	github.com/fluxcd/pkg/apis/kustomize v1.1.1
 	github.com/fluxcd/pkg/apis/meta v1.1.2
-	github.com/fluxcd/pkg/http/fetch v0.5.2
+	github.com/fluxcd/pkg/http/fetch v0.6.0
 	github.com/fluxcd/pkg/kustomize v1.3.4
 	github.com/fluxcd/pkg/runtime v0.42.0
-	github.com/fluxcd/pkg/ssa v0.32.0
-	github.com/fluxcd/pkg/tar v0.2.0
+	github.com/fluxcd/pkg/ssa v0.32.1
+	github.com/fluxcd/pkg/tar v0.3.0
 	github.com/fluxcd/pkg/testserver v0.4.0
 	github.com/fluxcd/source-controller/api v1.1.0
 	github.com/getsops/sops/v3 v3.8.0-rc.1
@@ -159,7 +159,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/opencontainers/go-digest/blake3 v0.0.0-20230329235805-65fac7b55eb7 // indirect
+	github.com/opencontainers/go-digest/blake3 v0.0.0-20230801144141-122dc6384261 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/opencontainers/runc v1.1.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
