@@ -301,7 +301,7 @@ func (r *KustomizationReconciler) reconcile(
 	conditions.MarkUnknown(obj, meta.ReadyCondition, meta.ProgressingReason, "Reconciliation in progress")
 	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
 	if err := r.patch(ctx, obj, patcher); err != nil {
-		return fmt.Errorf("failed to update status, error: %w", err)
+		return fmt.Errorf("failed to update status: %w", err)
 	}
 
 	// Create a snapshot of the current inventory.
@@ -345,7 +345,7 @@ func (r *KustomizationReconciler) reconcile(
 	progressingMsg = fmt.Sprintf("Building manifests for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
 	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
 	if err := r.patch(ctx, obj, patcher); err != nil {
-		return fmt.Errorf("failed to update status, error: %w", err)
+		return fmt.Errorf("failed to update status: %w", err)
 	}
 
 	// Configure the Kubernetes client for impersonation.
@@ -405,7 +405,7 @@ func (r *KustomizationReconciler) reconcile(
 	progressingMsg = fmt.Sprintf("Detecting drift for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
 	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
 	if err := r.patch(ctx, obj, patcher); err != nil {
-		return fmt.Errorf("failed to update status, error: %w", err)
+		return fmt.Errorf("failed to update status: %w", err)
 	}
 
 	// Validate and apply resources in stages.
@@ -868,7 +868,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	conditions.MarkReconciling(obj, meta.ProgressingReason, message)
 	conditions.MarkUnknown(obj, kustomizev1.HealthyCondition, meta.ProgressingReason, message)
 	if err := r.patch(ctx, obj, patcher); err != nil {
-		return fmt.Errorf("unable to update the healthy status to progressing, error: %w", err)
+		return fmt.Errorf("unable to update the healthy status to progressing: %w", err)
 	}
 
 	// Check the health with a default timeout of 30sec shorter than the reconciliation interval.
@@ -879,7 +879,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	}); err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
 		conditions.MarkFalse(obj, kustomizev1.HealthyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
-		return fmt.Errorf("Health check failed after %s: %w", time.Since(checkStart).String(), err)
+		return fmt.Errorf("health check failed after %s: %w", time.Since(checkStart).String(), err)
 	}
 
 	// Emit recovery event if the previous health check failed.
@@ -890,7 +890,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 
 	conditions.MarkTrue(obj, kustomizev1.HealthyCondition, meta.SucceededReason, msg)
 	if err := r.patch(ctx, obj, patcher); err != nil {
-		return fmt.Errorf("unable to update the healthy status to progressing, error: %w", err)
+		return fmt.Errorf("unable to update the healthy status to progressing: %w", err)
 	}
 
 	return nil
