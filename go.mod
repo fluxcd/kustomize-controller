@@ -21,7 +21,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.35
 	github.com/aws/aws-sdk-go-v2/service/kms v1.24.5
 	github.com/aws/aws-sdk-go-v2/service/sts v1.21.5
-	github.com/cyphar/filepath-securejoin v0.2.3
+	github.com/cyphar/filepath-securejoin v0.2.4
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/kustomize-controller/api v1.1.0
 	github.com/fluxcd/pkg/apis/acl v0.1.0
