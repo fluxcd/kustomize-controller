@@ -747,9 +747,10 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		if err != nil {
 			return false, nil, err
 		}
-		resultSet.Append(changeSet.Entries)
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
+			resultSet.Append(changeSet.Entries)
+
 			log.Info("server-side apply for cluster definitions completed", "output", changeSet.ToMap())
 			for _, change := range changeSet.Entries {
 				if HasChanged(change.Action) {
@@ -772,9 +773,10 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		if err != nil {
 			return false, nil, err
 		}
-		resultSet.Append(changeSet.Entries)
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
+			resultSet.Append(changeSet.Entries)
+
 			log.Info("server-side apply for cluster class types completed", "output", changeSet.ToMap())
 			for _, change := range changeSet.Entries {
 				if HasChanged(change.Action) {
@@ -798,9 +800,10 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		if err != nil {
 			return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String())
 		}
-		resultSet.Append(changeSet.Entries)
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
+			resultSet.Append(changeSet.Entries)
+
 			log.Info("server-side apply completed", "output", changeSet.ToMap(), "revision", revision)
 			for _, change := range changeSet.Entries {
 				if HasChanged(change.Action) {
