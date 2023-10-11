@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.1.1
+
+**Release date:** 2023-10-11
+
+This patch release contains an improvement to retry the reconciliation of a
+`Kustomization` as soon as the source artifact is available in storage.
+Which is particularly useful when the source-controller has just been upgraded.
+
+In addition, the controller can now detect immutable field errors returned by the
+Google Cloud k8s-config-connector admission controller and recreate the GCP custom
+resources annotated with `kustomize.toolkit.fluxcd.io/force: Enabled`.
+
+Improvements:
+- Update `fluxcd/pkg` dependencies
+  [#983](https://github.com/fluxcd/kustomize-controller/pull/983)
+- Bump `github.com/cyphar/filepath-securejoi`n from 0.2.3 to 0.2.4
+  [#962](https://github.com/fluxcd/kustomize-controller/pull/962)
+
+Fixes:
+- fix: Retry when artifacts are available in storage
+  [#980](https://github.com/fluxcd/kustomize-controller/pull/980)
+- fix: Consistent artifact fetching retry timing
+  [#978](https://github.com/fluxcd/kustomize-controller/pull/978)
+
 ## 1.1.0
 
 **Release date:** 2023-08-23
