@@ -56,10 +56,10 @@ func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) h
 			return nil
 		}
 		var dd []dependency.Dependent
-		for _, d := range list.Items {
+		for i, d := range list.Items {
 			// If the Kustomization is ready and the revision of the artifact equals
 			// to the last attempted revision, we should not make a request for this Kustomization
-			if conditions.IsReady(&d) && repo.GetArtifact().HasRevision(d.Status.LastAttemptedRevision) {
+			if conditions.IsReady(&list.Items[i]) && repo.GetArtifact().HasRevision(d.Status.LastAttemptedRevision) {
 				continue
 			}
 			dd = append(dd, d.DeepCopy())

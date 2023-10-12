@@ -133,6 +133,7 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 		Ciphertext: []byte("some ciphertext"),
 	}
 	_, err = s.Decrypt(context.TODO(), decReq)
+	g.Expect(err).To(HaveOccurred())
 	g.Expect(fallback.decryptReqs).To(HaveLen(1))
 	g.Expect(fallback.decryptReqs).To(ContainElement(decReq))
 	g.Expect(fallback.encryptReqs).To(HaveLen(0))

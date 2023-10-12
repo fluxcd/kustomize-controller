@@ -27,7 +27,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/engine"
@@ -183,7 +183,7 @@ func main() {
 		},
 		Controller: ctrlcfg.Controller{
 			MaxConcurrentReconciles: concurrent,
-			RecoverPanic:            pointer.Bool(true),
+			RecoverPanic:            ptr.To(true),
 		},
 	})
 	if err != nil {
