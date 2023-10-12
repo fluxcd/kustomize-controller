@@ -213,6 +213,7 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 
 func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]byte, error) {
 	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint)
+	pgp.DisableOpenPGP{}.ApplyToMasterKey(pgpKey)
 	if ks.gnuPGHome != "" {
 		ks.gnuPGHome.ApplyToMasterKey(pgpKey)
 	}
@@ -225,6 +226,7 @@ func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]by
 
 func (ks *Server) decryptWithPgp(key *keyservice.PgpKey, ciphertext []byte) ([]byte, error) {
 	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint)
+	pgp.DisableOpenPGP{}.ApplyToMasterKey(pgpKey)
 	if ks.gnuPGHome != "" {
 		ks.gnuPGHome.ApplyToMasterKey(pgpKey)
 	}
