@@ -508,7 +508,7 @@ func (d *Decryptor) sopsDecryptFile(path string, inputFormat, outputFormat forma
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(path, out, 0o644)
+	err = os.WriteFile(path, out, 0o600)
 	if err != nil {
 		return fmt.Errorf("error writing sops decrypted %s data to %s file: %w",
 			sopsFormatToString[inputFormat], sopsFormatToString[outputFormat], err)

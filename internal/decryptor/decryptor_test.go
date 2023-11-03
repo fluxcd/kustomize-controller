@@ -906,7 +906,7 @@ func TestDecryptor_decryptKustomizationEnvSources(t *testing.T) {
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(data).ToNot(Equal(f.data))
 				}
-				g.Expect(os.WriteFile(fPath, data, 0o644)).To(Succeed())
+				g.Expect(os.WriteFile(fPath, data, 0o600)).To(Succeed())
 			}
 
 			visited := make(map[string]struct{}, 0)
@@ -1050,7 +1050,7 @@ func TestDecryptor_decryptSopsFile(t *testing.T) {
 					data = b
 				}
 				g.Expect(os.MkdirAll(filepath.Dir(fPath), 0o700)).To(Succeed())
-				g.Expect(os.WriteFile(fPath, data, 0o644)).To(Succeed())
+				g.Expect(os.WriteFile(fPath, data, 0o600)).To(Succeed())
 			}
 
 			path := filepath.Join(tmpDir, tt.path)
@@ -1164,7 +1164,7 @@ func TestDecryptor_secureLoadKustomizationFile(t *testing.T) {
 					continue
 				}
 				g.Expect(os.MkdirAll(filepath.Dir(fPath), 0o700)).To(Succeed())
-				g.Expect(os.WriteFile(fPath, f.data, 0o644)).To(Succeed())
+				g.Expect(os.WriteFile(fPath, f.data, 0o600)).To(Succeed())
 			}
 
 			root := filepath.Join(tmpDir, tt.rootSuffix)
@@ -1438,7 +1438,7 @@ func TestDecryptor_recurseKustomizationFiles(t *testing.T) {
 				b, err := yaml.Marshal(kus)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(os.MkdirAll(filepath.Dir(path), 0o700)).To(Succeed())
-				g.Expect(os.WriteFile(path, b, 0o644))
+				g.Expect(os.WriteFile(path, b, 0o600))
 			}
 
 			visit := func(root, path string, kus *kustypes.Kustomization) error {
