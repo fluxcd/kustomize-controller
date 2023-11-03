@@ -25,8 +25,8 @@ require (
 	github.com/fluxcd/pkg/kustomize v1.3.4
 	github.com/fluxcd/pkg/runtime v0.42.0
 	github.com/fluxcd/pkg/ssa v0.32.1
-	github.com/fluxcd/pkg/tar v0.3.0
-	github.com/fluxcd/pkg/testserver v0.4.0
+	github.com/fluxcd/pkg/tar v0.4.0
+	github.com/fluxcd/pkg/testserver v0.5.0
 	github.com/fluxcd/source-controller/api v1.1.2
 	github.com/getsops/sops/v3 v3.8.1
 	github.com/hashicorp/vault/api v1.10.0
@@ -65,7 +65,7 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.1.1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
-	github.com/Microsoft/go-winio v0.6.0 // indirect
+	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230923063757-afb1ddc0824c // indirect
 	github.com/acomagu/bufpipe v1.0.4 // indirect
@@ -107,7 +107,7 @@ require (
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.4.1 // indirect
-	github.com/go-git/go-git/v5 v5.7.0 // indirect
+	github.com/go-git/go-git/v5 v5.8.1 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/zapr v1.2.4 // indirect

@@ -31,8 +31,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/toml v1.3.2/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=
 github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ4pzQ=
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
-github.com/Microsoft/go-winio v0.6.0 h1:slsWYD/zyx7lCXoZVlvQrj0hPTM1HI4+v1sIda2yDvg=
-github.com/Microsoft/go-winio v0.6.0/go.mod h1:cTAf44im0RAYeL23bpB+fzCyDH2MJiz2BO69KH/soAE=
+github.com/Microsoft/go-winio v0.6.1 h1:9/kr64B9VUZrLm5YYwbGtUJnMgqWVOdUAXu6Migciow=
+github.com/Microsoft/go-winio v0.6.1/go.mod h1:LRdKpFKfdobln8UmuiYcKPot9D2v6svN5+sAH+4kjUM=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
@@ -164,10 +164,10 @@ github.com/fluxcd/pkg/sourceignore v0.3.4 h1:0cfS2Pj7xp2qpaerMjYqOBr82LC+/mGHl6v
 github.com/fluxcd/pkg/sourceignore v0.3.4/go.mod h1:ejLx+/uIrPUgqVzMTR5JiWuUnzs+zTkoEf9gS92LqaE=
 github.com/fluxcd/pkg/ssa v0.32.1 h1:mqFko4p4bGtRfDJ7BXCQCDj0afNMOLhaRlMdJULXr3U=
 github.com/fluxcd/pkg/ssa v0.32.1/go.mod h1:+Kf5euYAbvgJX645bo+IL7V/NlH0X7kGgFTr1W++I3c=
-github.com/fluxcd/pkg/tar v0.3.0 h1:gIdCIIuvV5aH193c1qYZeC6gpJOmw1p2OzhAvaUHNFI=
-github.com/fluxcd/pkg/tar v0.3.0/go.mod h1:SyJBaQvuv2VA/rv4d1OHhCV6R8+9QKc9np193EzNHBc=
-github.com/fluxcd/pkg/testserver v0.4.0 h1:pDZ3gistqYhwlf3sAjn1Q8NzN4Qe6I1BEmHMHi46lMg=
-github.com/fluxcd/pkg/testserver v0.4.0/go.mod h1:gjOKX41okmrGYOa4oOF2fiLedDAfPo1XaG/EzrUUGBI=
+github.com/fluxcd/pkg/tar v0.4.0 h1:SuXpfXBIcSJ5R/yqQi2CBxBmV/i/LH0agqNAh2PWBZg=
+github.com/fluxcd/pkg/tar v0.4.0/go.mod h1:SyJBaQvuv2VA/rv4d1OHhCV6R8+9QKc9np193EzNHBc=
+github.com/fluxcd/pkg/testserver v0.5.0 h1:n/Iskk0tXNt2AgIgjz9qeFK/VhEXGfqeazABXZmO2Es=
+github.com/fluxcd/pkg/testserver v0.5.0/go.mod h1:/p4st6d0uPLy8wXydeF/kDJgxUYO9u2NqySuXb9S+Fo=
 github.com/fluxcd/source-controller/api v1.1.2 h1:FfKDKVWnopo+Q2pOAxgHEjrtr4MP41L8aapR4mqBhBk=
 github.com/fluxcd/source-controller/api v1.1.2/go.mod h1:ZLkaUd1KQIjtLPCvO63Ni5zpnSTVBAkeRgFBzMItbDQ=
 github.com/frankban/quicktest v1.11.3/go.mod h1:wRf/ReqHper53s+kmmSZizM8NamnL3IM0I9ntUbOk+k=
@@ -184,8 +184,8 @@ github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 h1:+zs/tPmkDkHx3U66D
 github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376/go.mod h1:an3vInlBmSxCcxctByoQdvwPiA7DTK7jaaFDBTtu0ic=
 github.com/go-git/go-billy/v5 v5.4.1 h1:Uwp5tDRkPr+l/TnbHOQzp+tmJfLceOlbVucgpTz8ix4=
 github.com/go-git/go-billy/v5 v5.4.1/go.mod h1:vjbugF6Fz7JIflbVpl1hJsGjSHNltrSw45YK/ukIvQg=
-github.com/go-git/go-git/v5 v5.7.0 h1:t9AudWVLmqzlo+4bqdf7GY+46SUuRsx59SboFxkq2aE=
-github.com/go-git/go-git/v5 v5.7.0/go.mod h1:coJHKEOk5kUClpsNlXrUvPrDxY3w3gjHvhcZd8Fodw8=
+github.com/go-git/go-git/v5 v5.8.1 h1:Zo79E4p7TRk0xoRgMq0RShiTHGKcKI4+DI6BfJc/Q+A=
+github.com/go-git/go-git/v5 v5.8.1/go.mod h1:FHFuoD6yGz5OSKEBK+aWN9Oah0q54Jxl0abmj6GnqAo=
 github.com/go-jose/go-jose/v3 v3.0.0 h1:s6rrhirfEP/CGIoc6p+PZAeogN2SxKav6Wp7+dyMWVo=
 github.com/go-jose/go-jose/v3 v3.0.0/go.mod h1:RNkWWRld676jZEYoV3+XK8L2ZnNSvIsxFMht0mSX+u8=
 github.com/go-logr/logr v1.2.0/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
