@@ -364,7 +364,7 @@ func createFiles(f *fuzz.ConsumeFuzzer, rootDir string) error {
 			continue // some errors here are not permanent, so we can try again with different values
 		}
 
-		err = os.MkdirAll(dirPath, 0o755)
+		err = os.MkdirAll(dirPath, 0o750)
 		if err != nil {
 			if noOfCreatedFiles > 0 {
 				return nil
@@ -433,7 +433,7 @@ func ensureDependencies() error {
 	// as it is being consumed directly from the embed.FS.
 	embedDirs := []string{"testdata/crd"}
 	for _, dir := range embedDirs {
-		err := os.MkdirAll(dir, 0o755)
+		err := os.MkdirAll(dir, 0o750)
 		if err != nil {
 			return fmt.Errorf("mkdir %s: %v", dir, err)
 		}
@@ -452,7 +452,7 @@ func ensureDependencies() error {
 				return fmt.Errorf("reading embedded file %s: %v", fileName, err)
 			}
 
-			os.WriteFile(fileName, data, 0o644)
+			os.WriteFile(fileName, data, 0o600)
 			if err != nil {
 				return fmt.Errorf("writing %s: %v", fileName, err)
 			}
@@ -727,7 +727,7 @@ func createArtifact(artifactServer *testserver.ArtifactServer, fixture, path str
 		return "", err
 	}
 
-	if err := os.Chmod(f.Name(), 0644); err != nil {
+	if err := os.Chmod(f.Name(), 0o600); err != nil {
 		return "", err
 	}
 
