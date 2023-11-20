@@ -28,14 +28,15 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/engine"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlcfg "sigs.k8s.io/controller-runtime/pkg/config"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	"github.com/fluxcd/cli-utils/pkg/kstatus/polling"
+	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/clusterreader"
+	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/engine"
 	"github.com/fluxcd/pkg/runtime/acl"
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
@@ -159,9 +160,8 @@ func main() {
 	}
 
 	restConfig := runtimeClient.GetConfigOrDie(clientOptions)
-	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
+	mgrConfig := ctrl.Options{
 		Scheme:                        scheme,
-		MetricsBindAddress:            metricsAddr,
 		HealthProbeBindAddress:        healthAddr,
 		LeaderElection:                leaderElectionOptions.Enable,
 		LeaderElectionReleaseOnCancel: leaderElectionOptions.ReleaseOnCancel,
@@ -179,20 +179,30 @@ func main() {
 			ByObject: map[ctrlclient.Object]ctrlcache.ByObject{
 				&kustomizev1.Kustomization{}: {Label: watchSelector},
 			},
-			Namespaces: []string{watchNamespace},
+		},
+		Metrics: metricsserver.Options{
+			BindAddress:   metricsAddr,
+			ExtraHandlers: pprof.GetHandlers(),
 		},
 		Controller: ctrlcfg.Controller{
 			MaxConcurrentReconciles: concurrent,
 			RecoverPanic:            ptr.To(true),
 		},
-	})
+	}
+
+	if watchNamespace != "" {
+		mgrConfig.Cache.DefaultNamespaces = map[string]ctrlcache.Config{
+			watchNamespace: ctrlcache.Config{},
+		}
+	}
+
+	mgr, err := ctrl.NewManager(restConfig, mgrConfig)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
 	probes.SetupChecks(mgr, setupLog)
-	pprof.SetupHandlers(mgr, setupLog)
 
 	var eventRecorder *events.Recorder
 	if eventRecorder, err = events.NewRecorder(mgr, ctrl.Log, eventsAddr, controllerName); err != nil {

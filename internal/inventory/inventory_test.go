@@ -22,8 +22,8 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"sigs.k8s.io/cli-utils/pkg/object"
 
+	"github.com/fluxcd/cli-utils/pkg/object"
 	"github.com/fluxcd/pkg/ssa"
 )
 

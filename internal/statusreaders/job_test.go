@@ -19,12 +19,13 @@ package statusreaders
 import (
 	"testing"
 
-	"github.com/fluxcd/pkg/runtime/patch"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
+
+	"github.com/fluxcd/cli-utils/pkg/kstatus/status"
+	"github.com/fluxcd/pkg/runtime/patch"
 )
 
 func Test_jobConditions(t *testing.T) {
