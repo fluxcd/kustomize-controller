@@ -76,6 +76,7 @@ func init() {
 
 func main() {
 	var (
+		implicitSubstitutions bool
 		metricsAddr           string
 		eventsAddr            string
 		healthAddr            string
@@ -102,6 +103,8 @@ func main() {
 	flag.IntVar(&concurrent, "concurrent", 4, "The number of concurrent kustomize reconciles.")
 	flag.IntVar(&concurrentSSA, "concurrent-ssa", 4, "The number of concurrent server-side apply operations.")
 	flag.DurationVar(&requeueDependency, "requeue-dependency", 30*time.Second, "The interval at which failing dependencies are reevaluated.")
+	flag.BoolVar(&implicitSubstitutions, "implicit-substitutions", false,
+		"Perform substitutions of built-in values such as last-attempted-revision; has side effects of ALWAYS performing substitutions!")
 	flag.BoolVar(&noRemoteBases, "no-remote-bases", false,
 		"Disallow remote bases usage in Kustomize overlays. When this flag is enabled, all resources must refer to local files included in the source artifact.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
@@ -233,6 +236,7 @@ func main() {
 		Metrics:               metricsH,
 		EventRecorder:         eventRecorder,
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
+		ImplicitSubstitutions: implicitSubstitutions,
 		NoRemoteBases:         noRemoteBases,
 		FailFast:              failFast,
 		ConcurrentSSA:         concurrentSSA,
