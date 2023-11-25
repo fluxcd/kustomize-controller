@@ -57,6 +57,7 @@ const (
 	interval               = time.Second * 1
 	reconciliationInterval = time.Second * 5
 	vaultVersion           = "1.13.2"
+	overrideManagerName    = "node-fetch"
 )
 
 var (
@@ -173,11 +174,12 @@ func TestMain(m *testing.M) {
 		kstatusInProgressCheck = kcheck.NewInProgressChecker(testEnv.Client)
 		kstatusInProgressCheck.DisableFetch = true
 		reconciler = &KustomizationReconciler{
-			ControllerName: controllerName,
-			Client:         testEnv,
-			EventRecorder:  testEnv.GetEventRecorderFor(controllerName),
-			Metrics:        testMetricsH,
-			ConcurrentSSA:  4,
+			ControllerName:          controllerName,
+			Client:                  testEnv,
+			EventRecorder:           testEnv.GetEventRecorderFor(controllerName),
+			Metrics:                 testMetricsH,
+			ConcurrentSSA:           4,
+			DisallowedFieldManagers: []string{overrideManagerName},
 		}
 		if err := (reconciler).SetupWithManager(ctx, testEnv, KustomizationReconcilerOptions{
 			DependencyRequeueInterval: 2 * time.Second,
