@@ -83,18 +83,19 @@ type KustomizationReconciler struct {
 	kuberecorder.EventRecorder
 	runtimeCtrl.Metrics
 
-	artifactFetcher       *fetch.ArchiveFetcher
-	requeueDependency     time.Duration
-	StatusPoller          *polling.StatusPoller
-	PollingOpts           polling.Options
-	ControllerName        string
-	statusManager         string
-	NoCrossNamespaceRefs  bool
-	NoRemoteBases         bool
-	FailFast              bool
-	DefaultServiceAccount string
-	KubeConfigOpts        runtimeClient.KubeConfigOptions
-	ConcurrentSSA         int
+	artifactFetcher         *fetch.ArchiveFetcher
+	requeueDependency       time.Duration
+	StatusPoller            *polling.StatusPoller
+	PollingOpts             polling.Options
+	ControllerName          string
+	statusManager           string
+	NoCrossNamespaceRefs    bool
+	NoRemoteBases           bool
+	FailFast                bool
+	DefaultServiceAccount   string
+	KubeConfigOpts          runtimeClient.KubeConfigOptions
+	ConcurrentSSA           int
+	DisallowedFieldManagers []string
 }
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
@@ -669,6 +670,41 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		fmt.Sprintf("%s/force", kustomizev1.GroupVersion.Group): kustomizev1.EnabledValue,
 	}
 
+	fieldManagers := []ssa.FieldManager{
+		{
+			// to undo changes made with 'kubectl apply --server-side --force-conflicts'
+			Name:          "kubectl",
+			OperationType: metav1.ManagedFieldsOperationApply,
+		},
+		{
+			// to undo changes made with 'kubectl apply'
+			Name:          "kubectl",
+			OperationType: metav1.ManagedFieldsOperationUpdate,
+		},
+		{
+			// to undo changes made with 'kubectl apply'
+			Name:          "before-first-apply",
+			OperationType: metav1.ManagedFieldsOperationUpdate,
+		},
+		{
+			// to undo changes made by the controller before SSA
+			Name:          r.ControllerName,
+			OperationType: metav1.ManagedFieldsOperationUpdate,
+		},
+	}
+
+	for _, fieldManager := range r.DisallowedFieldManagers {
+		fieldManagers = append(fieldManagers, ssa.FieldManager{
+			Name:          fieldManager,
+			OperationType: metav1.ManagedFieldsOperationApply,
+		})
+		// to undo changes made by the controller before SSA
+		fieldManagers = append(fieldManagers, ssa.FieldManager{
+			Name:          fieldManager,
+			OperationType: metav1.ManagedFieldsOperationUpdate,
+		})
+	}
+
 	applyOpts.Cleanup = ssa.ApplyCleanupOptions{
 		Annotations: []string{
 			// remove the kubectl annotation
@@ -681,28 +717,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 			// remove deprecated fluxcd.io labels
 			"fluxcd.io/sync-gc-mark",
 		},
-		FieldManagers: []ssa.FieldManager{
-			{
-				// to undo changes made with 'kubectl apply --server-side --force-conflicts'
-				Name:          "kubectl",
-				OperationType: metav1.ManagedFieldsOperationApply,
-			},
-			{
-				// to undo changes made with 'kubectl apply'
-				Name:          "kubectl",
-				OperationType: metav1.ManagedFieldsOperationUpdate,
-			},
-			{
-				// to undo changes made with 'kubectl apply'
-				Name:          "before-first-apply",
-				OperationType: metav1.ManagedFieldsOperationUpdate,
-			},
-			{
-				// to undo changes made by the controller before SSA
-				Name:          r.ControllerName,
-				OperationType: metav1.ManagedFieldsOperationUpdate,
-			},
-		},
+		FieldManagers: fieldManagers,
 		Exclusions: map[string]string{
 			fmt.Sprintf("%s/ssa", kustomizev1.GroupVersion.Group): kustomizev1.MergeValue,
 		},
