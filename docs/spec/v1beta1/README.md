@@ -1,23 +1,23 @@
-# kustomize.toolkit.fluxcd.io/v1alpha1
+# kustomize.toolkit.fluxcd.io/v1beta1
 
 This is the v1beta1 API specification for defining continuous delivery pipelines
 of Kubernetes objects generated with Kustomize.
 
 ## Specification
 
-- [Kustomization CRD](kustomization.md)
-    + [Source reference](kustomization.md#source-reference)
-    + [Generate kustomization.yaml](kustomization.md#generate-kustomizationyaml)
-    + [Reconciliation](kustomization.md#reconciliation)
-    + [Garbage collection](kustomization.md#garbage-collection)
-    + [Health assessment](kustomization.md#health-assessment)
-    + [Kustomization dependencies](kustomization.md#kustomization-dependencies)
-    + [Role-based access control](kustomization.md#role-based-access-control)
-    + [Override kustomize config](kustomization.md#override-kustomize-config)
-    + [Variable substitution](kustomization.md#variable-substitution)
-    + [Targeting remote clusters](kustomization.md#remote-clusters--cluster-api)
-    + [Secrets decryption](kustomization.md#secrets-decryption)
-    + [Status](kustomization.md#status)
+- [Kustomization CRD](kustomizations.md)
+    + [Source reference](kustomizations.md#source-reference)
+    + [Generate kustomization.yaml](kustomizations.md#generate-kustomizationyaml)
+    + [Reconciliation](kustomizations.md#reconciliation)
+    + [Garbage collection](kustomizations.md#garbage-collection)
+    + [Health assessment](kustomizations.md#health-assessment)
+    + [Kustomization dependencies](kustomizations.md#kustomization-dependencies)
+    + [Role-based access control](kustomizations.md#role-based-access-control)
+    + [Override kustomize config](kustomizations.md#override-kustomize-config)
+    + [Variable substitution](kustomizations.md#variable-substitution)
+    + [Targeting remote clusters](kustomizations.md#remote-clusters--cluster-api)
+    + [Secrets decryption](kustomizations.md#secrets-decryption)
+    + [Status](kustomizations.md#status)
 
 ## Implementation
 
