@@ -267,7 +267,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher)
 
 	// Requeue at the specified retry interval if the artifact tarball is not found.
-	if errors.Is(reconcileErr, fetch.FileNotFoundError) {
+	if errors.Is(reconcileErr, fetch.ErrFileNotFound) {
 		msg := fmt.Sprintf("Source is not ready, artifact not found, retrying in %s", r.requeueDependency.String())
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, msg)
 		log.Info(msg)
