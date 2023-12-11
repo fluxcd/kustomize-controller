@@ -2,6 +2,48 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.2.0
+
+**Release date:** 2023-12-11
+
+This minor release comes with performance improvements, bug fixes and several new features.
+
+The controller has been updated from Kustomize v5.0 to **v5.3**, please the see
+`kubernetes-sigs/kustomize` [changelog](https://github.com/kubernetes-sigs/kustomize/releases)
+for a more details.
+
+Starting with this version, the controller will automatically perform a cleanup of
+the Pods belonging to stale Kubernetes Jobs after a force apply.
+
+A new controller flag `--override-manager` has been added to extend the Field Managers disallow list.
+Using this flag, cluster administrators can configure the controller to undo changes
+made with Lens and other UI tools that directly modify Kubernetes objects on clusters.
+
+In addition, the controller dependencies have been updated, including an update to Kubernetes v1.28.
+The container base image has been updated to Alpine 3.19.
+
+Improvements:
+- Update source-controller to v1.2.2
+  [#1024](https://github.com/fluxcd/kustomize-controller/pull/1024)
+- build: update Alpine to 3.19
+  [#1023](https://github.com/fluxcd/kustomize-controller/pull/1023)
+- Update Kustomize to v5.3.0
+  [#1021](https://github.com/fluxcd/kustomize-controller/pull/1021)
+- Support additional Field Managers in the disallow list
+  [#1017](https://github.com/fluxcd/kustomize-controller/pull/1017)
+- Add test for Namespace custom resource
+  [#1016](https://github.com/fluxcd/kustomize-controller/pull/1016)
+- Update controller to Kubernetes v1.28.4
+  [#1014](https://github.com/fluxcd/kustomize-controller/pull/1014)
+- Disable status poller cache by default
+  [#1012](https://github.com/fluxcd/kustomize-controller/pull/1012)
+- Tweak permissions on various created files
+  [#1005](https://github.com/fluxcd/kustomize-controller/pull/1005)
+- Cleanup pods when recreating Kubernetes Jobs
+  [#997](https://github.com/fluxcd/kustomize-controller/pull/997)
+- Update SOPS to v3.8.1
+  [#995](https://github.com/fluxcd/kustomize-controller/pull/995)
+
 ## 1.1.1
 
 **Release date:** 2023-10-11
