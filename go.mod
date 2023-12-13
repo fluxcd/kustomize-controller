@@ -22,7 +22,7 @@ require (
 	github.com/fluxcd/pkg/apis/event v0.6.0
 	github.com/fluxcd/pkg/apis/kustomize v1.2.0
 	github.com/fluxcd/pkg/apis/meta v1.2.0
-	github.com/fluxcd/pkg/http/fetch v0.7.0
+	github.com/fluxcd/pkg/http/fetch v0.8.0
 	github.com/fluxcd/pkg/kustomize v1.5.0
 	github.com/fluxcd/pkg/runtime v0.43.2
 	github.com/fluxcd/pkg/ssa v0.35.0
