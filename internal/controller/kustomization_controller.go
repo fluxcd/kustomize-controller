@@ -83,8 +83,9 @@ type KustomizationReconciler struct {
 	kuberecorder.EventRecorder
 	runtimeCtrl.Metrics
 
-	artifactFetcher         *fetch.ArchiveFetcher
-	requeueDependency       time.Duration
+	artifactFetchRetries int
+	requeueDependency    time.Duration
+
 	StatusPoller            *polling.StatusPoller
 	PollingOpts             polling.Options
 	ControllerName          string
@@ -132,12 +133,7 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 
 	r.requeueDependency = opts.DependencyRequeueInterval
 	r.statusManager = fmt.Sprintf("gotk-%s", r.ControllerName)
-	r.artifactFetcher = fetch.NewArchiveFetcher(
-		opts.HTTPRetry,
-		tar.UnlimitedUntarSize,
-		tar.UnlimitedUntarSize,
-		os.Getenv("SOURCE_CONTROLLER_LOCALHOST"),
-	)
+	r.artifactFetchRetries = opts.HTTPRetry
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
@@ -322,8 +318,13 @@ func (r *KustomizationReconciler) reconcile(
 	defer os.RemoveAll(tmpDir)
 
 	// Download artifact and extract files to the tmp dir.
-	err = r.artifactFetcher.Fetch(src.GetArtifact().URL, src.GetArtifact().Digest, tmpDir)
-	if err != nil {
+	if err = fetch.NewArchiveFetcherWithLogger(
+		r.artifactFetchRetries,
+		tar.UnlimitedUntarSize,
+		tar.UnlimitedUntarSize,
+		os.Getenv("SOURCE_CONTROLLER_LOCALHOST"),
+		ctrl.LoggerFrom(ctx),
+	).Fetch(src.GetArtifact().URL, src.GetArtifact().Digest, tmpDir); err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
 		return err
 	}
