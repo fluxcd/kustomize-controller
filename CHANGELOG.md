@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.2.1
+
+**Release date:** 2023-12-14
+
+This patch release comes with improvements in logging to provide faster feedback
+on any HTTP errors encountered while fetching source artifacts.
+
+In addition, the status condition messages are now trimmed to respect the size
+limit defined by the API.
+
+Improvements:
+- Update runtime to v0.43.3
+  [#1031](https://github.com/fluxcd/kustomize-controller/pull/1031)
+- Log HTTP errors to provide faster feedback
+  [#1028](https://github.com/fluxcd/kustomize-controller/pull/1028)
+
 ## 1.2.0
 
 **Release date:** 2023-12-11
