@@ -24,8 +24,9 @@ updates:
       # Cloud SDKs are updated by SOPS
       - dependency-name: "github.com/Azure/*"
       - dependency-name: "github.com/aws/*"
-      # Ignore API pkg, since it's not bumped at release time
+      # Flux APIs pkg are updated at release time
       - dependency-name: "github.com/fluxcd/kustomize-controller/api"
+      - dependency-name: "github.com/fluxcd/source-controller/api"
   - package-ecosystem: "github-actions"
     directory: "/"
     labels: ["area/ci", "dependencies"]
