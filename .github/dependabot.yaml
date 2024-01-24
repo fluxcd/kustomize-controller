@@ -7,23 +7,19 @@ updates:
     schedule:
       interval: "daily"
     groups:
-      flux-deps:
-        patterns:
-          - "github.com/fluxcd/*"
       go-deps:
         patterns:
           - "*"
-        exclude-patterns:
-          - "github.com/fluxcd/*"
     allow:
       - dependency-type: "direct"
     ignore:
       # Kubernetes deps are updated by fluxcd/pkg
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/*"
-      # Cloud SDKs are updated by SOPS
+      # KMS SDKs are updated by SOPS
       - dependency-name: "github.com/Azure/*"
       - dependency-name: "github.com/aws/*"
+      - dependency-name: "github.com/hashicorp/vault/*"
       # Flux APIs pkg are updated at release time
       - dependency-name: "github.com/fluxcd/kustomize-controller/api"
       - dependency-name: "github.com/fluxcd/source-controller/api"
