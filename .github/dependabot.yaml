@@ -2,6 +2,21 @@ version: 2
 
 updates:
   - package-ecosystem: "gomod"
+    directory: "/api"
+    labels: ["dependencies"]
+    schedule:
+      interval: "daily"
+    groups:
+      go-deps:
+        patterns:
+          - "*"
+    allow:
+      - dependency-type: "direct"
+    ignore:
+      # Kubernetes deps are updated by fluxcd/pkg
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+  - package-ecosystem: "gomod"
     directory: "/"
     labels: ["dependencies"]
     schedule:
