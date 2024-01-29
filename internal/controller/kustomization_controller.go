@@ -27,6 +27,7 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
+	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -389,7 +390,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Convert the build result into Kubernetes unstructured objects.
-	objects, err := ssa.ReadObjects(bytes.NewReader(resources))
+	objects, err := ssautil.ReadObjects(bytes.NewReader(resources))
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
 		return err
@@ -655,7 +656,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	}
 
 	if meta := obj.Spec.CommonMetadata; meta != nil {
-		ssa.SetCommonMetadata(objects, meta.Labels, meta.Annotations)
+		ssautil.SetCommonMetadata(objects, meta.Labels, meta.Annotations)
 	}
 
 	applyOpts := ssa.DefaultApplyOptions()
@@ -741,11 +742,11 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		if decryptor.IsEncryptedSecret(u) {
 			return false, nil,
 				fmt.Errorf("%s is SOPS encrypted, configuring decryption is required for this secret to be reconciled",
-					ssa.FmtUnstructured(u))
+					ssautil.FmtUnstructured(u))
 		}
 
 		switch {
-		case ssa.IsClusterDefinition(u):
+		case ssautil.IsClusterDefinition(u):
 			defStage = append(defStage, u)
 		case strings.HasSuffix(u.GetKind(), "Class"):
 			classStage = append(classStage, u)
@@ -998,7 +999,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 			}
 		} else {
 			// when the account to impersonate is gone, log the stale objects and continue with the finalization
-			msg := fmt.Sprintf("unable to prune objects: \n%s", ssa.FmtUnstructuredList(objects))
+			msg := fmt.Sprintf("unable to prune objects: \n%s", ssautil.FmtUnstructuredList(objects))
 			log.Error(fmt.Errorf("skiping pruning, failed to find account to impersonate"), msg)
 			r.event(obj, obj.Status.LastAppliedRevision, eventv1.EventSeverityError, msg, nil)
 		}
