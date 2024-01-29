@@ -21,10 +21,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fluxcd/pkg/ssa"
+	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	. "github.com/onsi/gomega"
 
 	"github.com/fluxcd/cli-utils/pkg/object"
-	"github.com/fluxcd/pkg/ssa"
 )
 
 func Test_Inventory(t *testing.T) {
@@ -72,7 +73,7 @@ func readManifest(manifest string) (*ssa.ChangeSet, error) {
 		return nil, err
 	}
 
-	objects, err := ssa.ReadObjects(strings.NewReader(string(data)))
+	objects, err := ssautil.ReadObjects(strings.NewReader(string(data)))
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +84,7 @@ func readManifest(manifest string) (*ssa.ChangeSet, error) {
 		cse := ssa.ChangeSetEntry{
 			ObjMetadata:  object.UnstructuredToObjMetadata(o),
 			GroupVersion: o.GroupVersionKind().Version,
-			Subject:      ssa.FmtUnstructured(o),
+			Subject:      ssautil.FmtUnstructured(o),
 			Action:       ssa.CreatedAction,
 		}
 		cs.Add(cse)
