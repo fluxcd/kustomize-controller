@@ -2,6 +2,46 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.2.2
+
+**Release date:** 2024-02-01
+
+This patch release comes with various bug fixes and improvements.
+
+Reconciling empty directories and directories without Kubernetes manifests no
+longer results in an error. This regressing bug was introduced with the
+controller upgrade to Kustomize v5.3 and has been fixed in this patch release.
+
+The regression due to which the namespaced objects without a namespace specified
+resulted in `not found` error instead of `namespace not specified` has also been
+fixed. And the regression due to which Roles and ClusterRoles were reconciled
+over and over due to the normalization of Roles and ClusterRoles has also been
+fixed.
+
+In addition, the Kubernetes dependencies have been updated to v1.28.6. Various
+other dependencies have also been updated to their latest version to patch
+upstream CVEs.
+
+Lastly, the controller is now built with Go 1.21.
+
+Improvements:
+- Update Go to 1.21
+  [#1053](https://github.com/fluxcd/kustomize-controller/pull/1053)
+- Various dependency updates
+  [#1076](https://github.com/fluxcd/kustomize-controller/pull/1076)
+  [#1074](https://github.com/fluxcd/kustomize-controller/pull/1074)
+  [#1070](https://github.com/fluxcd/kustomize-controller/pull/1070)
+  [#1068](https://github.com/fluxcd/kustomize-controller/pull/1068)
+  [#1065](https://github.com/fluxcd/kustomize-controller/pull/1065)
+  [#1060](https://github.com/fluxcd/kustomize-controller/pull/1060)
+  [#1059](https://github.com/fluxcd/kustomize-controller/pull/1059)
+  [#1051](https://github.com/fluxcd/kustomize-controller/pull/1051)
+  [#1049](https://github.com/fluxcd/kustomize-controller/pull/1049)
+  [#1046](https://github.com/fluxcd/kustomize-controller/pull/1046)
+  [#1044](https://github.com/fluxcd/kustomize-controller/pull/1044)
+  [#1040](https://github.com/fluxcd/kustomize-controller/pull/1040)
+  [#1038](https://github.com/fluxcd/kustomize-controller/pull/1038)
+
 ## 1.2.1
 
 **Release date:** 2023-12-14
