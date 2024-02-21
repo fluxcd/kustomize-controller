@@ -1022,7 +1022,6 @@ func (r *KustomizationReconciler) event(obj *kustomizev1.Kustomization,
 	}
 
 	reason := severity
-	conditions.GetReason(obj, meta.ReadyCondition)
 	if r := conditions.GetReason(obj, meta.ReadyCondition); r != "" {
 		reason = r
 	}
