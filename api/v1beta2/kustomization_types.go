@@ -304,7 +304,6 @@ func (in *Kustomization) GetStatusConditions() *[]metav1.Condition {
 }
 
 // +genclient
-// +genclient:Namespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=ks
 // +kubebuilder:subresource:status
