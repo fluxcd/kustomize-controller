@@ -271,7 +271,6 @@ const (
 )
 
 // +genclient
-// +genclient:Namespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=ks
 // +kubebuilder:subresource:status
