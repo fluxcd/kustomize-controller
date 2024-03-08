@@ -237,7 +237,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 
 		// Retry with backoff on transient errors.
-		return ctrl.Result{Requeue: true}, err
+		return ctrl.Result{}, err
 	}
 
 	// Requeue the reconciliation if the source artifact is not found.
