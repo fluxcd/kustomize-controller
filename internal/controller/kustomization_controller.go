@@ -188,7 +188,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		// Log and emit success event.
 		if conditions.IsReady(obj) {
 			msg := fmt.Sprintf("Reconciliation finished in %s, next run in %s",
-				time.Since(reconcileStart).String(),
+				formatDurationSince(reconcileStart),
 				obj.Spec.Interval.Duration.String())
 			log.Info(msg, "revision", obj.Status.LastAttemptedRevision)
 			r.event(obj, obj.Status.LastAppliedRevision, eventv1.EventSeverityInfo, msg,
@@ -274,7 +274,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Broadcast the reconciliation failure and requeue at the specified retry interval.
 	if reconcileErr != nil {
 		log.Error(reconcileErr, fmt.Sprintf("Reconciliation failed after %s, next try in %s",
-			time.Since(reconcileStart).String(),
+			formatDurationSince(reconcileStart),
 			obj.GetRetryInterval().String()),
 			"revision",
 			artifactSource.GetArtifact().Revision)
@@ -896,11 +896,11 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	}); err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
 		conditions.MarkFalse(obj, kustomizev1.HealthyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
-		return fmt.Errorf("health check failed after %s: %w", time.Since(checkStart).String(), err)
+		return fmt.Errorf("health check failed after %s: %w", formatDurationSince(checkStart), err)
 	}
 
 	// Emit recovery event if the previous health check failed.
-	msg := fmt.Sprintf("Health check passed in %s", time.Since(checkStart).String())
+	msg := fmt.Sprintf("Health check passed in %s", formatDurationSince(checkStart))
 	if !wasHealthy || (isNewRevision && drifted) {
 		r.event(obj, revision, eventv1.EventSeverityInfo, msg, nil)
 	}
@@ -1092,4 +1092,8 @@ func (r *KustomizationReconciler) patch(ctx context.Context,
 	}
 
 	return nil
+}
+
+func formatDurationSince(t time.Time) string {
+	return time.Since(t).Round(time.Second).String()
 }
