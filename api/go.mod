@@ -1,20 +1,22 @@
 module github.com/fluxcd/kustomize-controller/api
 
-go 1.20
+go 1.22
+
+toolchain go1.22.0
 
 require (
-	github.com/fluxcd/pkg/apis/kustomize v1.3.0
-	github.com/fluxcd/pkg/apis/meta v1.3.0
-	k8s.io/apiextensions-apiserver v0.28.6
-	k8s.io/apimachinery v0.28.6
-	sigs.k8s.io/controller-runtime v0.16.3
+	github.com/fluxcd/pkg/apis/kustomize v1.4.0
+	github.com/fluxcd/pkg/apis/meta v1.4.0
+	k8s.io/apiextensions-apiserver v0.29.3
+	k8s.io/apimachinery v0.29.3
+	sigs.k8s.io/controller-runtime v0.17.2
 )
 
 // Fix CVE-2022-28948
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
 
 require (
-	github.com/go-logr/logr v1.3.0 // indirect
+	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
