@@ -624,11 +624,14 @@ kind: Kustomization
 metadata:
   name: apps
 spec:
-  ...
   postBuild:
     substitute:
       var_substitution_enabled: "true"
 ```
+
+**Note:** When using numbers or booleans as values for variables, they must be
+enclosed in double quotes vars to be treated as strings, for more information see
+[substitution of numbers and booleans](#post-build-substitution-of-numbers-and-booleans).
 
 You can replicate the controller post-build substitutions locally using
 [kustomize](https://github.com/kubernetes-sigs/kustomize)
@@ -1552,6 +1555,38 @@ secretGenerator:
     type: kubernetes.io/dockerconfigjson
     files:
       - .dockerconfigjson=ghcr.dockerconfigjson.encrypted
+```
+
+### Post build substitution of numbers and booleans
+
+When using [variable substitution](#post-build-variable-substitution) with values
+that are numbers or booleans, the reconciliation may fail if the substitution
+is for a field that must be of type string. To convert the number or boolean
+to a string, you can wrap the variable with a double quotes var:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app
+  annotations:
+    id: ${quote}${id}${quote}
+    enabled: ${quote}${enabled}${quote}
+```
+
+Then in the Flux Kustomization, define the variables as:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app
+spec:
+  postBuild:
+    substitute:
+      quote: '"' # double quote var
+      id: "123"
+      enabled: "true"
 ```
 
 ### Triggering a reconcile

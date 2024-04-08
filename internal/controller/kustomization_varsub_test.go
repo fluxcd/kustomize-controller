@@ -349,3 +349,109 @@ metadata:
 		g.Expect(resultSA.Labels["shape"]).To(Equal("square"))
 	})
 }
+
+func TestKustomizationReconciler_VarsubNumberBool(t *testing.T) {
+	ctx := context.Background()
+
+	g := NewWithT(t)
+	id := "vars-" + randStringRunes(5)
+	revision := "v1.0.0/" + randStringRunes(7)
+
+	err := createNamespace(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	err = createKubeConfigSecret(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	manifests := func(name string) []testserver.File {
+		return []testserver.File{
+			{
+				Name: "service-account.yaml",
+				Body: fmt.Sprintf(`
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: %[1]s
+  namespace: %[1]s
+  labels:
+    id: ${numberStr}
+    enabled: ${booleanStr}
+  annotations:
+    id: ${q}${number}${q}
+    enabled: ${q}${boolean}${q}
+`, name),
+			},
+		}
+	}
+
+	artifact, err := testServer.ArtifactFromFiles(manifests(id))
+	g.Expect(err).NotTo(HaveOccurred())
+
+	repositoryName := types.NamespacedName{
+		Name:      randStringRunes(5),
+		Namespace: id,
+	}
+
+	err = applyGitRepository(repositoryName, artifact, revision)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	inputK := &kustomizev1.Kustomization{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      id,
+			Namespace: id,
+		},
+		Spec: kustomizev1.KustomizationSpec{
+			KubeConfig: &meta.KubeConfigReference{
+				SecretRef: meta.SecretKeyReference{
+					Name: "kubeconfig",
+				},
+			},
+			Interval: metav1.Duration{Duration: reconciliationInterval},
+			Path:     "./",
+			Prune:    true,
+			SourceRef: kustomizev1.CrossNamespaceSourceReference{
+				Kind: sourcev1.GitRepositoryKind,
+				Name: repositoryName.Name,
+			},
+			PostBuild: &kustomizev1.PostBuild{
+				Substitute: map[string]string{
+					"q": `"`,
+
+					"numberStr":  "!!str 123",
+					"number":     "123",
+					"booleanStr": "!!str true",
+					"boolean":    "true",
+				},
+			},
+			Wait: true,
+		},
+	}
+	g.Expect(k8sClient.Create(ctx, inputK)).Should(Succeed())
+
+	resultSA := &corev1.ServiceAccount{}
+
+	ensureReconciles := func(nameSuffix string) {
+		t.Run("reconciles successfully"+nameSuffix, func(t *testing.T) {
+			g.Eventually(func() bool {
+				resultK := &kustomizev1.Kustomization{}
+				_ = k8sClient.Get(ctx, client.ObjectKeyFromObject(inputK), resultK)
+				for _, c := range resultK.Status.Conditions {
+					if c.Reason == kustomizev1.ReconciliationSucceededReason {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue())
+
+			g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: id, Namespace: id}, resultSA)).Should(Succeed())
+		})
+	}
+
+	ensureReconciles(" with optional ConfigMap")
+	t.Run("replaces vars from optional ConfigMap", func(t *testing.T) {
+		g.Expect(resultSA.Labels["id"]).To(Equal("123"))
+		g.Expect(resultSA.Annotations["id"]).To(Equal("123"))
+		g.Expect(resultSA.Labels["enabled"]).To(Equal("true"))
+		g.Expect(resultSA.Annotations["enabled"]).To(Equal("true"))
+	})
+}
