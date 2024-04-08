@@ -564,8 +564,7 @@ kind: Kustomization
 metadata:
   name: apps
 spec:
-  interval: 5m
-  path: "./apps/"
+  # ...omitted for brevity
   postBuild:
     substitute:
       cluster_env: "prod"
@@ -629,6 +628,7 @@ kind: Kustomization
 metadata:
   name: apps
 spec:
+  # ...omitted for brevity
   postBuild:
     substitute:
       var_substitution_enabled: "true"
@@ -640,13 +640,11 @@ enclosed in double quotes vars to be treated as strings, for more information se
 
 You can replicate the controller post-build substitutions locally using
 [kustomize](https://github.com/kubernetes-sigs/kustomize)
-and Drone's [envsubst](https://github.com/drone/envsubst):
+and the Flux CLI:
 
 ```console
-$ go install github.com/drone/envsubst/cmd/envsubst
-
 $ export cluster_region=eu-central-1
-$ kustomize build ./apps/ | $GOPATH/bin/envsubst
+$ kustomize build ./apps/ | flux envsubst --strict
 ---
 apiVersion: v1
 kind: Namespace
