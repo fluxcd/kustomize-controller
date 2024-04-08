@@ -605,6 +605,11 @@ will print out `${var}`.
 All the undefined variables in the format `${var}` will be substituted with an
 empty string unless a default value is provided e.g. `${var:=default}`.
 
+**Note:** It is recommended to set the `--feature-gates=StrictPostBuildSubstitutions=true`
+controller flag, so that the post-build substitutions will fail if a
+variable without a default value is declared in files but is
+missing from the input vars.
+
 You can disable the variable substitution for certain resources by either
 labelling or annotating them with:
 
