@@ -98,6 +98,7 @@ type KustomizationReconciler struct {
 	KubeConfigOpts          runtimeClient.KubeConfigOptions
 	ConcurrentSSA           int
 	DisallowedFieldManagers []string
+	StrictSubstitutions     bool
 }
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
@@ -622,9 +623,10 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 
 		// run variable substitutions
 		if obj.Spec.PostBuild != nil {
-			outRes, err := generator.SubstituteVariables(ctx, r.Client, u, res, false)
+			outRes, err := generator.SubstituteVariables(ctx, r.Client, u, res,
+				generator.SubstituteWithStrict(r.StrictSubstitutions))
 			if err != nil {
-				return nil, fmt.Errorf("var substitution failed for '%s': %w", res.GetName(), err)
+				return nil, fmt.Errorf("post build failed for '%s': %w", res.GetName(), err)
 			}
 
 			if outRes != nil {

@@ -116,8 +116,6 @@ github.com/docker/go-connections v0.4.0 h1:El9xVISelRB7BuFusrZozjnkIM5YnzCViNKoh
 github.com/docker/go-connections v0.4.0/go.mod h1:Gbd7IOopHjR8Iph03tsViu4nIes5XhDvyHbTtUxmeec=
 github.com/docker/go-units v0.4.0 h1:3uh0PgVws3nIA0Q+MwDC8yjEPf9zjRfZZWXZYDct3Tw=
 github.com/docker/go-units v0.4.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
-github.com/drone/envsubst v1.0.3 h1:PCIBwNDYjs50AsLZPYdfhSATKaRg/FJmDc2D6+C2x8g=
-github.com/drone/envsubst v1.0.3/go.mod h1:N2jZmlMufstn1KEqvbHjw40h1KyTmnVzHcSc9bFiJ2g=
 github.com/emicklei/go-restful/v3 v3.11.0 h1:rAQeMHw1c7zTmncogyy8VvRZwtkmkZ4FxERmMY4rD+g=
 github.com/emicklei/go-restful/v3 v3.11.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
@@ -143,10 +141,12 @@ github.com/fluxcd/pkg/apis/kustomize v1.4.0 h1:SXoGN9M31fW5tO+wpKMnyHXbjxGUqDo7Y
 github.com/fluxcd/pkg/apis/kustomize v1.4.0/go.mod h1:bZklVWB11tELMss89qYzgg4ClzhFzp0Hm4/8EiHgKew=
 github.com/fluxcd/pkg/apis/meta v1.4.0 h1:nNdgB6FFHP3cubxZCViaCFDUVlAbpq9+hvKEIveOGMg=
 github.com/fluxcd/pkg/apis/meta v1.4.0/go.mod h1:81sZ01ShTuLc1C3M1dFJNkINareBysvmrO1b8zJFFKs=
+github.com/fluxcd/pkg/envsubst v1.0.0 h1:LD86BRNSCGJrvyrH2aX5/pit7RfbFpkzRXogwcazLVk=
+github.com/fluxcd/pkg/envsubst v1.0.0/go.mod h1:VAcb4OxcRdsDix1TRtr/mtTqFGHmNQaOvXQO2REArFQ=
 github.com/fluxcd/pkg/http/fetch v0.10.0 h1:Uh1ZrPa4B4EDgi+NFrY7qP6g9vg1O6JHKg3+iJLtt1w=
 github.com/fluxcd/pkg/http/fetch v0.10.0/go.mod h1:zZOsAqn7iODap40PVq29mcCPEKjDodYvamEaoN6tV/Q=
-github.com/fluxcd/pkg/kustomize v1.8.0 h1:Vf1UwnoP3yScaLi/QrDjgN2d2nI6LcmX4tNRoH+sypY=
-github.com/fluxcd/pkg/kustomize v1.8.0/go.mod h1:yszv9tkYrnC01mcGPct8+bdxpTyxf69k1kmSvk7w0zs=
+github.com/fluxcd/pkg/kustomize v1.9.0 h1:bqS3mXiK1q5TpUtIO5I5b+v/0r96NGJBiearKGUhicA=
+github.com/fluxcd/pkg/kustomize v1.9.0/go.mod h1:PBerk0KzZN/IXaGociVp4MSMvsUQB0jR1P2SqSdixz0=
 github.com/fluxcd/pkg/runtime v0.46.0 h1:+pxFwTk8j8lZIS9Vyc8EJbgvmFp9JqeT6pfLo/0iP98=
 github.com/fluxcd/pkg/runtime v0.46.0/go.mod h1:d9BaIjqoHL71fYeZsssrt08UFONGN2WQRaJ/Ay2d1Cc=
 github.com/fluxcd/pkg/sourceignore v0.6.0 h1:kD6QXL/upPEX66UpR669yK1Bxr/GtjzmZiqBeYpunUQ=

@@ -39,6 +39,11 @@ const (
 	// DisableFailFastBehavior controls whether the fail-fast behavior when
 	// waiting for resources to become ready should be disabled.
 	DisableFailFastBehavior = "DisableFailFastBehavior"
+
+	// StrictPostBuildSubstitutions controls whether the post-build substitutions
+	// should fail if a variable without a default value is declared in files
+	// but is missing from the input vars.
+	StrictPostBuildSubstitutions = "StrictPostBuildSubstitutions"
 )
 
 var features = map[string]bool{
@@ -51,6 +56,9 @@ var features = map[string]bool{
 	// DisableFailFastBehavior
 	// opt-in from v1.1
 	DisableFailFastBehavior: false,
+	// StrictPostBuildSubstitutions
+	// opt-in from v1.3
+	StrictPostBuildSubstitutions: false,
 }
 
 // FeatureGates contains a list of all supported feature gates and

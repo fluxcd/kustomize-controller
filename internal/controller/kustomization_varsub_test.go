@@ -455,3 +455,96 @@ metadata:
 		g.Expect(resultSA.Annotations["enabled"]).To(Equal("true"))
 	})
 }
+
+func TestKustomizationReconciler_VarsubStrict(t *testing.T) {
+	reconciler.StrictSubstitutions = true
+	defer func() {
+		reconciler.StrictSubstitutions = false
+	}()
+
+	ctx := context.Background()
+
+	g := NewWithT(t)
+	id := "vars-" + randStringRunes(5)
+	revision := "v1.0.0/" + randStringRunes(7)
+
+	err := createNamespace(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	err = createKubeConfigSecret(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	manifests := func(name string) []testserver.File {
+		return []testserver.File{
+			{
+				Name: "service-account.yaml",
+				Body: fmt.Sprintf(`
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: %[1]s
+  namespace: %[1]s
+  labels:
+    default: ${default:=test}
+    missing: ${missing}
+`, name),
+			},
+		}
+	}
+
+	artifact, err := testServer.ArtifactFromFiles(manifests(id))
+	g.Expect(err).NotTo(HaveOccurred())
+
+	repositoryName := types.NamespacedName{
+		Name:      randStringRunes(5),
+		Namespace: id,
+	}
+
+	err = applyGitRepository(repositoryName, artifact, revision)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	inputK := &kustomizev1.Kustomization{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      id,
+			Namespace: id,
+		},
+		Spec: kustomizev1.KustomizationSpec{
+			KubeConfig: &meta.KubeConfigReference{
+				SecretRef: meta.SecretKeyReference{
+					Name: "kubeconfig",
+				},
+			},
+			Interval: metav1.Duration{Duration: reconciliationInterval},
+			Path:     "./",
+			Prune:    true,
+			SourceRef: kustomizev1.CrossNamespaceSourceReference{
+				Kind: sourcev1.GitRepositoryKind,
+				Name: repositoryName.Name,
+			},
+			PostBuild: &kustomizev1.PostBuild{
+				Substitute: map[string]string{
+					"test": "test",
+				},
+			},
+			Wait: true,
+		},
+	}
+	g.Expect(k8sClient.Create(ctx, inputK)).Should(Succeed())
+
+	var resultK kustomizev1.Kustomization
+	t.Run("fails to reconcile", func(t *testing.T) {
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(inputK), &resultK)
+			for _, c := range resultK.Status.Conditions {
+				if c.Reason == kustomizev1.BuildFailedReason {
+					return true
+				}
+			}
+			return false
+		}, timeout, interval).Should(BeTrue())
+	})
+
+	ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
+	g.Expect(ready.Message).To(ContainSubstring("variable not set"))
+	g.Expect(k8sClient.Delete(context.Background(), &resultK)).To(Succeed())
+}
