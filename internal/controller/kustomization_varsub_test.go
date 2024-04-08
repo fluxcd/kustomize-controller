@@ -366,10 +366,11 @@ func TestKustomizationReconciler_VarsubNumberBool(t *testing.T) {
 	manifests := func(name string) []testserver.File {
 		return []testserver.File{
 			{
-				Name: "service-account.yaml",
+				Name: "templates.yaml",
 				Body: fmt.Sprintf(`
-apiVersion: v1
-kind: ServiceAccount
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
 metadata:
   name: %[1]s
   namespace: %[1]s
@@ -379,6 +380,27 @@ metadata:
   annotations:
     id: ${q}${number}${q}
     enabled: ${q}${boolean}${q}
+spec:
+  interval: ${number}m
+  url: https://host/repo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %[1]s
+  namespace: %[1]s
+data:
+  id: ${q}${number}${q}
+  text: |
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus at
+    nisl sem. Nullam nec dui ipsum. Nam vehicula volutpat ipsum, ac fringilla
+    nisl convallis sed. Aliquam porttitor turpis finibus, finibus velit ut,
+    imperdiet mauris. Cras nec neque nulla. Maecenas semper nulla et elit
+    dictum sagittis. Quisque tincidunt non diam non ullamcorper. Curabitur
+    pretium urna odio, vitae ullamcorper purus mollis sit amet. Nam ac lectus
+    ac arcu varius feugiat id fringilla massa.
+
+    \?
 `, name),
 			},
 		}
@@ -423,37 +445,33 @@ metadata:
 					"boolean":    "true",
 				},
 			},
-			Wait: true,
+			Wait: false,
 		},
 	}
 	g.Expect(k8sClient.Create(ctx, inputK)).Should(Succeed())
 
-	resultSA := &corev1.ServiceAccount{}
+	g.Eventually(func() bool {
+		resultK := &kustomizev1.Kustomization{}
+		_ = k8sClient.Get(ctx, client.ObjectKeyFromObject(inputK), resultK)
+		for _, c := range resultK.Status.Conditions {
+			if c.Reason == kustomizev1.ReconciliationSucceededReason {
+				return true
+			}
+		}
+		return false
+	}, timeout, interval).Should(BeTrue())
 
-	ensureReconciles := func(nameSuffix string) {
-		t.Run("reconciles successfully"+nameSuffix, func(t *testing.T) {
-			g.Eventually(func() bool {
-				resultK := &kustomizev1.Kustomization{}
-				_ = k8sClient.Get(ctx, client.ObjectKeyFromObject(inputK), resultK)
-				for _, c := range resultK.Status.Conditions {
-					if c.Reason == kustomizev1.ReconciliationSucceededReason {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue())
+	resultRepo := &sourcev1.GitRepository{}
+	g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: id, Namespace: id}, resultRepo)).Should(Succeed())
+	g.Expect(resultRepo.Labels["id"]).To(Equal("123"))
+	g.Expect(resultRepo.Annotations["id"]).To(Equal("123"))
+	g.Expect(resultRepo.Labels["enabled"]).To(Equal("true"))
+	g.Expect(resultRepo.Annotations["enabled"]).To(Equal("true"))
 
-			g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: id, Namespace: id}, resultSA)).Should(Succeed())
-		})
-	}
-
-	ensureReconciles(" with optional ConfigMap")
-	t.Run("replaces vars from optional ConfigMap", func(t *testing.T) {
-		g.Expect(resultSA.Labels["id"]).To(Equal("123"))
-		g.Expect(resultSA.Annotations["id"]).To(Equal("123"))
-		g.Expect(resultSA.Labels["enabled"]).To(Equal("true"))
-		g.Expect(resultSA.Annotations["enabled"]).To(Equal("true"))
-	})
+	resultCM := &corev1.ConfigMap{}
+	g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: id, Namespace: id}, resultCM)).Should(Succeed())
+	g.Expect(resultCM.Data["id"]).To(Equal("123"))
+	g.Expect(resultCM.Data["text"]).To(ContainSubstring(`\?`))
 }
 
 func TestKustomizationReconciler_VarsubStrict(t *testing.T) {
