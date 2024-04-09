@@ -23,7 +23,7 @@ require (
 	github.com/fluxcd/pkg/apis/kustomize v1.4.0
 	github.com/fluxcd/pkg/apis/meta v1.4.0
 	github.com/fluxcd/pkg/http/fetch v0.10.0
-	github.com/fluxcd/pkg/kustomize v1.9.0
+	github.com/fluxcd/pkg/kustomize v1.10.0
 	github.com/fluxcd/pkg/runtime v0.46.0
 	github.com/fluxcd/pkg/ssa v0.38.0
 	github.com/fluxcd/pkg/tar v0.6.0

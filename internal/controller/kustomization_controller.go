@@ -27,6 +27,7 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/fluxcd/pkg/ssa/normalize"
 	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -293,6 +294,7 @@ func (r *KustomizationReconciler) reconcile(
 	obj *kustomizev1.Kustomization,
 	src sourcev1.Source,
 	patcher *patch.SerialPatcher) error {
+	log := ctrl.LoggerFrom(ctx)
 
 	// Update status with the reconciliation progress.
 	revision := src.GetArtifact().Revision
@@ -317,7 +319,11 @@ func (r *KustomizationReconciler) reconcile(
 		return err
 	}
 
-	defer os.RemoveAll(tmpDir)
+	defer func(path string) {
+		if err := os.RemoveAll(path); err != nil {
+			log.Error(err, "failed to remove tmp dir", "path", path)
+		}
+	}(tmpDir)
 
 	// Download artifact and extract files to the tmp dir.
 	if err = fetch.NewArchiveFetcherWithLogger(
@@ -653,12 +659,12 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	objects []*unstructured.Unstructured) (bool, *ssa.ChangeSet, error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	if err := ssa.SetNativeKindsDefaults(objects); err != nil {
+	if err := normalize.UnstructuredList(objects); err != nil {
 		return false, nil, err
 	}
 
-	if meta := obj.Spec.CommonMetadata; meta != nil {
-		ssautil.SetCommonMetadata(objects, meta.Labels, meta.Annotations)
+	if cmeta := obj.Spec.CommonMetadata; cmeta != nil {
+		ssautil.SetCommonMetadata(objects, cmeta.Labels, cmeta.Annotations)
 	}
 
 	applyOpts := ssa.DefaultApplyOptions()
