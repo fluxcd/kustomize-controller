@@ -221,6 +221,16 @@ spec:
                 required:
                 - secretRef
                 type: object
+              namePrefix:
+                description: NamePrefix will prefix the names of all managed resources.
+                maxLength: 200
+                minLength: 1
+                type: string
+              nameSuffix:
+                description: NameSuffix will suffix the names of all managed resources.
+                maxLength: 200
+                minLength: 1
+                type: string
               patches:
                 description: |-
                   Strategic merge and JSON patches, defined as inline YAML objects,
