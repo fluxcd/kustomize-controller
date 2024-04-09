@@ -228,6 +228,12 @@ func main() {
 		failFast = false
 	}
 
+	strictSubstitutions, err := features.Enabled(features.StrictPostBuildSubstitutions)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.StrictPostBuildSubstitutions)
+		os.Exit(1)
+	}
+
 	if err = (&controller.KustomizationReconciler{
 		ControllerName:          controllerName,
 		DefaultServiceAccount:   defaultServiceAccount,
@@ -242,6 +248,7 @@ func main() {
 		PollingOpts:             pollingOpts,
 		StatusPoller:            polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), pollingOpts),
 		DisallowedFieldManagers: disallowedFieldManagers,
+		StrictSubstitutions:     strictSubstitutions,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,
