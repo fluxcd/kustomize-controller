@@ -392,6 +392,8 @@ metadata:
 data:
   id: ${q}${number}${q}
   text: |
+    This variable is escaped $${var}
+
     Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus at
     nisl sem. Nullam nec dui ipsum. Nam vehicula volutpat ipsum, ac fringilla
     nisl convallis sed. Aliquam porttitor turpis finibus, finibus velit ut,
@@ -471,6 +473,8 @@ data:
 	resultCM := &corev1.ConfigMap{}
 	g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: id, Namespace: id}, resultCM)).Should(Succeed())
 	g.Expect(resultCM.Data["id"]).To(Equal("123"))
+	g.Expect(resultCM.Data["text"]).To(ContainSubstring(`${var}`))
+	g.Expect(resultCM.Data["text"]).ToNot(ContainSubstring(`$${var}`))
 	g.Expect(resultCM.Data["text"]).To(ContainSubstring(`\?`))
 }
 
