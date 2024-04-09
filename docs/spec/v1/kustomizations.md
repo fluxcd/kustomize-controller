@@ -401,6 +401,22 @@ should be applied to all the Kustomization's resources. It has two optional fiel
   on an object. Any existing annotation will be overridden if it matches with a key
   in this map.
 
+### Name Prefix and Suffix
+
+`.spec.namePrefix` and `.spec.nameSuffix` are optional fields used to specify a prefix and suffix
+to be added to the names of all the resources in the Kustomization.
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app
+spec:
+  # ...omitted for brevity
+  namePrefix: "prefix-"
+  nameSuffix: "-suffix"
+```
+
 ### Patches
 
 `.spec.patches` is an optional list used to specify [Kustomize `patches`](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patches/)

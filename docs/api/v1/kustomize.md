@@ -222,6 +222,30 @@ bool
 </tr>
 <tr>
 <td>
+<code>namePrefix</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NamePrefix will prefix the names of all managed resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>nameSuffix</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NameSuffix will suffix the names of all managed resources.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>patches</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#Patch">
@@ -702,6 +726,30 @@ bool
 <td>
 <em>(Optional)</em>
 <p>A list of resources to be included in the health assessment.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namePrefix</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NamePrefix will prefix the names of all managed resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>nameSuffix</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NameSuffix will suffix the names of all managed resources.</p>
 </td>
 </tr>
 <tr>

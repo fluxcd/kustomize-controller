@@ -146,6 +146,91 @@ data:
 	})
 }
 
+func TestKustomizationReconciler_NamePrefixSuffix(t *testing.T) {
+	g := NewWithT(t)
+	id := "np-" + randStringRunes(5)
+	revision := "v1.0.0"
+	resultK := &kustomizev1.Kustomization{}
+
+	err := createNamespace(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	err = createKubeConfigSecret(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	manifests := func(name string) []testserver.File {
+		return []testserver.File{
+			{
+				Name: "config.yaml",
+				Body: fmt.Sprintf(`---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %[1]s
+  annotations:
+    tenant: test
+data:
+  key: val
+`, name),
+			},
+		}
+	}
+
+	artifact, err := testServer.ArtifactFromFiles(manifests(id))
+	g.Expect(err).NotTo(HaveOccurred())
+
+	repositoryName := types.NamespacedName{
+		Name:      fmt.Sprintf("cm-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+
+	err = applyGitRepository(repositoryName, artifact, revision)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	kustomizationKey := types.NamespacedName{
+		Name:      fmt.Sprintf("cm-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+	kustomization := &kustomizev1.Kustomization{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kustomizationKey.Name,
+			Namespace: kustomizationKey.Namespace,
+		},
+		Spec: kustomizev1.KustomizationSpec{
+			Interval: metav1.Duration{Duration: 2 * time.Minute},
+			Path:     "./",
+			KubeConfig: &meta.KubeConfigReference{
+				SecretRef: meta.SecretKeyReference{
+					Name: "kubeconfig",
+				},
+			},
+			SourceRef: kustomizev1.CrossNamespaceSourceReference{
+				Name:      repositoryName.Name,
+				Namespace: repositoryName.Namespace,
+				Kind:      sourcev1.GitRepositoryKind,
+			},
+			NamePrefix:      "prefix-",
+			NameSuffix:      "-suffix",
+			TargetNamespace: id,
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+	t.Run("sets name prefix and suffix", func(t *testing.T) {
+		g := NewWithT(t)
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return isReconcileSuccess(resultK)
+		}, timeout, time.Second).Should(BeTrue())
+		kstatusCheck.CheckErr(ctx, resultK)
+
+		name := fmt.Sprintf("prefix-%s-suffix", id)
+		var cm corev1.ConfigMap
+		g.Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: name, Namespace: id}, &cm)).To(Succeed())
+	})
+}
+
 func TestKustomizationReconciler_KustomizeTransformer(t *testing.T) {
 	g := NewWithT(t)
 	id := "transformers-" + randStringRunes(5)
