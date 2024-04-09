@@ -222,6 +222,32 @@ bool
 </tr>
 <tr>
 <td>
+<code>namePrefix</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NamePrefix sets or overrides the namePrefix in the
+kustomization.yaml file.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>nameSuffix</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NameSuffix sets or overrides the nameSuffix in the
+kustomization.yaml file.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>patches</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#Patch">
@@ -702,6 +728,32 @@ bool
 <td>
 <em>(Optional)</em>
 <p>A list of resources to be included in the health assessment.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namePrefix</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NamePrefix sets or overrides the namePrefix in the
+kustomization.yaml file.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>nameSuffix</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NameSuffix sets or overrides the nameSuffix in the
+kustomization.yaml file.</p>
 </td>
 </tr>
 <tr>

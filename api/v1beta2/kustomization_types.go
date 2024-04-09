@@ -94,6 +94,22 @@ type KustomizationSpec struct {
 	// +optional
 	HealthChecks []meta.NamespacedObjectKindReference `json:"healthChecks,omitempty"`
 
+	// NamePrefix sets or overrides the namePrefix in the
+	// kustomization.yaml file.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=252
+	// +kubebuilder:validation:Optional
+	// +optional
+	NamePrefix string `json:"namePrefix,omitempty"`
+
+	// NameSuffix sets or overrides the nameSuffix in the
+	// kustomization.yaml file.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=252
+	// +kubebuilder:validation:Optional
+	// +optional
+	NameSuffix string `json:"nameSuffix,omitempty"`
+
 	// Strategic merge and JSON patches, defined as inline YAML objects,
 	// capable of targeting objects based on kind, label and annotation selectors.
 	// +optional

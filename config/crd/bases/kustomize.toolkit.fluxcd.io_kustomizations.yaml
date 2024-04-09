@@ -221,6 +221,20 @@ spec:
                 required:
                 - secretRef
                 type: object
+              namePrefix:
+                description: |-
+                  NamePrefix sets or overrides the namePrefix in the
+                  kustomization.yaml file.
+                maxLength: 252
+                minLength: 1
+                type: string
+              nameSuffix:
+                description: |-
+                  NameSuffix sets or overrides the nameSuffix in the
+                  kustomization.yaml file.
+                maxLength: 252
+                minLength: 1
+                type: string
               patches:
                 description: |-
                   Strategic merge and JSON patches, defined as inline YAML objects,
@@ -704,6 +718,20 @@ spec:
                     - name
                     type: object
                 type: object
+              namePrefix:
+                description: |-
+                  NamePrefix sets or overrides the namePrefix in the
+                  kustomization.yaml file.
+                maxLength: 252
+                minLength: 1
+                type: string
+              nameSuffix:
+                description: |-
+                  NameSuffix sets or overrides the nameSuffix in the
+                  kustomization.yaml file.
+                maxLength: 252
+                minLength: 1
+                type: string
               patches:
                 description: |-
                   Strategic merge and JSON patches, defined as inline YAML objects,
@@ -1318,6 +1346,20 @@ spec:
                 required:
                 - secretRef
                 type: object
+              namePrefix:
+                description: |-
+                  NamePrefix sets or overrides the namePrefix in the
+                  kustomization.yaml file.
+                maxLength: 252
+                minLength: 1
+                type: string
+              nameSuffix:
+                description: |-
+                  NameSuffix sets or overrides the nameSuffix in the
+                  kustomization.yaml file.
+                maxLength: 252
+                minLength: 1
+                type: string
               patches:
                 description: |-
                   Strategic merge and JSON patches, defined as inline YAML objects,
