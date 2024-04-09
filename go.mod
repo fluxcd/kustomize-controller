@@ -23,7 +23,7 @@ require (
 	github.com/fluxcd/pkg/apis/kustomize v1.4.0
 	github.com/fluxcd/pkg/apis/meta v1.4.0
 	github.com/fluxcd/pkg/http/fetch v0.10.0
-	github.com/fluxcd/pkg/kustomize v1.8.0
+	github.com/fluxcd/pkg/kustomize v1.9.0
 	github.com/fluxcd/pkg/runtime v0.46.0
 	github.com/fluxcd/pkg/ssa v0.38.0
 	github.com/fluxcd/pkg/tar v0.6.0
@@ -96,12 +96,12 @@ require (
 	github.com/docker/docker v24.0.9+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/drone/envsubst v1.0.3 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch v5.7.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.8.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/color v1.16.0 // indirect
+	github.com/fluxcd/pkg/envsubst v1.0.0 // indirect
 	github.com/fluxcd/pkg/sourceignore v0.6.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/getsops/gopgagent v0.0.0-20170926210634-4d7ea76ff71a // indirect
