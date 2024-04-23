@@ -223,7 +223,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Resolve the source reference and requeue the reconciliation if the source is not found.
 	artifactSource, err := r.getSource(ctx, obj)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, err.Error())
 
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("Source '%s' not found", obj.Spec.SourceRef.String())
@@ -245,7 +245,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Requeue the reconciliation if the source artifact is not found.
 	if artifactSource.GetArtifact() == nil {
 		msg := fmt.Sprintf("Source artifact not found, retrying in %s", r.requeueDependency.String())
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, msg)
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, msg)
 		log.Info(msg)
 		return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 	}
@@ -253,7 +253,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Check dependencies and requeue the reconciliation if the check fails.
 	if len(obj.Spec.DependsOn) > 0 {
 		if err := r.checkDependencies(ctx, obj, artifactSource); err != nil {
-			conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.DependencyNotReadyReason, err.Error())
+			conditions.MarkFalse(obj, meta.ReadyCondition, meta.DependencyNotReadyReason, err.Error())
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Info(msg)
 			r.event(obj, artifactSource.GetArtifact().Revision, eventv1.EventSeverityInfo, msg, nil)
@@ -268,7 +268,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Requeue at the specified retry interval if the artifact tarball is not found.
 	if errors.Is(reconcileErr, fetch.ErrFileNotFound) {
 		msg := fmt.Sprintf("Source is not ready, artifact not found, retrying in %s", r.requeueDependency.String())
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, msg)
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, msg)
 		log.Info(msg)
 		return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 	}
@@ -333,20 +333,20 @@ func (r *KustomizationReconciler) reconcile(
 		os.Getenv("SOURCE_CONTROLLER_LOCALHOST"),
 		ctrl.LoggerFrom(ctx),
 	).Fetch(src.GetArtifact().URL, src.GetArtifact().Digest, tmpDir); err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, err.Error())
 		return err
 	}
 
 	// check build path exists
 	dirPath, err := securejoin.SecureJoin(tmpDir, obj.Spec.Path)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, err.Error())
 		return err
 	}
 
 	if _, err := os.Stat(dirPath); err != nil {
 		err = fmt.Errorf("kustomization path not found: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ArtifactFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, err.Error())
 		return err
 	}
 
@@ -373,33 +373,33 @@ func (r *KustomizationReconciler) reconcile(
 	// Create the Kubernetes client that runs under impersonation.
 	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ReconciliationFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, err.Error())
 		return fmt.Errorf("failed to build kube client: %w", err)
 	}
 
 	// Generate kustomization.yaml if needed.
 	k, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, err.Error())
 		return err
 	}
 	err = r.generate(unstructured.Unstructured{Object: k}, tmpDir, dirPath)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, err.Error())
 		return err
 	}
 
 	// Build the Kustomize overlay and decrypt secrets if needed.
 	resources, err := r.build(ctx, obj, unstructured.Unstructured{Object: k}, tmpDir, dirPath)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, err.Error())
 		return err
 	}
 
 	// Convert the build result into Kubernetes unstructured objects.
 	objects, err := ssautil.ReadObjects(bytes.NewReader(resources))
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.BuildFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, err.Error())
 		return err
 	}
 
@@ -421,7 +421,7 @@ func (r *KustomizationReconciler) reconcile(
 	// Validate and apply resources in stages.
 	drifted, changeSet, err := r.apply(ctx, resourceManager, obj, revision, objects)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ReconciliationFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, err.Error())
 		return err
 	}
 
@@ -429,7 +429,7 @@ func (r *KustomizationReconciler) reconcile(
 	newInventory := inventory.New()
 	err = inventory.AddChangeSet(newInventory, changeSet)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ReconciliationFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, err.Error())
 		return err
 	}
 
@@ -439,13 +439,13 @@ func (r *KustomizationReconciler) reconcile(
 	// Detect stale resources which are subject to garbage collection.
 	staleObjects, err := inventory.Diff(oldInventory, newInventory)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.ReconciliationFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, err.Error())
 		return err
 	}
 
 	// Run garbage collection for stale resources that do not have pruning disabled.
 	if _, err := r.prune(ctx, resourceManager, obj, revision, staleObjects); err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.PruneFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.PruneFailedReason, err.Error())
 		return err
 	}
 
@@ -459,7 +459,7 @@ func (r *KustomizationReconciler) reconcile(
 		isNewRevision,
 		drifted,
 		changeSet.ToObjMetadataSet()); err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.HealthCheckFailedReason, err.Error())
 		return err
 	}
 
@@ -469,7 +469,7 @@ func (r *KustomizationReconciler) reconcile(
 	// Mark the object as ready.
 	conditions.MarkTrue(obj,
 		meta.ReadyCondition,
-		kustomizev1.ReconciliationSucceededReason,
+		meta.ReconciliationSucceededReason,
 		fmt.Sprintf("Applied revision: %s", revision))
 
 	return nil
@@ -856,7 +856,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	drifted bool,
 	objects object.ObjMetadataSet) error {
 	if len(obj.Spec.HealthChecks) == 0 && !obj.Spec.Wait {
-		conditions.Delete(obj, kustomizev1.HealthyCondition)
+		conditions.Delete(obj, meta.HealthyCondition)
 		return nil
 	}
 
@@ -870,7 +870,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	}
 
 	if len(objects) == 0 {
-		conditions.Delete(obj, kustomizev1.HealthyCondition)
+		conditions.Delete(obj, meta.HealthyCondition)
 		return nil
 	}
 
@@ -886,12 +886,12 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	}
 
 	// Find the previous health check result.
-	wasHealthy := apimeta.IsStatusConditionTrue(obj.Status.Conditions, kustomizev1.HealthyCondition)
+	wasHealthy := apimeta.IsStatusConditionTrue(obj.Status.Conditions, meta.HealthyCondition)
 
 	// Update status with the reconciliation progress.
 	message := fmt.Sprintf("Running health checks for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
 	conditions.MarkReconciling(obj, meta.ProgressingReason, message)
-	conditions.MarkUnknown(obj, kustomizev1.HealthyCondition, meta.ProgressingReason, message)
+	conditions.MarkUnknown(obj, meta.HealthyCondition, meta.ProgressingReason, message)
 	if err := r.patch(ctx, obj, patcher); err != nil {
 		return fmt.Errorf("unable to update the healthy status to progressing: %w", err)
 	}
@@ -902,8 +902,8 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 		Timeout:  obj.GetTimeout(),
 		FailFast: r.FailFast,
 	}); err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
-		conditions.MarkFalse(obj, kustomizev1.HealthyCondition, kustomizev1.HealthCheckFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.HealthCheckFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.HealthyCondition, meta.HealthCheckFailedReason, err.Error())
 		return fmt.Errorf("health check failed after %s: %w", time.Since(checkStart).String(), err)
 	}
 
@@ -913,7 +913,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 		r.event(obj, revision, eventv1.EventSeverityInfo, msg, nil)
 	}
 
-	conditions.MarkTrue(obj, kustomizev1.HealthyCondition, meta.SucceededReason, msg)
+	conditions.MarkTrue(obj, meta.HealthyCondition, meta.SucceededReason, msg)
 	if err := r.patch(ctx, obj, patcher); err != nil {
 		return fmt.Errorf("unable to update the healthy status to progressing: %w", err)
 	}
@@ -1077,7 +1077,7 @@ func (r *KustomizationReconciler) patch(ctx context.Context,
 	// Configure the runtime patcher.
 	patchOpts := []patch.Option{}
 	ownedConditions := []string{
-		kustomizev1.HealthyCondition,
+		meta.HealthyCondition,
 		meta.ReadyCondition,
 		meta.ReconcilingCondition,
 		meta.StalledCondition,

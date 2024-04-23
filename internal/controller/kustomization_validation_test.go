@@ -120,7 +120,7 @@ func TestKustomizationReconciler_Validation(t *testing.T) {
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &resultK)
 			for _, c := range resultK.Status.Conditions {
-				if c.Reason == kustomizev1.BuildFailedReason {
+				if c.Reason == meta.BuildFailedReason {
 					return true
 				}
 			}
@@ -133,7 +133,7 @@ func TestKustomizationReconciler_Validation(t *testing.T) {
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(overlayKs), &resultK)
 			for _, c := range resultK.Status.Conditions {
-				if c.Reason == kustomizev1.BuildFailedReason {
+				if c.Reason == meta.BuildFailedReason {
 					return true
 				}
 			}

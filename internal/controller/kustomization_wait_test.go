@@ -127,8 +127,8 @@ parameters:
 		}, timeout, time.Second).Should(BeTrue())
 		logStatus(t, resultK)
 
-		g.Expect(conditions.IsTrue(resultK, kustomizev1.HealthyCondition)).To(BeTrue())
-		g.Expect(conditions.GetReason(resultK, kustomizev1.HealthyCondition)).To(BeIdenticalTo(meta.SucceededReason))
+		g.Expect(conditions.IsTrue(resultK, meta.HealthyCondition)).To(BeTrue())
+		g.Expect(conditions.GetReason(resultK, meta.HealthyCondition)).To(BeIdenticalTo(meta.SucceededReason))
 
 		g.Expect(resultK.Status.ObservedGeneration).To(BeIdenticalTo(resultK.Generation))
 
@@ -155,12 +155,12 @@ parameters:
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
-			return isReconcileRunning(resultK) && conditions.IsUnknown(resultK, kustomizev1.HealthyCondition)
+			return isReconcileRunning(resultK) && conditions.IsUnknown(resultK, meta.HealthyCondition)
 		}, timeout, time.Second).Should(BeTrue())
 		logStatus(t, resultK)
 
 		expectedMessage := "Running health checks"
-		for _, c := range []string{meta.ReconcilingCondition, kustomizev1.HealthyCondition} {
+		for _, c := range []string{meta.ReconcilingCondition, meta.HealthyCondition} {
 			g.Expect(conditions.GetReason(resultK, c)).To(BeIdenticalTo(meta.ProgressingReason))
 			g.Expect(conditions.GetMessage(resultK, c)).To(ContainSubstring(expectedMessage))
 			g.Expect(conditions.GetObservedGeneration(resultK, c)).To(BeIdenticalTo(resultK.Generation))
@@ -175,9 +175,9 @@ parameters:
 		}, timeout, time.Second).Should(BeTrue())
 		logStatus(t, resultK)
 
-		for _, c := range []string{kustomizev1.HealthyCondition, meta.ReadyCondition} {
+		for _, c := range []string{meta.HealthyCondition, meta.ReadyCondition} {
 			g.Expect(conditions.IsFalse(resultK, c)).To(BeTrue())
-			g.Expect(conditions.GetReason(resultK, c)).To(BeIdenticalTo(kustomizev1.HealthCheckFailedReason))
+			g.Expect(conditions.GetReason(resultK, c)).To(BeIdenticalTo(meta.HealthCheckFailedReason))
 			g.Expect(conditions.GetObservedGeneration(resultK, c)).To(BeIdenticalTo(resultK.Generation))
 		}
 
@@ -212,13 +212,13 @@ parameters:
 		logStatus(t, resultK)
 
 		expectedMessage := "Health check passed"
-		g.Expect(conditions.IsTrue(resultK, kustomizev1.HealthyCondition)).To(BeTrue())
-		g.Expect(conditions.GetReason(resultK, kustomizev1.HealthyCondition)).To(BeIdenticalTo(meta.SucceededReason))
-		g.Expect(conditions.GetObservedGeneration(resultK, kustomizev1.HealthyCondition)).To(BeIdenticalTo(resultK.Generation))
-		g.Expect(conditions.GetMessage(resultK, kustomizev1.HealthyCondition)).To(ContainSubstring(expectedMessage))
+		g.Expect(conditions.IsTrue(resultK, meta.HealthyCondition)).To(BeTrue())
+		g.Expect(conditions.GetReason(resultK, meta.HealthyCondition)).To(BeIdenticalTo(meta.SucceededReason))
+		g.Expect(conditions.GetObservedGeneration(resultK, meta.HealthyCondition)).To(BeIdenticalTo(resultK.Generation))
+		g.Expect(conditions.GetMessage(resultK, meta.HealthyCondition)).To(ContainSubstring(expectedMessage))
 
 		g.Expect(conditions.IsTrue(resultK, meta.ReadyCondition)).To(BeTrue())
-		g.Expect(conditions.GetReason(resultK, meta.ReadyCondition)).To(BeIdenticalTo(kustomizev1.ReconciliationSucceededReason))
+		g.Expect(conditions.GetReason(resultK, meta.ReadyCondition)).To(BeIdenticalTo(meta.ReconciliationSucceededReason))
 		g.Expect(conditions.GetObservedGeneration(resultK, meta.ReadyCondition)).To(BeIdenticalTo(resultK.Generation))
 		g.Expect(conditions.GetMessage(resultK, meta.ReadyCondition)).To(BeIdenticalTo(fmt.Sprintf("Applied revision: %s", revision)))
 
@@ -249,7 +249,7 @@ parameters:
 		logStatus(t, resultK)
 
 		g.Expect(isReconcileSuccess(resultK)).To(BeTrue())
-		g.Expect(conditions.IsTrue(resultK, kustomizev1.HealthyCondition)).To(BeTrue())
+		g.Expect(conditions.IsTrue(resultK, meta.HealthyCondition)).To(BeTrue())
 		g.Expect(conditions.GetMessage(resultK, meta.ReadyCondition)).To(BeIdenticalTo(fmt.Sprintf("Applied revision: %s", revision)))
 
 		g.Expect(resultK.Status.LastAttemptedRevision).To(BeIdenticalTo(resultK.Status.LastAppliedRevision))

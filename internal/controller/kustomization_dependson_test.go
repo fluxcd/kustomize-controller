@@ -148,7 +148,7 @@ spec:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
-			return ready.Reason == kustomizev1.ArtifactFailedReason
+			return ready.Reason == meta.ArtifactFailedReason
 		}, timeout, time.Second).Should(BeTrue())
 	})
 
@@ -160,7 +160,7 @@ spec:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
-			return ready.Reason == kustomizev1.ReconciliationSucceededReason
+			return ready.Reason == meta.ReconciliationSucceededReason
 		}, timeout, time.Second).Should(BeTrue())
 	})
 
@@ -180,7 +180,7 @@ spec:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
-			return ready.Reason == kustomizev1.DependencyNotReadyReason
+			return ready.Reason == meta.DependencyNotReadyReason
 		}, timeout, time.Second).Should(BeTrue())
 	})
 }

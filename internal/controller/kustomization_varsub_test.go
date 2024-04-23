@@ -164,7 +164,7 @@ stringData:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(inputK), resultK)
 			for _, c := range resultK.Status.Conditions {
-				if c.Reason == kustomizev1.ReconciliationSucceededReason {
+				if c.Reason == meta.ReconciliationSucceededReason {
 					return true
 				}
 			}
@@ -178,7 +178,7 @@ stringData:
 	t.Run("sets status", func(t *testing.T) {
 		g.Expect(resultK.Status.LastAppliedRevision).To(Equal(revision))
 		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.ReadyCondition)).To(BeTrue())
-		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, kustomizev1.HealthyCondition)).To(BeTrue())
+		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.HealthyCondition)).To(BeTrue())
 	})
 
 	t.Run("replaces vars", func(t *testing.T) {
@@ -315,7 +315,7 @@ metadata:
 				resultK := &kustomizev1.Kustomization{}
 				_ = k8sClient.Get(ctx, client.ObjectKeyFromObject(inputK), resultK)
 				for _, c := range resultK.Status.Conditions {
-					if c.Reason == kustomizev1.ReconciliationSucceededReason {
+					if c.Reason == meta.ReconciliationSucceededReason {
 						return true
 					}
 				}
@@ -456,7 +456,7 @@ data:
 		resultK := &kustomizev1.Kustomization{}
 		_ = k8sClient.Get(ctx, client.ObjectKeyFromObject(inputK), resultK)
 		for _, c := range resultK.Status.Conditions {
-			if c.Reason == kustomizev1.ReconciliationSucceededReason {
+			if c.Reason == meta.ReconciliationSucceededReason {
 				return true
 			}
 		}
@@ -558,7 +558,7 @@ metadata:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(inputK), &resultK)
 			for _, c := range resultK.Status.Conditions {
-				if c.Reason == kustomizev1.BuildFailedReason {
+				if c.Reason == meta.BuildFailedReason {
 					return true
 				}
 			}

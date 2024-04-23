@@ -119,7 +119,7 @@ data:
 			return resultK.Status.LastAppliedRevision == revision
 		}, timeout, time.Second).Should(BeTrue())
 
-		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationSucceededReason))
+		g.Expect(readyCondition.Reason).To(Equal(meta.ReconciliationSucceededReason))
 	})
 
 	t.Run("fails to reconcile impersonating the default service account", func(t *testing.T) {
@@ -131,7 +131,7 @@ data:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			readyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
-			return readyCondition.Reason == kustomizev1.ReconciliationFailedReason
+			return readyCondition.Reason == meta.ReconciliationFailedReason
 		}, timeout, time.Second).Should(BeTrue())
 
 		g.Expect(readyCondition.Message).To(ContainSubstring("system:serviceaccount:%s:default", id))
@@ -187,7 +187,7 @@ data:
 			return resultK.Status.LastAppliedRevision == revision
 		}, timeout, time.Second).Should(BeTrue())
 
-		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationSucceededReason))
+		g.Expect(readyCondition.Reason).To(Equal(meta.ReconciliationSucceededReason))
 	})
 
 	t.Run("can finalize impersonating service account", func(t *testing.T) {
@@ -288,7 +288,7 @@ data:
 			return apimeta.IsStatusConditionFalse(resultK.Status.Conditions, meta.ReadyCondition)
 		}, timeout, time.Second).Should(BeTrue())
 
-		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationFailedReason))
+		g.Expect(readyCondition.Reason).To(Equal(meta.ReconciliationFailedReason))
 		g.Expect(readyCondition.Message).To(ContainSubstring(`Secret "%s" not found`, secretName))
 	})
 
@@ -314,7 +314,7 @@ data:
 			return resultK.Status.LastAppliedRevision == revision
 		}, timeout, time.Second).Should(BeTrue())
 
-		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationSucceededReason))
+		g.Expect(readyCondition.Reason).To(Equal(meta.ReconciliationSucceededReason))
 	})
 
 }
