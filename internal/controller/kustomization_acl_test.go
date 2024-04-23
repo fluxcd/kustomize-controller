@@ -115,7 +115,7 @@ stringData:
 			return resultK.Status.LastAppliedRevision == revision
 		}, timeout, time.Second).Should(BeTrue())
 
-		g.Expect(readyCondition.Reason).To(Equal(kustomizev1.ReconciliationSucceededReason))
+		g.Expect(readyCondition.Reason).To(Equal(meta.ReconciliationSucceededReason))
 	})
 
 	t.Run("fails to reconcile from cross-namespace source", func(t *testing.T) {

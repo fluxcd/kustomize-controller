@@ -169,6 +169,6 @@ stringData:
 
 		kstatusCheck.CheckErr(ctx, resultK)
 
-		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, kustomizev1.HealthyCondition)).To(BeTrue())
+		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.HealthyCondition)).To(BeTrue())
 	})
 }
