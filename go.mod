@@ -31,7 +31,7 @@ require (
 	github.com/fluxcd/source-controller/api v1.2.5
 	github.com/getsops/sops/v3 v3.8.1
 	github.com/hashicorp/vault/api v1.12.2
-	github.com/onsi/gomega v1.32.0
+	github.com/onsi/gomega v1.33.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/spf13/pflag v1.0.5
