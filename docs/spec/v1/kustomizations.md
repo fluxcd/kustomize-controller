@@ -1412,32 +1412,6 @@ patches:
               azure.workload.identity/use: "true"
 ```
 
-##### AAD Pod Identity
-
-While making use of [AAD Pod Identity](https://github.com/Azure/aad-pod-identity),
-you can bind a Managed Identity to Flux's kustomize-controller. Once the
-`AzureIdentity` and `AzureIdentityBinding` for this are created, you can patch
-the controller's Deployment with the `aadpodidbinding` label set to the
-selector of the binding.
-
-```yaml
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: kustomize-controller
-  namespace: flux-system
-spec:
-  template:
-    metadata:
-      labels:
-        aadpodidbinding: sops-akv-decryptor  # match the AzureIdentityBinding selector
-```
-
-In addition to this, the [default SOPS Azure Key Vault flow is
-followed](https://github.com/mozilla/sops#encrypting-using-azure-key-vault),
-allowing you to specify a variety of other environment variables.
-
 ##### Kubelet Identity
 
 If the kubelet managed identity has `Decrypt` permissions on Azure Key Vault,
