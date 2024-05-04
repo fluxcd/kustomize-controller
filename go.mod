@@ -14,7 +14,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.11.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.2
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.11
-	github.com/cyphar/filepath-securejoin v0.2.4
+	github.com/cyphar/filepath-securejoin v0.2.5
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/cli-utils v0.36.0-flux.7
 	github.com/fluxcd/kustomize-controller/api v1.2.2
@@ -24,14 +24,14 @@ require (
 	github.com/fluxcd/pkg/apis/meta v1.5.0
 	github.com/fluxcd/pkg/http/fetch v0.11.0
 	github.com/fluxcd/pkg/kustomize v1.11.0
-	github.com/fluxcd/pkg/runtime v0.47.0
-	github.com/fluxcd/pkg/ssa v0.39.0
+	github.com/fluxcd/pkg/runtime v0.47.1
+	github.com/fluxcd/pkg/ssa v0.39.1
 	github.com/fluxcd/pkg/tar v0.7.0
 	github.com/fluxcd/pkg/testserver v0.7.0
-	github.com/fluxcd/source-controller/api v1.2.5
+	github.com/fluxcd/source-controller/api v1.3.0
 	github.com/getsops/sops/v3 v3.8.1
-	github.com/hashicorp/vault/api v1.12.2
-	github.com/onsi/gomega v1.32.0
+	github.com/hashicorp/vault/api v1.13.0
+	github.com/onsi/gomega v1.33.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/spf13/pflag v1.0.5
@@ -40,7 +40,7 @@ require (
 	k8s.io/apimachinery v0.30.0
 	k8s.io/client-go v0.30.0
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
-	sigs.k8s.io/controller-runtime v0.18.0
+	sigs.k8s.io/controller-runtime v0.18.1
 	sigs.k8s.io/kustomize/api v0.17.1
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -109,7 +109,7 @@ require (
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.5.0 // indirect
 	github.com/go-git/go-git/v5 v5.12.0 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
