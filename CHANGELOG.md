@@ -2,6 +2,62 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.3.0
+
+**Release date:** 2024-05-06
+
+This minor release comes with new features, improvements and bug fixes.
+
+The controller has been updated to Kustomize **v5.4**, please see the
+`kubernetes-sigs/kustomize` [changelog](https://github.com/kubernetes-sigs/kustomize/releases)
+for more details.
+
+The Flux `Kustomization` API gains two optional fields `.spec.namePrefix` and `.spec.nameSuffix`
+that can be used to specify a prefix and suffix to be added to the names
+of all managed resources.
+
+The controller now supports the `--feature-gates=StrictPostBuildSubstitutions=true`
+flag, when enabled the post-build substitutions will fail if a
+variable without a default value is declared in files but is
+missing from the input vars.
+
+When using variable substitution with values that are numbers or booleans,
+it is now possible to covert the values to strings, for more details see the 
+[post-build documentation](https://github.com/fluxcd/kustomize-controller/blob/release/v1.3.x/docs/spec/v1/kustomizations.md#post-build-substitution-of-numbers-and-booleans).
+
+In addition, the controller dependencies have been updated to Kubernetes v1.30
+and controller-runtime v0.18. Various other dependencies have also been updated to
+their latest version to patch upstream CVEs.
+
+Lastly, the controller is now built with Go 1.22.
+
+Improvements:
+- Implement name prefix/suffix transformers
+  [#1134](https://github.com/fluxcd/kustomize-controller/pull/1134)
+- Add `StrictPostBuildSubstitutions` feature flag
+  [#1130](https://github.com/fluxcd/kustomize-controller/pull/1130)
+- Document how to use numbers and booleans in post build substitutions
+  [#1129](https://github.com/fluxcd/kustomize-controller/pull/1129)
+- Remove deprecated aad pod identity from API docs
+  [#1152](https://github.com/fluxcd/kustomize-controller/pull/1152)
+- api: Refer condition type constants from `fluxcd/pkg/apis`
+  [#1144](https://github.com/fluxcd/kustomize-controller/pull/1144)
+- Update dependencies to Kustomize v5.4.0
+  [#1128](https://github.com/fluxcd/kustomize-controller/pull/1128)
+- Various dependency updates
+  [#1155](https://github.com/fluxcd/kustomize-controller/pull/1155)
+  [#1121](https://github.com/fluxcd/kustomize-controller/pull/1121)
+  [#1139](https://github.com/fluxcd/kustomize-controller/pull/1139)
+  [#1122](https://github.com/fluxcd/kustomize-controller/pull/1122)
+
+Fixes:
+- Fix requeue warning introduced by controller-runtime
+  [#1090](https://github.com/fluxcd/kustomize-controller/pull/1090)
+- Remove effectless statement
+  [#1091](https://github.com/fluxcd/kustomize-controller/pull/1091)
+- Remove `genclient:Namespaced` tag
+  [#1092](https://github.com/fluxcd/kustomize-controller/pull/1092)
+
 ## 1.2.2
 
 **Release date:** 2024-02-01
