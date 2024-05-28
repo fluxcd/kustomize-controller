@@ -30,7 +30,7 @@ COPY internal/ internal/
 ENV CGO_ENABLED=0
 RUN xx-go build -trimpath -a -o kustomize-controller main.go
 
-FROM alpine:3.19
+FROM alpine:3.20
 
 ARG TARGETPLATFORM
 
