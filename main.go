@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	artifactv1 "github.com/openfluxcd/artifact/api/v1alpha1"
 	"os"
 	"time"
 
@@ -71,6 +72,7 @@ func init() {
 	_ = sourcev1.AddToScheme(scheme)
 	_ = sourcev1b2.AddToScheme(scheme)
 	_ = kustomizev1.AddToScheme(scheme)
+	_ = artifactv1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 

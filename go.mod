@@ -33,6 +33,7 @@ require (
 	github.com/hashicorp/vault/api v1.13.0
 	github.com/onsi/gomega v1.33.1
 	github.com/opencontainers/go-digest v1.0.0
+	github.com/openfluxcd/artifact v0.0.0-20240711143208-77e59079e0b0
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/net v0.24.0
@@ -40,7 +41,7 @@ require (
 	k8s.io/apimachinery v0.30.0
 	k8s.io/client-go v0.30.0
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
-	sigs.k8s.io/controller-runtime v0.18.1
+	sigs.k8s.io/controller-runtime v0.18.2
 	sigs.k8s.io/kustomize/api v0.17.1
 	sigs.k8s.io/yaml v1.4.0
 )

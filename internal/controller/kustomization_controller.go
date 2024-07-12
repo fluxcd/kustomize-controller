@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	artifactv1 "github.com/openfluxcd/artifact/api/v1alpha1"
 	"os"
 	"sort"
 	"strings"
@@ -49,6 +50,9 @@ import (
 
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling"
 	"github.com/fluxcd/cli-utils/pkg/object"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
+	"github.com/fluxcd/kustomize-controller/internal/decryptor"
+	"github.com/fluxcd/kustomize-controller/internal/inventory"
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
@@ -65,10 +69,6 @@ import (
 	"github.com/fluxcd/pkg/tar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
-
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
-	"github.com/fluxcd/kustomize-controller/internal/decryptor"
-	"github.com/fluxcd/kustomize-controller/internal/inventory"
 )
 
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
@@ -109,13 +109,16 @@ type KustomizationReconcilerOptions struct {
 	RateLimiter               ratelimiter.RateLimiter
 }
 
-func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
-	const (
-		ociRepositoryIndexKey string = ".metadata.ociRepository"
-		gitRepositoryIndexKey string = ".metadata.gitRepository"
-		bucketIndexKey        string = ".metadata.bucket"
-	)
+const (
+	ociRepositoryIndexKey string = ".metadata.ociRepository"
+	gitRepositoryIndexKey string = ".metadata.gitRepository"
+	bucketIndexKey        string = ".metadata.bucket"
 
+	artifactIndexKey      string = ".metadata.artifact"
+	artifactOwnerIndexKey string = ".metadata.artifactowner"
+)
+
+func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
 	// Index the Kustomizations by the OCIRepository references they (may) point at.
 	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, ociRepositoryIndexKey,
 		r.indexBy(sourcev1b2.OCIRepositoryKind)); err != nil {
@@ -131,6 +134,22 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 	// Index the Kustomizations by the Bucket references they (may) point at.
 	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, bucketIndexKey,
 		r.indexBy(sourcev1b2.BucketKind)); err != nil {
+		return fmt.Errorf("failed setting index fields: %w", err)
+	}
+
+	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, artifactIndexKey,
+		r.indirectIndex()); err != nil {
+		return fmt.Errorf("failed setting index fields: %w", err)
+	}
+
+	if err := mgr.GetCache().IndexField(ctx, &artifactv1.Artifact{}, artifactOwnerIndexKey,
+		func(o client.Object) []string {
+			keys := []string{fmt.Sprintf("%s/%s/%s/%s", artifactv1.GroupVersion.Group, artifactv1.ArtifactKind, o.GetNamespace(), o.GetName())}
+			for _, ref := range o.GetOwnerReferences() {
+				keys = append(keys, fmt.Sprintf("%s/%s/%s/%s", ExtractGroupName(ref.APIVersion), ref.Kind, o.GetNamespace(), ref.Name))
+			}
+			return keys
+		}); err != nil {
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
@@ -155,6 +174,11 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		Watches(
 			&sourcev1b2.Bucket{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(bucketIndexKey)),
+			builder.WithPredicates(SourceRevisionChangePredicate{}),
+		).
+		Watches(
+			&artifactv1.Artifact{},
+			handler.EnqueueRequestsFromMapFunc(r.indirectRequestsForRevisionChangeOf(artifactIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		WithOptions(controller.Options{
@@ -292,7 +316,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *KustomizationReconciler) reconcile(
 	ctx context.Context,
 	obj *kustomizev1.Kustomization,
-	src sourcev1.Source,
+	src ArtifactSource,
 	patcher *patch.SerialPatcher) error {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -477,7 +501,7 @@ func (r *KustomizationReconciler) reconcile(
 
 func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 	obj *kustomizev1.Kustomization,
-	source sourcev1.Source) error {
+	source ArtifactSource) error {
 	for _, d := range obj.Spec.DependsOn {
 		if d.Namespace == "" {
 			d.Namespace = obj.GetNamespace()
@@ -521,8 +545,8 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 }
 
 func (r *KustomizationReconciler) getSource(ctx context.Context,
-	obj *kustomizev1.Kustomization) (sourcev1.Source, error) {
-	var src sourcev1.Source
+	obj *kustomizev1.Kustomization) (ArtifactSource, error) {
+	var src ArtifactSource
 	sourceNamespace := obj.GetNamespace()
 	if obj.Spec.SourceRef.Namespace != "" {
 		sourceNamespace = obj.Spec.SourceRef.Namespace
@@ -570,8 +594,36 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 		}
 		src = &bucket
 	default:
-		return src, fmt.Errorf("source `%s` kind '%s' not supported",
-			obj.Spec.SourceRef.Name, obj.Spec.SourceRef.Kind)
+		artList := &artifactv1.ArtifactList{}
+		key := KeyForReference(obj, obj.Spec.SourceRef)
+		if key != "" {
+			err := r.Client.List(ctx, artList, client.MatchingFields{
+				artifactOwnerIndexKey: key,
+			})
+			if err != nil {
+				return nil, err
+			}
+			switch len(artList.Items) {
+			case 0:
+				return nil, fmt.Errorf("no artifact resource found for %s", key)
+			case 1:
+				namespacedName.Name = artList.Items[0].Name
+			default:
+				return nil, fmt.Errorf("multiple artifacts found for %s", key)
+			}
+
+			var art artifactv1.Artifact
+			err = r.Client.Get(ctx, namespacedName, &art)
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					return src, err
+				}
+				return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
+			}
+			src = &art
+		} else {
+			return nil, fmt.Errorf("no source ref specified")
+		}
 	}
 	return src, nil
 }
