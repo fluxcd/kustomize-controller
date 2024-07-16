@@ -17,6 +17,8 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/openfluxcd/artifact/api/commonv1"
+	"github.com/openfluxcd/artifact/utils"
 	"time"
 
 	"github.com/fluxcd/pkg/apis/kustomize"
@@ -131,7 +133,7 @@ type KustomizationSpec struct {
 
 	// Reference of the source where the kustomization file is.
 	// +required
-	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
+	SourceRef commonv1.SourceRef `json:"sourceRef"`
 
 	// This flag tells the controller to suspend subsequent kustomize executions,
 	// it does not apply to already started executions. Defaults to false.
@@ -300,6 +302,10 @@ func (in Kustomization) GetConditions() []metav1.Condition {
 // SetConditions sets the status conditions on the object.
 func (in *Kustomization) SetConditions(conditions []metav1.Condition) {
 	in.Status.Conditions = conditions
+}
+
+func (in Kustomization) GetSourceRef() utils.SourceRefProvider {
+	return &in.Spec.SourceRef
 }
 
 // +genclient

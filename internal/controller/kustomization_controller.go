@@ -21,8 +21,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/fluxcd/pkg/runtime/dependency"
+	"github.com/openfluxcd/artifact/action"
 	artifactv1 "github.com/openfluxcd/artifact/api/v1alpha1"
+	"github.com/openfluxcd/artifact/utils"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sort"
 	"strings"
 	"time"
@@ -40,12 +44,9 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	kuberecorder "k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/ratelimiter"
 
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling"
@@ -64,7 +65,6 @@ import (
 	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/jitter"
 	"github.com/fluxcd/pkg/runtime/patch"
-	"github.com/fluxcd/pkg/runtime/predicates"
 	"github.com/fluxcd/pkg/ssa"
 	"github.com/fluxcd/pkg/tar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
@@ -119,72 +119,46 @@ const (
 )
 
 func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
-	// Index the Kustomizations by the OCIRepository references they (may) point at.
-	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, ociRepositoryIndexKey,
-		r.indexBy(sourcev1b2.OCIRepositoryKind)); err != nil {
-		return fmt.Errorf("failed setting index fields: %w", err)
-	}
+	log := ctrl.LoggerFrom(ctx)
 
-	// Index the Kustomizations by the GitRepository references they (may) point at.
-	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, gitRepositoryIndexKey,
-		r.indexBy(sourcev1.GitRepositoryKind)); err != nil {
-		return fmt.Errorf("failed setting index fields: %w", err)
-	}
-
-	// Index the Kustomizations by the Bucket references they (may) point at.
-	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, bucketIndexKey,
-		r.indexBy(sourcev1b2.BucketKind)); err != nil {
-		return fmt.Errorf("failed setting index fields: %w", err)
-	}
-
-	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, artifactIndexKey,
-		r.indirectIndex()); err != nil {
-		return fmt.Errorf("failed setting index fields: %w", err)
-	}
-
-	if err := mgr.GetCache().IndexField(ctx, &artifactv1.Artifact{}, artifactOwnerIndexKey,
-		func(o client.Object) []string {
-			keys := []string{fmt.Sprintf("%s/%s/%s/%s", artifactv1.GroupVersion.Group, artifactv1.ArtifactKind, o.GetNamespace(), o.GetName())}
-			for _, ref := range o.GetOwnerReferences() {
-				keys = append(keys, fmt.Sprintf("%s/%s/%s/%s", ExtractGroupName(ref.APIVersion), ref.Kind, o.GetNamespace(), ref.Name))
+	bldr, err := action.Setup[kustomizev1.Kustomization](ctx, mgr, r.Client,
+		action.WithTriggerPredicate(func(action action.ActionResource, art *sourcev1.Artifact) bool {
+			// If the Kustomization is ready and the revision of the artifact equals
+			// to the last attempted revision, we should not make a request for this Kustomization
+			k := action.(*kustomizev1.Kustomization)
+			return !conditions.IsReady(k) && art.HasRevision(k.Status.LastAttemptedRevision)
+		}),
+		action.WithRequestMapper(func(list []runtime.Object) []ctrl.Request {
+			var dd []dependency.Dependent
+			for _, d := range list {
+				dd = append(dd, d.(*kustomizev1.Kustomization).DeepCopy())
 			}
-			return keys
-		}); err != nil {
-		return fmt.Errorf("failed setting index fields: %w", err)
+			sorted, err := dependency.Sort(dd)
+			if err != nil {
+				log.Error(err, "failed to sort dependencies for revision change")
+				return nil
+			}
+			reqs := make([]reconcile.Request, len(sorted))
+			for i := range sorted {
+				reqs[i].NamespacedName.Name = sorted[i].Name
+				reqs[i].NamespacedName.Namespace = sorted[i].Namespace
+			}
+			return reqs
+		}))
+	if err != nil {
+		return err
 	}
 
 	r.requeueDependency = opts.DependencyRequeueInterval
 	r.statusManager = fmt.Sprintf("gotk-%s", r.ControllerName)
 	r.artifactFetchRetries = opts.HTTPRetry
 
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
-			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
-		)).
-		Watches(
-			&sourcev1b2.OCIRepository{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(ociRepositoryIndexKey)),
-			builder.WithPredicates(SourceRevisionChangePredicate{}),
-		).
-		Watches(
-			&sourcev1.GitRepository{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(gitRepositoryIndexKey)),
-			builder.WithPredicates(SourceRevisionChangePredicate{}),
-		).
-		Watches(
-			&sourcev1b2.Bucket{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(bucketIndexKey)),
-			builder.WithPredicates(SourceRevisionChangePredicate{}),
-		).
-		Watches(
-			&artifactv1.Artifact{},
-			handler.EnqueueRequestsFromMapFunc(r.indirectRequestsForRevisionChangeOf(artifactIndexKey)),
-			builder.WithPredicates(SourceRevisionChangePredicate{}),
-		).
+	return bldr.
 		WithOptions(controller.Options{
 			RateLimiter: opts.RateLimiter,
 		}).
 		Complete(r)
+
 }
 
 func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, retErr error) {
@@ -245,12 +219,13 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Resolve the source reference and requeue the reconciliation if the source is not found.
-	artifactSource, err := r.getSource(ctx, obj)
+	//artifactSource, err := r.getSource(ctx, obj)
+	artifactSource, err := action.GetSource(ctx, r.Client, obj)
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", err)
 
 		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("Source '%s' not found", obj.Spec.SourceRef.String())
+			msg := fmt.Sprintf("Source '%s' not found", obj.GetSourceRef().String())
 			log.Info(msg)
 			return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
 		}
@@ -316,7 +291,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *KustomizationReconciler) reconcile(
 	ctx context.Context,
 	obj *kustomizev1.Kustomization,
-	src ArtifactSource,
+	src action.ArtifactSource,
 	patcher *patch.SerialPatcher) error {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -501,7 +476,7 @@ func (r *KustomizationReconciler) reconcile(
 
 func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 	obj *kustomizev1.Kustomization,
-	source ArtifactSource) error {
+	source action.ArtifactSource) error {
 	for _, d := range obj.Spec.DependsOn {
 		if d.Namespace == "" {
 			d.Namespace = obj.GetNamespace()
@@ -545,8 +520,8 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 }
 
 func (r *KustomizationReconciler) getSource(ctx context.Context,
-	obj *kustomizev1.Kustomization) (ArtifactSource, error) {
-	var src ArtifactSource
+	obj *kustomizev1.Kustomization) (action.ArtifactSource, error) {
+	var src action.ArtifactSource
 	sourceNamespace := obj.GetNamespace()
 	if obj.Spec.SourceRef.Namespace != "" {
 		sourceNamespace = obj.Spec.SourceRef.Namespace
@@ -595,7 +570,7 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 		src = &bucket
 	default:
 		artList := &artifactv1.ArtifactList{}
-		key := KeyForReference(obj, obj.Spec.SourceRef)
+		key := utils.KeyForReference(obj, obj.GetSourceRef())
 		if key != "" {
 			err := r.Client.List(ctx, artList, client.MatchingFields{
 				artifactOwnerIndexKey: key,
