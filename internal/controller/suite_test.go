@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	artifactv1 "github.com/openfluxcd/artifact/api/v1alpha1"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -78,6 +79,7 @@ func runInContext(registerControllers func(*testenv.Environment), run func() int
 	utilruntime.Must(kustomizev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(sourcev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(sourcev1b2.AddToScheme(scheme.Scheme))
+	utilruntime.Must(artifactv1.AddToScheme(scheme.Scheme))
 
 	if debugMode {
 		controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))

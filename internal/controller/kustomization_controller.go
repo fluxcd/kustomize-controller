@@ -122,11 +122,11 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 	log := ctrl.LoggerFrom(ctx)
 
 	bldr, err := action.Setup[kustomizev1.Kustomization](ctx, mgr, r.Client,
-		action.WithTriggerPredicate(func(action action.ActionResource, art *sourcev1.Artifact) bool {
+		action.WithTriggerPredicate(func(action action.ActionResource, art action.ArtifactSource) bool {
 			// If the Kustomization is ready and the revision of the artifact equals
 			// to the last attempted revision, we should not make a request for this Kustomization
 			k := action.(*kustomizev1.Kustomization)
-			return !conditions.IsReady(k) && art.HasRevision(k.Status.LastAttemptedRevision)
+			return !(conditions.IsReady(k) && art.GetArtifact().HasRevision(k.Status.LastAttemptedRevision))
 		}),
 		action.WithRequestMapper(func(list []runtime.Object) []ctrl.Request {
 			var dd []dependency.Dependent
@@ -220,12 +220,16 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Resolve the source reference and requeue the reconciliation if the source is not found.
 	//artifactSource, err := r.getSource(ctx, obj)
-	artifactSource, err := action.GetSource(ctx, r.Client, obj)
+	artifactSource, err := action.GetSource(ctx, r.Client, obj, action.WithNoCrossNamespaceRefs(r.NoCrossNamespaceRefs))
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", err)
 
 		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("Source '%s' not found", obj.GetSourceRef().String())
+			sourceref, err := obj.GetSourceRef()
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			msg := fmt.Sprintf("Source '%s' not found", sourceref.String())
 			log.Info(msg)
 			return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
 		}
@@ -570,7 +574,11 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 		src = &bucket
 	default:
 		artList := &artifactv1.ArtifactList{}
-		key := utils.KeyForReference(obj, obj.GetSourceRef())
+		sourceref, err := obj.GetSourceRef()
+		if err != nil {
+			return nil, err
+		}
+		key := utils.KeyForReference(obj, sourceref)
 		if key != "" {
 			err := r.Client.List(ctx, artList, client.MatchingFields{
 				artifactOwnerIndexKey: key,

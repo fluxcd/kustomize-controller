@@ -19,6 +19,9 @@ config/release/
 config/crd/bases/ocirepositories.yaml
 config/crd/bases/gitrepositories.yaml
 config/crd/bases/buckets.yaml
+config/crd/bases/artifact.yaml
+config/crd/bases/helmrepositories.yaml
+config/crd/bases/helmcharts.yaml
 
 build/
 
