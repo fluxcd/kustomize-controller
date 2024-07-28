@@ -205,13 +205,13 @@ func TestServer_EncryptDecrypt_gcpkms(t *testing.T) {
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("failed to encrypt sops data key with GCP KMS"))
+	g.Expect(err.Error()).To(ContainSubstring("cannot create GCP KMS service"))
 
 	_, err = s.Decrypt(context.TODO(), &keyservice.DecryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("failed to decrypt sops data key with GCP KMS"))
+	g.Expect(err.Error()).To(ContainSubstring("cannot create GCP KMS service"))
 
 }
 
