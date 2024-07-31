@@ -33,7 +33,7 @@ require (
 	github.com/hashicorp/vault/api v1.13.0
 	github.com/onsi/gomega v1.33.1
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/openfluxcd/artifact v0.0.0-20240711143208-77e59079e0b0
+	github.com/openfluxcd/artifact v0.0.0-20240731144814-1700a8a69770
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/net v0.24.0
@@ -45,8 +45,6 @@ require (
 	sigs.k8s.io/kustomize/api v0.17.1
 	sigs.k8s.io/yaml v1.4.0
 )
-
-replace github.com/openfluxcd/artifact => ../artifact
 
 // Pin kustomize to v5.4.0
 replace (

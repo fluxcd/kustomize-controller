@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"github.com/openfluxcd/artifact/testutils"
 	"testing"
 	"time"
 
@@ -74,6 +75,144 @@ func TestKustomizationReconciler_StagedApply(t *testing.T) {
 			Name:      repositoryName.Name,
 			Namespace: repositoryName.Namespace,
 			Kind:      sourcev1.GitRepositoryKind,
+		},
+		KubeConfig: &meta.KubeConfigReference{
+			SecretRef: meta.SecretKeyReference{
+				Name: "kubeconfig",
+			},
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+	g.Eventually(func() bool {
+		var obj kustomizev1.Kustomization
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
+		return isReconcileSuccess(&obj) && obj.Status.LastAttemptedRevision == "main/"+artifactChecksum
+	}, timeout, time.Second).Should(BeTrue())
+
+	g.Expect(k8sClient.Delete(context.Background(), kustomization)).To(Succeed())
+
+	g.Eventually(func() bool {
+		var obj kustomizev1.Kustomization
+		err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
+		return errors.IsNotFound(err)
+	}, timeout, time.Second).Should(BeTrue())
+}
+
+func TestKustomizationReconciler_StagedApplyWithArtifact(t *testing.T) {
+	g := NewWithT(t)
+
+	namespaceName := "kust-" + randStringRunes(5)
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: namespaceName},
+	}
+	g.Expect(k8sClient.Create(ctx, namespace)).ToNot(HaveOccurred())
+	t.Cleanup(func() {
+		g.Expect(k8sClient.Delete(ctx, namespace)).NotTo(HaveOccurred())
+	})
+
+	err := createKubeConfigSecret(namespaceName)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	artifactName := "val-" + randStringRunes(5)
+	artifactChecksum, err := testServer.ArtifactFromDir("testdata/configmap", artifactName)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	sourceName := types.NamespacedName{
+		Name:      fmt.Sprintf("val-%s", randStringRunes(5)),
+		Namespace: namespaceName,
+	}
+
+	sourceref, err := testutils.ApplyArtifact(k8sClient, testServer, sourceName, artifactName, "main/"+artifactChecksum)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	kustomization := &kustomizev1.Kustomization{}
+	kustomization.Name = "test-kust"
+	kustomization.Namespace = namespaceName
+	kustomization.Spec = kustomizev1.KustomizationSpec{
+		Interval: metav1.Duration{Duration: 10 * time.Minute},
+		Prune:    true,
+		Path:     "./",
+		SourceRef: kustomizev1.CrossNamespaceSourceReference{
+			Name:       sourceref.GetName(),
+			Namespace:  sourceref.GetNamespace(),
+			Kind:       sourceref.Kind,
+			APIVersion: sourceref.APIVersion,
+		},
+		KubeConfig: &meta.KubeConfigReference{
+			SecretRef: meta.SecretKeyReference{
+				Name: "kubeconfig",
+			},
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+	g.Eventually(func() bool {
+		var obj kustomizev1.Kustomization
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
+		return isReconcileSuccess(&obj) && obj.Status.LastAttemptedRevision == "main/"+artifactChecksum
+	}, time.Minute*10, time.Second).Should(BeTrue())
+
+	g.Expect(k8sClient.Delete(context.Background(), kustomization)).To(Succeed())
+
+	g.Eventually(func() bool {
+		var obj kustomizev1.Kustomization
+		err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
+		return errors.IsNotFound(err)
+	}, timeout, time.Second).Should(BeTrue())
+}
+
+func TestKustomizationReconciler_StagedApplyWithGerenicSource(t *testing.T) {
+	g := NewWithT(t)
+
+	namespaceName := "kust-" + randStringRunes(5)
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: namespaceName},
+	}
+	g.Expect(k8sClient.Create(ctx, namespace)).ToNot(HaveOccurred())
+	t.Cleanup(func() {
+		g.Expect(k8sClient.Delete(ctx, namespace)).NotTo(HaveOccurred())
+	})
+
+	err := createKubeConfigSecret(namespaceName)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	artifactName := "val-" + randStringRunes(5)
+	artifactChecksum, err := testServer.ArtifactFromDir("testdata/configmap", artifactName)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	sourceName := types.NamespacedName{
+		Name:      fmt.Sprintf("val-%s", randStringRunes(5)),
+		Namespace: namespaceName,
+	}
+
+	sourceref, err := testutils.ApplyGenericSource(k8sClient, testServer, &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sourceName.Name,
+			Namespace: sourceName.Namespace,
+		},
+	}, artifactName, "main/"+artifactChecksum)
+
+	g.Expect(err).NotTo(HaveOccurred())
+
+	kustomization := &kustomizev1.Kustomization{}
+	kustomization.Name = "test-kust"
+	kustomization.Namespace = namespaceName
+	kustomization.Spec = kustomizev1.KustomizationSpec{
+		Interval: metav1.Duration{Duration: 10 * time.Minute},
+		Prune:    true,
+		Path:     "./",
+		SourceRef: kustomizev1.CrossNamespaceSourceReference{
+			Name:       sourceref.GetName(),
+			Namespace:  sourceref.GetNamespace(),
+			Kind:       sourceref.Kind,
+			APIVersion: sourceref.APIVersion,
 		},
 		KubeConfig: &meta.KubeConfigReference{
 			SecretRef: meta.SecretKeyReference{
