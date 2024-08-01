@@ -6,7 +6,7 @@ require (
 	github.com/fluxcd/pkg/apis/kustomize v1.5.0
 	github.com/fluxcd/pkg/apis/meta v1.5.0
 	github.com/fluxcd/source-controller/api v1.3.0
-	github.com/openfluxcd/artifact v0.0.0-00010101000000-000000000000
+	github.com/openfluxcd/artifact v0.0.0-20240731144814-1700a8a69770
 	k8s.io/apiextensions-apiserver v0.30.0
 	k8s.io/apimachinery v0.30.0
 	sigs.k8s.io/controller-runtime v0.18.2
@@ -55,5 +55,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-replace github.com/openfluxcd/artifact => ../../artifact
