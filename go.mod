@@ -33,7 +33,7 @@ require (
 	github.com/hashicorp/vault/api v1.13.0
 	github.com/onsi/gomega v1.33.1
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/openfluxcd/artifact v0.0.0-20240731144814-1700a8a69770
+	github.com/openfluxcd/artifact v0.1.1-0.20240806190734-445fc08739f2
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/net v0.24.0

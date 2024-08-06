@@ -343,8 +343,8 @@ github.com/opencontainers/image-spec v1.0.2 h1:9yCKha/T5XdGtO0q9Q9a6T5NUCsTn/DrB
 github.com/opencontainers/image-spec v1.0.2/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zMzWCbyJoFRP3s7yZA0=
 github.com/opencontainers/runc v1.1.12 h1:BOIssBaW1La0/qbNZHXOOa71dZfZEQOzW7dqQf3phss=
 github.com/opencontainers/runc v1.1.12/go.mod h1:S+lQwSfncpBha7XTy/5lBwWgm5+y5Ma/O44Ekby9FK8=
-github.com/openfluxcd/artifact v0.0.0-20240731144814-1700a8a69770 h1:UGC98DXRIwBlc5LabHz/61pq9KWiUed9LjcMkvSeyKs=
-github.com/openfluxcd/artifact v0.0.0-20240731144814-1700a8a69770/go.mod h1:A+2bRh4vjyFK5A/mtfefqXA0weNSnazkkMJPJ4SMzm8=
+github.com/openfluxcd/artifact v0.1.1-0.20240806190734-445fc08739f2 h1:uVJmGhxCU2jJJMbYH+YOdGrVhlItxlPcBRuku6bxDxc=
+github.com/openfluxcd/artifact v0.1.1-0.20240806190734-445fc08739f2/go.mod h1:A+2bRh4vjyFK5A/mtfefqXA0weNSnazkkMJPJ4SMzm8=
 github.com/ory/dockertest/v3 v3.10.0 h1:4K3z2VMe8Woe++invjaTB7VRyQXQy5UY+loujO4aNE4=
 github.com/ory/dockertest/v3 v3.10.0/go.mod h1:nr57ZbRWMqfsdGdFNLHz5jjNdDb7VVFnzAeW1n5N1Lg=
 github.com/otiai10/copy v1.14.0 h1:dCI/t1iTdYGtkvCuBG2BgR6KZa83PTclw4U5n2wAllU=
