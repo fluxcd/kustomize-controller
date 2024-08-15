@@ -7,7 +7,7 @@ require (
 	github.com/fluxcd/pkg/apis/meta v1.6.0
 	k8s.io/apiextensions-apiserver v0.31.0
 	k8s.io/apimachinery v0.31.0
-	sigs.k8s.io/controller-runtime v0.19.0-beta.0
+	sigs.k8s.io/controller-runtime v0.19.0
 )
 
 // Fix CVE-2022-28948

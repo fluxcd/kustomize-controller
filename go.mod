@@ -11,21 +11,21 @@ replace github.com/opencontainers/go-digest => github.com/opencontainers/go-dige
 require (
 	filippo.io/age v1.2.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.12.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.14.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.7.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.27
 	github.com/cyphar/filepath-securejoin v0.3.1
 	github.com/dimchansky/utfbom v1.1.1
-	github.com/fluxcd/cli-utils v0.36.0-flux.8
+	github.com/fluxcd/cli-utils v0.36.0-flux.9
 	github.com/fluxcd/kustomize-controller/api v1.3.0
 	github.com/fluxcd/pkg/apis/acl v0.3.0
 	github.com/fluxcd/pkg/apis/event v0.10.0
 	github.com/fluxcd/pkg/apis/kustomize v1.6.0
 	github.com/fluxcd/pkg/apis/meta v1.6.0
 	github.com/fluxcd/pkg/http/fetch v0.12.0
-	github.com/fluxcd/pkg/kustomize v1.12.0
-	github.com/fluxcd/pkg/runtime v0.48.0
-	github.com/fluxcd/pkg/ssa v0.40.0
+	github.com/fluxcd/pkg/kustomize v1.13.0
+	github.com/fluxcd/pkg/runtime v0.49.0
+	github.com/fluxcd/pkg/ssa v0.41.0
 	github.com/fluxcd/pkg/tar v0.8.0
 	github.com/fluxcd/pkg/testserver v0.7.0
 	github.com/fluxcd/source-controller/api v1.3.0
@@ -40,7 +40,7 @@ require (
 	k8s.io/apimachinery v0.31.0
 	k8s.io/client-go v0.31.0
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
-	sigs.k8s.io/controller-runtime v0.19.0-beta.0
+	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/kustomize/api v0.17.3
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -64,7 +64,7 @@ require (
 	cloud.google.com/go/longrunning v0.5.12 // indirect
 	cloud.google.com/go/storage v1.43.0 // indirect
 	dario.cat/mergo v1.0.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.9.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.1.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.0.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
