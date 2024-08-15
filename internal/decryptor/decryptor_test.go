@@ -515,11 +515,11 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 
 func TestDecryptor_DecryptResource(t *testing.T) {
 	var (
-		resourceFactory = provider.NewDefaultDepProvider().GetResourceFactory()
-		emptyResource   = resourceFactory.FromMap(map[string]interface{}{})
+		resourceFactory  = provider.NewDefaultDepProvider().GetResourceFactory()
+		emptyResource, _ = resourceFactory.FromMap(map[string]interface{}{})
 	)
 
-	newSecretResource := func(namespace, name string, data map[string]interface{}) *resource.Resource {
+	newSecretResource := func(namespace, name string, data map[string]interface{}) (*resource.Resource, error) {
 		return resourceFactory.FromMap(map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "Secret",
@@ -558,7 +558,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		d.ageIdentities = append(d.ageIdentities, ageID)
 
-		secret := newSecretResource("test", "secret", map[string]interface{}{
+		secret, _ := newSecretResource("test", "secret", map[string]interface{}{
 			"key": "value",
 		})
 		g.Expect(isSOPSEncryptedResource(secret)).To(BeFalse())
@@ -607,7 +607,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		}, plainData, formats.Ini, formats.Yaml)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		secret := newSecretResource("test", "secret-data", map[string]interface{}{
+		secret, _ := newSecretResource("test", "secret-data", map[string]interface{}{
 			"file.ini": base64.StdEncoding.EncodeToString(encData),
 		})
 		g.Expect(isSOPSEncryptedResource(secret)).To(BeFalse())
@@ -642,7 +642,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		}, plainData, formats.Yaml, formats.Yaml)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		secret := newSecretResource("test", "secret-data", map[string]interface{}{
+		secret, _ := newSecretResource("test", "secret-data", map[string]interface{}{
 			"key.yaml": base64.StdEncoding.EncodeToString(encData),
 		})
 		g.Expect(isSOPSEncryptedResource(secret)).To(BeFalse())
@@ -686,7 +686,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		}, plainData, formats.Json, formats.Yaml)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		secret := resourceFactory.FromMap(map[string]interface{}{
+		secret, _ := resourceFactory.FromMap(map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "Secret",
 			"metadata": map[string]interface{}{
@@ -1487,12 +1487,12 @@ func TestDecryptor_isSOPSEncryptedResource(t *testing.T) {
 	g := NewWithT(t)
 
 	resourceFactory := provider.NewDefaultDepProvider().GetResourceFactory()
-	encrypted := resourceFactory.FromMap(map[string]interface{}{
+	encrypted, _ := resourceFactory.FromMap(map[string]interface{}{
 		"sops": map[string]string{
 			"mac": "some mac value",
 		},
 	})
-	empty := resourceFactory.FromMap(map[string]interface{}{})
+	empty, _ := resourceFactory.FromMap(map[string]interface{}{})
 
 	g.Expect(isSOPSEncryptedResource(encrypted)).To(BeTrue())
 	g.Expect(isSOPSEncryptedResource(empty)).To(BeFalse())
