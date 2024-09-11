@@ -29,6 +29,7 @@ import (
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/fluxcd/pkg/ssa/normalize"
 	ssautil "github.com/fluxcd/pkg/ssa/utils"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -822,9 +823,38 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	// sort by kind, validate and apply all the others objects
 	sort.Sort(ssa.SortableUnstructureds(resStage))
 	if len(resStage) > 0 {
-		changeSet, err := manager.ApplyAll(ctx, resStage, applyOpts)
-		if err != nil {
-			return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String())
+		changeSet := ssa.NewChangeSet()
+		if obj.Spec.PartialApply {
+			collectedChanges := make([]ssa.ChangeSetEntry, len(resStage))
+			g := &errgroup.Group{}
+			g.SetLimit(r.ConcurrentSSA)
+
+			for i, resource := range resStage {
+				g.Go(func() error {
+					changeSetEntry, err := manager.Apply(ctx, resource, applyOpts)
+					if err != nil {
+						return err
+					} else if changeSetEntry != nil {
+						collectedChanges[i] = *changeSetEntry
+					}
+					return nil
+				})
+			}
+			if err := g.Wait(); err != nil {
+				for _, changeSetEntry := range collectedChanges {
+					if HasChanged(changeSetEntry.Action) {
+						changeSetLog.WriteString(changeSetEntry.String() + "\n")
+					}
+				}
+				return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String())
+			}
+			changeSet.Append(collectedChanges)
+		} else {
+			var err error
+			changeSet, err = manager.ApplyAll(ctx, resStage, applyOpts)
+			if err != nil {
+				return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String())
+			}
 		}
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {

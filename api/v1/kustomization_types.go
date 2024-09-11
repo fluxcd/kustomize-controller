@@ -167,6 +167,12 @@ type KustomizationSpec struct {
 	// Components specifies relative paths to specifications of other Components.
 	// +optional
 	Components []string `json:"components,omitempty"`
+
+	// PartialApply instructs the controller to apply the kustomization partially
+	// if there are errors during the apply phase.
+	// +kubebuilder:default:=false
+	// +optional
+	PartialApply bool `json:"partialApply,omitempty"`
 }
 
 // CommonMetadata defines the common labels and annotations.
