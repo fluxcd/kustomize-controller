@@ -380,6 +380,19 @@ resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
 <p>Components specifies relative paths to specifications of other Components.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>partialApply</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PartialApply instructs the controller to apply the kustomization partially
+if there are errors during the apply phase.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -886,6 +899,19 @@ resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
 <td>
 <em>(Optional)</em>
 <p>Components specifies relative paths to specifications of other Components.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>partialApply</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PartialApply instructs the controller to apply the kustomization partially
+if there are errors during the apply phase.</p>
 </td>
 </tr>
 </tbody>
