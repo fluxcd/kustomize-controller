@@ -231,6 +231,12 @@ spec:
                 maxLength: 200
                 minLength: 1
                 type: string
+              partialApply:
+                default: false
+                description: |-
+                  PartialApply instructs the controller to apply the kustomization partially
+                  if there are errors during the apply phase.
+                type: boolean
               patches:
                 description: |-
                   Strategic merge and JSON patches, defined as inline YAML objects,
