@@ -421,7 +421,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Validate and apply resources in stages.
-	drifted, changeSet, err := r.apply(ctx, resourceManager, obj, revision, objects)
+	drifted, changeSet, err, errDuringPartialApply := r.apply(ctx, resourceManager, obj, revision, objects)
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return err
@@ -468,11 +468,15 @@ func (r *KustomizationReconciler) reconcile(
 	// Set last applied revision.
 	obj.Status.LastAppliedRevision = revision
 
-	// Mark the object as ready.
-	conditions.MarkTrue(obj,
-		meta.ReadyCondition,
-		meta.ReconciliationSucceededReason,
-		fmt.Sprintf("Applied revision: %s", revision))
+	if errDuringPartialApply != nil {
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, fmt.Sprintf("Applied revision: %s with, err: %s", revision, errDuringPartialApply))
+	} else {
+		// Mark the object as ready.
+		conditions.MarkTrue(obj,
+			meta.ReadyCondition,
+			meta.ReconciliationSucceededReason,
+			fmt.Sprintf("Applied revision: %s", revision))
+	}
 
 	return nil
 }
@@ -658,11 +662,11 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	manager *ssa.ResourceManager,
 	obj *kustomizev1.Kustomization,
 	revision string,
-	objects []*unstructured.Unstructured) (bool, *ssa.ChangeSet, error) {
+	objects []*unstructured.Unstructured) (bool, *ssa.ChangeSet, error, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	if err := normalize.UnstructuredList(objects); err != nil {
-		return false, nil, err
+		return false, nil, err, nil
 	}
 
 	if cmeta := obj.Spec.CommonMetadata; cmeta != nil {
@@ -752,7 +756,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		if decryptor.IsEncryptedSecret(u) {
 			return false, nil,
 				fmt.Errorf("%s is SOPS encrypted, configuring decryption is required for this secret to be reconciled",
-					ssautil.FmtUnstructured(u))
+					ssautil.FmtUnstructured(u)), nil
 		}
 
 		switch {
@@ -772,7 +776,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	if len(defStage) > 0 {
 		changeSet, err := manager.ApplyAll(ctx, defStage, applyOpts)
 		if err != nil {
-			return false, nil, err
+			return false, nil, err, nil
 		}
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
@@ -789,7 +793,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 				Interval: 2 * time.Second,
 				Timeout:  obj.GetTimeout(),
 			}); err != nil {
-				return false, nil, err
+				return false, nil, err, nil
 			}
 		}
 	}
@@ -798,7 +802,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	if len(classStage) > 0 {
 		changeSet, err := manager.ApplyAll(ctx, classStage, applyOpts)
 		if err != nil {
-			return false, nil, err
+			return false, nil, err, nil
 		}
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
@@ -815,11 +819,12 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 				Interval: 2 * time.Second,
 				Timeout:  obj.GetTimeout(),
 			}); err != nil {
-				return false, nil, err
+				return false, nil, err, nil
 			}
 		}
 	}
 
+	var errorDuringPartialApply error = nil
 	// sort by kind, validate and apply all the others objects
 	sort.Sort(ssa.SortableUnstructureds(resStage))
 	if len(resStage) > 0 {
@@ -833,36 +838,35 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 				g.Go(func() error {
 					changeSetEntry, err := manager.Apply(ctx, resource, applyOpts)
 					if err != nil {
+						r.event(obj, revision, eventv1.EventSeverityError, fmt.Sprintf("error during apply for %v: %v", client.ObjectKeyFromObject(resource), err), nil)
 						return err
-					} else if changeSetEntry != nil {
-						collectedChanges[i] = *changeSetEntry
 					}
+					collectedChanges[i] = *changeSetEntry
 					return nil
 				})
 			}
 			if err := g.Wait(); err != nil {
-				for _, changeSetEntry := range collectedChanges {
-					if HasChanged(changeSetEntry.Action) {
-						changeSetLog.WriteString(changeSetEntry.String() + "\n")
-					}
-				}
-				return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String())
+				errorDuringPartialApply = err
 			}
 			changeSet.Append(collectedChanges)
 		} else {
 			var err error
 			changeSet, err = manager.ApplyAll(ctx, resStage, applyOpts)
 			if err != nil {
-				return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String())
+				return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String()), nil
 			}
 		}
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
 			resultSet.Append(changeSet.Entries)
 
-			log.Info("server-side apply completed", "output", changeSet.ToMap(), "revision", revision)
+			if errorDuringPartialApply != nil {
+				log.Info("server-side partial apply completed with error", "output", changeSet.ToMap(), "revision", revision, "err", errorDuringPartialApply)
+			} else {
+				log.Info("server-side apply completed", "output", changeSet.ToMap(), "revision", revision)
+			}
 			for _, change := range changeSet.Entries {
-				if HasChanged(change.Action) {
+				if change.Action != "" && HasChanged(change.Action) {
 					changeSetLog.WriteString(change.String() + "\n")
 				}
 			}
@@ -875,7 +879,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		r.event(obj, revision, eventv1.EventSeverityInfo, applyLog, nil)
 	}
 
-	return applyLog != "", resultSet, nil
+	return applyLog != "", resultSet, nil, errorDuringPartialApply
 }
 
 func (r *KustomizationReconciler) checkHealth(ctx context.Context,
