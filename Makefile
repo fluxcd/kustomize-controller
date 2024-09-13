@@ -44,7 +44,7 @@ OCIREPO_CRD ?= config/crd/bases/ocirepositories.yaml
 SOURCE_CRD_VER=$(BUILD_DIR)/.src-crd-$(SOURCE_VER)
 
 # API (doc) generation utilities
-CONTROLLER_GEN_VERSION ?= v0.15.0
+CONTROLLER_GEN_VERSION ?= v0.16.1
 GEN_API_REF_DOCS_VERSION ?= e327d0730470cbd61b06300f81c5fcf91c23c113
 
 all: manager
