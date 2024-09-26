@@ -176,6 +176,7 @@ func TestMain(m *testing.M) {
 		reconciler = &KustomizationReconciler{
 			ControllerName:          controllerName,
 			Client:                  testEnv,
+			APIReader:               testEnv,
 			EventRecorder:           testEnv.GetEventRecorderFor(controllerName),
 			Metrics:                 testMetricsH,
 			ConcurrentSSA:           4,

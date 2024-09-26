@@ -89,6 +89,7 @@ type KustomizationReconciler struct {
 	artifactFetchRetries int
 	requeueDependency    time.Duration
 
+	APIReader               client.Reader
 	StatusPoller            *polling.StatusPoller
 	PollingOpts             polling.Options
 	ControllerName          string
@@ -488,7 +489,7 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 			Name:      d.Name,
 		}
 		var k kustomizev1.Kustomization
-		err := r.Get(ctx, dName, &k)
+		err := r.APIReader.Get(ctx, dName, &k)
 		if err != nil {
 			return fmt.Errorf("dependency '%s' not found: %w", dName, err)
 		}
