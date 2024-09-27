@@ -2,6 +2,47 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.4.0
+
+**Release date:** 2024-09-27
+
+This minor release comes with various bug fixes and improvements.
+
+kustomize-controller in [sharded
+deployment](https://fluxcd.io/flux/installation/configuration/sharding/)
+configuration now supports cross-shard dependency check. This allows a
+Kustomization to depend on other Kustomizations managed by different controller
+shards.
+
+In addition, the Kubernetes dependencies have been updated to v1.31.1 and
+various other controller dependencies have been updated to their latest version.
+The controller is now built with Go 1.23.
+
+Fixes:
+- Fix incorrect use of format strings with the conditions package.
+  [#1198](https://github.com/fluxcd/kustomize-controller/pull/1198)
+
+Improvements:
+- Allow cross-shard dependency check
+  [#1248](https://github.com/fluxcd/kustomize-controller/pull/1248)
+- docs: Clarify .spec.decryption.secretRef usage
+  [#1242](https://github.com/fluxcd/kustomize-controller/pull/1242)
+- Build with Go 1.23
+  [#1230](https://github.com/fluxcd/kustomize-controller/pull/1230)
+- Various dependency updates
+  [#1165](https://github.com/fluxcd/kustomize-controller/pull/1165)
+  [#1181](https://github.com/fluxcd/kustomize-controller/pull/1181)
+  [#1212](https://github.com/fluxcd/kustomize-controller/pull/1212)
+  [#1228](https://github.com/fluxcd/kustomize-controller/pull/1228)
+  [#1229](https://github.com/fluxcd/kustomize-controller/pull/1229)
+  [#1233](https://github.com/fluxcd/kustomize-controller/pull/1233)
+  [#1239](https://github.com/fluxcd/kustomize-controller/pull/1239)
+  [#1240](https://github.com/fluxcd/kustomize-controller/pull/1240)
+  [#1243](https://github.com/fluxcd/kustomize-controller/pull/1243)
+  [#1249](https://github.com/fluxcd/kustomize-controller/pull/1249)
+  [#1250](https://github.com/fluxcd/kustomize-controller/pull/1250)
+  [#1251](https://github.com/fluxcd/kustomize-controller/pull/1251)
+
 ## 1.3.0
 
 **Release date:** 2024-05-06
