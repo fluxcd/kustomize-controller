@@ -132,7 +132,7 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 
 	// Index the Kustomizations by the Bucket references they (may) point at.
 	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, bucketIndexKey,
-		r.indexBy(sourcev1b2.BucketKind)); err != nil {
+		r.indexBy(sourcev1.BucketKind)); err != nil {
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
@@ -155,7 +155,7 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
-			&sourcev1b2.Bucket{},
+			&sourcev1.Bucket{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(bucketIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
@@ -561,8 +561,8 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
 		src = &repository
-	case sourcev1b2.BucketKind:
-		var bucket sourcev1b2.Bucket
+	case sourcev1.BucketKind:
+		var bucket sourcev1.Bucket
 		err := r.Client.Get(ctx, namespacedName, &bucket)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
