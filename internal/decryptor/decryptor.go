@@ -697,9 +697,13 @@ func recurseKustomizationFiles(root, path string, visit visitKustomization, visi
 		return err
 	}
 
+	// Components may contain resources as well, ...
+	// ...so we have to process both .resources and .components values
+	resources := append(kus.Resources, kus.Components...)
+
 	// Recurse over other resources in Kustomization,
 	// repeating the above logic per item
-	for _, res := range kus.Resources {
+	for _, res := range resources {
 		if !filepath.IsAbs(res) {
 			res = filepath.Join(path, res)
 		}
