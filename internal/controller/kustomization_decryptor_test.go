@@ -200,6 +200,10 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-year2", Namespace: id}, &year2Secret)).To(Succeed())
 		g.Expect(string(year2Secret.Data["year"])).To(Equal("year2"))
 
+		var year3Secret corev1.Secret
+		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-year3", Namespace: id}, &year3Secret)).To(Succeed())
+		g.Expect(string(year3Secret.Data["year"])).To(Equal("year3"))
+
 		var encodedSecret corev1.Secret
 		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-month", Namespace: id}, &encodedSecret)).To(Succeed())
 		g.Expect(string(encodedSecret.Data["month.yaml"])).To(Equal("month: May\n"))
