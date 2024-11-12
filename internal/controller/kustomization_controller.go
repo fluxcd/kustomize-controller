@@ -599,8 +599,8 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 	}
 
 	// Decrypt Kustomize EnvSources files before build
-	if err = dec.DecryptEnvSources(dirPath); err != nil {
-		return nil, fmt.Errorf("error decrypting env sources: %w", err)
+	if err = dec.DecryptSources(dirPath); err != nil {
+		return nil, fmt.Errorf("error decrypting sources: %w", err)
 	}
 
 	m, err := generator.SecureBuild(workDir, dirPath, !r.NoRemoteBases)
