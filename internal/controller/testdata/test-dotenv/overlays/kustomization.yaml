@@ -8,3 +8,5 @@ secretGenerator:
       - year1.env
 generatorOptions:
   disableNameSuffixHash: true
+components:
+  - component
