@@ -8,5 +8,6 @@ resources:
   - patches
   - inside
   - remote
+  - mix
 components:
   - ./component

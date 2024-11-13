@@ -174,6 +174,10 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-patches-secret", Namespace: id}, &patchedSecret)).To(Succeed())
 		g.Expect(string(patchedSecret.Data["key"])).To(Equal("merge1"))
 		g.Expect(string(patchedSecret.Data["merge2"])).To(Equal("merge2"))
+
+		var pod corev1.Pod
+		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-mix-pod", Namespace: id}, &pod)).To(Succeed())
+		g.Expect(len(pod.Spec.Containers)).To(Equal(2))
 	})
 
 	t.Run("does not emit change events for identical secrets", func(t *testing.T) {

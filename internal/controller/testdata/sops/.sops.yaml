@@ -15,6 +15,10 @@ creation_rules:
     encrypted_regex: ".*"
     age: &age age1l44xcng8dqj32nlv6d930qvvrny05hglzcv9qpc7kxjc6902ma4qufys29
 
+  - path_regex: pod\.yaml$
+    encrypted_regex: env
+    age: *age
+
   - path_regex: \.yaml$
     encrypted_regex: *encrypted_regex
     age: *age

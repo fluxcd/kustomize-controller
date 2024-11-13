@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod
+spec:
+  containers:
+    - name: patched
+      image: nginx:stable-alpine
+      env:
+        - name: ThatEnvIsEncrypted
+          value: but the main one is not
+      resources:
+        limits:
+          memory: 50Mi
+          cpu: 50m
+sops:
+  kms: []
+  gcp_kms: []
+  azure_kv: []
+  hc_vault: []
+  age:
+    - recipient: age1l44xcng8dqj32nlv6d930qvvrny05hglzcv9qpc7kxjc6902ma4qufys29
+      enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBPNVF4Vm1kRGdnbGlqYTJX
+        c0swbms2OE5sTVFacVRwZHB1K0RaWlBtc0FFCkVTMVg5S1orVzVWMVpkdlEvNm9z
+        emx4N3Vncm1CSnIzNkJiZ2daVXg3dkkKLS0tIHBNT0ZwWFdhbTljNCtFVXkwNjli
+        MkNDWFQ4Yk5FRWJxcmg4Q1U5ZzRDZ2MKeDN0cOJYZmFYC5FtuQ1R5c1bbKAkFuPM
+        pHYRXCN457kJPKzjRVVfQO1VbgsPtSEkHxEqmbGJn5GSMI3nzUW4vQ==
+        -----END AGE ENCRYPTED FILE-----
+  lastmodified: "2024-11-13T11:21:33Z"
+  mac: ENC[AES256_GCM,data:ufNIQBVUDIPPVIrhfdshNXJPyasZdLvf69CIiR7s1U4KpMaOfvt9X/tJpvHCD0BuQN0u1vHVLBaZsYUMIlqbpQ41eKccPBtK6fuEx21CmZ+hJI8Bwfuu37mxF2bg20vrwtWqC4qxmn+tQqkRO5mHQDqk7kVzCRlP4i+nVkanf8Y=,iv:yzj8EBZF6q1GpytMqdIOQtSsmcsLGUN6jNyopYHxSeg=,tag:l2WqEjihDCGEyvaIGHKZUw==,type:str]
+  pgp: []
+  encrypted_regex: ^(data|stringData)$
+  version: 3.9.0

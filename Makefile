@@ -24,7 +24,7 @@ endif
 export PATH:=$(GOBIN):${PATH}
 
 # Allows for defining additional Go test args, e.g. '-tags integration'.
-GO_TEST_ARGS ?= -run ^TestKustomizationReconciler_Decryptor$
+GO_TEST_ARGS ?=
 
 # Allows for defining additional Docker buildx arguments, e.g. '--push'.
 BUILD_ARGS ?= --load
