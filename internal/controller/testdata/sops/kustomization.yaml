@@ -7,5 +7,6 @@ resources:
   - files
   - patches
   - inside
+  - remote
 components:
   - ./component

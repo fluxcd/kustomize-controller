@@ -426,13 +426,19 @@ func (d *Decryptor) decryptKustomizationSources(visited map[string]struct{}) vis
 			if _, ok := visited[absRef]; ok {
 				return nil
 			}
-			fi, err := os.Lstat(absRef)
+			exists, err := checkPathExists(absRef)
 			if err != nil {
-				return securePathErr(root, err)
+				return err
 			}
-			if !ignoreNotRegular || fi.Mode().IsRegular() {
-				if err := d.sopsDecryptFile(absRef, format, format); err != nil {
+			if !ignoreNotRegular || exists {
+				fi, err := os.Lstat(absRef)
+				if err != nil {
 					return securePathErr(root, err)
+				}
+				if !ignoreNotRegular || fi.Mode().IsRegular() {
+					if err := d.sopsDecryptFile(absRef, format, format); err != nil {
+						return securePathErr(root, err)
+					}
 				}
 			}
 			// Explicitly set _after_ the decryption operation, this makes
@@ -807,6 +813,17 @@ func securePathErr(root string, err error) error {
 		err = &fs.PathError{Op: pathErr.Op, Path: stripRoot(root, pathErr.Path), Err: pathErr.Err}
 	}
 	return err
+}
+
+func checkPathExists(path string) (exists bool, err error) {
+	exists = false
+	if _, err = os.Stat(path); err == nil {
+		exists = true
+	}
+	if os.IsNotExist(err) {
+		err = nil
+	}
+	return
 }
 
 func formatForPath(path string) formats.Format {

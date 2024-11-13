@@ -151,6 +151,7 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 			"sops-envs-secret",
 			"sops-files-secret",
 			"sops-inside-secret",
+			"sops-remote-secret",
 		}
 		for _, name := range secretNames {
 			var secret corev1.Secret
@@ -161,6 +162,7 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		configMapNames := []string{
 			"sops-envs-configmap",
 			"sops-files-configmap",
+			"sops-remote-configmap",
 		}
 		for _, name := range configMapNames {
 			var configMap corev1.ConfigMap
