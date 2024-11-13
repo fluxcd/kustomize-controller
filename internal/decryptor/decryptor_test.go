@@ -747,7 +747,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 	})
 }
 
-func TestDecryptor_decryptKustomizationEnvSources(t *testing.T) {
+func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 	type file struct {
 		name           string
 		symlink        string
@@ -910,7 +910,7 @@ func TestDecryptor_decryptKustomizationEnvSources(t *testing.T) {
 			}
 
 			visited := make(map[string]struct{}, 0)
-			visit := d.decryptKustomizationEnvSources(visited)
+			visit := d.decryptKustomizationSources(visited)
 			kus := &kustypes.Kustomization{SecretGenerator: tt.secretGenerator}
 
 			err = visit(root, tt.path, kus)

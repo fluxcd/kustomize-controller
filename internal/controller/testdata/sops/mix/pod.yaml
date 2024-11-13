@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod
+spec:
+  containers:
+    - name: main
+      image: nginx:stable-alpine
+      env:
+        - name: ENC[AES256_GCM,data:vcqm/OT7suPAQTUDCMNw4wg=,iv:pY047fxZySu8rQ4Z/oYfZ80S7nbLUBWXHP6DU1kJMKg=,tag:xdAUqlNNdnxHxLjjl1Wyow==,type:str]
+          value: ENC[AES256_GCM,data:x9nGJZnm5rSsKh2iIxT5NFjRoJg=,iv:1bSCgQIV9+Z9rRcUSEpdPVQWMDVkM4OKxk8ea1bn0pk=,tag:AcE8iVIF+QoGKPBVAhBx8A==,type:str]
+      resources:
+        limits:
+          memory: 50Mi
+          cpu: 50m
+sops:
+  kms: []
+  gcp_kms: []
+  azure_kv: []
+  hc_vault: []
+  age:
+    - recipient: age1l44xcng8dqj32nlv6d930qvvrny05hglzcv9qpc7kxjc6902ma4qufys29
+      enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBORkE5Q1V6NFlHM0tRc1Bp
+        aWVmTDJTZTRBZC9PczF1cE9wZlY4dGhGVmc0CndUR2FUdVhuNit1anY2ODFkQWM0
+        NUtWcjF3R3gzSHQwU2tzNytGQk5CaWsKLS0tIEd2MmZ2Z3phMUd5OTdkUnRJVXpN
+        U2VRS1gzcjN1N1BwdjJOdEE5Z2M3eE0KJ1ReVeaL83qTYGw/bO4nas8BQYhl1JpK
+        O1AMcJ4lmH/IrSkf65UnRIdVg645UuhwhNFSEiSyIkuqkACUZeiCMg==
+        -----END AGE ENCRYPTED FILE-----
+  lastmodified: "2024-11-13T11:21:30Z"
+  mac: ENC[AES256_GCM,data:sD/2WIG7KxAKV/eG2Ht2Y/iY/NBM8W21QgQYpuLVpChZSBlWEbHx14qWyH4HfMD7P53+cugCzqxbPTUZyb8yYFy0CxBbYKojAOvD3iEPDBXsdoIW00Lj8gWydibBz4CYywHdlmu1gdCjafueDeeQqe2oqPg2S4treqAE2oU4ys8=,iv:NQHfiJ7P+TcSGrvxFFPn3PIuuFuRzkS8E0JNh14ClB0=,tag:tByyknlD06zv4s7m/yXvuQ==,type:str]
+  pgp: []
+  encrypted_regex: env
+  version: 3.9.0

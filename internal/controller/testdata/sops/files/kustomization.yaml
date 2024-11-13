@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namePrefix: files-
+generatorOptions:
+  disableNameSuffixHash: true
+secretGenerator:
+- name: secret
+  files:
+  - key=file.txt
+configMapGenerator:
+- name: configmap
+  files:
+  - key=file.txt

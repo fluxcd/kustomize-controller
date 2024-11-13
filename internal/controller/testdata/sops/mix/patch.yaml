@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod
+spec:
+  containers:
+    - name: patched
+      image: nginx:stable-alpine
+      env:
+        - name: MainEnvValueIsEncrypted
+          value: but this one is not
+      resources:
+        limits:
+          memory: 50Mi
+          cpu: 50m
