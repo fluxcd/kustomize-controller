@@ -725,7 +725,7 @@ For more information, see [remote clusters/Cluster-API](#remote-clusterscluster-
 ### Decryption
 
 `.spec.decryption` is an optional field to specify the configuration to decrypt
-Secrets that are a part of the Kustomization.
+Secrets, ConfigMaps and patches that are a part of the Kustomization.
 
 Since Secrets are either plain text or `base64` encoded, it's unsafe to store
 them in plain text in a public or private Git repository. In order to store
@@ -734,9 +734,11 @@ encrypt your Kubernetes Secret data with [age](https://age-encryption.org/v1/)
 and/or [OpenPGP](https://www.openpgp.org) keys, or with provider implementations
 like Azure Key Vault, GCP KMS or Hashicorp Vault.
 
-**Note:** You should encrypt only the `data/stringData` section of the Kubernetes
-Secret, encrypting the `metadata`, `kind` or `apiVersion` fields is not supported.
-An easy way to do this is by appending `--encrypted-regex '^(data|stringData)$'`
+Also, you may want to encrypt some parts of resources as well. In order to do that,
+you may encrypt patches as well.
+
+**Note:** You must leave `metadata`, `kind` or `apiVersion` in plain text.
+An easy way to do this is to limit encrypted keys by appending `--encrypted-regex '^(data|stringData)$'`
 to your `sops --encrypt` command.
 
 It has two fields:

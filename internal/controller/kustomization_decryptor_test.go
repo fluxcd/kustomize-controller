@@ -43,18 +43,18 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create vault client")
 
 	// create a master key on the vault transit engine
-	path, data := "sops/keys/firstkey", map[string]interface{}{"type": "rsa-4096"}
+	path, data := "sops/keys/vault", map[string]interface{}{"type": "rsa-4096"}
 	_, err = cli.Logical().Write(path, data)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to write key")
 
 	// encrypt the testdata vault secret
-	cmd := exec.Command("sops", "--hc-vault-transit", cli.Address()+"/v1/sops/keys/firstkey", "--encrypt", "--encrypted-regex", "^(data|stringData)$", "--in-place", "./testdata/sops/secret.vault.yaml")
+	cmd := exec.Command("sops", "--hc-vault-transit", cli.Address()+"/v1/sops/keys/vault", "--encrypt", "--encrypted-regex", "^(data|stringData)$", "--in-place", "./testdata/sops/algorithms/vault.yaml")
 	err = cmd.Run()
 	g.Expect(err).NotTo(HaveOccurred(), "failed to encrypt file")
 
 	// defer the testdata vault secret decryption, to leave a clean testdata vault secret
 	defer func() {
-		cmd := exec.Command("sops", "--hc-vault-transit", cli.Address()+"/v1/sops/keys/firstkey", "--decrypt", "--encrypted-regex", "^(data|stringData)$", "--in-place", "./testdata/sops/secret.vault.yaml")
+		cmd := exec.Command("sops", "--hc-vault-transit", cli.Address()+"/v1/sops/keys/firstkey", "--decrypt", "--encrypted-regex", "^(data|stringData)$", "--in-place", "./testdata/sops/algorithms/vault.yaml")
 		err = cmd.Run()
 	}()
 
@@ -70,16 +70,7 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 	artifactChecksum, err := testServer.ArtifactFromDir("testdata/sops", artifactName)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	overlayArtifactName := "sops-" + randStringRunes(5)
-	overlayChecksum, err := testServer.ArtifactFromDir("testdata/test-dotenv", overlayArtifactName)
-	g.Expect(err).ToNot(HaveOccurred())
-
 	repositoryName := types.NamespacedName{
-		Name:      fmt.Sprintf("sops-%s", randStringRunes(5)),
-		Namespace: id,
-	}
-
-	overlayRepositoryName := types.NamespacedName{
 		Name:      fmt.Sprintf("sops-%s", randStringRunes(5)),
 		Namespace: id,
 	}
@@ -87,19 +78,15 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 	err = applyGitRepository(repositoryName, artifactName, "main/"+artifactChecksum)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	err = applyGitRepository(overlayRepositoryName, overlayArtifactName, "main/"+overlayChecksum)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	pgpKey, err := os.ReadFile("testdata/sops/pgp.asc")
+	pgpKey, err := os.ReadFile("testdata/sops/keys/pgp.asc")
 	g.Expect(err).ToNot(HaveOccurred())
-	ageKey, err := os.ReadFile("testdata/sops/age.txt")
+	ageKey, err := os.ReadFile("testdata/sops/keys/age.txt")
 	g.Expect(err).ToNot(HaveOccurred())
 
 	sopsSecretKey := types.NamespacedName{
 		Name:      "sops-" + randStringRunes(5),
 		Namespace: id,
 	}
-
 	sopsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sopsSecretKey.Name,
@@ -153,64 +140,40 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
 	}, timeout, time.Second).Should(BeTrue())
 
-	overlayKustomizationName := fmt.Sprintf("sops-%s", randStringRunes(5))
-	overlayKs := kustomization.DeepCopy()
-	overlayKs.ResourceVersion = ""
-	overlayKs.Name = overlayKustomizationName
-	overlayKs.Spec.SourceRef.Name = overlayRepositoryName.Name
-	overlayKs.Spec.SourceRef.Namespace = overlayRepositoryName.Namespace
-	overlayKs.Spec.Path = "./testdata/test-dotenv/overlays"
-
-	g.Expect(k8sClient.Create(context.TODO(), overlayKs)).To(Succeed())
-
-	g.Eventually(func() bool {
-		var obj kustomizev1.Kustomization
-		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(overlayKs), &obj)
-		return obj.Status.LastAppliedRevision == "main/"+overlayChecksum
-	}, timeout, time.Second).Should(BeTrue())
-
 	t.Run("decrypts SOPS secrets", func(t *testing.T) {
 		g := NewWithT(t)
 
-		var pgpSecret corev1.Secret
-		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-pgp", Namespace: id}, &pgpSecret)).To(Succeed())
-		g.Expect(pgpSecret.Data["secret"]).To(Equal([]byte(`my-sops-pgp-secret`)))
+		secretNames := []string{
+			"sops-algo-age",
+			"sops-algo-pgp",
+			"sops-algo-vault",
+			"sops-component",
+			"sops-envs-secret",
+			"sops-files-secret",
+			"sops-inside-secret",
+			"sops-remote-secret",
+		}
+		for _, name := range secretNames {
+			var secret corev1.Secret
+			g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: id}, &secret)).To(Succeed())
+			g.Expect(string(secret.Data["key"])).To(Equal("value"), fmt.Sprintf("failed on secret %s", name))
+		}
 
-		var ageSecret corev1.Secret
-		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-age", Namespace: id}, &ageSecret)).To(Succeed())
-		g.Expect(ageSecret.Data["secret"]).To(Equal([]byte(`my-sops-age-secret`)))
+		configMapNames := []string{
+			"sops-envs-configmap",
+			"sops-files-configmap",
+			"sops-remote-configmap",
+		}
+		for _, name := range configMapNames {
+			var configMap corev1.ConfigMap
+			g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: id}, &configMap)).To(Succeed())
+			g.Expect(string(configMap.Data["key"])).To(Equal("value"), fmt.Sprintf("failed on configmap %s", name))
+		}
 
-		var daySecret corev1.Secret
-		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-day", Namespace: id}, &daySecret)).To(Succeed())
-		g.Expect(string(daySecret.Data["secret"])).To(Equal("day=Tuesday\n"))
-
-		var yearSecret corev1.Secret
-		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-year", Namespace: id}, &yearSecret)).To(Succeed())
-		g.Expect(string(yearSecret.Data["year"])).To(Equal("2017"))
-
-		var unencryptedSecret corev1.Secret
-		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "unencrypted-sops-year", Namespace: id}, &unencryptedSecret)).To(Succeed())
-		g.Expect(string(unencryptedSecret.Data["year"])).To(Equal("2021"))
-
-		var year1Secret corev1.Secret
-		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-year1", Namespace: id}, &year1Secret)).To(Succeed())
-		g.Expect(string(year1Secret.Data["year"])).To(Equal("year1"))
-
-		var year2Secret corev1.Secret
-		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-year2", Namespace: id}, &year2Secret)).To(Succeed())
-		g.Expect(string(year2Secret.Data["year"])).To(Equal("year2"))
-
-		var year3Secret corev1.Secret
-		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-year3", Namespace: id}, &year3Secret)).To(Succeed())
-		g.Expect(string(year3Secret.Data["year"])).To(Equal("year3"))
-
-		var encodedSecret corev1.Secret
-		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-month", Namespace: id}, &encodedSecret)).To(Succeed())
-		g.Expect(string(encodedSecret.Data["month.yaml"])).To(Equal("month: May\n"))
-
-		var hcvaultSecret corev1.Secret
-		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-hcvault", Namespace: id}, &hcvaultSecret)).To(Succeed())
-		g.Expect(string(hcvaultSecret.Data["secret"])).To(Equal("my-sops-vault-secret\n"))
+		var patchedSecret corev1.Secret
+		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "sops-patches-secret", Namespace: id}, &patchedSecret)).To(Succeed())
+		g.Expect(string(patchedSecret.Data["key"])).To(Equal("merge1"))
+		g.Expect(string(patchedSecret.Data["merge2"])).To(Equal("merge2"))
 	})
 
 	t.Run("does not emit change events for identical secrets", func(t *testing.T) {

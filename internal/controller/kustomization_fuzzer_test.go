@@ -80,8 +80,8 @@ const vaultVersion = "1.13.2"
 const defaultBinVersion = "1.24"
 
 //go:embed testdata/crd/*.yaml
-//go:embed testdata/sops/pgp.asc
-//go:embed testdata/sops/age.txt
+//go:embed testdata/sops/keys/pgp.asc
+//go:embed testdata/sops/keys/age.txt
 var testFiles embed.FS
 
 // FuzzControllers implements a fuzzer that targets the Kustomize controller.
@@ -182,11 +182,11 @@ func Fuzz_Controllers(f *testing.F) {
 			if err != nil {
 				return err
 			}
-			pgpKey, err := testFiles.ReadFile("testdata/sops/pgp.asc")
+			pgpKey, err := testFiles.ReadFile("testdata/sops/keys/pgp.asc")
 			if err != nil {
 				return err
 			}
-			ageKey, err := testFiles.ReadFile("testdata/sops/age.txt")
+			ageKey, err := testFiles.ReadFile("testdata/sops/keys/age.txt")
 			if err != nil {
 				return err
 			}
