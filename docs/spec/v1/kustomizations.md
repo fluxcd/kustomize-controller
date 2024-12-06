@@ -609,8 +609,11 @@ stringData:
   token: ${token}
 ```
 
-The var values which are specified in-line with `substitute`
+**Note:** The var values which are specified in-line with `substitute`
 take precedence over the ones derived from `substituteFrom`.
+When var values for the same variable keys are derived from multiple
+`ConfigMaps` or `Secrets` referenced in the `substituteFrom` list, then the
+first take precedence over the later values.
 
 **Note:** If you want to avoid var substitutions in scripts embedded in
 ConfigMaps or container commands, you must use the format `$var` instead of
@@ -1137,7 +1140,7 @@ This policy can be used for Kubernetes Jobs to rerun them when their container i
 #### `kustomize.toolkit.fluxcd.io/prune`
 
 When set to `Disabled`, this policy instructs the controller to skip the deletion of
-the Kubernetes resources subject to [garbage collection](#prune). 
+the Kubernetes resources subject to [garbage collection](#prune).
 
 This policy can be used to protect sensitive resources such as Namespaces, PVCs and PVs
 from accidental deletion.
