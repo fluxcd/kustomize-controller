@@ -33,6 +33,10 @@ const (
 	MergeValue                = "Merge"
 	IfNotPresentValue         = "IfNotPresent"
 	IgnoreValue               = "Ignore"
+
+	DeletionPolicyMirrorPrune = "MirrorPrune"
+	DeletionPolicyDelete      = "Delete"
+	DeletionPolicyOrphan      = "Orphan"
 )
 
 // KustomizationSpec defines the configuration to calculate the desired state
@@ -94,6 +98,14 @@ type KustomizationSpec struct {
 	// Prune enables garbage collection.
 	// +required
 	Prune bool `json:"prune"`
+
+	// DeletionPolicy can be used to control garbage collection when this
+	// Kustomization is deleted. Valid values are ('MirrorPrune', 'Delete',
+	// 'Orphan'). 'MirrorPrune' mirrors the Prune field (orphan if false,
+	// delete if true). Defaults to 'MirrorPrune'.
+	// +kubebuilder:validation:Enum=MirrorPrune;Delete;Orphan
+	// +optional
+	DeletionPolicy string `json:"deletionPolicy,omitempty"`
 
 	// A list of resources to be included in the health assessment.
 	// +optional
@@ -285,6 +297,14 @@ func (in Kustomization) GetRetryInterval() time.Duration {
 // reconciled again.
 func (in Kustomization) GetRequeueAfter() time.Duration {
 	return in.Spec.Interval.Duration
+}
+
+// GetDeletionPolicy returns the deletion policy and default value if not specified.
+func (in Kustomization) GetDeletionPolicy() string {
+	if in.Spec.DeletionPolicy == "" {
+		return DeletionPolicyMirrorPrune
+	}
+	return in.Spec.DeletionPolicy
 }
 
 // GetDependsOn returns the list of dependencies across-namespaces.
