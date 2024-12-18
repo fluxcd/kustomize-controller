@@ -14,7 +14,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.47
-	github.com/cyphar/filepath-securejoin v0.3.5
+	github.com/cyphar/filepath-securejoin v0.3.6
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/cli-utils v0.36.0-flux.11
 	github.com/fluxcd/kustomize-controller/api v1.4.0
