@@ -208,6 +208,21 @@ bool
 </tr>
 <tr>
 <td>
+<code>deletionPolicy</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPolicy can be used to control garbage collection when this
+Kustomization is deleted. Valid values are (&lsquo;MirrorPrune&rsquo;, &lsquo;Delete&rsquo;,
+&lsquo;Orphan&rsquo;). &lsquo;MirrorPrune&rsquo; mirrors the Prune field (orphan if false,
+delete if true). Defaults to &lsquo;MirrorPrune&rsquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>healthChecks</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectKindReference">
@@ -712,6 +727,21 @@ bool
 </td>
 <td>
 <p>Prune enables garbage collection.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deletionPolicy</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPolicy can be used to control garbage collection when this
+Kustomization is deleted. Valid values are (&lsquo;MirrorPrune&rsquo;, &lsquo;Delete&rsquo;,
+&lsquo;Orphan&rsquo;). &lsquo;MirrorPrune&rsquo; mirrors the Prune field (orphan if false,
+delete if true). Defaults to &lsquo;MirrorPrune&rsquo;.</p>
 </td>
 </tr>
 <tr>

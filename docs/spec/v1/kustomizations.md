@@ -169,6 +169,39 @@ kustomize.toolkit.fluxcd.io/prune: disabled
 For details on how the controller tracks Kubernetes objects and determines what
 to garbage collect, see [`.status.inventory`](#inventory).
 
+### Deletion policy
+
+`.spec.deletionPolicy` is an optional field that allows control over
+garbage collection when a Kustomization object is deleted. The default behavior
+is to mirror the configuration of [`.spec.prune`](#prune).
+
+Valid values:
+
+- `MirrorPrune` (default) - The managed resources will be deleted if `prune` is
+  `true` and orphaned if `false`.
+- `Delete` - Ensure the managed resources are deleted before the Kustomization
+   is deleted.
+- `Orphan` - Leave the managed resources when the Kustomization is deleted.
+
+For special cases when the managed resources are removed by other means (e.g.
+the deletion of the namespace specified with
+[`.spec.targetNamespace`](#target-namespace)), you can set the deletion policy
+to `Orphan`:
+
+```yaml
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app
+  namespace: default
+spec:
+  # ...omitted for brevity
+  targetNamespace: app-namespace
+  prune: true
+  deletionPolicy: Orphan
+```
+
 ### Interval
 
 `.spec.interval` is a required field that specifies the interval at which the

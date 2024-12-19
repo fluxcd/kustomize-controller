@@ -956,10 +956,17 @@ func (r *KustomizationReconciler) prune(ctx context.Context,
 	return false, nil
 }
 
+func finalizerShouldDeleteResources(obj *kustomizev1.Kustomization) bool {
+	if obj.GetDeletionPolicy() == kustomizev1.DeletionPolicyMirrorPrune {
+		return obj.Spec.Prune
+	}
+	return obj.Spec.DeletionPolicy == kustomizev1.DeletionPolicyDelete
+}
+
 func (r *KustomizationReconciler) finalize(ctx context.Context,
 	obj *kustomizev1.Kustomization) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
-	if obj.Spec.Prune &&
+	if finalizerShouldDeleteResources(obj) &&
 		!obj.Spec.Suspend &&
 		obj.Status.Inventory != nil &&
 		obj.Status.Inventory.Entries != nil {
