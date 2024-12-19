@@ -14,7 +14,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.47
-	github.com/cyphar/filepath-securejoin v0.3.5
+	github.com/cyphar/filepath-securejoin v0.3.6
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/cli-utils v0.36.0-flux.11
 	github.com/fluxcd/kustomize-controller/api v1.4.0
@@ -35,7 +35,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/ory/dockertest/v3 v3.11.0
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/net v0.32.0
+	golang.org/x/net v0.33.0
 	k8s.io/api v0.32.0
 	k8s.io/apimachinery v0.32.0
 	k8s.io/client-go v0.32.0
