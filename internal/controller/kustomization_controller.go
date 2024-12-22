@@ -35,8 +35,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/discovery"
 	kuberecorder "k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -85,6 +87,7 @@ type KustomizationReconciler struct {
 	client.Client
 	kuberecorder.EventRecorder
 	runtimeCtrl.Metrics
+	DiscoveryClient discovery.DiscoveryInterface
 
 	artifactFetchRetries int
 	requeueDependency    time.Duration
@@ -520,59 +523,121 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 	return nil
 }
 
+type Source struct {
+	runtime.Object
+
+	Artifact *sourcev1.Artifact
+	Duration time.Duration
+}
+
+func (s Source) GetArtifact() *sourcev1.Artifact {
+	return s.Artifact
+}
+
+func (s Source) GetRequeueAfter() time.Duration {
+	if s.Duration != 0 {
+		return s.Duration
+	}
+	return time.Minute
+}
+
 func (r *KustomizationReconciler) getSource(ctx context.Context,
 	obj *kustomizev1.Kustomization) (sourcev1.Source, error) {
-	var src sourcev1.Source
+	srcRef := obj.Spec.SourceRef
 	sourceNamespace := obj.GetNamespace()
 	if obj.Spec.SourceRef.Namespace != "" {
-		sourceNamespace = obj.Spec.SourceRef.Namespace
+		sourceNamespace = srcRef.Namespace
 	}
 	namespacedName := types.NamespacedName{
 		Namespace: sourceNamespace,
-		Name:      obj.Spec.SourceRef.Name,
+		Name:      srcRef.Name,
 	}
 
 	if r.NoCrossNamespaceRefs && sourceNamespace != obj.GetNamespace() {
-		return src, acl.AccessDeniedError(
+		return nil, acl.AccessDeniedError(
 			fmt.Sprintf("can't access '%s/%s', cross-namespace references have been blocked",
-				obj.Spec.SourceRef.Kind, namespacedName))
+				srcRef.Kind, namespacedName))
 	}
 
-	switch obj.Spec.SourceRef.Kind {
-	case sourcev1b2.OCIRepositoryKind:
-		var repository sourcev1b2.OCIRepository
-		err := r.Client.Get(ctx, namespacedName, &repository)
+	apiVersion := srcRef.APIVersion
+
+	if apiVersion == "" {
+		// Get the server preferred resources to determine the API version.
+
+		preferredList, err := r.DiscoveryClient.ServerPreferredResources()
 		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return src, err
-			}
-			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
+			return nil, fmt.Errorf("failed to get server preferred resources: %w", err)
 		}
-		src = &repository
-	case sourcev1.GitRepositoryKind:
-		var repository sourcev1.GitRepository
-		err := r.Client.Get(ctx, namespacedName, &repository)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return src, err
+
+		var preferredApiResource *metav1.APIResource
+		// Check if the source kind is available in the cluster.
+		for _, list := range preferredList {
+			for _, resource := range list.APIResources {
+				if resource.Kind == srcRef.Kind {
+					preferredApiResource = &resource
+					break
+				}
 			}
-			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
-		src = &repository
-	case sourcev1.BucketKind:
-		var bucket sourcev1.Bucket
-		err := r.Client.Get(ctx, namespacedName, &bucket)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return src, err
-			}
-			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
-		}
-		src = &bucket
-	default:
-		return src, fmt.Errorf("source `%s` kind '%s' not supported",
-			obj.Spec.SourceRef.Name, obj.Spec.SourceRef.Kind)
+
+		gv := schema.GroupVersion{Group: preferredApiResource.Group, Version: preferredApiResource.Version}
+
+		apiVersion = gv.String()
 	}
+
+	srcUnstructured := &unstructured.Unstructured{}
+	srcUnstructured.SetKind(srcRef.Kind)
+	srcUnstructured.SetAPIVersion(apiVersion)
+
+	if err := r.Get(ctx, namespacedName, srcUnstructured); err != nil {
+		return nil, fmt.Errorf("source '%s' not found: %w", namespacedName, err)
+	}
+
+	// get Requeue Duration from srcUnstructured in Spec.Interval.Duration
+
+	spec, ok := srcUnstructured.Object["spec"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("spec is not a map")
+	}
+
+	duration := time.Minute
+
+	interval, ok := spec["interval"].(map[string]interface{})
+	if ok {
+		durationStr, ok := interval["duration"].(string)
+		if !ok {
+			return nil, fmt.Errorf("duration is not a string")
+		}
+
+		d, err := time.ParseDuration(durationStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse duration: %w", err)
+		}
+
+		duration = d
+	}
+
+	var artifactObj *sourcev1.Artifact
+
+	status, ok := srcUnstructured.Object["status"].(map[string]interface{})
+	if ok {
+		artifact, ok := status["artifact"].(map[string]interface{})
+		if ok {
+			artifactObjtmp := &sourcev1.Artifact{}
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(artifact, artifactObj); err != nil {
+				return nil, fmt.Errorf("failed to convert artifact: %w", err)
+			}
+
+			artifactObj = artifactObjtmp
+		}
+	}
+
+	src := &Source{
+		Object:   srcUnstructured,
+		Duration: duration,
+		Artifact: artifactObj,
+	}
+
 	return src, nil
 }
 

@@ -136,3 +136,67 @@ func TestKustomizationReconciler_deleteBeforeFinalizer(t *testing.T) {
 	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(kustomization)})
 	g.Expect(err).NotTo(HaveOccurred())
 }
+
+func TestKustomizationReconciler_SourceRefAPIVersion(t *testing.T) {
+	g := NewWithT(t)
+
+	namespaceName := "kust-" + randStringRunes(5)
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: namespaceName},
+	}
+	g.Expect(k8sClient.Create(ctx, namespace)).ToNot(HaveOccurred())
+	t.Cleanup(func() {
+		g.Expect(k8sClient.Delete(ctx, namespace)).NotTo(HaveOccurred())
+	})
+
+	err := createKubeConfigSecret(namespaceName)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	artifactName := "val-" + randStringRunes(5)
+	artifactChecksum, err := testServer.ArtifactFromDir("testdata/crds", artifactName)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	repositoryName := types.NamespacedName{
+		Name:      fmt.Sprintf("val-%s", randStringRunes(5)),
+		Namespace: namespaceName,
+	}
+
+	err = applyGitRepository(repositoryName, artifactName, "main/"+artifactChecksum)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	kustomization := &kustomizev1.Kustomization{}
+	kustomization.Name = "test-kust"
+	kustomization.Namespace = namespaceName
+	kustomization.Spec = kustomizev1.KustomizationSpec{
+		Interval: metav1.Duration{Duration: 10 * time.Minute},
+		Prune:    true,
+		Path:     "./",
+		SourceRef: kustomizev1.CrossNamespaceSourceReference{
+			Name:       repositoryName.Name,
+			Namespace:  repositoryName.Namespace,
+			Kind:       sourcev1.GitRepositoryKind,
+			APIVersion: sourcev1.GroupVersion.String(),
+		},
+		KubeConfig: &meta.KubeConfigReference{
+			SecretRef: meta.SecretKeyReference{
+				Name: "kubeconfig",
+			},
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+	g.Eventually(func() bool {
+		var obj kustomizev1.Kustomization
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
+		return isReconcileSuccess(&obj) && obj.Status.LastAttemptedRevision == "main/"+artifactChecksum
+	}, timeout, time.Second).Should(BeTrue())
+
+	g.Expect(k8sClient.Delete(context.Background(), kustomization)).To(Succeed())
+
+	g.Eventually(func() bool {
+		var obj kustomizev1.Kustomization
+		err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
+		return errors.IsNotFound(err)
+	}, timeout, time.Second).Should(BeTrue())
+}

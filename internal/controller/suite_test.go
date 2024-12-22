@@ -31,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -173,8 +174,10 @@ func TestMain(m *testing.M) {
 		// for inspection.
 		kstatusInProgressCheck = kcheck.NewInProgressChecker(testEnv.Client)
 		kstatusInProgressCheck.DisableFetch = true
+
 		reconciler = &KustomizationReconciler{
 			ControllerName:          controllerName,
+			DiscoveryClient:         discovery.NewDiscoveryClientForConfigOrDie(testEnv.Config),
 			Client:                  testEnv,
 			APIReader:               testEnv,
 			EventRecorder:           testEnv.GetEventRecorderFor(controllerName),
