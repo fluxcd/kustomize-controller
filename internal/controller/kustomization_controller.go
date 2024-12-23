@@ -65,6 +65,7 @@ import (
 	"github.com/fluxcd/pkg/ssa"
 	"github.com/fluxcd/pkg/tar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
+	sourcev1alpha1 "github.com/fluxcd/source-controller/api/v1alpha1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
@@ -158,6 +159,29 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			&sourcev1.Bucket{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(bucketIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
+		).
+		Watches(
+			&sourcev1alpha1.Artifact{},
+			handler.EnqueueRequestsFromMapFunc(
+				func(ctx context.Context, a client.Object) []reconcile.Request {
+					artifact, ok := a.(*sourcev1alpha1.Artifact)
+					if !ok {
+						return nil
+					}
+
+					var kustomizations kustomizev1.KustomizationList
+					if err := r.List(ctx, &kustomizations, client.MatchingFields{".spec.sourceRef.name": artifact.Name, ".spec.sourceRef.kinde": "artifact"}); err != nil {
+						return nil
+					}
+					requests := make([]reconcile.Request, len(kustomizations.Items))
+					for i := range kustomizations.Items {
+						requests[i] = reconcile.Request{
+							NamespacedName: client.ObjectKeyFromObject(&kustomizations.Items[i]),
+						}
+					}
+					return requests
+				},
+			),
 		).
 		WithOptions(controller.Options{
 			RateLimiter: opts.RateLimiter,
@@ -569,6 +593,16 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
 		src = &bucket
+	case sourcev1alpha1.ArtifactKind:
+		var artifact sourcev1alpha1.Artifact
+		err := r.Client.Get(ctx, namespacedName, &artifact)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return src, err
+			}
+			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
+		}
+		src = &artifact
 	default:
 		return src, fmt.Errorf("source `%s` kind '%s' not supported",
 			obj.Spec.SourceRef.Name, obj.Spec.SourceRef.Kind)
