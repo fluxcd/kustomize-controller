@@ -19,12 +19,12 @@ require (
 	github.com/fluxcd/cli-utils v0.36.0-flux.11
 	github.com/fluxcd/kustomize-controller/api v1.4.0
 	github.com/fluxcd/pkg/apis/acl v0.5.0
-	github.com/fluxcd/pkg/apis/event v0.12.0
+	github.com/fluxcd/pkg/apis/event v0.13.0
 	github.com/fluxcd/pkg/apis/kustomize v1.8.0
 	github.com/fluxcd/pkg/apis/meta v1.9.0
 	github.com/fluxcd/pkg/http/fetch v0.14.0
 	github.com/fluxcd/pkg/kustomize v1.15.0
-	github.com/fluxcd/pkg/runtime v0.51.0
+	github.com/fluxcd/pkg/runtime v0.52.0
 	github.com/fluxcd/pkg/ssa v0.43.0
 	github.com/fluxcd/pkg/tar v0.10.0
 	github.com/fluxcd/pkg/testserver v0.9.0
