@@ -263,6 +263,14 @@ type KustomizationStatus struct {
 	// +optional
 	LastAppliedRevision string `json:"lastAppliedRevision,omitempty"`
 
+	// The last successfully applied origin revision.
+	// Equals the origin revision of the applied Artifact from the referenced Source.
+	// Usually present on the Metadata of the applied Artifact and depends on the
+	// Source type, e.g. for OCI it's the value associated with the key
+	// "org.opencontainers.image.revision".
+	// +optional
+	LastAppliedOriginRevision string `json:"lastAppliedOriginRevision,omitempty"`
+
 	// LastAttemptedRevision is the revision of the last reconciliation attempt.
 	// +optional
 	LastAttemptedRevision string `json:"lastAttemptedRevision,omitempty"`

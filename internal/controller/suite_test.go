@@ -276,7 +276,29 @@ func createKubeConfigSecret(namespace string) error {
 	return k8sClient.Create(context.Background(), secret)
 }
 
-func applyGitRepository(objKey client.ObjectKey, artifactName string, revision string) error {
+type gitRepoOption func(*gitRepoOptions)
+
+type gitRepoOptions struct {
+	artifactMetadata map[string]string
+}
+
+func withGitRepoArtifactMetadata(k, v string) gitRepoOption {
+	return func(o *gitRepoOptions) {
+		if o.artifactMetadata == nil {
+			o.artifactMetadata = make(map[string]string)
+		}
+		o.artifactMetadata[k] = v
+	}
+}
+
+func applyGitRepository(objKey client.ObjectKey, artifactName string,
+	revision string, opts ...gitRepoOption) error {
+
+	var opt gitRepoOptions
+	for _, o := range opts {
+		o(&opt)
+	}
+
 	repo := &sourcev1.GitRepository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       sourcev1.GitRepositoryKind,
@@ -312,15 +334,16 @@ func applyGitRepository(objKey client.ObjectKey, artifactName string, revision s
 			Revision:       revision,
 			Digest:         dig.String(),
 			LastUpdateTime: metav1.Now(),
+			Metadata:       opt.artifactMetadata,
 		},
 	}
 
-	opt := []client.PatchOption{
+	patchOpts := []client.PatchOption{
 		client.ForceOwnership,
 		client.FieldOwner("kustomize-controller"),
 	}
 
-	if err := k8sClient.Patch(context.Background(), repo, client.Apply, opt...); err != nil {
+	if err := k8sClient.Patch(context.Background(), repo, client.Apply, patchOpts...); err != nil {
 		return err
 	}
 

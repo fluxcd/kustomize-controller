@@ -994,6 +994,22 @@ Equals the Revision of the applied Artifact from the referenced Source.</p>
 </tr>
 <tr>
 <td>
+<code>lastAppliedOriginRevision</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The last successfully applied origin revision.
+Equals the origin revision of the applied Artifact from the referenced Source.
+Usually present on the Metadata of the applied Artifact and depends on the
+Source type, e.g. for OCI it&rsquo;s the value associated with the key
+&ldquo;org.opencontainers.image.revision&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>lastAttemptedRevision</code><br>
 <em>
 string
