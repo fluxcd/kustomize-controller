@@ -193,7 +193,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				time.Since(reconcileStart).String(),
 				obj.Spec.Interval.Duration.String())
 			log.Info(msg, "revision", obj.Status.LastAttemptedRevision)
-			r.event(obj, obj.Status.LastAppliedRevision, eventv1.EventSeverityInfo, msg,
+			r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityInfo, msg,
 				map[string]string{
 					kustomizev1.GroupVersion.Group + "/" + eventv1.MetaCommitStatusKey: eventv1.MetaCommitStatusUpdateValue,
 				})
@@ -234,7 +234,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		if acl.IsAccessDenied(err) {
 			conditions.MarkFalse(obj, meta.ReadyCondition, apiacl.AccessDeniedReason, "%s", err)
 			log.Error(err, "Access denied to cross-namespace source")
-			r.event(obj, "unknown", eventv1.EventSeverityError, err.Error(), nil)
+			r.event(obj, "", "", eventv1.EventSeverityError, err.Error(), nil)
 			return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
 		}
 
@@ -249,6 +249,8 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		log.Info(msg)
 		return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 	}
+	revision := artifactSource.GetArtifact().Revision
+	originRevision := getOriginRevision(artifactSource)
 
 	// Check dependencies and requeue the reconciliation if the check fails.
 	if len(obj.Spec.DependsOn) > 0 {
@@ -256,7 +258,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			conditions.MarkFalse(obj, meta.ReadyCondition, meta.DependencyNotReadyReason, "%s", err)
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Info(msg)
-			r.event(obj, artifactSource.GetArtifact().Revision, eventv1.EventSeverityInfo, msg, nil)
+			r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, msg, nil)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
 		log.Info("All dependencies are ready, proceeding with reconciliation")
@@ -279,8 +281,8 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			time.Since(reconcileStart).String(),
 			obj.GetRetryInterval().String()),
 			"revision",
-			artifactSource.GetArtifact().Revision)
-		r.event(obj, artifactSource.GetArtifact().Revision, eventv1.EventSeverityError,
+			revision)
+		r.event(obj, revision, originRevision, eventv1.EventSeverityError,
 			reconcileErr.Error(), nil)
 		return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
 	}
@@ -298,6 +300,7 @@ func (r *KustomizationReconciler) reconcile(
 
 	// Update status with the reconciliation progress.
 	revision := src.GetArtifact().Revision
+	originRevision := getOriginRevision(src)
 	progressingMsg := fmt.Sprintf("Fetching manifests for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
 	conditions.MarkUnknown(obj, meta.ReadyCondition, meta.ProgressingReason, "%s", "Reconciliation in progress")
 	conditions.MarkReconciling(obj, meta.ProgressingReason, "%s", progressingMsg)
@@ -419,7 +422,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Validate and apply resources in stages.
-	drifted, changeSet, err := r.apply(ctx, resourceManager, obj, revision, objects)
+	drifted, changeSet, err := r.apply(ctx, resourceManager, obj, revision, originRevision, objects)
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return err
@@ -444,7 +447,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Run garbage collection for stale resources that do not have pruning disabled.
-	if _, err := r.prune(ctx, resourceManager, obj, revision, staleObjects); err != nil {
+	if _, err := r.prune(ctx, resourceManager, obj, revision, originRevision, staleObjects); err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.PruneFailedReason, "%s", err)
 		return err
 	}
@@ -456,6 +459,7 @@ func (r *KustomizationReconciler) reconcile(
 		patcher,
 		obj,
 		revision,
+		originRevision,
 		isNewRevision,
 		drifted,
 		changeSet.ToObjMetadataSet()); err != nil {
@@ -463,8 +467,9 @@ func (r *KustomizationReconciler) reconcile(
 		return err
 	}
 
-	// Set last applied revision.
+	// Set last applied revisions.
 	obj.Status.LastAppliedRevision = revision
+	obj.Status.LastAppliedOriginRevision = originRevision
 
 	// Mark the object as ready.
 	conditions.MarkTrue(obj,
@@ -656,6 +661,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	manager *ssa.ResourceManager,
 	obj *kustomizev1.Kustomization,
 	revision string,
+	originRevision string,
 	objects []*unstructured.Unstructured) (bool, *ssa.ChangeSet, error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -841,7 +847,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	// emit event only if the server-side apply resulted in changes
 	applyLog := strings.TrimSuffix(changeSetLog.String(), "\n")
 	if applyLog != "" {
-		r.event(obj, revision, eventv1.EventSeverityInfo, applyLog, nil)
+		r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, applyLog, nil)
 	}
 
 	return applyLog != "", resultSet, nil
@@ -852,6 +858,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	patcher *patch.SerialPatcher,
 	obj *kustomizev1.Kustomization,
 	revision string,
+	originRevision string,
 	isNewRevision bool,
 	drifted bool,
 	objects object.ObjMetadataSet) error {
@@ -910,7 +917,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	// Emit recovery event if the previous health check failed.
 	msg := fmt.Sprintf("Health check passed in %s", time.Since(checkStart).String())
 	if !wasHealthy || (isNewRevision && drifted) {
-		r.event(obj, revision, eventv1.EventSeverityInfo, msg, nil)
+		r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, msg, nil)
 	}
 
 	conditions.MarkTrue(obj, meta.HealthyCondition, meta.SucceededReason, "%s", msg)
@@ -925,6 +932,7 @@ func (r *KustomizationReconciler) prune(ctx context.Context,
 	manager *ssa.ResourceManager,
 	obj *kustomizev1.Kustomization,
 	revision string,
+	originRevision string,
 	objects []*unstructured.Unstructured) (bool, error) {
 	if !obj.Spec.Prune {
 		return false, nil
@@ -949,7 +957,7 @@ func (r *KustomizationReconciler) prune(ctx context.Context,
 	// emit event only if the prune operation resulted in changes
 	if changeSet != nil && len(changeSet.Entries) > 0 {
 		log.Info(fmt.Sprintf("garbage collection completed: %s", changeSet.String()))
-		r.event(obj, revision, eventv1.EventSeverityInfo, changeSet.String(), nil)
+		r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, changeSet.String(), nil)
 		return true, nil
 	}
 
@@ -1004,19 +1012,19 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 
 			changeSet, err := resourceManager.DeleteAll(ctx, objects, opts)
 			if err != nil {
-				r.event(obj, obj.Status.LastAppliedRevision, eventv1.EventSeverityError, "pruning for deleted resource failed", nil)
+				r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityError, "pruning for deleted resource failed", nil)
 				// Return the error so we retry the failed garbage collection
 				return ctrl.Result{}, err
 			}
 
 			if changeSet != nil && len(changeSet.Entries) > 0 {
-				r.event(obj, obj.Status.LastAppliedRevision, eventv1.EventSeverityInfo, changeSet.String(), nil)
+				r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityInfo, changeSet.String(), nil)
 			}
 		} else {
 			// when the account to impersonate is gone, log the stale objects and continue with the finalization
 			msg := fmt.Sprintf("unable to prune objects: \n%s", ssautil.FmtUnstructuredList(objects))
 			log.Error(fmt.Errorf("skiping pruning, failed to find account to impersonate"), msg)
-			r.event(obj, obj.Status.LastAppliedRevision, eventv1.EventSeverityError, msg, nil)
+			r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityError, msg, nil)
 		}
 	}
 
@@ -1027,13 +1035,16 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 }
 
 func (r *KustomizationReconciler) event(obj *kustomizev1.Kustomization,
-	revision, severity, msg string,
+	revision, originRevision, severity, msg string,
 	metadata map[string]string) {
 	if metadata == nil {
 		metadata = map[string]string{}
 	}
 	if revision != "" {
-		metadata[kustomizev1.GroupVersion.Group+"/revision"] = revision
+		metadata[kustomizev1.GroupVersion.Group+"/"+eventv1.MetaRevisionKey] = revision
+	}
+	if originRevision != "" {
+		metadata[kustomizev1.GroupVersion.Group+"/"+eventv1.MetaOriginRevisionKey] = originRevision
 	}
 
 	reason := severity
@@ -1107,4 +1118,15 @@ func (r *KustomizationReconciler) patch(ctx context.Context,
 	}
 
 	return nil
+}
+
+// getOriginRevision returns the origin revision of the source artifact,
+// or the empty string if it's not present, or if the artifact itself
+// is not present.
+func getOriginRevision(src sourcev1.Source) string {
+	a := src.GetArtifact()
+	if a == nil {
+		return ""
+	}
+	return a.Metadata[OCIArtifactOriginRevisionAnnotation]
 }

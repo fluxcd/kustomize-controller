@@ -520,6 +520,14 @@ spec:
                 required:
                 - entries
                 type: object
+              lastAppliedOriginRevision:
+                description: |-
+                  The last successfully applied origin revision.
+                  Equals the origin revision of the applied Artifact from the referenced Source.
+                  Usually present on the Metadata of the applied Artifact and depends on the
+                  Source type, e.g. for OCI it's the value associated with the key
+                  "org.opencontainers.image.revision".
+                type: string
               lastAppliedRevision:
                 description: |-
                   The last successfully applied revision.

@@ -19,7 +19,7 @@ require (
 	github.com/fluxcd/cli-utils v0.36.0-flux.11
 	github.com/fluxcd/kustomize-controller/api v1.4.0
 	github.com/fluxcd/pkg/apis/acl v0.5.0
-	github.com/fluxcd/pkg/apis/event v0.13.0
+	github.com/fluxcd/pkg/apis/event v0.15.0
 	github.com/fluxcd/pkg/apis/kustomize v1.8.0
 	github.com/fluxcd/pkg/apis/meta v1.9.0
 	github.com/fluxcd/pkg/http/fetch v0.14.0

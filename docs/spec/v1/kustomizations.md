@@ -1915,6 +1915,21 @@ Status:
 `.status.lastAppliedRevision` is the last revision of the Artifact from the
 referred Source object that was successfully applied to the cluster.
 
+### Last applied origin revision
+
+`status.lastAppliedOriginRevision` is the last origin revision of the Artifact
+from the referred Source object that was successfully applied to the cluster.
+
+This field is usually retrieved from the Metadata of the Artifact and depends
+on the Source type. For example, for OCI artifacts this is the value associated
+with the standard metadata key `org.opencontainers.image.revision`, which is
+used to track the revision of the source code that was used to build the OCI
+artifact.
+
+The controller will forward this value when emitting events in the metadata
+key `originRevision`. The notification-controller will look for this key in
+the event metadata when sending *commit status update* events to Git providers.
+
 ### Last attempted revision
 
 `.status.lastAttemptedRevision` is the last revision of the Artifact from the
