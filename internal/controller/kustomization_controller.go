@@ -56,6 +56,7 @@ import (
 	"github.com/fluxcd/pkg/http/fetch"
 	generator "github.com/fluxcd/pkg/kustomize"
 	"github.com/fluxcd/pkg/runtime/acl"
+	"github.com/fluxcd/pkg/runtime/cel"
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
@@ -89,6 +90,7 @@ type KustomizationReconciler struct {
 	artifactFetchRetries int
 	requeueDependency    time.Duration
 
+	Mapper                  apimeta.RESTMapper
 	APIReader               client.Reader
 	StatusPoller            *polling.StatusPoller
 	PollingOpts             polling.Options
@@ -220,6 +222,19 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
+	// Configure custom health checks.
+	statusPoller, pollingOpts, err := r.getPollerAndOptions(ctx, obj)
+	if err != nil {
+		const msg = "Reconciliation failed terminally due to configuration error"
+		errMsg := fmt.Sprintf("%s: %v", msg, err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.InvalidCELExpressionReason, "%s", errMsg)
+		conditions.MarkStalled(obj, meta.InvalidCELExpressionReason, "%s", errMsg)
+		obj.Status.ObservedGeneration = obj.Generation
+		log.Error(err, msg)
+		r.event(obj, "", "", eventv1.EventSeverityError, errMsg, nil)
+		return ctrl.Result{}, nil
+	}
+
 	// Resolve the source reference and requeue the reconciliation if the source is not found.
 	artifactSource, err := r.getSource(ctx, obj)
 	if err != nil {
@@ -265,7 +280,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Reconcile the latest revision.
-	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher)
+	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher, statusPoller, pollingOpts)
 
 	// Requeue at the specified retry interval if the artifact tarball is not found.
 	if errors.Is(reconcileErr, fetch.ErrFileNotFound) {
@@ -295,7 +310,9 @@ func (r *KustomizationReconciler) reconcile(
 	ctx context.Context,
 	obj *kustomizev1.Kustomization,
 	src sourcev1.Source,
-	patcher *patch.SerialPatcher) error {
+	patcher *patch.SerialPatcher,
+	statusPoller *polling.StatusPoller,
+	pollingOpts polling.Options) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	// Update status with the reconciliation progress.
@@ -364,8 +381,8 @@ func (r *KustomizationReconciler) reconcile(
 	// Configure the Kubernetes client for impersonation.
 	impersonation := runtimeClient.NewImpersonator(
 		r.Client,
-		r.StatusPoller,
-		r.PollingOpts,
+		statusPoller,
+		pollingOpts,
 		obj.Spec.KubeConfig,
 		r.KubeConfigOpts,
 		r.DefaultServiceAccount,
@@ -475,7 +492,7 @@ func (r *KustomizationReconciler) reconcile(
 	conditions.MarkTrue(obj,
 		meta.ReadyCondition,
 		meta.ReconciliationSucceededReason,
-		fmt.Sprintf("Applied revision: %s", revision))
+		"Applied revision: %s", revision)
 
 	return nil
 }
@@ -1129,4 +1146,26 @@ func getOriginRevision(src sourcev1.Source) string {
 		return ""
 	}
 	return a.Metadata[OCIArtifactOriginRevisionAnnotation]
+}
+
+// getPollerAndOptions returns the status poller and polling options
+// based on the healthcheck expressions defined in the Kustomization
+// object spec.
+func (r *KustomizationReconciler) getPollerAndOptions(ctx context.Context,
+	obj *kustomizev1.Kustomization) (*polling.StatusPoller, polling.Options, error) {
+
+	poller := r.StatusPoller
+	opts := r.PollingOpts
+
+	if hc := obj.Spec.HealthCheckExprs; len(hc) > 0 {
+		var err error
+		opts, err = cel.PollerWithCustomHealthChecks(ctx, opts, hc, r.Mapper)
+		if err != nil {
+			return nil, polling.Options{}, err
+		}
+
+		poller = polling.NewStatusPoller(r.Client, r.Mapper, opts)
+	}
+
+	return poller, opts, nil
 }

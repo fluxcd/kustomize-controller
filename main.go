@@ -238,6 +238,7 @@ func main() {
 		ControllerName:          controllerName,
 		DefaultServiceAccount:   defaultServiceAccount,
 		Client:                  mgr.GetClient(),
+		Mapper:                  mgr.GetRESTMapper(),
 		APIReader:               mgr.GetAPIReader(),
 		Metrics:                 metricsH,
 		EventRecorder:           eventRecorder,

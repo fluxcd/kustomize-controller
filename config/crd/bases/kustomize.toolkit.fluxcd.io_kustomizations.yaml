@@ -136,6 +136,42 @@ spec:
                   Force instructs the controller to recreate resources
                   when patching fails due to an immutable field change.
                 type: boolean
+              healthCheckExprs:
+                description: |-
+                  HealthCheckExprs is a list of healthcheck expressions for evaluating the
+                  health of custom resources using Common Expression Language (CEL).
+                  The expressions are evaluated only when Wait or HealthChecks are specified.
+                items:
+                  description: CustomHealthCheck defines the health check for custom
+                    resources.
+                  properties:
+                    apiVersion:
+                      description: APIVersion of the custom resource under evaluation.
+                      type: string
+                    current:
+                      description: |-
+                        Current is the CEL expression that determines if the status
+                        of the custom resource has reached the desired state.
+                      type: string
+                    failed:
+                      description: |-
+                        Failed is the CEL expression that determines if the status
+                        of the custom resource has failed to reach the desired state.
+                      type: string
+                    inProgress:
+                      description: |-
+                        InProgress is the CEL expression that determines if the status
+                        of the custom resource has not yet reached the desired state.
+                      type: string
+                    kind:
+                      description: Kind of the custom resource under evaluation.
+                      type: string
+                  required:
+                  - apiVersion
+                  - current
+                  - kind
+                  type: object
+                type: array
               healthChecks:
                 description: A list of resources to be included in the health assessment.
                 items:

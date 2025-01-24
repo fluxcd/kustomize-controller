@@ -125,6 +125,7 @@ func Fuzz_Controllers(f *testing.F) {
 			reconciler := &KustomizationReconciler{
 				ControllerName: controllerName,
 				Client:         testEnv,
+				Mapper:         testEnv.GetRESTMapper(),
 			}
 			if err := (reconciler).SetupWithManager(ctx, testEnv, KustomizationReconcilerOptions{}); err != nil {
 				panic(fmt.Sprintf("Failed to start GitRepositoryReconciler: %v", err))

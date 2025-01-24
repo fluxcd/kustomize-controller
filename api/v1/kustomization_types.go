@@ -179,6 +179,12 @@ type KustomizationSpec struct {
 	// Components specifies relative paths to specifications of other Components.
 	// +optional
 	Components []string `json:"components,omitempty"`
+
+	// HealthCheckExprs is a list of healthcheck expressions for evaluating the
+	// health of custom resources using Common Expression Language (CEL).
+	// The expressions are evaluated only when Wait or HealthChecks are specified.
+	// +optional
+	HealthCheckExprs []kustomize.CustomHealthCheck `json:"healthCheckExprs,omitempty"`
 }
 
 // CommonMetadata defines the common labels and annotations.

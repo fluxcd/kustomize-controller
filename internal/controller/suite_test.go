@@ -176,6 +176,7 @@ func TestMain(m *testing.M) {
 		reconciler = &KustomizationReconciler{
 			ControllerName:          controllerName,
 			Client:                  testEnv,
+			Mapper:                  testEnv.GetRESTMapper(),
 			APIReader:               testEnv,
 			EventRecorder:           testEnv.GetEventRecorderFor(controllerName),
 			Metrics:                 testMetricsH,
