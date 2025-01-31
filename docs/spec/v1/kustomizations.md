@@ -339,6 +339,66 @@ spec:
 If all the HelmRelease objects are successfully installed or upgraded, then
 the Kustomization will be marked as ready.
 
+### Health check expressions
+
+`.spec.healthCheckExprs` can be used to define custom logic for performing
+health checks on custom resources. This is done through Common Expression
+Language (CEL) expressions. This field accepts a list of objects with the
+following fields:
+
+- `apiVersion`: The API version of the custom resource. Required.
+- `kind`: The kind of the custom resource. Required.
+- `current`: A required CEL expression that returns `true` if the resource is ready.
+- `inProgress`: An optional CEL expression that returns `true` if the resource
+  is still being reconciled.
+- `failed`: An optional CEL expression that returns `true` if the resource
+  failed to reconcile.
+
+The controller will evaluate the expressions in the following order:
+
+1. `inProgress` if specified
+2. `failed` if specified
+3. `current`
+
+The first expression that evaluates to `true` will determine the health
+status of the custom resource.
+
+For example, to define a set of health check expressions for the `SealedSecret`
+custom resource:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: sealed-secrets
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./path/to/sealed/secrets
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 1m
+  wait: true # Tells the controller to wait for all resources to be ready by performing health checks.
+  healthCheckExprs:
+    - apiVersion: bitnami.com/v1alpha1
+      kind: SealedSecret
+      failed: status.conditions.filter(e, e.type == 'Synced').all(e, e.status == 'False')
+      current: status.conditions.filter(e, e.type == 'Synced').all(e, e.status == 'True')
+```
+
+A common error is writing expressions that reference fields that do not
+exist in the custom resource. This will cause the controller to wait
+for the resource to be ready until the timeout is reached. To avoid this,
+make sure your CEL expressions are correct. The
+[CEL Playground](https://playcel.undistro.io/) is a useful resource for
+this task. The input passed to each expression is the custom resource
+object itself.
+
+It's worth checking if [the library](/flux/cheatsheets/cel-healthchecks/)
+has expressions for the custom resources you are using.
+
 ### Wait
 
 `.spec.wait` is an optional boolean field to perform health checks for __all__

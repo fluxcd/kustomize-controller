@@ -395,6 +395,22 @@ resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
 <p>Components specifies relative paths to specifications of other Components.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>healthCheckExprs</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#CustomHealthCheck">
+[]github.com/fluxcd/pkg/apis/kustomize.CustomHealthCheck
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HealthCheckExprs is a list of healthcheck expressions for evaluating the
+health of custom resources using Common Expression Language (CEL).
+The expressions are evaluated only when Wait or HealthChecks are specified.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -916,6 +932,22 @@ resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
 <td>
 <em>(Optional)</em>
 <p>Components specifies relative paths to specifications of other Components.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>healthCheckExprs</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#CustomHealthCheck">
+[]github.com/fluxcd/pkg/apis/kustomize.CustomHealthCheck
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HealthCheckExprs is a list of healthcheck expressions for evaluating the
+health of custom resources using Common Expression Language (CEL).
+The expressions are evaluated only when Wait or HealthChecks are specified.</p>
 </td>
 </tr>
 </tbody>
