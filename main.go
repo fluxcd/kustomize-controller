@@ -234,6 +234,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	groupChangeLog, err := features.Enabled(features.GroupChangeLog)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.GroupChangeLog)
+		os.Exit(1)
+	}
+
 	if err = (&controller.KustomizationReconciler{
 		ControllerName:          controllerName,
 		DefaultServiceAccount:   defaultServiceAccount,
@@ -251,6 +257,7 @@ func main() {
 		StatusPoller:            polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), pollingOpts),
 		DisallowedFieldManagers: disallowedFieldManagers,
 		StrictSubstitutions:     strictSubstitutions,
+		GroupChangeLog:          groupChangeLog,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,
