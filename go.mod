@@ -28,7 +28,7 @@ require (
 	github.com/fluxcd/pkg/ssa v0.45.1
 	github.com/fluxcd/pkg/tar v0.11.0
 	github.com/fluxcd/pkg/testserver v0.10.0
-	github.com/fluxcd/source-controller/api v1.4.1
+	github.com/fluxcd/source-controller/api v1.5.0
 	github.com/getsops/sops/v3 v3.9.4
 	github.com/hashicorp/vault/api v1.15.0
 	github.com/onsi/gomega v1.36.2
