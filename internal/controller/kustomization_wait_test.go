@@ -279,13 +279,16 @@ parameters:
 
 func TestKustomizationReconciler_WaitsForCustomHealthChecks(t *testing.T) {
 	g := NewWithT(t)
-	id := "wait-" + randStringRunes(5)
+	id := "cel-" + randStringRunes(5)
 	revision := "v1.0.0"
 	resultK := &kustomizev1.Kustomization{}
 	timeout := 60 * time.Second
 
 	err := createNamespace(id)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	err = createKubeConfigSecret(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
 
 	manifests := func(name string) []testserver.File {
 		return []testserver.File{
@@ -325,6 +328,11 @@ data: {}
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
+			KubeConfig: &meta.KubeConfigReference{
+				SecretRef: meta.SecretKeyReference{
+					Name: "kubeconfig",
+				},
+			},
 			SourceRef: kustomizev1.CrossNamespaceSourceReference{
 				Name:      repositoryName.Name,
 				Namespace: repositoryName.Namespace,

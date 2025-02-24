@@ -214,7 +214,13 @@ func main() {
 
 	metricsH := runtimeCtrl.NewMetrics(mgr, metrics.MustMakeRecorder(), kustomizev1.KustomizationFinalizer)
 
-	jobStatusReader := statusreaders.NewCustomJobStatusReader(mgr.GetRESTMapper())
+	restMapper, err := runtimeClient.NewDynamicRESTMapper(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "unable to create REST mapper")
+		os.Exit(1)
+	}
+
+	jobStatusReader := statusreaders.NewCustomJobStatusReader(restMapper)
 	pollingOpts := polling.Options{
 		CustomStatusReaders: []engine.StatusReader{jobStatusReader},
 	}
@@ -244,7 +250,7 @@ func main() {
 		ControllerName:          controllerName,
 		DefaultServiceAccount:   defaultServiceAccount,
 		Client:                  mgr.GetClient(),
-		Mapper:                  mgr.GetRESTMapper(),
+		Mapper:                  restMapper,
 		APIReader:               mgr.GetAPIReader(),
 		Metrics:                 metricsH,
 		EventRecorder:           eventRecorder,
@@ -254,7 +260,6 @@ func main() {
 		ConcurrentSSA:           concurrentSSA,
 		KubeConfigOpts:          kubeConfigOpts,
 		PollingOpts:             pollingOpts,
-		StatusPoller:            polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), pollingOpts),
 		DisallowedFieldManagers: disallowedFieldManagers,
 		StrictSubstitutions:     strictSubstitutions,
 		GroupChangeLog:          groupChangeLog,
