@@ -292,7 +292,7 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 	}
 
 	cipher := aes.NewCipher()
-	mac, err := tree.Decrypt(metadataKey, cipher)
+	mac, err := safeDecrypt(tree.Decrypt(metadataKey, cipher))
 	if err != nil {
 		return nil, sopsUserErr("error decrypting sops tree", err)
 	}
@@ -302,11 +302,11 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 		// the one that was stored in the document. If they match,
 		// integrity was preserved
 		// Ref: github.com/getsops/sops/v3/decrypt/decrypt.go
-		originalMac, err := cipher.Decrypt(
+		originalMac, err := safeDecrypt(cipher.Decrypt(
 			tree.Metadata.MessageAuthenticationCode,
 			metadataKey,
 			tree.Metadata.LastModified.Format(time.RFC3339),
-		)
+		))
 		if err != nil {
 			return nil, sopsUserErr("failed to verify sops data integrity", err)
 		}
@@ -810,4 +810,34 @@ func detectFormatFromMarkerBytes(b []byte) formats.Format {
 		}
 	}
 	return unsupportedFormat
+}
+
+// safeDecrypt redacts secret values in sops error messages.
+func safeDecrypt[T any](mac T, err error) (T, error) {
+	const (
+		prefix = "Input string "
+		suffix = " does not match sops' data format"
+	)
+
+	if err == nil {
+		return mac, nil
+	}
+
+	var buf strings.Builder
+
+	e := err.Error()
+	prefIdx := strings.Index(e, prefix)
+	suffIdx := strings.Index(e, suffix)
+
+	var zero T
+	if prefIdx == -1 || suffIdx == -1 {
+		return zero, err
+	}
+
+	buf.WriteString(e[:prefIdx])
+	buf.WriteString(prefix)
+	buf.WriteString("<redacted>")
+	buf.WriteString(suffix)
+
+	return zero, errors.New(buf.String())
 }
