@@ -4,6 +4,11 @@ go 1.23.0
 
 replace github.com/fluxcd/kustomize-controller/api => ./api
 
+// Pin controller-runtime to v0.19.6
+// The Aggregated Disovery is buggy resulting in old API versions being returned as the preferred version.
+// Bug was introduced in v0.20.0 with https://github.com/kubernetes-sigs/controller-runtime/pull/2901
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.19.6
+
 // Replace digest lib to master to gather access to BLAKE3.
 // xref: https://github.com/opencontainers/go-digest/pull/66
 replace github.com/opencontainers/go-digest => github.com/opencontainers/go-digest v1.0.1-0.20220411205349-bde1400a84be
