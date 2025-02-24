@@ -92,7 +92,6 @@ type KustomizationReconciler struct {
 
 	Mapper                  apimeta.RESTMapper
 	APIReader               client.Reader
-	StatusPoller            *polling.StatusPoller
 	PollingOpts             polling.Options
 	ControllerName          string
 	statusManager           string
@@ -224,7 +223,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Configure custom health checks.
-	statusPoller, pollingOpts, err := r.getPollerAndOptions(ctx, obj)
+	pollingOpts, err := r.getPollerOptions(ctx, obj)
 	if err != nil {
 		const msg = "Reconciliation failed terminally due to configuration error"
 		errMsg := fmt.Sprintf("%s: %v", msg, err)
@@ -281,7 +280,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Reconcile the latest revision.
-	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher, statusPoller, pollingOpts)
+	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher, pollingOpts)
 
 	// Requeue at the specified retry interval if the artifact tarball is not found.
 	if errors.Is(reconcileErr, fetch.ErrFileNotFound) {
@@ -312,7 +311,6 @@ func (r *KustomizationReconciler) reconcile(
 	obj *kustomizev1.Kustomization,
 	src sourcev1.Source,
 	patcher *patch.SerialPatcher,
-	statusPoller *polling.StatusPoller,
 	pollingOpts polling.Options) error {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -382,7 +380,6 @@ func (r *KustomizationReconciler) reconcile(
 	// Configure the Kubernetes client for impersonation.
 	impersonation := runtimeClient.NewImpersonator(
 		r.Client,
-		statusPoller,
 		pollingOpts,
 		obj.Spec.KubeConfig,
 		r.KubeConfigOpts,
@@ -1012,7 +1009,6 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 
 		impersonation := runtimeClient.NewImpersonator(
 			r.Client,
-			r.StatusPoller,
 			r.PollingOpts,
 			obj.Spec.KubeConfig,
 			r.KubeConfigOpts,
@@ -1161,24 +1157,20 @@ func getOriginRevision(src sourcev1.Source) string {
 	return a.Metadata[OCIArtifactOriginRevisionAnnotation]
 }
 
-// getPollerAndOptions returns the status poller and polling options
+// getPollerOptions returns the status poller options
 // based on the healthcheck expressions defined in the Kustomization
 // object spec.
-func (r *KustomizationReconciler) getPollerAndOptions(ctx context.Context,
-	obj *kustomizev1.Kustomization) (*polling.StatusPoller, polling.Options, error) {
-
-	poller := r.StatusPoller
+func (r *KustomizationReconciler) getPollerOptions(ctx context.Context,
+	obj *kustomizev1.Kustomization) (polling.Options, error) {
 	opts := r.PollingOpts
 
 	if hc := obj.Spec.HealthCheckExprs; len(hc) > 0 {
 		var err error
 		opts, err = cel.PollerWithCustomHealthChecks(ctx, opts, hc, r.Mapper)
 		if err != nil {
-			return nil, polling.Options{}, err
+			return polling.Options{}, err
 		}
-
-		poller = polling.NewStatusPoller(r.Client, r.Mapper, opts)
 	}
 
-	return poller, opts, nil
+	return opts, nil
 }
