@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.5.1
+
+**Release date:** 2025-02-25
+
+This patch release fixes a bug introduced in v1.5.0
+that was causing spurious logging for deprecated API versions
+and sometimes failures on health checks.
+
+In addition, all error logs resulting from SOPS decryption
+failures have been sanitised.
+
+Fixes:
+- Fix secret value showing up in logs
+  [#1372](https://github.com/fluxcd/kustomize-controller/pull/1372)
+- Use lazy restmapper vendored from controller-runtime v0.19
+  [#1377](https://github.com/fluxcd/kustomize-controller/pull/1377)
+
 ## 1.5.0
 
 **Release date:** 2025-02-18
