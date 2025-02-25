@@ -187,8 +187,8 @@ github.com/fluxcd/pkg/http/fetch v0.15.0 h1:AJ1JuE2asuK4QMfbHjxctFURke5FvZtyljjI
 github.com/fluxcd/pkg/http/fetch v0.15.0/go.mod h1:feTESfETKU14jq+e/Ce8QnMBTCh9O79bLMSMe5t55fQ=
 github.com/fluxcd/pkg/kustomize v1.16.0 h1:UBOeIvkrC6y4owYs7vZwG5PUVFeqnRoDFN9eaNhuNPI=
 github.com/fluxcd/pkg/kustomize v1.16.0/go.mod h1:6yQkAZaG+w3nXY30LbyWRYHimjRcLRwlYkrwG0ygMSI=
-github.com/fluxcd/pkg/runtime v0.53.2-0.20250224201542-60bfc04a1d71 h1:56zAb3yrbZt8/u6E97HmCJl+S5mRVw63ktuS7v7qXoA=
-github.com/fluxcd/pkg/runtime v0.53.2-0.20250224201542-60bfc04a1d71/go.mod h1:PC73Yn/AaBQXnd2YYq0cnQqF3RmQKoM265crrjFJnKI=
+github.com/fluxcd/pkg/runtime v0.54.0 h1:H7zSW8mTIZIkXaOdxzvi+oK0cH3jccyLoCBbXDPIGjg=
+github.com/fluxcd/pkg/runtime v0.54.0/go.mod h1:PC73Yn/AaBQXnd2YYq0cnQqF3RmQKoM265crrjFJnKI=
 github.com/fluxcd/pkg/sourceignore v0.11.0 h1:xzpYmc5/t/Ck+/DkJSX3r+VbahDRIAn5kbv04fynWUo=
 github.com/fluxcd/pkg/sourceignore v0.11.0/go.mod h1:ri2FvlzX8ep2iszOK5gF/riYq2TNgpVvsfJ2QY0dLWI=
 github.com/fluxcd/pkg/ssa v0.45.1 h1:ISl84TJwRP/GuZXrKiR9Tf8JOnG5XFgtjcYoR4XQYf4=
