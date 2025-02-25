@@ -22,9 +22,11 @@ import (
 	"testing"
 	"time"
 
+	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -367,4 +369,80 @@ data: {}
 		To(ContainSubstring("timeout waiting for: [ConfigMap"))
 	g.Expect(msg).
 		To(ContainSubstring("failed to evaluate the CEL expression 'has(data.foo.bar)': no such attribute(s): data.foo.bar"))
+}
+
+func TestKustomizationReconciler_RESTMapper(t *testing.T) {
+	g := NewWithT(t)
+	id := "rm-" + randStringRunes(5)
+	resultK := &kustomizev1.Kustomization{}
+
+	restMapper, err := runtimeClient.NewDynamicRESTMapper(testEnv.Config)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	err = createNamespace(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	err = createKubeConfigSecret(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	artifactName := "val-" + randStringRunes(5)
+	artifactChecksum, err := testServer.ArtifactFromDir("testdata/restmapper", artifactName)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	repositoryName := types.NamespacedName{
+		Name:      fmt.Sprintf("val-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+
+	err = applyGitRepository(repositoryName, artifactName, "main/"+artifactChecksum)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	kustomization := &kustomizev1.Kustomization{}
+	kustomization.Name = id
+	kustomization.Namespace = id
+	kustomization.Spec = kustomizev1.KustomizationSpec{
+		Interval: metav1.Duration{Duration: 10 * time.Minute},
+		Prune:    true,
+		Path:     "./",
+		Wait:     true,
+		SourceRef: kustomizev1.CrossNamespaceSourceReference{
+			Name:      repositoryName.Name,
+			Namespace: repositoryName.Namespace,
+			Kind:      sourcev1.GitRepositoryKind,
+		},
+		KubeConfig: &meta.KubeConfigReference{
+			SecretRef: meta.SecretKeyReference{
+				Name: "kubeconfig",
+			},
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+	g.Eventually(func() bool {
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+		return isReconcileSuccess(resultK) && resultK.Status.LastAttemptedRevision == "main/"+artifactChecksum
+	}, timeout, time.Second).Should(BeTrue())
+
+	t.Run("discovers newly registered CRD and preferred version", func(t *testing.T) {
+		mapping, err := restMapper.RESTMapping(schema.GroupKind{Kind: "ClusterCleanupPolicy", Group: "kyverno.io"})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(mapping.Resource.Version).To(Equal("v2"))
+	})
+
+	t.Run("finalizes object", func(t *testing.T) {
+		g.Expect(k8sClient.Delete(context.Background(), resultK)).To(Succeed())
+
+		g.Eventually(func() bool {
+			err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return apierrors.IsNotFound(err)
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
+	t.Run("discovery fails for deleted CRD", func(t *testing.T) {
+		newMapper, err := runtimeClient.NewDynamicRESTMapper(testEnv.Config)
+		g.Expect(err).NotTo(HaveOccurred())
+		_, err = newMapper.RESTMapping(schema.GroupKind{Kind: "ClusterCleanupPolicy", Group: "kyverno.io"})
+		g.Expect(err).To(HaveOccurred())
+	})
 }
