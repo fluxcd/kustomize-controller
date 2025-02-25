@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -1594,6 +1595,57 @@ func TestDecryptor_detectFormatFromMarkerBytes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := detectFormatFromMarkerBytes(tt.b); got != tt.want {
 				t.Errorf("detectFormatFromMarkerBytes() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSafeDecrypt(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		mac         string
+		err         string
+		expectedMac string
+		expectedErr string
+	}{
+		{
+			name:        "no error",
+			mac:         "some mac",
+			expectedMac: "some mac",
+		},
+		{
+			name:        "only prefix",
+			err:         "Input string was not in a correct format",
+			expectedErr: "Input string was not in a correct format",
+		},
+		{
+			name:        "only suffix",
+			err:         "The value does not match sops' data format",
+			expectedErr: "The value does not match sops' data format",
+		},
+		{
+			name:        "redacted value",
+			err:         "Input string 1234567897 does not match sops' data format",
+			expectedErr: "Input string <redacted> does not match sops' data format",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			var err error
+			if tt.err != "" {
+				err = errors.New(tt.err)
+			}
+
+			mac, err := safeDecrypt(tt.mac, err)
+
+			g.Expect(mac).To(Equal(tt.expectedMac))
+
+			if tt.expectedErr == "" {
+				g.Expect(err).To(Not(HaveOccurred()))
+			} else {
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err.Error()).To(Equal(tt.expectedErr))
 			}
 		})
 	}
