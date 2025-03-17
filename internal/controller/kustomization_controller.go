@@ -181,6 +181,11 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Finalise the reconciliation and report the results.
 	defer func() {
+		// Do not proceed if the Kustomization is suspended
+		if obj.Spec.Suspend {
+			return
+		}
+
 		// Patch finalizers, status and conditions.
 		if err := r.finalizeStatus(ctx, obj, patcher); err != nil {
 			retErr = kerrors.NewAggregate([]error{retErr, err})
