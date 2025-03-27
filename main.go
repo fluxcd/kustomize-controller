@@ -34,7 +34,6 @@ import (
 	ctrlcfg "sigs.k8s.io/controller-runtime/pkg/config"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/fluxcd/cli-utils/pkg/kstatus/polling"
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/clusterreader"
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/engine"
 	"github.com/fluxcd/pkg/runtime/acl"
@@ -54,7 +53,6 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/kustomize-controller/internal/controller"
 	"github.com/fluxcd/kustomize-controller/internal/features"
-	"github.com/fluxcd/kustomize-controller/internal/statusreaders"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -220,13 +218,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	jobStatusReader := statusreaders.NewCustomJobStatusReader(restMapper)
-	pollingOpts := polling.Options{
-		CustomStatusReaders: []engine.StatusReader{jobStatusReader},
-	}
-
+	var clusterReader engine.ClusterReaderFactory
 	if ok, _ := features.Enabled(features.DisableStatusPollerCache); ok {
-		pollingOpts.ClusterReaderFactory = engine.ClusterReaderFactoryFunc(clusterreader.NewDirectClusterReader)
+		clusterReader = engine.ClusterReaderFactoryFunc(clusterreader.NewDirectClusterReader)
 	}
 
 	failFast := true
@@ -259,7 +253,7 @@ func main() {
 		FailFast:                failFast,
 		ConcurrentSSA:           concurrentSSA,
 		KubeConfigOpts:          kubeConfigOpts,
-		PollingOpts:             pollingOpts,
+		ClusterReader:           clusterReader,
 		DisallowedFieldManagers: disallowedFieldManagers,
 		StrictSubstitutions:     strictSubstitutions,
 		GroupChangeLog:          groupChangeLog,

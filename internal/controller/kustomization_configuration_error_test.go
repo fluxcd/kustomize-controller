@@ -119,6 +119,6 @@ data: {}
 	for _, cond := range []string{meta.ReadyCondition, meta.StalledCondition} {
 		g.Expect(conditions.GetReason(resultK, cond)).To(Equal(meta.InvalidCELExpressionReason))
 		g.Expect(conditions.GetMessage(resultK, cond)).To(ContainSubstring(
-			"failed to create custom status reader for healthchecks[0]: failed to parse the expression InProgress: failed to parse the CEL expression 'foo.': ERROR: <input>:1:5: Syntax error: no viable alternative at input '.'"))
+			"failed to create custom status evaluator for healthchecks[0]: failed to parse the expression InProgress: failed to parse the CEL expression 'foo.': ERROR: <input>:1:5: Syntax error: no viable alternative at input '.'"))
 	}
 }
