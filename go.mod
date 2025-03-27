@@ -24,7 +24,7 @@ require (
 	github.com/fluxcd/pkg/apis/meta v1.10.0
 	github.com/fluxcd/pkg/http/fetch v0.15.0
 	github.com/fluxcd/pkg/kustomize v1.16.0
-	github.com/fluxcd/pkg/runtime v0.54.0
+	github.com/fluxcd/pkg/runtime v0.58.0
 	github.com/fluxcd/pkg/ssa v0.45.1
 	github.com/fluxcd/pkg/tar v0.11.0
 	github.com/fluxcd/pkg/testserver v0.10.0
@@ -40,7 +40,7 @@ require (
 	k8s.io/apimachinery v0.32.2
 	k8s.io/client-go v0.32.2
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
-	sigs.k8s.io/controller-runtime v0.20.2
+	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/kustomize/api v0.19.0
 	sigs.k8s.io/yaml v1.4.0
 )

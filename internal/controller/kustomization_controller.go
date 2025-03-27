@@ -48,7 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/fluxcd/cli-utils/pkg/kstatus/polling"
+	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/engine"
 	"github.com/fluxcd/cli-utils/pkg/object"
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
@@ -92,7 +92,7 @@ type KustomizationReconciler struct {
 
 	Mapper                  apimeta.RESTMapper
 	APIReader               client.Reader
-	PollingOpts             polling.Options
+	ClusterReader           engine.ClusterReaderFactory
 	ControllerName          string
 	statusManager           string
 	NoCrossNamespaceRefs    bool
@@ -223,7 +223,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Configure custom health checks.
-	pollingOpts, err := r.getPollerOptions(ctx, obj)
+	statusReaders, err := cel.PollerWithCustomHealthChecks(ctx, obj.Spec.HealthCheckExprs)
 	if err != nil {
 		const msg = "Reconciliation failed terminally due to configuration error"
 		errMsg := fmt.Sprintf("%s: %v", msg, err)
@@ -280,7 +280,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Reconcile the latest revision.
-	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher, pollingOpts)
+	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher, statusReaders)
 
 	// Requeue at the specified retry interval if the artifact tarball is not found.
 	if errors.Is(reconcileErr, fetch.ErrFileNotFound) {
@@ -311,7 +311,7 @@ func (r *KustomizationReconciler) reconcile(
 	obj *kustomizev1.Kustomization,
 	src sourcev1.Source,
 	patcher *patch.SerialPatcher,
-	pollingOpts polling.Options) error {
+	statusReaders []func(apimeta.RESTMapper) engine.StatusReader) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	// Update status with the reconciliation progress.
@@ -378,15 +378,20 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Configure the Kubernetes client for impersonation.
-	impersonation := runtimeClient.NewImpersonator(
-		r.Client,
-		pollingOpts,
-		obj.Spec.KubeConfig,
-		r.KubeConfigOpts,
-		r.DefaultServiceAccount,
-		obj.Spec.ServiceAccountName,
-		obj.GetNamespace(),
-	)
+	var impersonatorOpts []runtimeClient.ImpersonatorOption
+	if r.DefaultServiceAccount != "" || obj.Spec.ServiceAccountName != "" {
+		impersonatorOpts = append(impersonatorOpts,
+			runtimeClient.WithServiceAccount(r.DefaultServiceAccount, obj.Spec.ServiceAccountName, obj.GetNamespace()))
+	}
+	if obj.Spec.KubeConfig != nil {
+		impersonatorOpts = append(impersonatorOpts,
+			runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace()))
+	}
+	if r.ClusterReader != nil || len(statusReaders) > 0 {
+		impersonatorOpts = append(impersonatorOpts,
+			runtimeClient.WithPolling(r.ClusterReader, statusReaders...))
+	}
+	impersonation := runtimeClient.NewImpersonator(r.Client, impersonatorOpts...)
 
 	// Create the Kubernetes client that runs under impersonation.
 	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
@@ -1007,15 +1012,19 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 		obj.Status.Inventory.Entries != nil {
 		objects, _ := inventory.List(obj.Status.Inventory)
 
-		impersonation := runtimeClient.NewImpersonator(
-			r.Client,
-			r.PollingOpts,
-			obj.Spec.KubeConfig,
-			r.KubeConfigOpts,
-			r.DefaultServiceAccount,
-			obj.Spec.ServiceAccountName,
-			obj.GetNamespace(),
-		)
+		var impersonatorOpts []runtimeClient.ImpersonatorOption
+		if r.DefaultServiceAccount != "" || obj.Spec.ServiceAccountName != "" {
+			impersonatorOpts = append(impersonatorOpts,
+				runtimeClient.WithServiceAccount(r.DefaultServiceAccount, obj.Spec.ServiceAccountName, obj.GetNamespace()))
+		}
+		if obj.Spec.KubeConfig != nil {
+			impersonatorOpts = append(impersonatorOpts,
+				runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace()))
+		}
+		if r.ClusterReader != nil {
+			impersonatorOpts = append(impersonatorOpts, runtimeClient.WithPolling(r.ClusterReader))
+		}
+		impersonation := runtimeClient.NewImpersonator(r.Client, impersonatorOpts...)
 		if impersonation.CanImpersonate(ctx) {
 			kubeClient, _, err := impersonation.GetClient(ctx)
 			if err != nil {
@@ -1155,22 +1164,4 @@ func getOriginRevision(src sourcev1.Source) string {
 		return ""
 	}
 	return a.Metadata[OCIArtifactOriginRevisionAnnotation]
-}
-
-// getPollerOptions returns the status poller options
-// based on the healthcheck expressions defined in the Kustomization
-// object spec.
-func (r *KustomizationReconciler) getPollerOptions(ctx context.Context,
-	obj *kustomizev1.Kustomization) (polling.Options, error) {
-	opts := r.PollingOpts
-
-	if hc := obj.Spec.HealthCheckExprs; len(hc) > 0 {
-		var err error
-		opts, err = cel.PollerWithCustomHealthChecks(ctx, opts, hc, r.Mapper)
-		if err != nil {
-			return polling.Options{}, err
-		}
-	}
-
-	return opts, nil
 }
