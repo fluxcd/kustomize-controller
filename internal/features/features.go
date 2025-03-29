@@ -48,6 +48,11 @@ const (
 	// GroupChangelog controls groups kubernetes objects names on log output
 	// reduces cardinality of logs when logging to elasticsearch
 	GroupChangeLog = "GroupChangeLog"
+
+	// EnableDependencyQueueing controls whether reconciliation of a kustomization
+	// should be queued once one of its dependencies becomes ready, or if only
+	// time-based retries with reque-dependecy delays should be attempted
+	EnableDependencyQueueing = "EnableDependencyQueueing"
 )
 
 var features = map[string]bool{
@@ -66,6 +71,8 @@ var features = map[string]bool{
 	// GroupChangeLog
 	// opt-in from v1.5
 	GroupChangeLog: false,
+	// EnableDependencyQueueing
+	EnableDependencyQueueing: false,
 }
 
 // FeatureGates contains a list of all supported feature gates and

@@ -185,6 +185,7 @@ func TestMain(m *testing.M) {
 		}
 		if err := (reconciler).SetupWithManager(ctx, testEnv, KustomizationReconcilerOptions{
 			DependencyRequeueInterval: 2 * time.Second,
+			EnableDependencyQueueing:  true,
 		}); err != nil {
 			panic(fmt.Sprintf("Failed to start KustomizationReconciler: %v", err))
 		}

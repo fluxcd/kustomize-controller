@@ -110,6 +110,7 @@ type KustomizationReconciler struct {
 type KustomizationReconcilerOptions struct {
 	HTTPRetry                 int
 	DependencyRequeueInterval time.Duration
+	EnableDependencyQueueing  bool
 	RateLimiter               workqueue.TypedRateLimiter[reconcile.Request]
 }
 
@@ -142,7 +143,7 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 	r.statusManager = fmt.Sprintf("gotk-%s", r.ControllerName)
 	r.artifactFetchRetries = opts.HTTPRetry
 
-	return ctrl.NewControllerManagedBy(mgr).
+	controllerBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
 			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
 		)).
@@ -160,7 +161,24 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			&sourcev1.Bucket{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(bucketIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
-		).
+		)
+
+	if opts.EnableDependencyQueueing {
+		// Index the Kustomizations by the dependsOn references they (may) point at.
+		if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, dependsOnIndexKey,
+			r.indexDependsOn); err != nil {
+			return fmt.Errorf("failed setting index fields: %w", err)
+		}
+
+		controllerBuilder = controllerBuilder.
+			Watches(
+				&kustomizev1.Kustomization{},
+				handler.EnqueueRequestsFromMapFunc(r.requestsForDependents),
+				builder.WithPredicates(KustomizationReadyChangePredicate{}),
+			)
+	}
+
+	return controllerBuilder.
 		WithOptions(controller.Options{
 			RateLimiter: opts.RateLimiter,
 		}).
@@ -272,7 +290,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		if err := r.checkDependencies(ctx, obj, artifactSource); err != nil {
 			conditions.MarkFalse(obj, meta.ReadyCondition, meta.DependencyNotReadyReason, "%s", err)
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
-			log.Info(msg)
+			log.Info(msg, "err", err)
 			r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, msg, nil)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}

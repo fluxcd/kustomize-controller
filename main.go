@@ -240,6 +240,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	enableDependencyQueueing, err := features.Enabled(features.EnableDependencyQueueing)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.EnableDependencyQueueing)
+		os.Exit(1)
+	}
+
 	if err = (&controller.KustomizationReconciler{
 		ControllerName:          controllerName,
 		DefaultServiceAccount:   defaultServiceAccount,
@@ -259,6 +265,7 @@ func main() {
 		GroupChangeLog:          groupChangeLog,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
 		DependencyRequeueInterval: requeueDependency,
+		EnableDependencyQueueing:  enableDependencyQueueing,
 		HTTPRetry:                 httpRetry,
 		RateLimiter:               runtimeCtrl.GetRateLimiter(rateLimiterOptions),
 	}); err != nil {

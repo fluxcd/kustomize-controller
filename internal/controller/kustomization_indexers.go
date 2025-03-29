@@ -21,15 +21,22 @@ import (
 	"fmt"
 
 	"github.com/fluxcd/pkg/runtime/conditions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/dependency"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
+)
+
+const (
+	dependsOnIndexKey string = ".metadata.dependsOn"
 )
 
 func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) handler.MapFunc {
@@ -78,6 +85,53 @@ func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) h
 	}
 }
 
+func isNotReadyForDependency(k *kustomizev1.Kustomization) bool {
+	c := conditions.Get(k, meta.ReadyCondition)
+	if c == nil {
+		return false
+	}
+	return c.Status == metav1.ConditionFalse && c.Reason == meta.DependencyNotReadyReason
+}
+
+func (r *KustomizationReconciler) requestsForDependents(ctx context.Context, obj client.Object) []reconcile.Request {
+	log := ctrl.LoggerFrom(ctx)
+
+	var list kustomizev1.KustomizationList
+	if err := r.List(ctx, &list, client.MatchingFields{
+		dependsOnIndexKey: client.ObjectKeyFromObject(obj).String(),
+	}); err != nil {
+		log.Error(err, "failed to list objects for dependency change")
+		return nil
+	}
+	var dd []dependency.Dependent
+	for _, d := range list.Items {
+		if isNotReadyForDependency(&d) {
+			dd = append(dd, &d)
+		}
+	}
+	sorted, err := dependency.Sort(dd)
+	if err != nil {
+		log.Error(err, "failed to sort dependents for dependency change")
+		return nil
+	}
+	reqs := make([]reconcile.Request, 0, len(sorted))
+	debugLog := log.V(1).WithValues("dependency", map[string]string{
+		"name":      obj.GetName(),
+		"namespace": obj.GetNamespace(),
+	})
+	for _, d := range sorted {
+		debugLog.Info("requesting reconciliation of dependent", "dependent", map[string]string{
+			"name":      d.Name,
+			"namespace": d.Namespace,
+		})
+		reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      d.Name,
+			Namespace: d.Namespace,
+		}})
+	}
+	return reqs
+}
+
 func (r *KustomizationReconciler) indexBy(kind string) func(o client.Object) []string {
 	return func(o client.Object) []string {
 		k, ok := o.(*kustomizev1.Kustomization)
@@ -95,4 +149,22 @@ func (r *KustomizationReconciler) indexBy(kind string) func(o client.Object) []s
 
 		return nil
 	}
+}
+
+func (r *KustomizationReconciler) indexDependsOn(o client.Object) []string {
+	k, ok := o.(*kustomizev1.Kustomization)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Kustomization, got %T", o))
+	}
+
+	deps := make([]string, len(k.Spec.DependsOn))
+	for i, dep := range k.Spec.DependsOn {
+		namespace := k.GetNamespace()
+		if dep.Namespace != "" {
+			namespace = dep.Namespace
+		}
+		deps[i] = fmt.Sprintf("%s/%s", namespace, dep.Name)
+	}
+
+	return deps
 }
