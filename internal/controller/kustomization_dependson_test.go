@@ -29,6 +29,7 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -136,6 +137,14 @@ spec:
 		},
 	}
 
+	dependencyKey := types.NamespacedName{
+		Name:      fmt.Sprintf("dep-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+	dependencyKs := kustomization.DeepCopy()
+	dependencyKs.ObjectMeta.Name = dependencyKey.Name
+	dependencyKs.ObjectMeta.Namespace = dependencyKey.Namespace
+
 	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
 
 	resultK := &kustomizev1.Kustomization{}
@@ -170,8 +179,8 @@ spec:
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			resultK.Spec.DependsOn = []kustomizev1.DependencyReference{
 				{
-					Namespace: id,
-					Name:      "root",
+					Namespace: dependencyKey.Namespace,
+					Name:      dependencyKey.Name,
 				},
 			}
 			return k8sClient.Update(context.Background(), resultK)
@@ -180,6 +189,17 @@ spec:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			return conditions.HasAnyReason(resultK, meta.ReadyCondition, meta.DependencyNotReadyReason)
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
+	t.Run("reconciles once dependency becomes ready", func(t *testing.T) {
+		g := NewWithT(t)
+		g.Expect(k8sClient.Create(context.Background(), dependencyKs)).To(Succeed())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
+			return ready.Reason == meta.ReconciliationSucceededReason
 		}, timeout, time.Second).Should(BeTrue())
 	})
 }

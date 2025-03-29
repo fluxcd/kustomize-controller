@@ -346,6 +346,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	enableDependencyQueueing, err := features.Enabled(features.EnableDependencyQueueing)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.EnableDependencyQueueing)
+		os.Exit(1)
+	}
+
 	if err = (&controller.KustomizationReconciler{
 		AdditiveCELDependencyCheck: additiveCELDependencyCheck,
 		AllowExternalArtifact:      allowExternalArtifact,
@@ -380,6 +386,7 @@ func main() {
 		WatchConfigsPredicate:      watchConfigsPredicate,
 		WatchExternalArtifacts:     allowExternalArtifact,
 		CancelHealthCheckOnRequeue: cancelHealthCheckOnNewRevision,
+		EnableDependencyQueueing:   enableDependencyQueueing,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", controllerName)
 		os.Exit(1)
