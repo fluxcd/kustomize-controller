@@ -704,7 +704,8 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		got, err := d.DecryptResource(secret)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).ToNot(BeNil())
-		g.Expect(got.GetDataMap()).To(HaveKeyWithValue(corev1.DockerConfigJsonKey, base64.StdEncoding.EncodeToString(plainData)))
+		plainDataWithTrailingNewline := append(plainData, '\n') // https://github.com/getsops/sops/issues/1825
+		g.Expect(got.GetDataMap()).To(HaveKeyWithValue(corev1.DockerConfigJsonKey, base64.StdEncoding.EncodeToString(plainDataWithTrailingNewline)))
 	})
 
 	t.Run("nil resource", func(t *testing.T) {
