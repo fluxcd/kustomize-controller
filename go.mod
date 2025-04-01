@@ -31,7 +31,7 @@ require (
 	github.com/fluxcd/pkg/tar v0.11.0
 	github.com/fluxcd/pkg/testserver v0.10.0
 	github.com/fluxcd/source-controller/api v1.5.0
-	github.com/getsops/sops/v3 v3.10.0
+	github.com/getsops/sops/v3 v3.10.1
 	github.com/hashicorp/vault/api v1.16.0
 	github.com/onsi/gomega v1.36.3
 	github.com/opencontainers/go-digest v1.0.0
