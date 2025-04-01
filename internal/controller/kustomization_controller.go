@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -113,11 +114,40 @@ type KustomizationReconcilerOptions struct {
 	RateLimiter               workqueue.TypedRateLimiter[reconcile.Request]
 }
 
+type kustomizationReadyChangePredicate struct {
+	predicate.Funcs
+}
+
+func (kustomizationReadyChangePredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectNew == nil || e.ObjectOld == nil {
+		return false
+	}
+
+	newKs, ok := e.ObjectNew.(*kustomizev1.Kustomization)
+	if !ok {
+		return false
+	}
+	oldKs, ok := e.ObjectOld.(*kustomizev1.Kustomization)
+	if !ok {
+		return false
+	}
+
+	if !conditions.IsReady(newKs) {
+		return false
+	}
+	if !conditions.IsReady(oldKs) {
+		return true
+	}
+
+	return oldKs.Status.LastAppliedRevision != newKs.Status.LastAppliedRevision
+}
+
 func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
 	const (
 		ociRepositoryIndexKey string = ".metadata.ociRepository"
 		gitRepositoryIndexKey string = ".metadata.gitRepository"
 		bucketIndexKey        string = ".metadata.bucket"
+		ksDependencyIndexKey  string = ".metadata.dependsOn"
 	)
 
 	// Index the Kustomizations by the OCIRepository references they (may) point at.
@@ -138,6 +168,12 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
+	// Index the Kustomizations by the dependsOn references they (may) point at.
+	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, ksDependencyIndexKey,
+		r.indexDependsOn()); err != nil {
+		return fmt.Errorf("failed setting index fields: %w", err)
+	}
+
 	r.requeueDependency = opts.DependencyRequeueInterval
 	r.statusManager = fmt.Sprintf("gotk-%s", r.ControllerName)
 	r.artifactFetchRetries = opts.HTTPRetry
@@ -146,6 +182,11 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
 			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
 		)).
+		Watches(
+			&kustomizev1.Kustomization{},
+			handler.EnqueueRequestsFromMapFunc(r.requestsForDependentsWaiting(ksDependencyIndexKey)),
+			builder.WithPredicates(kustomizationReadyChangePredicate{}),
+		).
 		Watches(
 			&sourcev1b2.OCIRepository{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(ociRepositoryIndexKey)),
@@ -271,7 +312,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if len(obj.Spec.DependsOn) > 0 {
 		if err := r.checkDependencies(ctx, obj, artifactSource); err != nil {
 			conditions.MarkFalse(obj, meta.ReadyCondition, meta.DependencyNotReadyReason, "%s", err)
-			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
+			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s: %s", r.requeueDependency.String(), err)
 			log.Info(msg)
 			r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, msg, nil)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
