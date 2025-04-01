@@ -394,7 +394,10 @@ for the resource to be ready until the timeout is reached. To avoid this,
 make sure your CEL expressions are correct. The
 [CEL Playground](https://playcel.undistro.io/) is a useful resource for
 this task. The input passed to each expression is the custom resource
-object itself.
+object itself. You can check for field existence with the
+[`has(...)` CEL macro](https://github.com/google/cel-spec/blob/master/doc/langdef.md#macros),
+just be aware that `has(status)` errors if `status` does not (yet) exist
+on the top level of the resource you are using.
 
 It's worth checking if [the library](/flux/cheatsheets/cel-healthchecks/)
 has expressions for the custom resources you are using.
