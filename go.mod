@@ -35,7 +35,7 @@ require (
 	github.com/hashicorp/vault/api v1.16.0
 	github.com/onsi/gomega v1.36.3
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/ory/dockertest/v3 v3.11.0
+	github.com/ory/dockertest/v3 v3.12.0
 	github.com/spf13/pflag v1.0.6
 	golang.org/x/net v0.38.0
 	k8s.io/api v0.32.2
