@@ -5,7 +5,7 @@ header:
   url: https://github.com/fluxcd/kustomize-controller/blob/main/.github/security-insights.yml
   project-si-source: https://raw.githubusercontent.com/fluxcd/kustomize-controller/refs/heads/main/.github/security-insights.yml
   comment: |
-    This file contains only the repository information for the Flux pkg toolkit.
+    This file contains only the repository information for the Flux kustomize-controller.
 
 repository:
   url: https://github.com/fluxcd/kustomize-controller
