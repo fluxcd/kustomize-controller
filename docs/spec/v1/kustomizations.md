@@ -118,6 +118,8 @@ Artifact containing the YAML manifests. It has two required fields:
   + [OCIRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/ocirepositories.md)
   + [Bucket](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1/buckets.md)
 - `name`: The Name of the referred Source object.
+  * The name value `spec.sourceRef.name: flux-system` refers to the the `GitRepository` generated during `flux bootstrap --path=./clusters/<cluster-name> ...`, which may be found in the `cluster/<cluster-name>/flux-system/gotk-sync.yaml` file.
+    + Given that using `spec.sourceRef.name: flux-system` is self-referential, as it refers to the same repository in which the Kustomization manifest resides, the `spec.path` utilized is relative to the root of the repository.
 
 #### Cross-namespace references
 
