@@ -189,6 +189,11 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		// Record Prometheus metrics.
 		r.Metrics.RecordDuration(ctx, obj, reconcileStart)
 
+		// Do not proceed if the Kustomization is suspended
+		if obj.Spec.Suspend {
+			return
+		}
+
 		// Log and emit success event.
 		if conditions.IsReady(obj) {
 			msg := fmt.Sprintf("Reconciliation finished in %s, next run in %s",
