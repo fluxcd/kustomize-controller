@@ -205,7 +205,18 @@ type Decryption struct {
 	// +required
 	Provider string `json:"provider"`
 
+	// ServiceAccountName is the name of the service account used to
+	// authenticate with KMS services from cloud providers. If a
+	// static credential for a given cloud provider is defined
+	// inside the Secret referenced by SecretRef, that static
+	// credential takes priority.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
 	// The secret name containing the private OpenPGP keys used for decryption.
+	// A static credential for a cloud provider defined inside the Secret
+	// takes priority to secret-less authentication with the ServiceAccountName
+	// field.
 	// +optional
 	SecretRef *meta.LocalObjectReference `json:"secretRef,omitempty"`
 }

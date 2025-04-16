@@ -18,6 +18,8 @@ package keyservice
 
 import (
 	extage "filippo.io/age"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/azkv"
 	"github.com/getsops/sops/v3/gcpkms"
@@ -25,6 +27,9 @@ import (
 	"github.com/getsops/sops/v3/keyservice"
 	awskms "github.com/getsops/sops/v3/kms"
 	"github.com/getsops/sops/v3/pgp"
+	"golang.org/x/oauth2"
+
+	intawskms "github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 )
 
 // ServerOption is some configuration that modifies the Server.
@@ -57,33 +62,38 @@ func (o WithAgeIdentities) ApplyToServer(s *Server) {
 	s.ageIdentities = age.ParsedIdentities(o)
 }
 
-// WithAWSKeys configures the AWS credentials on the Server
-type WithAWSKeys struct {
-	CredsProvider *awskms.CredentialsProvider
+// WithAWSCredentialsProvider configures the AWS credentials on the Server
+type WithAWSCredentialsProvider struct {
+	CredentialsProvider func(region string) awssdk.CredentialsProvider
 }
 
 // ApplyToServer applies this configuration to the given Server.
-func (o WithAWSKeys) ApplyToServer(s *Server) {
-	s.awsCredsProvider = o.CredsProvider
+func (o WithAWSCredentialsProvider) ApplyToServer(s *Server) {
+	s.awsCredentialsProvider = func(arn string) *awskms.CredentialsProvider {
+		region := intawskms.GetRegionFromKMSARN(arn)
+		cp := o.CredentialsProvider(region)
+		return awskms.NewCredentialsProvider(cp)
+	}
 }
 
-// WithGCPCredsJSON configures the GCP service account credentials JSON on the
-// Server.
-type WithGCPCredsJSON []byte
-
-// ApplyToServer applies this configuration to the given Server.
-func (o WithGCPCredsJSON) ApplyToServer(s *Server) {
-	s.gcpCredsJSON = gcpkms.CredentialJSON(o)
-}
-
-// WithAzureToken configures the Azure credential token on the Server.
-type WithAzureToken struct {
-	Token *azkv.TokenCredential
+// WithGCPTokenSource configures the GCP token source on the Server.
+type WithGCPTokenSource struct {
+	TokenSource oauth2.TokenSource
 }
 
 // ApplyToServer applies this configuration to the given Server.
-func (o WithAzureToken) ApplyToServer(s *Server) {
-	s.azureToken = o.Token
+func (o WithGCPTokenSource) ApplyToServer(s *Server) {
+	s.gcpTokenSource = gcpkms.NewTokenSource(o.TokenSource)
+}
+
+// WithAzureTokenCredential configures the Azure credential token on the Server.
+type WithAzureTokenCredential struct {
+	TokenCredential azcore.TokenCredential
+}
+
+// ApplyToServer applies this configuration to the given Server.
+func (o WithAzureTokenCredential) ApplyToServer(s *Server) {
+	s.azureTokenCredential = azkv.NewTokenCredential(o.TokenCredential)
 }
 
 // WithDefaultServer configures the fallback default server on the Server.
