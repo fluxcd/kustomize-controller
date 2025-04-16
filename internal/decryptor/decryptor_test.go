@@ -210,7 +210,7 @@ aws_session_token: test-token`),
 				},
 			},
 			inspectFunc: func(g *GomegaWithT, decryptor *Decryptor) {
-				g.Expect(decryptor.awsCredsProvider).ToNot(BeNil())
+				g.Expect(decryptor.awsCredentialsProvider).ToNot(BeNil())
 			},
 		},
 		{
@@ -233,7 +233,7 @@ aws_session_token: test-token`),
 				},
 			},
 			inspectFunc: func(g *GomegaWithT, decryptor *Decryptor) {
-				g.Expect(decryptor.gcpCredsJSON).ToNot(BeNil())
+				g.Expect(decryptor.gcpTokenSource).ToNot(BeNil())
 			},
 		},
 		{
@@ -256,7 +256,7 @@ clientSecret: some-client-secret`),
 				},
 			},
 			inspectFunc: func(g *GomegaWithT, decryptor *Decryptor) {
-				g.Expect(decryptor.azureToken).ToNot(BeNil())
+				g.Expect(decryptor.azureTokenCredential).ToNot(BeNil())
 			},
 		},
 		{
@@ -278,7 +278,7 @@ clientSecret: some-client-secret`),
 			},
 			wantErr: true,
 			inspectFunc: func(g *GomegaWithT, decryptor *Decryptor) {
-				g.Expect(decryptor.azureToken).To(BeNil())
+				g.Expect(decryptor.azureTokenCredential).To(BeNil())
 			},
 		},
 		{
@@ -300,7 +300,7 @@ clientSecret: some-client-secret`),
 			},
 			wantErr: true,
 			inspectFunc: func(g *GomegaWithT, decryptor *Decryptor) {
-				g.Expect(decryptor.azureToken).To(BeNil())
+				g.Expect(decryptor.azureTokenCredential).To(BeNil())
 			},
 		},
 		{
@@ -376,7 +376,7 @@ clientSecret: some-client-secret`),
 				},
 			}
 
-			d, cleanup, err := NewTempDecryptor("", cb.Build(), &kustomization)
+			d, cleanup, err := NewTempDecryptor("", cb.Build(), &kustomization, nil)
 			g.Expect(err).ToNot(HaveOccurred())
 			t.Cleanup(cleanup)
 
@@ -391,6 +391,60 @@ clientSecret: some-client-secret`),
 			}
 		})
 	}
+}
+
+func TestDecryptor_SetAuthOptions(t *testing.T) {
+	t.Run("nil decryption settings", func(t *testing.T) {
+		g := NewWithT(t)
+
+		d := &Decryptor{
+			kustomization: &kustomizev1.Kustomization{},
+		}
+
+		d.SetAuthOptions(context.Background())
+
+		g.Expect(d.awsCredentialsProvider).To(BeNil())
+		g.Expect(d.azureTokenCredential).To(BeNil())
+		g.Expect(d.gcpTokenSource).To(BeNil())
+	})
+
+	t.Run("non-sops provider", func(t *testing.T) {
+		g := NewWithT(t)
+
+		d := &Decryptor{
+			kustomization: &kustomizev1.Kustomization{
+				Spec: kustomizev1.KustomizationSpec{
+					Decryption: &kustomizev1.Decryption{},
+				},
+			},
+		}
+
+		d.SetAuthOptions(context.Background())
+
+		g.Expect(d.awsCredentialsProvider).To(BeNil())
+		g.Expect(d.azureTokenCredential).To(BeNil())
+		g.Expect(d.gcpTokenSource).To(BeNil())
+	})
+
+	t.Run("sops provider", func(t *testing.T) {
+		g := NewWithT(t)
+
+		d := &Decryptor{
+			kustomization: &kustomizev1.Kustomization{
+				Spec: kustomizev1.KustomizationSpec{
+					Decryption: &kustomizev1.Decryption{
+						Provider: DecryptionProviderSOPS,
+					},
+				},
+			},
+		}
+
+		d.SetAuthOptions(context.Background())
+
+		g.Expect(d.awsCredentialsProvider).NotTo(BeNil())
+		g.Expect(d.azureTokenCredential).NotTo(BeNil())
+		g.Expect(d.gcpTokenSource).NotTo(BeNil())
+	})
 }
 
 func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
@@ -551,7 +605,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 			Provider: DecryptionProviderSOPS,
 		}
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus)
+		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -592,7 +646,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 			Provider: DecryptionProviderSOPS,
 		}
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus)
+		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -627,7 +681,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 			Provider: DecryptionProviderSOPS,
 		}
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus)
+		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -662,7 +716,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 			Provider: DecryptionProviderSOPS,
 		}
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus)
+		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -711,7 +765,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 	t.Run("nil resource", func(t *testing.T) {
 		g := NewWithT(t)
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kustomization.DeepCopy())
+		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kustomization.DeepCopy(), nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -723,7 +777,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 	t.Run("no decryption spec", func(t *testing.T) {
 		g := NewWithT(t)
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kustomization.DeepCopy())
+		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kustomization.DeepCopy(), nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -739,7 +793,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		kus.Spec.Decryption = &kustomizev1.Decryption{
 			Provider: "not-supported",
 		}
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus)
+		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 

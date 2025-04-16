@@ -574,6 +574,22 @@ string
 </tr>
 <tr>
 <td>
+<code>serviceAccountName</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ServiceAccountName is the name of the service account used to
+authenticate with KMS services from cloud providers. If a
+static credential for a given cloud provider is defined
+inside the Secret referenced by SecretRef, that static
+credential takes priority.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>secretRef</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
@@ -583,7 +599,10 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 </td>
 <td>
 <em>(Optional)</em>
-<p>The secret name containing the private OpenPGP keys used for decryption.</p>
+<p>The secret name containing the private OpenPGP keys used for decryption.
+A static credential for a cloud provider defined inside the Secret
+takes priority to secret-less authentication with the ServiceAccountName
+field.</p>
 </td>
 </tr>
 </tbody>
