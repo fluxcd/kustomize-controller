@@ -642,7 +642,7 @@ absence as if the object had been present but empty, defining no
 variables.
 
 This offers basic templating for your manifests including support
-for [bash string replacement functions](https://github.com/drone/envsubst) e.g.:
+for [bash string replacement functions](https://github.com/fluxcd/pkg/blob/main/envsubst/README.md) e.g.:
 
 - `${var:=default}`
 - `${var:position}`
