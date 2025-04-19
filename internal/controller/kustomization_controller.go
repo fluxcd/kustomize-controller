@@ -27,8 +27,6 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/fluxcd/pkg/ssa/normalize"
-	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -53,6 +51,7 @@ import (
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/cache"
 	"github.com/fluxcd/pkg/http/fetch"
 	generator "github.com/fluxcd/pkg/kustomize"
 	"github.com/fluxcd/pkg/runtime/acl"
@@ -64,6 +63,8 @@ import (
 	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/fluxcd/pkg/runtime/predicates"
 	"github.com/fluxcd/pkg/ssa"
+	"github.com/fluxcd/pkg/ssa/normalize"
+	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	"github.com/fluxcd/pkg/tar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
@@ -104,6 +105,7 @@ type KustomizationReconciler struct {
 	DisallowedFieldManagers []string
 	StrictSubstitutions     bool
 	GroupChangeLog          bool
+	TokenCache              *cache.TokenCache
 }
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
@@ -615,16 +617,22 @@ func (r *KustomizationReconciler) generate(obj unstructured.Unstructured,
 func (r *KustomizationReconciler) build(ctx context.Context,
 	obj *kustomizev1.Kustomization, u unstructured.Unstructured,
 	workDir, dirPath string) ([]byte, error) {
-	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, obj)
+	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, obj, r.TokenCache)
 	if err != nil {
 		return nil, err
 	}
 	defer cleanup()
 
-	// Import decryption keys
+	// First, we import decryption keys or cloud provider static
+	// credentials from the secret.
 	if err := dec.ImportKeys(ctx); err != nil {
 		return nil, err
 	}
+
+	// Then we set the secret-less authentication options for the
+	// cloud providers that do not have static credentials after
+	// importing the keys.
+	dec.SetAuthOptions(ctx)
 
 	// Decrypt Kustomize EnvSources files before build
 	if err = dec.DecryptSources(dirPath); err != nil {

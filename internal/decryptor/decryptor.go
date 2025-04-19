@@ -29,17 +29,25 @@ import (
 	"sync"
 	"time"
 
+	gcpkmsapi "cloud.google.com/go/kms/apiv1"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/fluxcd/pkg/auth"
+	"github.com/fluxcd/pkg/auth/aws"
+	"github.com/fluxcd/pkg/auth/azure"
+	"github.com/fluxcd/pkg/auth/gcp"
+	"github.com/fluxcd/pkg/cache"
 	"github.com/getsops/sops/v3"
 	"github.com/getsops/sops/v3/aes"
 	"github.com/getsops/sops/v3/age"
-	"github.com/getsops/sops/v3/azkv"
 	"github.com/getsops/sops/v3/cmd/sops/common"
 	"github.com/getsops/sops/v3/cmd/sops/formats"
 	"github.com/getsops/sops/v3/config"
 	"github.com/getsops/sops/v3/keyservice"
-	awskms "github.com/getsops/sops/v3/kms"
 	"github.com/getsops/sops/v3/pgp"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -127,6 +135,8 @@ type Decryptor struct {
 	// injected into most resources, causing the integrity check to fail.
 	// Mostly kept around for feature completeness and documentation purposes.
 	checkSopsMac bool
+	// tokenCache is the cache for token credentials.
+	tokenCache *cache.TokenCache
 
 	// gnuPGHome is the absolute path of the GnuPG home directory used to
 	// decrypt PGP data. When empty, the systems' GnuPG keyring is used.
@@ -137,15 +147,15 @@ type Decryptor struct {
 	// vaultToken is the Hashicorp Vault token used to authenticate towards
 	// any Vault server.
 	vaultToken string
-	// awsCredsProvider is the AWS credentials provider object used to authenticate
+	// awsCredentialsProvider is the AWS credentials provider object used to authenticate
 	// towards any AWS KMS.
-	awsCredsProvider *awskms.CredentialsProvider
-	// azureToken is the Azure credential token used to authenticate towards
+	awsCredentialsProvider awssdk.CredentialsProvider
+	// azureTokenCredential is the Azure credential token used to authenticate towards
 	// any Azure Key Vault.
-	azureToken *azkv.TokenCredential
-	// gcpCredsJSON is the JSON credential file of the service account used to
-	// authenticate towards any GCP KMS.
-	gcpCredsJSON []byte
+	azureTokenCredential azcore.TokenCredential
+	// gcpTokenSource is the GCP token source used to authenticate towards
+	// any GCP KMS.
+	gcpTokenSource oauth2.TokenSource
 
 	// keyServices are the SOPS keyservice.KeyServiceClient's available to the
 	// decryptor.
@@ -155,25 +165,28 @@ type Decryptor struct {
 
 // NewDecryptor creates a new Decryptor for the given kustomization.
 // gnuPGHome can be empty, in which case the systems' keyring is used.
-func NewDecryptor(root string, client client.Client, kustomization *kustomizev1.Kustomization, maxFileSize int64, gnuPGHome string) *Decryptor {
+func NewDecryptor(root string, client client.Client, kustomization *kustomizev1.Kustomization,
+	maxFileSize int64, gnuPGHome string, tokenCache *cache.TokenCache) *Decryptor {
 	return &Decryptor{
 		root:          root,
 		client:        client,
 		kustomization: kustomization,
 		maxFileSize:   maxFileSize,
 		gnuPGHome:     pgp.GnuPGHome(gnuPGHome),
+		tokenCache:    tokenCache,
 	}
 }
 
 // NewTempDecryptor creates a new Decryptor, with a temporary GnuPG
 // home directory to Decryptor.ImportKeys() into.
-func NewTempDecryptor(root string, client client.Client, kustomization *kustomizev1.Kustomization) (*Decryptor, func(), error) {
+func NewTempDecryptor(root string, client client.Client, kustomization *kustomizev1.Kustomization,
+	tokenCache *cache.TokenCache) (*Decryptor, func(), error) {
 	gnuPGHome, err := pgp.NewGnuPGHome()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot create decryptor: %w", err)
 	}
 	cleanup := func() { _ = os.RemoveAll(gnuPGHome.String()) }
-	return NewDecryptor(root, client, kustomization, maxEncryptedFileSize, gnuPGHome.String()), cleanup, nil
+	return NewDecryptor(root, client, kustomization, maxEncryptedFileSize, gnuPGHome.String(), tokenCache), cleanup, nil
 }
 
 // IsEncryptedSecret checks if the given object is a Kubernetes Secret encrypted
@@ -228,7 +241,6 @@ func (d *Decryptor) ImportKeys(ctx context.Context) error {
 					return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 				}
 			case filepath.Ext(DecryptionVaultTokenFileName):
-				// Make sure we have the absolute name
 				if name == DecryptionVaultTokenFileName {
 					token := string(value)
 					token = strings.Trim(strings.TrimSpace(token), "\n")
@@ -240,10 +252,9 @@ func (d *Decryptor) ImportKeys(ctx context.Context) error {
 					if err != nil {
 						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 					}
-					d.awsCredsProvider = awskms.NewCredentialsProvider(awsCreds)
+					d.awsCredentialsProvider = awsCreds
 				}
 			case filepath.Ext(DecryptionAzureAuthFile):
-				// Make sure we have the absolute name
 				if name == DecryptionAzureAuthFile {
 					conf := intazkv.AADConfig{}
 					if err = intazkv.LoadAADConfigFromBytes(value, &conf); err != nil {
@@ -253,16 +264,61 @@ func (d *Decryptor) ImportKeys(ctx context.Context) error {
 					if err != nil {
 						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
 					}
-					d.azureToken = azkv.NewTokenCredential(azureToken)
+					d.azureTokenCredential = azureToken
 				}
 			case filepath.Ext(DecryptionGCPCredsFile):
 				if name == DecryptionGCPCredsFile {
-					d.gcpCredsJSON = bytes.Trim(value, "\n")
+					creds, err := google.CredentialsFromJSON(ctx,
+						bytes.Trim(value, "\n"), gcpkmsapi.DefaultAuthScopes()...)
+					if err != nil {
+						return fmt.Errorf("failed to import '%s' data from %s decryption Secret '%s': %w", name, provider, secretName, err)
+					}
+					d.gcpTokenSource = creds.TokenSource
 				}
 			}
 		}
 	}
 	return nil
+}
+
+// SetAuthOptions sets the authentication options for secret-less authentication
+// with cloud providers.
+func (d *Decryptor) SetAuthOptions(ctx context.Context) {
+	if d.kustomization.Spec.Decryption == nil {
+		return
+	}
+
+	provider := d.kustomization.Spec.Decryption.Provider
+	switch provider {
+	case DecryptionProviderSOPS:
+		var opts []auth.Option
+
+		if d.kustomization.Spec.Decryption.ServiceAccountName != "" {
+			opts = append(opts, auth.WithServiceAccount(types.NamespacedName{
+				Name:      d.kustomization.Spec.Decryption.ServiceAccountName,
+				Namespace: d.kustomization.GetNamespace(),
+			}, d.client))
+		}
+
+		if d.tokenCache != nil {
+			involvedObject := cache.InvolvedObject{
+				Kind:      kustomizev1.KustomizationKind,
+				Name:      d.kustomization.GetName(),
+				Namespace: d.kustomization.GetNamespace(),
+			}
+			opts = append(opts, auth.WithCache(*d.tokenCache, involvedObject))
+		}
+
+		if d.awsCredentialsProvider == nil {
+			d.awsCredentialsProvider = aws.NewCredentialsProvider(ctx, opts...)
+		}
+		if d.azureTokenCredential == nil {
+			d.azureTokenCredential = azure.NewTokenCredential(ctx, opts...)
+		}
+		if d.gcpTokenSource == nil {
+			d.gcpTokenSource = gcp.NewTokenSource(ctx, opts...)
+		}
+	}
 }
 
 // SopsDecryptWithFormat attempts to load a SOPS encrypted file using the store
@@ -582,12 +638,10 @@ func (d *Decryptor) loadKeyServiceServer() {
 		intkeyservice.WithGnuPGHome(d.gnuPGHome),
 		intkeyservice.WithVaultToken(d.vaultToken),
 		intkeyservice.WithAgeIdentities(d.ageIdentities),
-		intkeyservice.WithGCPCredsJSON(d.gcpCredsJSON),
+		intkeyservice.WithAWSCredentialsProvider{CredentialsProvider: d.awsCredentialsProvider},
+		intkeyservice.WithAzureTokenCredential{TokenCredential: d.azureTokenCredential},
+		intkeyservice.WithGCPTokenSource{TokenSource: d.gcpTokenSource},
 	}
-	if d.azureToken != nil {
-		serverOpts = append(serverOpts, intkeyservice.WithAzureToken{Token: d.azureToken})
-	}
-	serverOpts = append(serverOpts, intkeyservice.WithAWSKeys{CredsProvider: d.awsCredsProvider})
 	server := intkeyservice.NewServer(serverOpts...)
 	d.keyServices = append(make([]keyservice.KeyServiceClient, 0), keyservice.NewCustomLocalClient(server))
 }
@@ -782,7 +836,7 @@ func stripRoot(root, path string) string {
 
 func sopsUserErr(msg string, err error) error {
 	if userErr, ok := err.(sops.UserError); ok {
-		err = fmt.Errorf(userErr.UserError())
+		err = errors.New(userErr.UserError())
 	}
 	return fmt.Errorf("%s: %w", msg, err)
 }
