@@ -48,6 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/fluxcd/cli-utils/pkg/kstatus/polling"
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/engine"
 	"github.com/fluxcd/cli-utils/pkg/object"
 	apiacl "github.com/fluxcd/pkg/apis/acl"
@@ -63,6 +64,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/jitter"
 	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/fluxcd/pkg/runtime/predicates"
+	"github.com/fluxcd/pkg/runtime/statusreaders"
 	"github.com/fluxcd/pkg/ssa"
 	"github.com/fluxcd/pkg/tar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
@@ -379,11 +381,14 @@ func (r *KustomizationReconciler) reconcile(
 
 	// Configure the Kubernetes client for impersonation.
 	var impersonatorOpts []runtimeClient.ImpersonatorOption
+	var mustImpersonate bool
 	if r.DefaultServiceAccount != "" || obj.Spec.ServiceAccountName != "" {
+		mustImpersonate = true
 		impersonatorOpts = append(impersonatorOpts,
 			runtimeClient.WithServiceAccount(r.DefaultServiceAccount, obj.Spec.ServiceAccountName, obj.GetNamespace()))
 	}
 	if obj.Spec.KubeConfig != nil {
+		mustImpersonate = true
 		impersonatorOpts = append(impersonatorOpts,
 			runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace()))
 	}
@@ -394,7 +399,13 @@ func (r *KustomizationReconciler) reconcile(
 	impersonation := runtimeClient.NewImpersonator(r.Client, impersonatorOpts...)
 
 	// Create the Kubernetes client that runs under impersonation.
-	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
+	var kubeClient client.Client
+	var statusPoller *polling.StatusPoller
+	if mustImpersonate {
+		kubeClient, statusPoller, err = impersonation.GetClient(ctx)
+	} else {
+		kubeClient, statusPoller = r.getClientAndPoller(statusReaders)
+	}
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return fmt.Errorf("failed to build kube client: %w", err)
@@ -1013,11 +1024,14 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 		objects, _ := inventory.List(obj.Status.Inventory)
 
 		var impersonatorOpts []runtimeClient.ImpersonatorOption
+		var mustImpersonate bool
 		if r.DefaultServiceAccount != "" || obj.Spec.ServiceAccountName != "" {
+			mustImpersonate = true
 			impersonatorOpts = append(impersonatorOpts,
 				runtimeClient.WithServiceAccount(r.DefaultServiceAccount, obj.Spec.ServiceAccountName, obj.GetNamespace()))
 		}
 		if obj.Spec.KubeConfig != nil {
+			mustImpersonate = true
 			impersonatorOpts = append(impersonatorOpts,
 				runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace()))
 		}
@@ -1026,7 +1040,13 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 		}
 		impersonation := runtimeClient.NewImpersonator(r.Client, impersonatorOpts...)
 		if impersonation.CanImpersonate(ctx) {
-			kubeClient, _, err := impersonation.GetClient(ctx)
+			var kubeClient client.Client
+			var err error
+			if mustImpersonate {
+				kubeClient, _, err = impersonation.GetClient(ctx)
+			} else {
+				kubeClient = r.Client
+			}
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -1153,6 +1173,29 @@ func (r *KustomizationReconciler) patch(ctx context.Context,
 	}
 
 	return nil
+}
+
+// getClientAndPoller creates a status poller with the custom status readers
+// from CEL expressions and the custom job status reader, and returns the
+// Kubernetes client of the controller and the status poller.
+// Should be used for reconciliations that are not configured to use
+// ServiceAccount impersonation or kubeconfig.
+func (r *KustomizationReconciler) getClientAndPoller(
+	readerCtors []func(apimeta.RESTMapper) engine.StatusReader,
+) (client.Client, *polling.StatusPoller) {
+
+	readers := make([]engine.StatusReader, 0, 1+len(readerCtors))
+	readers = append(readers, statusreaders.NewCustomJobStatusReader(r.Mapper))
+	for _, ctor := range readerCtors {
+		readers = append(readers, ctor(r.Mapper))
+	}
+
+	poller := polling.NewStatusPoller(r.Client, r.Mapper, polling.Options{
+		CustomStatusReaders:  readers,
+		ClusterReaderFactory: r.ClusterReader,
+	})
+
+	return r.Client, poller
 }
 
 // getOriginRevision returns the origin revision of the source artifact,
