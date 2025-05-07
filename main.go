@@ -32,10 +32,12 @@ import (
 	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlcfg "sigs.k8s.io/controller-runtime/pkg/config"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/clusterreader"
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/engine"
+	pkgcache "github.com/fluxcd/pkg/cache"
 	"github.com/fluxcd/pkg/runtime/acl"
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
@@ -73,6 +75,10 @@ func init() {
 }
 
 func main() {
+	const (
+		tokenCacheDefaultMaxSize = 100
+	)
+
 	var (
 		metricsAddr             string
 		eventsAddr              string
@@ -93,6 +99,7 @@ func main() {
 		defaultServiceAccount   string
 		featureGates            feathelper.FeatureGates
 		disallowedFieldManagers []string
+		tokenCacheOptions       pkgcache.TokenFlags
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -116,6 +123,7 @@ func main() {
 	featureGates.BindFlags(flag.CommandLine)
 	watchOptions.BindFlags(flag.CommandLine)
 	intervalJitterOptions.BindFlags(flag.CommandLine)
+	tokenCacheOptions.BindFlags(flag.CommandLine, tokenCacheDefaultMaxSize)
 
 	flag.Parse()
 
@@ -240,6 +248,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	var tokenCache *pkgcache.TokenCache
+	if tokenCacheOptions.MaxSize > 0 {
+		var err error
+		tokenCache, err = pkgcache.NewTokenCache(tokenCacheOptions.MaxSize,
+			pkgcache.WithMaxDuration(tokenCacheOptions.MaxDuration),
+			pkgcache.WithMetricsRegisterer(ctrlmetrics.Registry),
+			pkgcache.WithMetricsPrefix("gotk_token_"))
+		if err != nil {
+			setupLog.Error(err, "unable to create token cache")
+			os.Exit(1)
+		}
+	}
+
 	if err = (&controller.KustomizationReconciler{
 		ControllerName:          controllerName,
 		DefaultServiceAccount:   defaultServiceAccount,
@@ -257,6 +278,7 @@ func main() {
 		DisallowedFieldManagers: disallowedFieldManagers,
 		StrictSubstitutions:     strictSubstitutions,
 		GroupChangeLog:          groupChangeLog,
+		TokenCache:              tokenCache,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,

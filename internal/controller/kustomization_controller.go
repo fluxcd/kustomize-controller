@@ -27,8 +27,6 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/fluxcd/pkg/ssa/normalize"
-	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -54,6 +52,7 @@ import (
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/cache"
 	"github.com/fluxcd/pkg/http/fetch"
 	generator "github.com/fluxcd/pkg/kustomize"
 	"github.com/fluxcd/pkg/runtime/acl"
@@ -66,11 +65,14 @@ import (
 	"github.com/fluxcd/pkg/runtime/predicates"
 	"github.com/fluxcd/pkg/runtime/statusreaders"
 	"github.com/fluxcd/pkg/ssa"
+	"github.com/fluxcd/pkg/ssa/normalize"
+	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	"github.com/fluxcd/pkg/tar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
+	intcache "github.com/fluxcd/kustomize-controller/internal/cache"
 	"github.com/fluxcd/kustomize-controller/internal/decryptor"
 	"github.com/fluxcd/kustomize-controller/internal/inventory"
 )
@@ -81,6 +83,7 @@ import (
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets;ocirepositories;gitrepositories,verbs=get;list;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets/status;ocirepositories/status;gitrepositories/status,verbs=get
 // +kubebuilder:rbac:groups="",resources=configmaps;secrets;serviceaccounts,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=serviceaccounts/token,verbs=create
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // KustomizationReconciler reconciles a Kustomization object
@@ -106,6 +109,7 @@ type KustomizationReconciler struct {
 	DisallowedFieldManagers []string
 	StrictSubstitutions     bool
 	GroupChangeLog          bool
+	TokenCache              *cache.TokenCache
 }
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
@@ -626,16 +630,19 @@ func (r *KustomizationReconciler) generate(obj unstructured.Unstructured,
 func (r *KustomizationReconciler) build(ctx context.Context,
 	obj *kustomizev1.Kustomization, u unstructured.Unstructured,
 	workDir, dirPath string) ([]byte, error) {
-	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, obj)
+	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, obj, r.TokenCache)
 	if err != nil {
 		return nil, err
 	}
 	defer cleanup()
 
-	// Import decryption keys
+	// Import keys and static credentials for decryption.
 	if err := dec.ImportKeys(ctx); err != nil {
 		return nil, err
 	}
+
+	// Set options for secret-less authentication with cloud providers for decryption.
+	dec.SetAuthOptions(ctx)
 
 	// Decrypt Kustomize EnvSources files before build
 	if err = dec.DecryptSources(dirPath); err != nil {
@@ -1090,6 +1097,12 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 
 	// Remove our finalizer from the list and update it
 	controllerutil.RemoveFinalizer(obj, kustomizev1.KustomizationFinalizer)
+
+	// Cleanup caches.
+	for _, op := range intcache.AllOperations {
+		r.TokenCache.DeleteEventsForObject(kustomizev1.KustomizationKind, obj.GetName(), obj.GetNamespace(), op)
+	}
+
 	// Stop reconciliation as the object is being deleted
 	return ctrl.Result{}, nil
 }

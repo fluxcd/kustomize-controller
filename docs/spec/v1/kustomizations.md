@@ -823,33 +823,46 @@ For more information, see [remote clusters/Cluster-API](#remote-clusterscluster-
 
 ### Decryption
 
-`.spec.decryption` is an optional field to specify the configuration to decrypt
-Secrets, ConfigMaps and patches that are a part of the Kustomization.
+Storing Secrets in Git repositories in plain text or base64 is unsafe,
+regardless of the visibility or access restrictions of the repository.
 
-Since Secrets are either plain text or `base64` encoded, it's unsafe to store
-them in plain text in a public or private Git repository. In order to store
-them safely, you can use [Mozilla SOPS](https://github.com/mozilla/sops) and
-encrypt your Kubernetes Secret data with [age](https://age-encryption.org/v1/)
-and/or [OpenPGP](https://www.openpgp.org) keys, or with provider implementations
-like Azure Key Vault, GCP KMS or Hashicorp Vault.
+In order to store Secrets safely in Git repositorioes you can use an
+encryption provider and the optional field `.spec.decryption` to
+configure decryption for Secrets that are a part of the Kustomization.
 
-Also, you may want to encrypt some parts of resources as well. In order to do that,
-you may encrypt patches as well.
+The only supported encryption provider is [SOPS](https://getsops.io/).
+With SOPS you can encrypt your secrets with [age](https://github.com/FiloSottile/age)
+or [OpenPGP](https://www.openpgp.org) keys, or with keys from Key Management Services
+(KMS), like AWS KMS, Azure Key Vault, GCP KMS or Hashicorp Vault.
 
 **Note:** You must leave `metadata`, `kind` or `apiVersion` in plain text.
-An easy way to do this is to limit encrypted keys by appending `--encrypted-regex '^(data|stringData)$'`
-to your `sops --encrypt` command.
+An easy way to do this is limiting the encrypted keys with the flag
+`--encrypted-regex '^(data|stringData)$'` in your `sops encrypt` command.
 
-It has two fields:
+The `.spec.decryption` field has the following subfields:
 
 - `.provider`: The secrets decryption provider to be used. This field is required and
   the only supported value is `sops`.
-- `.secretRef.name`: The name of the secret that contains the keys to be used for
-  decryption. This field can be omitted when using the
-  [global decryption](#controller-global-decryption) option.
+- `.secretRef.name`: The name of the secret that contains the keys or cloud provider
+  static credentials for KMS services to be used for decryption.
+- `.serviceAccountName`: The name of the service account used for
+  secret-less authentication with KMS services from cloud providers.
+  See the [workload identity](/flux/installation/configuration/workload-identity/) docs
+  for how to configure a cloud provider identity for this service account.
+
+If a static credential for a given cloud provider is defined inside the secret
+referenced by `.secretRef`, that static credential takes priority over secret-less
+authentication for that provider. If no static credentials are defined for a given
+cloud provider inside the secret, secret-less authentication is attempted for that
+provider.
+
+If `.serviceAccountName` is specified for secret-less authentication,
+it takes priority over [controller global decryption](#controller-global-decryption)
+for all cloud providers.
+
+Example:
 
 ```yaml
----
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -863,12 +876,10 @@ spec:
     name: repository-with-secrets
   decryption:
     provider: sops
+    serviceAccountName: sops-identity
     secretRef:
-      name: sops-keys
+      name: sops-keys-and-credentials
 ```
-
-**Note:** For information on Secrets decryption at a controller level, please
-refer to [controller global decryption](#controller-global-decryption).
 
 The Secret's `.data` section is expected to contain entries with decryption
 keys (for age and OpenPGP), or credentials (for any of the supported provider
@@ -880,7 +891,7 @@ of the key (e.g. `.agekey`), or a fixed key (e.g. `sops.vault-token`).
 apiVersion: v1
 kind: Secret
 metadata:
-  name: sops-keys
+  name: sops-keys-and-credentials
   namespace: default
 data:
   # Exemplary age private key
@@ -937,9 +948,9 @@ metadata:
   namespace: default
 data:
   sops.aws-kms: |
-        aws_access_key_id: some-access-key-id
-        aws_secret_access_key: some-aws-secret-access-key
-        aws_session_token: some-aws-session-token # this field is optional
+    aws_access_key_id: some-access-key-id
+    aws_secret_access_key: some-aws-secret-access-key
+    aws_session_token: some-aws-session-token # this field is optional
 ```
 
 #### Azure Key Vault Secret entry
@@ -1407,6 +1418,8 @@ Other than [authentication using a Secret reference](#decryption),
 it is possible to specify global decryption settings on the
 kustomize-controller Pod. When the controller fails to find credentials on the
 Kustomization object itself, it will fall back to these defaults.
+
+See also the [workload identity](/flux/installation/configuration/workload-identity/) docs.
 
 #### AWS KMS
 
