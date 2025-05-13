@@ -1020,14 +1020,14 @@ func (r *KustomizationReconciler) prune(ctx context.Context,
 }
 
 // finalizerShouldDeleteResources determines if resources should be deleted
-// based on the object's status and deletion policy.
+// based on the object's inventory and deletion policy.
 // A suspended Kustomization or one without an inventory will not delete resources.
 func finalizerShouldDeleteResources(obj *kustomizev1.Kustomization) bool {
 	if obj.Spec.Suspend {
 		return false
 	}
 
-	if obj.Status.Inventory == nil || obj.Status.Inventory.Entries == nil {
+	if obj.Status.Inventory == nil || len(obj.Status.Inventory.Entries) == 0 {
 		return false
 	}
 
@@ -1109,7 +1109,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 				r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityInfo, changeSet.String(), nil)
 
 				// Wait for the resources marked for deletion to be terminated.
-				if obj.Spec.DeletionPolicy == kustomizev1.DeletionPolicyWaitForTermination {
+				if obj.GetDeletionPolicy() == kustomizev1.DeletionPolicyWaitForTermination {
 					if err := resourceManager.WaitForSetTermination(changeSet, ssa.WaitOptions{
 						Interval: 2 * time.Second,
 						Timeout:  obj.GetTimeout(),
