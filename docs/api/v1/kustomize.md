@@ -217,8 +217,8 @@ string
 <em>(Optional)</em>
 <p>DeletionPolicy can be used to control garbage collection when this
 Kustomization is deleted. Valid values are (&lsquo;MirrorPrune&rsquo;, &lsquo;Delete&rsquo;,
-&lsquo;Orphan&rsquo;). &lsquo;MirrorPrune&rsquo; mirrors the Prune field (orphan if false,
-delete if true). Defaults to &lsquo;MirrorPrune&rsquo;.</p>
+&lsquo;WaitForTermination&rsquo;, &lsquo;Orphan&rsquo;). &lsquo;MirrorPrune&rsquo; mirrors the Prune field
+(orphan if false, delete if true). Defaults to &lsquo;MirrorPrune&rsquo;.</p>
 </td>
 </tr>
 <tr>
@@ -775,8 +775,8 @@ string
 <em>(Optional)</em>
 <p>DeletionPolicy can be used to control garbage collection when this
 Kustomization is deleted. Valid values are (&lsquo;MirrorPrune&rsquo;, &lsquo;Delete&rsquo;,
-&lsquo;Orphan&rsquo;). &lsquo;MirrorPrune&rsquo; mirrors the Prune field (orphan if false,
-delete if true). Defaults to &lsquo;MirrorPrune&rsquo;.</p>
+&lsquo;WaitForTermination&rsquo;, &lsquo;Orphan&rsquo;). &lsquo;MirrorPrune&rsquo; mirrors the Prune field
+(orphan if false, delete if true). Defaults to &lsquo;MirrorPrune&rsquo;.</p>
 </td>
 </tr>
 <tr>
