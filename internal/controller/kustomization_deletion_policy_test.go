@@ -49,6 +49,12 @@ func TestKustomizationReconciler_DeletionPolicyDelete(t *testing.T) {
 			wantDelete:     true,
 		},
 		{
+			name:           "should delete and wait when deletionPolicy overrides pruning disabled",
+			prune:          false,
+			deletionPolicy: kustomizev1.DeletionPolicyWaitForTermination,
+			wantDelete:     true,
+		},
+		{
 			name:           "should delete when deletionPolicy mirrors prune and pruning enabled",
 			prune:          true,
 			deletionPolicy: kustomizev1.DeletionPolicyMirrorPrune,
@@ -131,6 +137,7 @@ data:
 					TargetNamespace: id,
 					Prune:           tt.prune,
 					DeletionPolicy:  tt.deletionPolicy,
+					Timeout:         &metav1.Duration{Duration: 5 * time.Second},
 				},
 			}
 

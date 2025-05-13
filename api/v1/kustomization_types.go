@@ -34,9 +34,10 @@ const (
 	IfNotPresentValue         = "IfNotPresent"
 	IgnoreValue               = "Ignore"
 
-	DeletionPolicyMirrorPrune = "MirrorPrune"
-	DeletionPolicyDelete      = "Delete"
-	DeletionPolicyOrphan      = "Orphan"
+	DeletionPolicyMirrorPrune        = "MirrorPrune"
+	DeletionPolicyDelete             = "Delete"
+	DeletionPolicyWaitForTermination = "WaitForTermination"
+	DeletionPolicyOrphan             = "Orphan"
 )
 
 // KustomizationSpec defines the configuration to calculate the desired state
@@ -101,9 +102,9 @@ type KustomizationSpec struct {
 
 	// DeletionPolicy can be used to control garbage collection when this
 	// Kustomization is deleted. Valid values are ('MirrorPrune', 'Delete',
-	// 'Orphan'). 'MirrorPrune' mirrors the Prune field (orphan if false,
-	// delete if true). Defaults to 'MirrorPrune'.
-	// +kubebuilder:validation:Enum=MirrorPrune;Delete;Orphan
+	// 'WaitForTermination', 'Orphan'). 'MirrorPrune' mirrors the Prune field
+	// (orphan if false, delete if true). Defaults to 'MirrorPrune'.
+	// +kubebuilder:validation:Enum=MirrorPrune;Delete;WaitForTermination;Orphan
 	// +optional
 	DeletionPolicy string `json:"deletionPolicy,omitempty"`
 

@@ -181,7 +181,15 @@ Valid values:
   `true` and orphaned if `false`.
 - `Delete` - Ensure the managed resources are deleted before the Kustomization
    is deleted.
+- `WaitForTermination` - Ensure the managed resources are deleted and wait for
+  termination before the Kustomization is deleted.
 - `Orphan` - Leave the managed resources when the Kustomization is deleted.
+
+The `WaitForTermination` deletion policy blocks and waits for the managed
+resources to be removed from etcd by the Kubernetes garbage collector.
+The wait time is determined by the `.spec.timeout` field. If a timeout occurs,
+the controller will stop waiting for the deletion of the resources,
+log an error and will allow the Kustomization to be deleted.
 
 For special cases when the managed resources are removed by other means (e.g.
 the deletion of the namespace specified with
