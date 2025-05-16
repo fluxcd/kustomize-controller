@@ -52,6 +52,7 @@ import (
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/auth"
 	"github.com/fluxcd/pkg/cache"
 	"github.com/fluxcd/pkg/http/fetch"
 	generator "github.com/fluxcd/pkg/kustomize"
@@ -243,6 +244,18 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		obj.Status.ObservedGeneration = obj.Generation
 		log.Error(err, msg)
 		r.event(obj, "", "", eventv1.EventSeverityError, errMsg, nil)
+		return ctrl.Result{}, nil
+	}
+
+	// Check object-level workload identity feature gate.
+	if d := obj.Spec.Decryption; d != nil && d.ServiceAccountName != "" && !auth.IsObjectLevelWorkloadIdentityEnabled() {
+		const gate = auth.FeatureGateObjectLevelWorkloadIdentity
+		const msgFmt = "to use spec.decryption.serviceAccountName for decryption authentication please enable the %s feature gate in the controller"
+		msg := fmt.Sprintf(msgFmt, gate)
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.FeatureGateDisabledReason, msgFmt, gate)
+		conditions.MarkStalled(obj, meta.FeatureGateDisabledReason, msgFmt, gate)
+		log.Error(auth.ErrObjectLevelWorkloadIdentityNotEnabled, msg)
+		r.event(obj, "", "", eventv1.EventSeverityError, msg, nil)
 		return ctrl.Result{}, nil
 	}
 
