@@ -1032,20 +1032,40 @@ func (r *KustomizationReconciler) prune(ctx context.Context,
 	return false, nil
 }
 
+// finalizerShouldDeleteResources determines if resources should be deleted
+// based on the object's inventory and deletion policy.
+// A suspended Kustomization or one without an inventory will not delete resources.
 func finalizerShouldDeleteResources(obj *kustomizev1.Kustomization) bool {
-	if obj.GetDeletionPolicy() == kustomizev1.DeletionPolicyMirrorPrune {
-		return obj.Spec.Prune
+	if obj.Spec.Suspend {
+		return false
 	}
-	return obj.Spec.DeletionPolicy == kustomizev1.DeletionPolicyDelete
+
+	if obj.Status.Inventory == nil || len(obj.Status.Inventory.Entries) == 0 {
+		return false
+	}
+
+	switch obj.GetDeletionPolicy() {
+	case kustomizev1.DeletionPolicyMirrorPrune:
+		return obj.Spec.Prune
+	case kustomizev1.DeletionPolicyDelete:
+		return true
+	case kustomizev1.DeletionPolicyWaitForTermination:
+		return true
+	default:
+		return false
+	}
 }
 
+// finalize handles the finalization logic for a Kustomization resource during its deletion process.
+// Managed resources are pruned based on the deletion policy and suspended state of the Kustomization.
+// When the policy is set to WaitForTermination, the function blocks and waits for the resources
+// to be terminated by the Kubernetes Garbage Collector for the specified timeout duration.
+// If the service account used for impersonation is no longer available or if a timeout occurs
+// while waiting for resources to be terminated, an error is logged and the finalizer is removed.
 func (r *KustomizationReconciler) finalize(ctx context.Context,
 	obj *kustomizev1.Kustomization) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
-	if finalizerShouldDeleteResources(obj) &&
-		!obj.Spec.Suspend &&
-		obj.Status.Inventory != nil &&
-		obj.Status.Inventory.Entries != nil {
+	if finalizerShouldDeleteResources(obj) {
 		objects, _ := inventory.List(obj.Status.Inventory)
 
 		var impersonatorOpts []runtimeClient.ImpersonatorOption
@@ -1098,7 +1118,21 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 			}
 
 			if changeSet != nil && len(changeSet.Entries) > 0 {
+				// Emit event with the resources marked for deletion.
 				r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityInfo, changeSet.String(), nil)
+
+				// Wait for the resources marked for deletion to be terminated.
+				if obj.GetDeletionPolicy() == kustomizev1.DeletionPolicyWaitForTermination {
+					if err := resourceManager.WaitForSetTermination(changeSet, ssa.WaitOptions{
+						Interval: 2 * time.Second,
+						Timeout:  obj.GetTimeout(),
+					}); err != nil {
+						// Emit an event and log the error if a timeout occurs.
+						msg := "failed to wait for resources termination"
+						log.Error(err, msg)
+						r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityError, msg, nil)
+					}
+				}
 			}
 		} else {
 			// when the account to impersonate is gone, log the stale objects and continue with the finalization
