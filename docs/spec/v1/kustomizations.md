@@ -855,8 +855,9 @@ The `.spec.decryption` field has the following subfields:
   static credentials for KMS services to be used for decryption.
 - `.serviceAccountName`: The name of the service account used for
   secret-less authentication with KMS services from cloud providers.
-  See the [workload identity](/flux/installation/configuration/workload-identity/) docs
-  for how to configure a cloud provider identity for this service account.
+
+For a complete guide on how to set up authentication for KMS services from
+cloud providers, see the integration [docs](/flux/integrations/).
 
 If a static credential for a given cloud provider is defined inside the secret
 referenced by `.secretRef`, that static credential takes priority over secret-less
