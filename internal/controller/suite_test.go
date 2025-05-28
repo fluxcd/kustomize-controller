@@ -47,7 +47,6 @@ import (
 	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
-	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
@@ -77,7 +76,6 @@ func runInContext(registerControllers func(*testenv.Environment), run func() int
 	var err error
 	utilruntime.Must(kustomizev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(sourcev1.AddToScheme(scheme.Scheme))
-	utilruntime.Must(sourcev1b2.AddToScheme(scheme.Scheme))
 
 	if debugMode {
 		controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))

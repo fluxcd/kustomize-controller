@@ -70,7 +70,6 @@ import (
 	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	"github.com/fluxcd/pkg/tar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
-	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	intcache "github.com/fluxcd/kustomize-controller/internal/cache"
@@ -129,7 +128,7 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 
 	// Index the Kustomizations by the OCIRepository references they (may) point at.
 	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, ociRepositoryIndexKey,
-		r.indexBy(sourcev1b2.OCIRepositoryKind)); err != nil {
+		r.indexBy(sourcev1.OCIRepositoryKind)); err != nil {
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
@@ -154,7 +153,7 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
 		)).
 		Watches(
-			&sourcev1b2.OCIRepository{},
+			&sourcev1.OCIRepository{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(ociRepositoryIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
@@ -597,8 +596,8 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 	}
 
 	switch obj.Spec.SourceRef.Kind {
-	case sourcev1b2.OCIRepositoryKind:
-		var repository sourcev1b2.OCIRepository
+	case sourcev1.OCIRepositoryKind:
+		var repository sourcev1.OCIRepository
 		err := r.Client.Get(ctx, namespacedName, &repository)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
