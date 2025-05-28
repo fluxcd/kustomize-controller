@@ -2,6 +2,54 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.6.0
+
+**Release date:** 2025-05-28
+
+This minor release comes with various bug fixes and improvements.
+
+Kustomization API now supports object-level workload identity by setting
+`.spec.decryption.serviceAccountName` to the name of a service account
+in the same namespace that has been configured with appropriate cloud
+permissions. For this feature to work, the controller feature gate
+`ObjectLevelWorkloadIdentity` must be enabled. See a complete guide
+[here](https://fluxcd.io/flux/integrations/).
+
+Kustomization API now supports the value `WaitForTermination` for the
+`.spec.deletionPolicy` field. This instructs the controller to wait for the
+deletion of all resources managed by the Kustomization before allowing the
+Kustomization itself to be deleted. See docs
+[here](https://fluxcd.io/flux/components/kustomize/kustomizations/#deletion-policy).
+
+In addition, the Kubernetes dependencies have been updated to v1.33 and
+various other controller dependencies have been updated to their latest version.
+The controller is now built with Go 1.24.
+
+Fixes:
+- Fix performance regression due to using client without cache
+  [#1436](https://github.com/fluxcd/kustomize-controller/pull/1436)
+- Fix secret value showing up in logs
+  [#1372](https://github.com/fluxcd/kustomize-controller/pull/1372)
+
+Improvements:
+- [RFC-0010] Introduce KMS provider decryption with service account
+  [#1426](https://github.com/fluxcd/kustomize-controller/pull/1426)
+  [#1449](https://github.com/fluxcd/kustomize-controller/pull/1449)
+  [#1456](https://github.com/fluxcd/kustomize-controller/pull/1456)
+- Add `WaitForTermination` option to DeletionPolicy
+  [#1444](https://github.com/fluxcd/kustomize-controller/pull/1444)
+- Skip emitting events for suspended Kustomizations
+  [#1396](https://github.com/fluxcd/kustomize-controller/pull/1396)
+- Various dependency updates
+  [#1458](https://github.com/fluxcd/kustomize-controller/pull/1458)
+  [#1448](https://github.com/fluxcd/kustomize-controller/pull/1448)
+  [#1433](https://github.com/fluxcd/kustomize-controller/pull/1433)
+  [#1435](https://github.com/fluxcd/kustomize-controller/pull/1435)
+  [#1429](https://github.com/fluxcd/kustomize-controller/pull/1429)
+  [#1414](https://github.com/fluxcd/kustomize-controller/pull/1414)
+  [#1410](https://github.com/fluxcd/kustomize-controller/pull/1410)
+  [#1401](https://github.com/fluxcd/kustomize-controller/pull/1401)
+
 ## 1.5.1
 
 **Release date:** 2025-02-25
