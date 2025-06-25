@@ -47,7 +47,6 @@ import (
 	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
-	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
@@ -77,7 +76,6 @@ func runInContext(registerControllers func(*testenv.Environment), run func() int
 	var err error
 	utilruntime.Must(kustomizev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(sourcev1.AddToScheme(scheme.Scheme))
-	utilruntime.Must(sourcev1b2.AddToScheme(scheme.Scheme))
 
 	if debugMode {
 		controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))
@@ -176,6 +174,8 @@ func TestMain(m *testing.M) {
 		reconciler = &KustomizationReconciler{
 			ControllerName:          controllerName,
 			Client:                  testEnv,
+			Mapper:                  testEnv.GetRESTMapper(),
+			APIReader:               testEnv,
 			EventRecorder:           testEnv.GetEventRecorderFor(controllerName),
 			Metrics:                 testMetricsH,
 			ConcurrentSSA:           4,
@@ -275,7 +275,29 @@ func createKubeConfigSecret(namespace string) error {
 	return k8sClient.Create(context.Background(), secret)
 }
 
-func applyGitRepository(objKey client.ObjectKey, artifactName string, revision string) error {
+type gitRepoOption func(*gitRepoOptions)
+
+type gitRepoOptions struct {
+	artifactMetadata map[string]string
+}
+
+func withGitRepoArtifactMetadata(k, v string) gitRepoOption {
+	return func(o *gitRepoOptions) {
+		if o.artifactMetadata == nil {
+			o.artifactMetadata = make(map[string]string)
+		}
+		o.artifactMetadata[k] = v
+	}
+}
+
+func applyGitRepository(objKey client.ObjectKey, artifactName string,
+	revision string, opts ...gitRepoOption) error {
+
+	var opt gitRepoOptions
+	for _, o := range opts {
+		o(&opt)
+	}
+
 	repo := &sourcev1.GitRepository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       sourcev1.GitRepositoryKind,
@@ -311,15 +333,16 @@ func applyGitRepository(objKey client.ObjectKey, artifactName string, revision s
 			Revision:       revision,
 			Digest:         dig.String(),
 			LastUpdateTime: metav1.Now(),
+			Metadata:       opt.artifactMetadata,
 		},
 	}
 
-	opt := []client.PatchOption{
+	patchOpts := []client.PatchOption{
 		client.ForceOwnership,
 		client.FieldOwner("kustomize-controller"),
 	}
 
-	if err := k8sClient.Patch(context.Background(), repo, client.Apply, opt...); err != nil {
+	if err := k8sClient.Patch(context.Background(), repo, client.Apply, patchOpts...); err != nil {
 		return err
 	}
 

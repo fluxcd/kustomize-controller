@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+generatorOptions:
+  disableNameSuffixHash: true
+secretGenerator:
+  - name: component
+    envs:
+      - env.env

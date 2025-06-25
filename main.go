@@ -32,11 +32,13 @@ import (
 	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlcfg "sigs.k8s.io/controller-runtime/pkg/config"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/fluxcd/cli-utils/pkg/kstatus/polling"
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/clusterreader"
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/engine"
+	"github.com/fluxcd/pkg/auth"
+	pkgcache "github.com/fluxcd/pkg/cache"
 	"github.com/fluxcd/pkg/runtime/acl"
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
@@ -49,12 +51,10 @@ import (
 	"github.com/fluxcd/pkg/runtime/pprof"
 	"github.com/fluxcd/pkg/runtime/probes"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
-	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/kustomize-controller/internal/controller"
 	"github.com/fluxcd/kustomize-controller/internal/features"
-	"github.com/fluxcd/kustomize-controller/internal/statusreaders"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -69,12 +69,15 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = sourcev1.AddToScheme(scheme)
-	_ = sourcev1b2.AddToScheme(scheme)
 	_ = kustomizev1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
+	const (
+		tokenCacheDefaultMaxSize = 100
+	)
+
 	var (
 		metricsAddr             string
 		eventsAddr              string
@@ -95,6 +98,7 @@ func main() {
 		defaultServiceAccount   string
 		featureGates            feathelper.FeatureGates
 		disallowedFieldManagers []string
+		tokenCacheOptions       pkgcache.TokenFlags
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -118,6 +122,7 @@ func main() {
 	featureGates.BindFlags(flag.CommandLine)
 	watchOptions.BindFlags(flag.CommandLine)
 	intervalJitterOptions.BindFlags(flag.CommandLine)
+	tokenCacheOptions.BindFlags(flag.CommandLine, tokenCacheDefaultMaxSize)
 
 	flag.Parse()
 
@@ -128,6 +133,14 @@ func main() {
 	if err := featureGates.WithLogger(setupLog).SupportedFeatures(features.FeatureGates()); err != nil {
 		setupLog.Error(err, "unable to load feature gates")
 		os.Exit(1)
+	}
+
+	switch enabled, err := features.Enabled(auth.FeatureGateObjectLevelWorkloadIdentity); {
+	case err != nil:
+		setupLog.Error(err, "unable to check feature gate "+auth.FeatureGateObjectLevelWorkloadIdentity)
+		os.Exit(1)
+	case enabled:
+		auth.EnableObjectLevelWorkloadIdentity()
 	}
 
 	if err := intervalJitterOptions.SetGlobalJitter(nil); err != nil {
@@ -214,13 +227,15 @@ func main() {
 
 	metricsH := runtimeCtrl.NewMetrics(mgr, metrics.MustMakeRecorder(), kustomizev1.KustomizationFinalizer)
 
-	jobStatusReader := statusreaders.NewCustomJobStatusReader(mgr.GetRESTMapper())
-	pollingOpts := polling.Options{
-		CustomStatusReaders: []engine.StatusReader{jobStatusReader},
+	restMapper, err := runtimeClient.NewDynamicRESTMapper(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "unable to create REST mapper")
+		os.Exit(1)
 	}
 
+	var clusterReader engine.ClusterReaderFactory
 	if ok, _ := features.Enabled(features.DisableStatusPollerCache); ok {
-		pollingOpts.ClusterReaderFactory = engine.ClusterReaderFactoryFunc(clusterreader.NewDirectClusterReader)
+		clusterReader = engine.ClusterReaderFactoryFunc(clusterreader.NewDirectClusterReader)
 	}
 
 	failFast := true
@@ -234,10 +249,31 @@ func main() {
 		os.Exit(1)
 	}
 
+	groupChangeLog, err := features.Enabled(features.GroupChangeLog)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.GroupChangeLog)
+		os.Exit(1)
+	}
+
+	var tokenCache *pkgcache.TokenCache
+	if tokenCacheOptions.MaxSize > 0 {
+		var err error
+		tokenCache, err = pkgcache.NewTokenCache(tokenCacheOptions.MaxSize,
+			pkgcache.WithMaxDuration(tokenCacheOptions.MaxDuration),
+			pkgcache.WithMetricsRegisterer(ctrlmetrics.Registry),
+			pkgcache.WithMetricsPrefix("gotk_token_"))
+		if err != nil {
+			setupLog.Error(err, "unable to create token cache")
+			os.Exit(1)
+		}
+	}
+
 	if err = (&controller.KustomizationReconciler{
 		ControllerName:          controllerName,
 		DefaultServiceAccount:   defaultServiceAccount,
 		Client:                  mgr.GetClient(),
+		Mapper:                  restMapper,
+		APIReader:               mgr.GetAPIReader(),
 		Metrics:                 metricsH,
 		EventRecorder:           eventRecorder,
 		NoCrossNamespaceRefs:    aclOptions.NoCrossNamespaceRefs,
@@ -245,10 +281,11 @@ func main() {
 		FailFast:                failFast,
 		ConcurrentSSA:           concurrentSSA,
 		KubeConfigOpts:          kubeConfigOpts,
-		PollingOpts:             pollingOpts,
-		StatusPoller:            polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), pollingOpts),
+		ClusterReader:           clusterReader,
 		DisallowedFieldManagers: disallowedFieldManagers,
 		StrictSubstitutions:     strictSubstitutions,
+		GroupChangeLog:          groupChangeLog,
+		TokenCache:              tokenCache,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,

@@ -1,9 +1,9 @@
-ARG GO_VERSION=1.22
-ARG XX_VERSION=1.4.0
+ARG GO_VERSION=1.24
+ARG XX_VERSION=1.6.1
 
 FROM --platform=$BUILDPLATFORM tonistiigi/xx:${XX_VERSION} AS xx
 
-FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine as builder
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS builder
 
 # Copy the build utilities.
 COPY --from=xx / /
@@ -30,7 +30,7 @@ COPY internal/ internal/
 ENV CGO_ENABLED=0
 RUN xx-go build -trimpath -a -o kustomize-controller main.go
 
-FROM alpine:3.19
+FROM alpine:3.21
 
 ARG TARGETPLATFORM
 

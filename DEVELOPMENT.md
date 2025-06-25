@@ -13,19 +13,10 @@ There are a number of dependencies required to be able to run the controller and
 - [Install Docker](https://docs.docker.com/engine/install/)
 - (Optional) [Install Kubebuilder](https://book.kubebuilder.io/quick-start.html#installation)
 
-In addition to the above, the following dependencies are also used by some of the `make` targets:
-
-- `controller-gen` (v0.7.0)
-- `gen-crd-api-reference-docs` (v0.3.0)
-- `setup-envtest` (latest)
-- `sops` (v3.7.2)
-
-If any of the above dependencies are not present on your system, the first invocation of a `make` target that requires them will install them.
-
 ## How to run the test suite
 
 Prerequisites:
-* Go >= 1.18
+* Go >= 1.24
 
 You can run the test suite by simply doing
 

@@ -41,7 +41,7 @@ the controller performs actions to reconcile the cluster current state with the 
 
 * [Get started with Flux](https://fluxcd.io/flux/get-started/)
 * [Setup Notifications](https://fluxcd.io/flux/guides/notifications/)
-* [Manage Kubernetes secrets with Flux and Mozilla SOPS](https://fluxcd.io/flux/guides/mozilla-sops/)
+* [Manage Kubernetes secrets with Flux and SOPS](https://fluxcd.io/flux/guides/mozilla-sops/)
 * [How to build, publish and consume OCI Artifacts with Flux](https://fluxcd.io/flux/cheatsheets/oci-artifacts/)
 * [Flux and Kustomize FAQ](https://fluxcd.io/flux/faq/#kustomize-questions)
 

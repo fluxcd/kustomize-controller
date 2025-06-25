@@ -27,8 +27,6 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/fluxcd/pkg/ssa/normalize"
-	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -38,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	kuberecorder "k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,28 +44,35 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/ratelimiter"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling"
+	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/engine"
 	"github.com/fluxcd/cli-utils/pkg/object"
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/auth"
+	"github.com/fluxcd/pkg/cache"
 	"github.com/fluxcd/pkg/http/fetch"
 	generator "github.com/fluxcd/pkg/kustomize"
 	"github.com/fluxcd/pkg/runtime/acl"
+	"github.com/fluxcd/pkg/runtime/cel"
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/jitter"
 	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/fluxcd/pkg/runtime/predicates"
+	"github.com/fluxcd/pkg/runtime/statusreaders"
 	"github.com/fluxcd/pkg/ssa"
+	"github.com/fluxcd/pkg/ssa/normalize"
+	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	"github.com/fluxcd/pkg/tar"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
-	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
+	intcache "github.com/fluxcd/kustomize-controller/internal/cache"
 	"github.com/fluxcd/kustomize-controller/internal/decryptor"
 	"github.com/fluxcd/kustomize-controller/internal/inventory"
 )
@@ -77,6 +83,7 @@ import (
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets;ocirepositories;gitrepositories,verbs=get;list;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets/status;ocirepositories/status;gitrepositories/status,verbs=get
 // +kubebuilder:rbac:groups="",resources=configmaps;secrets;serviceaccounts,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=serviceaccounts/token,verbs=create
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // KustomizationReconciler reconciles a Kustomization object
@@ -88,8 +95,9 @@ type KustomizationReconciler struct {
 	artifactFetchRetries int
 	requeueDependency    time.Duration
 
-	StatusPoller            *polling.StatusPoller
-	PollingOpts             polling.Options
+	Mapper                  apimeta.RESTMapper
+	APIReader               client.Reader
+	ClusterReader           engine.ClusterReaderFactory
 	ControllerName          string
 	statusManager           string
 	NoCrossNamespaceRefs    bool
@@ -100,13 +108,15 @@ type KustomizationReconciler struct {
 	ConcurrentSSA           int
 	DisallowedFieldManagers []string
 	StrictSubstitutions     bool
+	GroupChangeLog          bool
+	TokenCache              *cache.TokenCache
 }
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
 type KustomizationReconcilerOptions struct {
 	HTTPRetry                 int
 	DependencyRequeueInterval time.Duration
-	RateLimiter               ratelimiter.RateLimiter
+	RateLimiter               workqueue.TypedRateLimiter[reconcile.Request]
 }
 
 func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
@@ -118,7 +128,7 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 
 	// Index the Kustomizations by the OCIRepository references they (may) point at.
 	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, ociRepositoryIndexKey,
-		r.indexBy(sourcev1b2.OCIRepositoryKind)); err != nil {
+		r.indexBy(sourcev1.OCIRepositoryKind)); err != nil {
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
@@ -130,7 +140,7 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 
 	// Index the Kustomizations by the Bucket references they (may) point at.
 	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, bucketIndexKey,
-		r.indexBy(sourcev1b2.BucketKind)); err != nil {
+		r.indexBy(sourcev1.BucketKind)); err != nil {
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
@@ -143,7 +153,7 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
 		)).
 		Watches(
-			&sourcev1b2.OCIRepository{},
+			&sourcev1.OCIRepository{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(ociRepositoryIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
@@ -153,7 +163,7 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
-			&sourcev1b2.Bucket{},
+			&sourcev1.Bucket{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(bucketIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
@@ -183,9 +193,12 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 
 		// Record Prometheus metrics.
-		r.Metrics.RecordReadiness(ctx, obj)
 		r.Metrics.RecordDuration(ctx, obj, reconcileStart)
-		r.Metrics.RecordSuspend(ctx, obj, obj.Spec.Suspend)
+
+		// Do not proceed if the Kustomization is suspended
+		if obj.Spec.Suspend {
+			return
+		}
 
 		// Log and emit success event.
 		if conditions.IsReady(obj) {
@@ -193,7 +206,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				time.Since(reconcileStart).String(),
 				obj.Spec.Interval.Duration.String())
 			log.Info(msg, "revision", obj.Status.LastAttemptedRevision)
-			r.event(obj, obj.Status.LastAppliedRevision, eventv1.EventSeverityInfo, msg,
+			r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityInfo, msg,
 				map[string]string{
 					kustomizev1.GroupVersion.Group + "/" + eventv1.MetaCommitStatusKey: eventv1.MetaCommitStatusUpdateValue,
 				})
@@ -220,10 +233,35 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
+	// Configure custom health checks.
+	statusReaders, err := cel.PollerWithCustomHealthChecks(ctx, obj.Spec.HealthCheckExprs)
+	if err != nil {
+		const msg = "Reconciliation failed terminally due to configuration error"
+		errMsg := fmt.Sprintf("%s: %v", msg, err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.InvalidCELExpressionReason, "%s", errMsg)
+		conditions.MarkStalled(obj, meta.InvalidCELExpressionReason, "%s", errMsg)
+		obj.Status.ObservedGeneration = obj.Generation
+		log.Error(err, msg)
+		r.event(obj, "", "", eventv1.EventSeverityError, errMsg, nil)
+		return ctrl.Result{}, nil
+	}
+
+	// Check object-level workload identity feature gate.
+	if d := obj.Spec.Decryption; d != nil && d.ServiceAccountName != "" && !auth.IsObjectLevelWorkloadIdentityEnabled() {
+		const gate = auth.FeatureGateObjectLevelWorkloadIdentity
+		const msgFmt = "to use spec.decryption.serviceAccountName for decryption authentication please enable the %s feature gate in the controller"
+		msg := fmt.Sprintf(msgFmt, gate)
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.FeatureGateDisabledReason, msgFmt, gate)
+		conditions.MarkStalled(obj, meta.FeatureGateDisabledReason, msgFmt, gate)
+		log.Error(auth.ErrObjectLevelWorkloadIdentityNotEnabled, msg)
+		r.event(obj, "", "", eventv1.EventSeverityError, msg, nil)
+		return ctrl.Result{}, nil
+	}
+
 	// Resolve the source reference and requeue the reconciliation if the source is not found.
 	artifactSource, err := r.getSource(ctx, obj)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", err)
 
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("Source '%s' not found", obj.Spec.SourceRef.String())
@@ -232,9 +270,9 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 
 		if acl.IsAccessDenied(err) {
-			conditions.MarkFalse(obj, meta.ReadyCondition, apiacl.AccessDeniedReason, err.Error())
+			conditions.MarkFalse(obj, meta.ReadyCondition, apiacl.AccessDeniedReason, "%s", err)
 			log.Error(err, "Access denied to cross-namespace source")
-			r.event(obj, "unknown", eventv1.EventSeverityError, err.Error(), nil)
+			r.event(obj, "", "", eventv1.EventSeverityError, err.Error(), nil)
 			return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
 		}
 
@@ -245,30 +283,32 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Requeue the reconciliation if the source artifact is not found.
 	if artifactSource.GetArtifact() == nil {
 		msg := fmt.Sprintf("Source artifact not found, retrying in %s", r.requeueDependency.String())
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, msg)
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", msg)
 		log.Info(msg)
 		return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 	}
+	revision := artifactSource.GetArtifact().Revision
+	originRevision := getOriginRevision(artifactSource)
 
 	// Check dependencies and requeue the reconciliation if the check fails.
 	if len(obj.Spec.DependsOn) > 0 {
 		if err := r.checkDependencies(ctx, obj, artifactSource); err != nil {
-			conditions.MarkFalse(obj, meta.ReadyCondition, meta.DependencyNotReadyReason, err.Error())
+			conditions.MarkFalse(obj, meta.ReadyCondition, meta.DependencyNotReadyReason, "%s", err)
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Info(msg)
-			r.event(obj, artifactSource.GetArtifact().Revision, eventv1.EventSeverityInfo, msg, nil)
+			r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, msg, nil)
 			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 		}
 		log.Info("All dependencies are ready, proceeding with reconciliation")
 	}
 
 	// Reconcile the latest revision.
-	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher)
+	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher, statusReaders)
 
 	// Requeue at the specified retry interval if the artifact tarball is not found.
 	if errors.Is(reconcileErr, fetch.ErrFileNotFound) {
 		msg := fmt.Sprintf("Source is not ready, artifact not found, retrying in %s", r.requeueDependency.String())
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, msg)
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", msg)
 		log.Info(msg)
 		return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
 	}
@@ -279,8 +319,8 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			time.Since(reconcileStart).String(),
 			obj.GetRetryInterval().String()),
 			"revision",
-			artifactSource.GetArtifact().Revision)
-		r.event(obj, artifactSource.GetArtifact().Revision, eventv1.EventSeverityError,
+			revision)
+		r.event(obj, revision, originRevision, eventv1.EventSeverityError,
 			reconcileErr.Error(), nil)
 		return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
 	}
@@ -293,14 +333,16 @@ func (r *KustomizationReconciler) reconcile(
 	ctx context.Context,
 	obj *kustomizev1.Kustomization,
 	src sourcev1.Source,
-	patcher *patch.SerialPatcher) error {
+	patcher *patch.SerialPatcher,
+	statusReaders []func(apimeta.RESTMapper) engine.StatusReader) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	// Update status with the reconciliation progress.
 	revision := src.GetArtifact().Revision
+	originRevision := getOriginRevision(src)
 	progressingMsg := fmt.Sprintf("Fetching manifests for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
-	conditions.MarkUnknown(obj, meta.ReadyCondition, meta.ProgressingReason, "Reconciliation in progress")
-	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
+	conditions.MarkUnknown(obj, meta.ReadyCondition, meta.ProgressingReason, "%s", "Reconciliation in progress")
+	conditions.MarkReconciling(obj, meta.ProgressingReason, "%s", progressingMsg)
 	if err := r.patch(ctx, obj, patcher); err != nil {
 		return fmt.Errorf("failed to update status: %w", err)
 	}
@@ -315,7 +357,7 @@ func (r *KustomizationReconciler) reconcile(
 	tmpDir, err := MkdirTempAbs("", "kustomization-")
 	if err != nil {
 		err = fmt.Errorf("tmp dir error: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, sourcev1.DirCreationFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, sourcev1.DirCreationFailedReason, "%s", err)
 		return err
 	}
 
@@ -333,73 +375,86 @@ func (r *KustomizationReconciler) reconcile(
 		os.Getenv("SOURCE_CONTROLLER_LOCALHOST"),
 		ctrl.LoggerFrom(ctx),
 	).Fetch(src.GetArtifact().URL, src.GetArtifact().Digest, tmpDir); err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", err)
 		return err
 	}
 
 	// check build path exists
 	dirPath, err := securejoin.SecureJoin(tmpDir, obj.Spec.Path)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", err)
 		return err
 	}
 
 	if _, err := os.Stat(dirPath); err != nil {
 		err = fmt.Errorf("kustomization path not found: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", err)
 		return err
 	}
 
 	// Report progress and set last attempted revision in status.
 	obj.Status.LastAttemptedRevision = revision
 	progressingMsg = fmt.Sprintf("Building manifests for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
-	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
+	conditions.MarkReconciling(obj, meta.ProgressingReason, "%s", progressingMsg)
 	if err := r.patch(ctx, obj, patcher); err != nil {
 		return fmt.Errorf("failed to update status: %w", err)
 	}
 
 	// Configure the Kubernetes client for impersonation.
-	impersonation := runtimeClient.NewImpersonator(
-		r.Client,
-		r.StatusPoller,
-		r.PollingOpts,
-		obj.Spec.KubeConfig,
-		r.KubeConfigOpts,
-		r.DefaultServiceAccount,
-		obj.Spec.ServiceAccountName,
-		obj.GetNamespace(),
-	)
+	var impersonatorOpts []runtimeClient.ImpersonatorOption
+	var mustImpersonate bool
+	if r.DefaultServiceAccount != "" || obj.Spec.ServiceAccountName != "" {
+		mustImpersonate = true
+		impersonatorOpts = append(impersonatorOpts,
+			runtimeClient.WithServiceAccount(r.DefaultServiceAccount, obj.Spec.ServiceAccountName, obj.GetNamespace()))
+	}
+	if obj.Spec.KubeConfig != nil {
+		mustImpersonate = true
+		impersonatorOpts = append(impersonatorOpts,
+			runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace()))
+	}
+	if r.ClusterReader != nil || len(statusReaders) > 0 {
+		impersonatorOpts = append(impersonatorOpts,
+			runtimeClient.WithPolling(r.ClusterReader, statusReaders...))
+	}
+	impersonation := runtimeClient.NewImpersonator(r.Client, impersonatorOpts...)
 
 	// Create the Kubernetes client that runs under impersonation.
-	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
+	var kubeClient client.Client
+	var statusPoller *polling.StatusPoller
+	if mustImpersonate {
+		kubeClient, statusPoller, err = impersonation.GetClient(ctx)
+	} else {
+		kubeClient, statusPoller = r.getClientAndPoller(statusReaders)
+	}
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return fmt.Errorf("failed to build kube client: %w", err)
 	}
 
 	// Generate kustomization.yaml if needed.
 	k, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, "%s", err)
 		return err
 	}
 	err = r.generate(unstructured.Unstructured{Object: k}, tmpDir, dirPath)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, "%s", err)
 		return err
 	}
 
 	// Build the Kustomize overlay and decrypt secrets if needed.
 	resources, err := r.build(ctx, obj, unstructured.Unstructured{Object: k}, tmpDir, dirPath)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, "%s", err)
 		return err
 	}
 
 	// Convert the build result into Kubernetes unstructured objects.
 	objects, err := ssautil.ReadObjects(bytes.NewReader(resources))
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, "%s", err)
 		return err
 	}
 
@@ -413,15 +468,15 @@ func (r *KustomizationReconciler) reconcile(
 
 	// Update status with the reconciliation progress.
 	progressingMsg = fmt.Sprintf("Detecting drift for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
-	conditions.MarkReconciling(obj, meta.ProgressingReason, progressingMsg)
+	conditions.MarkReconciling(obj, meta.ProgressingReason, "%s", progressingMsg)
 	if err := r.patch(ctx, obj, patcher); err != nil {
 		return fmt.Errorf("failed to update status: %w", err)
 	}
 
 	// Validate and apply resources in stages.
-	drifted, changeSet, err := r.apply(ctx, resourceManager, obj, revision, objects)
+	drifted, changeSet, err := r.apply(ctx, resourceManager, obj, revision, originRevision, objects)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return err
 	}
 
@@ -429,7 +484,7 @@ func (r *KustomizationReconciler) reconcile(
 	newInventory := inventory.New()
 	err = inventory.AddChangeSet(newInventory, changeSet)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return err
 	}
 
@@ -439,13 +494,13 @@ func (r *KustomizationReconciler) reconcile(
 	// Detect stale resources which are subject to garbage collection.
 	staleObjects, err := inventory.Diff(oldInventory, newInventory)
 	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return err
 	}
 
 	// Run garbage collection for stale resources that do not have pruning disabled.
-	if _, err := r.prune(ctx, resourceManager, obj, revision, staleObjects); err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.PruneFailedReason, err.Error())
+	if _, err := r.prune(ctx, resourceManager, obj, revision, originRevision, staleObjects); err != nil {
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.PruneFailedReason, "%s", err)
 		return err
 	}
 
@@ -456,21 +511,23 @@ func (r *KustomizationReconciler) reconcile(
 		patcher,
 		obj,
 		revision,
+		originRevision,
 		isNewRevision,
 		drifted,
 		changeSet.ToObjMetadataSet()); err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.HealthCheckFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.HealthCheckFailedReason, "%s", err)
 		return err
 	}
 
-	// Set last applied revision.
+	// Set last applied revisions.
 	obj.Status.LastAppliedRevision = revision
+	obj.Status.LastAppliedOriginRevision = originRevision
 
 	// Mark the object as ready.
 	conditions.MarkTrue(obj,
 		meta.ReadyCondition,
 		meta.ReconciliationSucceededReason,
-		fmt.Sprintf("Applied revision: %s", revision))
+		"Applied revision: %s", revision)
 
 	return nil
 }
@@ -487,7 +544,7 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 			Name:      d.Name,
 		}
 		var k kustomizev1.Kustomization
-		err := r.Get(ctx, dName, &k)
+		err := r.APIReader.Get(ctx, dName, &k)
 		if err != nil {
 			return fmt.Errorf("dependency '%s' not found: %w", dName, err)
 		}
@@ -539,8 +596,8 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 	}
 
 	switch obj.Spec.SourceRef.Kind {
-	case sourcev1b2.OCIRepositoryKind:
-		var repository sourcev1b2.OCIRepository
+	case sourcev1.OCIRepositoryKind:
+		var repository sourcev1.OCIRepository
 		err := r.Client.Get(ctx, namespacedName, &repository)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -559,8 +616,8 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
 		src = &repository
-	case sourcev1b2.BucketKind:
-		var bucket sourcev1b2.Bucket
+	case sourcev1.BucketKind:
+		var bucket sourcev1.Bucket
 		err := r.Client.Get(ctx, namespacedName, &bucket)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -585,20 +642,23 @@ func (r *KustomizationReconciler) generate(obj unstructured.Unstructured,
 func (r *KustomizationReconciler) build(ctx context.Context,
 	obj *kustomizev1.Kustomization, u unstructured.Unstructured,
 	workDir, dirPath string) ([]byte, error) {
-	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, obj)
+	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, obj, r.TokenCache)
 	if err != nil {
 		return nil, err
 	}
 	defer cleanup()
 
-	// Import decryption keys
+	// Import keys and static credentials for decryption.
 	if err := dec.ImportKeys(ctx); err != nil {
 		return nil, err
 	}
 
+	// Set options for secret-less authentication with cloud providers for decryption.
+	dec.SetAuthOptions(ctx)
+
 	// Decrypt Kustomize EnvSources files before build
-	if err = dec.DecryptEnvSources(dirPath); err != nil {
-		return nil, fmt.Errorf("error decrypting env sources: %w", err)
+	if err = dec.DecryptSources(dirPath); err != nil {
+		return nil, fmt.Errorf("error decrypting sources: %w", err)
 	}
 
 	m, err := generator.SecureBuild(workDir, dirPath, !r.NoRemoteBases)
@@ -656,6 +716,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	manager *ssa.ResourceManager,
 	obj *kustomizev1.Kustomization,
 	revision string,
+	originRevision string,
 	objects []*unstructured.Unstructured) (bool, *ssa.ChangeSet, error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -776,7 +837,11 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		if changeSet != nil && len(changeSet.Entries) > 0 {
 			resultSet.Append(changeSet.Entries)
 
-			log.Info("server-side apply for cluster definitions completed", "output", changeSet.ToMap())
+			if r.GroupChangeLog {
+				log.Info("server-side apply for cluster definitions completed", "output", changeSet.ToGroupedMap())
+			} else {
+				log.Info("server-side apply for cluster definitions completed", "output", changeSet.ToMap())
+			}
 			for _, change := range changeSet.Entries {
 				if HasChanged(change.Action) {
 					changeSetLog.WriteString(change.String() + "\n")
@@ -802,7 +867,11 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		if changeSet != nil && len(changeSet.Entries) > 0 {
 			resultSet.Append(changeSet.Entries)
 
-			log.Info("server-side apply for cluster class types completed", "output", changeSet.ToMap())
+			if r.GroupChangeLog {
+				log.Info("server-side apply for cluster definitions completed", "output", changeSet.ToGroupedMap())
+			} else {
+				log.Info("server-side apply for cluster class types completed", "output", changeSet.ToMap())
+			}
 			for _, change := range changeSet.Entries {
 				if HasChanged(change.Action) {
 					changeSetLog.WriteString(change.String() + "\n")
@@ -829,7 +898,11 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		if changeSet != nil && len(changeSet.Entries) > 0 {
 			resultSet.Append(changeSet.Entries)
 
-			log.Info("server-side apply completed", "output", changeSet.ToMap(), "revision", revision)
+			if r.GroupChangeLog {
+				log.Info("server-side apply for cluster definitions completed", "output", changeSet.ToGroupedMap())
+			} else {
+				log.Info("server-side apply completed", "output", changeSet.ToMap(), "revision", revision)
+			}
 			for _, change := range changeSet.Entries {
 				if HasChanged(change.Action) {
 					changeSetLog.WriteString(change.String() + "\n")
@@ -841,7 +914,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	// emit event only if the server-side apply resulted in changes
 	applyLog := strings.TrimSuffix(changeSetLog.String(), "\n")
 	if applyLog != "" {
-		r.event(obj, revision, eventv1.EventSeverityInfo, applyLog, nil)
+		r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, applyLog, nil)
 	}
 
 	return applyLog != "", resultSet, nil
@@ -852,6 +925,7 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	patcher *patch.SerialPatcher,
 	obj *kustomizev1.Kustomization,
 	revision string,
+	originRevision string,
 	isNewRevision bool,
 	drifted bool,
 	objects object.ObjMetadataSet) error {
@@ -890,8 +964,8 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 
 	// Update status with the reconciliation progress.
 	message := fmt.Sprintf("Running health checks for revision %s with a timeout of %s", revision, obj.GetTimeout().String())
-	conditions.MarkReconciling(obj, meta.ProgressingReason, message)
-	conditions.MarkUnknown(obj, meta.HealthyCondition, meta.ProgressingReason, message)
+	conditions.MarkReconciling(obj, meta.ProgressingReason, "%s", message)
+	conditions.MarkUnknown(obj, meta.HealthyCondition, meta.ProgressingReason, "%s", message)
 	if err := r.patch(ctx, obj, patcher); err != nil {
 		return fmt.Errorf("unable to update the healthy status to progressing: %w", err)
 	}
@@ -902,18 +976,18 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 		Timeout:  obj.GetTimeout(),
 		FailFast: r.FailFast,
 	}); err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.HealthCheckFailedReason, err.Error())
-		conditions.MarkFalse(obj, meta.HealthyCondition, meta.HealthCheckFailedReason, err.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.HealthCheckFailedReason, "%s", err)
+		conditions.MarkFalse(obj, meta.HealthyCondition, meta.HealthCheckFailedReason, "%s", err)
 		return fmt.Errorf("health check failed after %s: %w", time.Since(checkStart).String(), err)
 	}
 
 	// Emit recovery event if the previous health check failed.
 	msg := fmt.Sprintf("Health check passed in %s", time.Since(checkStart).String())
 	if !wasHealthy || (isNewRevision && drifted) {
-		r.event(obj, revision, eventv1.EventSeverityInfo, msg, nil)
+		r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, msg, nil)
 	}
 
-	conditions.MarkTrue(obj, meta.HealthyCondition, meta.SucceededReason, msg)
+	conditions.MarkTrue(obj, meta.HealthyCondition, meta.SucceededReason, "%s", msg)
 	if err := r.patch(ctx, obj, patcher); err != nil {
 		return fmt.Errorf("unable to update the healthy status to progressing: %w", err)
 	}
@@ -925,6 +999,7 @@ func (r *KustomizationReconciler) prune(ctx context.Context,
 	manager *ssa.ResourceManager,
 	obj *kustomizev1.Kustomization,
 	revision string,
+	originRevision string,
 	objects []*unstructured.Unstructured) (bool, error) {
 	if !obj.Spec.Prune {
 		return false, nil
@@ -949,34 +1024,73 @@ func (r *KustomizationReconciler) prune(ctx context.Context,
 	// emit event only if the prune operation resulted in changes
 	if changeSet != nil && len(changeSet.Entries) > 0 {
 		log.Info(fmt.Sprintf("garbage collection completed: %s", changeSet.String()))
-		r.event(obj, revision, eventv1.EventSeverityInfo, changeSet.String(), nil)
+		r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, changeSet.String(), nil)
 		return true, nil
 	}
 
 	return false, nil
 }
 
+// finalizerShouldDeleteResources determines if resources should be deleted
+// based on the object's inventory and deletion policy.
+// A suspended Kustomization or one without an inventory will not delete resources.
+func finalizerShouldDeleteResources(obj *kustomizev1.Kustomization) bool {
+	if obj.Spec.Suspend {
+		return false
+	}
+
+	if obj.Status.Inventory == nil || len(obj.Status.Inventory.Entries) == 0 {
+		return false
+	}
+
+	switch obj.GetDeletionPolicy() {
+	case kustomizev1.DeletionPolicyMirrorPrune:
+		return obj.Spec.Prune
+	case kustomizev1.DeletionPolicyDelete:
+		return true
+	case kustomizev1.DeletionPolicyWaitForTermination:
+		return true
+	default:
+		return false
+	}
+}
+
+// finalize handles the finalization logic for a Kustomization resource during its deletion process.
+// Managed resources are pruned based on the deletion policy and suspended state of the Kustomization.
+// When the policy is set to WaitForTermination, the function blocks and waits for the resources
+// to be terminated by the Kubernetes Garbage Collector for the specified timeout duration.
+// If the service account used for impersonation is no longer available or if a timeout occurs
+// while waiting for resources to be terminated, an error is logged and the finalizer is removed.
 func (r *KustomizationReconciler) finalize(ctx context.Context,
 	obj *kustomizev1.Kustomization) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
-	if obj.Spec.Prune &&
-		!obj.Spec.Suspend &&
-		obj.Status.Inventory != nil &&
-		obj.Status.Inventory.Entries != nil {
+	if finalizerShouldDeleteResources(obj) {
 		objects, _ := inventory.List(obj.Status.Inventory)
 
-		impersonation := runtimeClient.NewImpersonator(
-			r.Client,
-			r.StatusPoller,
-			r.PollingOpts,
-			obj.Spec.KubeConfig,
-			r.KubeConfigOpts,
-			r.DefaultServiceAccount,
-			obj.Spec.ServiceAccountName,
-			obj.GetNamespace(),
-		)
+		var impersonatorOpts []runtimeClient.ImpersonatorOption
+		var mustImpersonate bool
+		if r.DefaultServiceAccount != "" || obj.Spec.ServiceAccountName != "" {
+			mustImpersonate = true
+			impersonatorOpts = append(impersonatorOpts,
+				runtimeClient.WithServiceAccount(r.DefaultServiceAccount, obj.Spec.ServiceAccountName, obj.GetNamespace()))
+		}
+		if obj.Spec.KubeConfig != nil {
+			mustImpersonate = true
+			impersonatorOpts = append(impersonatorOpts,
+				runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace()))
+		}
+		if r.ClusterReader != nil {
+			impersonatorOpts = append(impersonatorOpts, runtimeClient.WithPolling(r.ClusterReader))
+		}
+		impersonation := runtimeClient.NewImpersonator(r.Client, impersonatorOpts...)
 		if impersonation.CanImpersonate(ctx) {
-			kubeClient, _, err := impersonation.GetClient(ctx)
+			var kubeClient client.Client
+			var err error
+			if mustImpersonate {
+				kubeClient, _, err = impersonation.GetClient(ctx)
+			} else {
+				kubeClient = r.Client
+			}
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -997,36 +1111,59 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 
 			changeSet, err := resourceManager.DeleteAll(ctx, objects, opts)
 			if err != nil {
-				r.event(obj, obj.Status.LastAppliedRevision, eventv1.EventSeverityError, "pruning for deleted resource failed", nil)
+				r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityError, "pruning for deleted resource failed", nil)
 				// Return the error so we retry the failed garbage collection
 				return ctrl.Result{}, err
 			}
 
 			if changeSet != nil && len(changeSet.Entries) > 0 {
-				r.event(obj, obj.Status.LastAppliedRevision, eventv1.EventSeverityInfo, changeSet.String(), nil)
+				// Emit event with the resources marked for deletion.
+				r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityInfo, changeSet.String(), nil)
+
+				// Wait for the resources marked for deletion to be terminated.
+				if obj.GetDeletionPolicy() == kustomizev1.DeletionPolicyWaitForTermination {
+					if err := resourceManager.WaitForSetTermination(changeSet, ssa.WaitOptions{
+						Interval: 2 * time.Second,
+						Timeout:  obj.GetTimeout(),
+					}); err != nil {
+						// Emit an event and log the error if a timeout occurs.
+						msg := "failed to wait for resources termination"
+						log.Error(err, msg)
+						r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityError, msg, nil)
+					}
+				}
 			}
 		} else {
 			// when the account to impersonate is gone, log the stale objects and continue with the finalization
 			msg := fmt.Sprintf("unable to prune objects: \n%s", ssautil.FmtUnstructuredList(objects))
 			log.Error(fmt.Errorf("skiping pruning, failed to find account to impersonate"), msg)
-			r.event(obj, obj.Status.LastAppliedRevision, eventv1.EventSeverityError, msg, nil)
+			r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityError, msg, nil)
 		}
 	}
 
 	// Remove our finalizer from the list and update it
 	controllerutil.RemoveFinalizer(obj, kustomizev1.KustomizationFinalizer)
+
+	// Cleanup caches.
+	for _, op := range intcache.AllOperations {
+		r.TokenCache.DeleteEventsForObject(kustomizev1.KustomizationKind, obj.GetName(), obj.GetNamespace(), op)
+	}
+
 	// Stop reconciliation as the object is being deleted
 	return ctrl.Result{}, nil
 }
 
 func (r *KustomizationReconciler) event(obj *kustomizev1.Kustomization,
-	revision, severity, msg string,
+	revision, originRevision, severity, msg string,
 	metadata map[string]string) {
 	if metadata == nil {
 		metadata = map[string]string{}
 	}
 	if revision != "" {
-		metadata[kustomizev1.GroupVersion.Group+"/revision"] = revision
+		metadata[kustomizev1.GroupVersion.Group+"/"+eventv1.MetaRevisionKey] = revision
+	}
+	if originRevision != "" {
+		metadata[kustomizev1.GroupVersion.Group+"/"+eventv1.MetaOriginRevisionKey] = originRevision
 	}
 
 	reason := severity
@@ -1100,4 +1237,38 @@ func (r *KustomizationReconciler) patch(ctx context.Context,
 	}
 
 	return nil
+}
+
+// getClientAndPoller creates a status poller with the custom status readers
+// from CEL expressions and the custom job status reader, and returns the
+// Kubernetes client of the controller and the status poller.
+// Should be used for reconciliations that are not configured to use
+// ServiceAccount impersonation or kubeconfig.
+func (r *KustomizationReconciler) getClientAndPoller(
+	readerCtors []func(apimeta.RESTMapper) engine.StatusReader,
+) (client.Client, *polling.StatusPoller) {
+
+	readers := make([]engine.StatusReader, 0, 1+len(readerCtors))
+	readers = append(readers, statusreaders.NewCustomJobStatusReader(r.Mapper))
+	for _, ctor := range readerCtors {
+		readers = append(readers, ctor(r.Mapper))
+	}
+
+	poller := polling.NewStatusPoller(r.Client, r.Mapper, polling.Options{
+		CustomStatusReaders:  readers,
+		ClusterReaderFactory: r.ClusterReader,
+	})
+
+	return r.Client, poller
+}
+
+// getOriginRevision returns the origin revision of the source artifact,
+// or the empty string if it's not present, or if the artifact itself
+// is not present.
+func getOriginRevision(src sourcev1.Source) string {
+	a := src.GetArtifact()
+	if a == nil {
+		return ""
+	}
+	return a.Metadata[OCIArtifactOriginRevisionAnnotation]
 }

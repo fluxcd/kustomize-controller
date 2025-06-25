@@ -208,6 +208,21 @@ bool
 </tr>
 <tr>
 <td>
+<code>deletionPolicy</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPolicy can be used to control garbage collection when this
+Kustomization is deleted. Valid values are (&lsquo;MirrorPrune&rsquo;, &lsquo;Delete&rsquo;,
+&lsquo;WaitForTermination&rsquo;, &lsquo;Orphan&rsquo;). &lsquo;MirrorPrune&rsquo; mirrors the Prune field
+(orphan if false, delete if true). Defaults to &lsquo;MirrorPrune&rsquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>healthChecks</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectKindReference">
@@ -378,6 +393,22 @@ resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
 <td>
 <em>(Optional)</em>
 <p>Components specifies relative paths to specifications of other Components.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>healthCheckExprs</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#CustomHealthCheck">
+[]github.com/fluxcd/pkg/apis/kustomize.CustomHealthCheck
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HealthCheckExprs is a list of healthcheck expressions for evaluating the
+health of custom resources using Common Expression Language (CEL).
+The expressions are evaluated only when Wait or HealthChecks are specified.</p>
 </td>
 </tr>
 </table>
@@ -543,6 +574,22 @@ string
 </tr>
 <tr>
 <td>
+<code>serviceAccountName</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ServiceAccountName is the name of the service account used to
+authenticate with KMS services from cloud providers. If a
+static credential for a given cloud provider is defined
+inside the Secret referenced by SecretRef, that static
+credential takes priority.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>secretRef</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
@@ -552,7 +599,10 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 </td>
 <td>
 <em>(Optional)</em>
-<p>The secret name containing the private OpenPGP keys used for decryption.</p>
+<p>The secret name containing the private OpenPGP keys used for decryption.
+A static credential for a cloud provider defined inside the Secret
+takes priority to secret-less authentication with the ServiceAccountName
+field.</p>
 </td>
 </tr>
 </tbody>
@@ -712,6 +762,21 @@ bool
 </td>
 <td>
 <p>Prune enables garbage collection.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deletionPolicy</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPolicy can be used to control garbage collection when this
+Kustomization is deleted. Valid values are (&lsquo;MirrorPrune&rsquo;, &lsquo;Delete&rsquo;,
+&lsquo;WaitForTermination&rsquo;, &lsquo;Orphan&rsquo;). &lsquo;MirrorPrune&rsquo; mirrors the Prune field
+(orphan if false, delete if true). Defaults to &lsquo;MirrorPrune&rsquo;.</p>
 </td>
 </tr>
 <tr>
@@ -888,6 +953,22 @@ resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
 <p>Components specifies relative paths to specifications of other Components.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>healthCheckExprs</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#CustomHealthCheck">
+[]github.com/fluxcd/pkg/apis/kustomize.CustomHealthCheck
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HealthCheckExprs is a list of healthcheck expressions for evaluating the
+health of custom resources using Common Expression Language (CEL).
+The expressions are evaluated only when Wait or HealthChecks are specified.</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -960,6 +1041,22 @@ string
 <em>(Optional)</em>
 <p>The last successfully applied revision.
 Equals the Revision of the applied Artifact from the referenced Source.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastAppliedOriginRevision</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The last successfully applied origin revision.
+Equals the origin revision of the applied Artifact from the referenced Source.
+Usually present on the Metadata of the applied Artifact and depends on the
+Source type, e.g. for OCI it&rsquo;s the value associated with the key
+&ldquo;org.opencontainers.image.revision&rdquo;.</p>
 </td>
 </tr>
 <tr>

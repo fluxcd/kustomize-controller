@@ -22,6 +22,12 @@ rules:
   - create
   - patch
 - apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
+- apiGroups:
   - kustomize.toolkit.fluxcd.io
   resources:
   - kustomizations

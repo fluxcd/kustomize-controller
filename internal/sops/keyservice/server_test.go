@@ -21,7 +21,9 @@ import (
 	"os"
 	"testing"
 
+	gcpkmsapi "cloud.google.com/go/kms/apiv1"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/azkv"
@@ -32,6 +34,7 @@ import (
 	"github.com/getsops/sops/v3/pgp"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
 )
 
 func TestServer_EncryptDecrypt_PGP(t *testing.T) {
@@ -151,8 +154,8 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 
 func TestServer_EncryptDecrypt_awskms(t *testing.T) {
 	g := NewWithT(t)
-	s := NewServer(WithAWSKeys{
-		CredsProvider: awskms.NewCredentialsProvider(credentials.StaticCredentialsProvider{}),
+	s := NewServer(WithAWSCredentialsProvider{
+		CredentialsProvider: func(region string) aws.CredentialsProvider { return credentials.StaticCredentialsProvider{} },
 	})
 
 	key := KeyFromMasterKey(awskms.NewMasterKeyFromArn("arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48", nil, ""))
@@ -174,7 +177,7 @@ func TestServer_EncryptDecrypt_azkv(t *testing.T) {
 
 	identity, err := azidentity.NewDefaultAzureCredential(nil)
 	g.Expect(err).ToNot(HaveOccurred())
-	s := NewServer(WithAzureToken{Token: azkv.NewTokenCredential(identity)})
+	s := NewServer(WithAzureTokenCredential{TokenCredential: identity})
 
 	key := KeyFromMasterKey(azkv.NewMasterKey("", "", ""))
 	_, err = s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
@@ -194,24 +197,24 @@ func TestServer_EncryptDecrypt_azkv(t *testing.T) {
 func TestServer_EncryptDecrypt_gcpkms(t *testing.T) {
 	g := NewWithT(t)
 
-	creds := `{ "client_id": "<client-id>.apps.googleusercontent.com",
- 		"client_secret": "<secret>",
-		"type": "authorized_user"}`
-	s := NewServer(WithGCPCredsJSON([]byte(creds)))
+	creds, err := google.CredentialsFromJSON(context.Background(),
+		[]byte(`{"type":"service_account"}`), gcpkmsapi.DefaultAuthScopes()...)
+	g.Expect(err).ToNot(HaveOccurred())
+	s := NewServer(WithGCPTokenSource{TokenSource: creds.TokenSource})
 
 	resourceID := "projects/test-flux/locations/global/keyRings/test-flux/cryptoKeys/sops"
 	key := KeyFromMasterKey(gcpkms.NewMasterKeyFromResourceID(resourceID))
-	_, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
+	_, err = s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("failed to encrypt sops data key with GCP KMS"))
+	g.Expect(err.Error()).To(ContainSubstring("failed to encrypt sops data key with GCP KMS key"))
 
 	_, err = s.Decrypt(context.TODO(), &keyservice.DecryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("failed to decrypt sops data key with GCP KMS"))
+	g.Expect(err.Error()).To(ContainSubstring("failed to decrypt sops data key with GCP KMS key"))
 
 }
 

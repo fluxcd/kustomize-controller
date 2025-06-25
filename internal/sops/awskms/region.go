@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Flux authors
+Copyright 2025 The Flux authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,20 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package keyservice
+package awskms
 
 import (
-	"github.com/getsops/sops/v3/age"
-	"github.com/getsops/sops/v3/keys"
-	"github.com/getsops/sops/v3/pgp"
+	"strings"
 )
 
-// IsOfflineMethod returns true for offline decrypt methods or false otherwise
-func IsOfflineMethod(mk keys.MasterKey) bool {
-	switch mk.(type) {
-	case *pgp.MasterKey, *age.MasterKey:
-		return true
-	default:
-		return false
-	}
+// GetRegionFromKMSARN extracts the region from a KMS ARN.
+func GetRegionFromKMSARN(arn string) string {
+	arn = strings.TrimPrefix(arn, "arn:aws:kms:")
+	return strings.SplitN(arn, ":", 2)[0]
 }

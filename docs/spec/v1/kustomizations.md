@@ -115,8 +115,8 @@ Artifact containing the YAML manifests. It has two required fields:
 
 - `kind`: The Kind of the referred Source object. Supported Source types:
   + [GitRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1/gitrepositories.md)
-  + [OCIRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/ocirepositories.md)
-  + [Bucket](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1beta2/buckets.md)
+  + [OCIRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1/ocirepositories.md)
+  + [Bucket](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1/buckets.md)
 - `name`: The Name of the referred Source object.
 
 #### Cross-namespace references
@@ -168,6 +168,47 @@ kustomize.toolkit.fluxcd.io/prune: disabled
 
 For details on how the controller tracks Kubernetes objects and determines what
 to garbage collect, see [`.status.inventory`](#inventory).
+
+### Deletion policy
+
+`.spec.deletionPolicy` is an optional field that allows control over
+garbage collection when a Kustomization object is deleted. The default behavior
+is to mirror the configuration of [`.spec.prune`](#prune).
+
+Valid values:
+
+- `MirrorPrune` (default) - The managed resources will be deleted if `prune` is
+  `true` and orphaned if `false`.
+- `Delete` - Ensure the managed resources are deleted before the Kustomization
+   is deleted.
+- `WaitForTermination` - Ensure the managed resources are deleted and wait for
+  termination before the Kustomization is deleted.
+- `Orphan` - Leave the managed resources when the Kustomization is deleted.
+
+The `WaitForTermination` deletion policy blocks and waits for the managed
+resources to be removed from etcd by the Kubernetes garbage collector.
+The wait time is determined by the `.spec.timeout` field. If a timeout occurs,
+the controller will stop waiting for the deletion of the resources,
+log an error and will allow the Kustomization to be deleted.
+
+For special cases when the managed resources are removed by other means (e.g.
+the deletion of the namespace specified with
+[`.spec.targetNamespace`](#target-namespace)), you can set the deletion policy
+to `Orphan`:
+
+```yaml
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app
+  namespace: default
+spec:
+  # ...omitted for brevity
+  targetNamespace: app-namespace
+  prune: true
+  deletionPolicy: Orphan
+```
 
 ### Interval
 
@@ -292,11 +333,11 @@ spec:
     kind: GitRepository
     name: webapp
   healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+    - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
       name: frontend
       namespace: dev
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+    - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
       name: backend
       namespace: dev
@@ -305,6 +346,69 @@ spec:
 
 If all the HelmRelease objects are successfully installed or upgraded, then
 the Kustomization will be marked as ready.
+
+### Health check expressions
+
+`.spec.healthCheckExprs` can be used to define custom logic for performing
+health checks on custom resources. This is done through Common Expression
+Language (CEL) expressions. This field accepts a list of objects with the
+following fields:
+
+- `apiVersion`: The API version of the custom resource. Required.
+- `kind`: The kind of the custom resource. Required.
+- `current`: A required CEL expression that returns `true` if the resource is ready.
+- `inProgress`: An optional CEL expression that returns `true` if the resource
+  is still being reconciled.
+- `failed`: An optional CEL expression that returns `true` if the resource
+  failed to reconcile.
+
+The controller will evaluate the expressions in the following order:
+
+1. `inProgress` if specified
+2. `failed` if specified
+3. `current`
+
+The first expression that evaluates to `true` will determine the health
+status of the custom resource.
+
+For example, to define a set of health check expressions for the `SealedSecret`
+custom resource:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: sealed-secrets
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./path/to/sealed/secrets
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 1m
+  wait: true # Tells the controller to wait for all resources to be ready by performing health checks.
+  healthCheckExprs:
+    - apiVersion: bitnami.com/v1alpha1
+      kind: SealedSecret
+      failed: status.conditions.filter(e, e.type == 'Synced').all(e, e.status == 'False')
+      current: status.conditions.filter(e, e.type == 'Synced').all(e, e.status == 'True')
+```
+
+A common error is writing expressions that reference fields that do not
+exist in the custom resource. This will cause the controller to wait
+for the resource to be ready until the timeout is reached. To avoid this,
+make sure your CEL expressions are correct. The
+[CEL Playground](https://playcel.undistro.io/) is a useful resource for
+this task. The input passed to each expression is the custom resource
+object itself. You can check for field existence with the
+[`has(...)` CEL macro](https://github.com/google/cel-spec/blob/master/doc/langdef.md#macros),
+just be aware that `has(status)` errors if `status` does not (yet) exist
+on the top level of the resource you are using.
+
+It's worth checking if [the library](/flux/cheatsheets/cel-healthchecks/)
+has expressions for the custom resources you are using.
 
 ### Wait
 
@@ -546,7 +650,7 @@ absence as if the object had been present but empty, defining no
 variables.
 
 This offers basic templating for your manifests including support
-for [bash string replacement functions](https://github.com/drone/envsubst) e.g.:
+for [bash string replacement functions](https://github.com/fluxcd/pkg/blob/main/envsubst/README.md) e.g.:
 
 - `${var:=default}`
 - `${var:position}`
@@ -609,8 +713,11 @@ stringData:
   token: ${token}
 ```
 
-The var values which are specified in-line with `substitute`
+**Note:** The var values which are specified in-line with `substitute`
 take precedence over the ones derived from `substituteFrom`.
+When var values for the same variable keys are derived from multiple
+`ConfigMaps` or `Secrets` referenced in the `substituteFrom` list, then the
+first take precedence over the later values.
 
 **Note:** If you want to avoid var substitutions in scripts embedded in
 ConfigMaps or container commands, you must use the format `$var` instead of
@@ -724,30 +831,47 @@ For more information, see [remote clusters/Cluster-API](#remote-clusterscluster-
 
 ### Decryption
 
-`.spec.decryption` is an optional field to specify the configuration to decrypt
-Secrets that are a part of the Kustomization.
+Storing Secrets in Git repositories in plain text or base64 is unsafe,
+regardless of the visibility or access restrictions of the repository.
 
-Since Secrets are either plain text or `base64` encoded, it's unsafe to store
-them in plain text in a public or private Git repository. In order to store
-them safely, you can use [Mozilla SOPS](https://github.com/mozilla/sops) and
-encrypt your Kubernetes Secret data with [age](https://age-encryption.org/v1/)
-and/or [OpenPGP](https://www.openpgp.org) keys, or with provider implementations
-like Azure Key Vault, GCP KMS or Hashicorp Vault.
+In order to store Secrets safely in Git repositorioes you can use an
+encryption provider and the optional field `.spec.decryption` to
+configure decryption for Secrets that are a part of the Kustomization.
 
-**Note:** You should encrypt only the `data/stringData` section of the Kubernetes
-Secret, encrypting the `metadata`, `kind` or `apiVersion` fields is not supported.
-An easy way to do this is by appending `--encrypted-regex '^(data|stringData)$'`
-to your `sops --encrypt` command.
+The only supported encryption provider is [SOPS](https://getsops.io/).
+With SOPS you can encrypt your secrets with [age](https://github.com/FiloSottile/age)
+or [OpenPGP](https://www.openpgp.org) keys, or with keys from Key Management Services
+(KMS), like AWS KMS, Azure Key Vault, GCP KMS or Hashicorp Vault.
 
-It has two required fields:
+**Note:** You must leave `metadata`, `kind` or `apiVersion` in plain text.
+An easy way to do this is limiting the encrypted keys with the flag
+`--encrypted-regex '^(data|stringData)$'` in your `sops encrypt` command.
 
-- `.secretRef.name`: The name of the secret that contains the keys to be used for
-   decryption.
-- `.provider`: The secrets decryption provider to be used. The only supported
-   value at the moment is `sops`.
+The `.spec.decryption` field has the following subfields:
+
+- `.provider`: The secrets decryption provider to be used. This field is required and
+  the only supported value is `sops`.
+- `.secretRef.name`: The name of the secret that contains the keys or cloud provider
+  static credentials for KMS services to be used for decryption.
+- `.serviceAccountName`: The name of the service account used for
+  secret-less authentication with KMS services from cloud providers.
+
+For a complete guide on how to set up authentication for KMS services from
+cloud providers, see the integration [docs](/flux/integrations/).
+
+If a static credential for a given cloud provider is defined inside the secret
+referenced by `.secretRef`, that static credential takes priority over secret-less
+authentication for that provider. If no static credentials are defined for a given
+cloud provider inside the secret, secret-less authentication is attempted for that
+provider.
+
+If `.serviceAccountName` is specified for secret-less authentication,
+it takes priority over [controller global decryption](#controller-global-decryption)
+for all cloud providers.
+
+Example:
 
 ```yaml
----
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -761,12 +885,10 @@ spec:
     name: repository-with-secrets
   decryption:
     provider: sops
+    serviceAccountName: sops-identity
     secretRef:
-      name: sops-keys
+      name: sops-keys-and-credentials
 ```
-
-**Note:** For information on Secrets decryption at a controller level, please
-refer to [controller global decryption](#controller-global-decryption).
 
 The Secret's `.data` section is expected to contain entries with decryption
 keys (for age and OpenPGP), or credentials (for any of the supported provider
@@ -778,7 +900,7 @@ of the key (e.g. `.agekey`), or a fixed key (e.g. `sops.vault-token`).
 apiVersion: v1
 kind: Secret
 metadata:
-  name: sops-keys
+  name: sops-keys-and-credentials
   namespace: default
 data:
   # Exemplary age private key
@@ -835,9 +957,9 @@ metadata:
   namespace: default
 data:
   sops.aws-kms: |
-        aws_access_key_id: some-access-key-id
-        aws_secret_access_key: some-aws-secret-access-key
-        aws_session_token: some-aws-session-token # this field is optional
+    aws_access_key_id: some-access-key-id
+    aws_secret_access_key: some-aws-secret-access-key
+    aws_session_token: some-aws-session-token # this field is optional
 ```
 
 #### Azure Key Vault Secret entry
@@ -1134,7 +1256,7 @@ This policy can be used for Kubernetes Jobs to rerun them when their container i
 #### `kustomize.toolkit.fluxcd.io/prune`
 
 When set to `Disabled`, this policy instructs the controller to skip the deletion of
-the Kubernetes resources subject to [garbage collection](#prune). 
+the Kubernetes resources subject to [garbage collection](#prune).
 
 This policy can be used to protect sensitive resources such as Namespaces, PVCs and PVs
 from accidental deletion.
@@ -1305,6 +1427,8 @@ Other than [authentication using a Secret reference](#decryption),
 it is possible to specify global decryption settings on the
 kustomize-controller Pod. When the controller fails to find credentials on the
 Kustomization object itself, it will fall back to these defaults.
+
+See also the [workload identity](/flux/installation/configuration/workload-identity/) docs.
 
 #### AWS KMS
 
@@ -1875,6 +1999,21 @@ Status:
 
 `.status.lastAppliedRevision` is the last revision of the Artifact from the
 referred Source object that was successfully applied to the cluster.
+
+### Last applied origin revision
+
+`status.lastAppliedOriginRevision` is the last origin revision of the Artifact
+from the referred Source object that was successfully applied to the cluster.
+
+This field is usually retrieved from the Metadata of the Artifact and depends
+on the Source type. For example, for OCI artifacts this is the value associated
+with the standard metadata key `org.opencontainers.image.revision`, which is
+used to track the revision of the source code that was used to build the OCI
+artifact.
+
+The controller will forward this value when emitting events in the metadata
+key `originRevision`. The notification-controller will look for this key in
+the event metadata when sending *commit status update* events to Git providers.
 
 ### Last attempted revision
 

@@ -5,7 +5,7 @@ updates:
     directory: "/"
     labels: ["dependencies"]
     schedule:
-      interval: "daily"
+      interval: "monthly"
     groups:
       go-deps:
         patterns:
@@ -31,4 +31,4 @@ updates:
         patterns:
           - "*"
     schedule:
-      interval: "daily"
+      interval: "monthly"

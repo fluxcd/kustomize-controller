@@ -18,7 +18,10 @@ limitations under the License.
 // and their default states.
 package features
 
-import feathelper "github.com/fluxcd/pkg/runtime/features"
+import (
+	"github.com/fluxcd/pkg/auth"
+	feathelper "github.com/fluxcd/pkg/runtime/features"
+)
 
 const (
 	// CacheSecretsAndConfigMaps controls whether Secrets and ConfigMaps should
@@ -44,6 +47,10 @@ const (
 	// should fail if a variable without a default value is declared in files
 	// but is missing from the input vars.
 	StrictPostBuildSubstitutions = "StrictPostBuildSubstitutions"
+
+	// GroupChangelog controls groups kubernetes objects names on log output
+	// reduces cardinality of logs when logging to elasticsearch
+	GroupChangeLog = "GroupChangeLog"
 )
 
 var features = map[string]bool{
@@ -59,6 +66,13 @@ var features = map[string]bool{
 	// StrictPostBuildSubstitutions
 	// opt-in from v1.3
 	StrictPostBuildSubstitutions: false,
+	// GroupChangeLog
+	// opt-in from v1.5
+	GroupChangeLog: false,
+}
+
+func init() {
+	auth.SetFeatureGates(features)
 }
 
 // FeatureGates contains a list of all supported feature gates and

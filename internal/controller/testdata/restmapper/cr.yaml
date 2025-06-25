@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v2
+kind: ClusterCleanupPolicy
+metadata:
+  name: test-cluster-cleanup-policy
+spec:
+  conditions:
+    all:
+      - key: '{{ time_since('''', ''{{ target.metadata.creationTimestamp }}'', '''') }}'
+        operator: GreaterThan
+        value: 168h
+  match:
+    any:
+      - resources:
+          annotations:
+            openshift.io/description: review-*
+            openshift.io/requester: system:serviceaccount:*
+          kinds:
+            - Namespace
+          selector:
+            matchLabels:
+              test/project-name: "review"
+  schedule: '*/5 * * * *'
