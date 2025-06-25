@@ -34,7 +34,7 @@ FROM alpine:3.19
 
 ARG TARGETPLATFORM
 
-RUN apk --no-cache add ca-certificates tini git openssh-client gnupg \
+RUN apk --no-cache add ca-certificates tini git openssh-client>=9.6_p1-r2 gnupg \
   && update-ca-certificates
 
 COPY --from=builder /workspace/kustomize-controller /usr/local/bin/
