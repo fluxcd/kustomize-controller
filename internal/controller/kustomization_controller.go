@@ -53,6 +53,7 @@ import (
 	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/auth"
+	authutils "github.com/fluxcd/pkg/auth/utils"
 	"github.com/fluxcd/pkg/cache"
 	"github.com/fluxcd/pkg/http/fetch"
 	generator "github.com/fluxcd/pkg/kustomize"
@@ -246,10 +247,22 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	// Check object-level workload identity feature gate.
+	// Check object-level workload identity feature gate and decryption with service account.
 	if d := obj.Spec.Decryption; d != nil && d.ServiceAccountName != "" && !auth.IsObjectLevelWorkloadIdentityEnabled() {
 		const gate = auth.FeatureGateObjectLevelWorkloadIdentity
 		const msgFmt = "to use spec.decryption.serviceAccountName for decryption authentication please enable the %s feature gate in the controller"
+		msg := fmt.Sprintf(msgFmt, gate)
+		conditions.MarkFalse(obj, meta.ReadyCondition, meta.FeatureGateDisabledReason, msgFmt, gate)
+		conditions.MarkStalled(obj, meta.FeatureGateDisabledReason, msgFmt, gate)
+		log.Error(auth.ErrObjectLevelWorkloadIdentityNotEnabled, msg)
+		r.event(obj, "", "", eventv1.EventSeverityError, msg, nil)
+		return ctrl.Result{}, nil
+	}
+
+	// Check object-level workload identity feature gate and kubeconfig with service account.
+	if kc := obj.Spec.KubeConfig; kc != nil && kc.ServiceAccountName != "" && !auth.IsObjectLevelWorkloadIdentityEnabled() {
+		const gate = auth.FeatureGateObjectLevelWorkloadIdentity
+		const msgFmt = "to use spec.kubeConfig.serviceAccountName for remote cluster authentication please enable the %s feature gate in the controller"
 		msg := fmt.Sprintf(msgFmt, gate)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.FeatureGateDisabledReason, msgFmt, gate)
 		conditions.MarkStalled(obj, meta.FeatureGateDisabledReason, msgFmt, gate)
@@ -410,8 +423,9 @@ func (r *KustomizationReconciler) reconcile(
 	}
 	if obj.Spec.KubeConfig != nil {
 		mustImpersonate = true
+		provider := r.getProviderRESTConfigFetcher(obj)
 		impersonatorOpts = append(impersonatorOpts,
-			runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace()))
+			runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace(), provider))
 	}
 	if r.ClusterReader != nil || len(statusReaders) > 0 {
 		impersonatorOpts = append(impersonatorOpts,
@@ -1076,8 +1090,9 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 		}
 		if obj.Spec.KubeConfig != nil {
 			mustImpersonate = true
+			provider := r.getProviderRESTConfigFetcher(obj)
 			impersonatorOpts = append(impersonatorOpts,
-				runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace()))
+				runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace(), provider))
 		}
 		if r.ClusterReader != nil {
 			impersonatorOpts = append(impersonatorOpts, runtimeClient.WithPolling(r.ClusterReader))
@@ -1260,6 +1275,28 @@ func (r *KustomizationReconciler) getClientAndPoller(
 	})
 
 	return r.Client, poller
+}
+
+// getProviderRESTConfigFetcher returns a ProviderRESTConfigFetcher for the
+// Kustomization object, which is used to fetch the kubeconfig for the
+// specified provider. If the kubeconfig is not specified or the provider is
+// generic, it returns nil.
+func (r *KustomizationReconciler) getProviderRESTConfigFetcher(obj *kustomizev1.Kustomization) runtimeClient.ProviderRESTConfigFetcher {
+	var provider runtimeClient.ProviderRESTConfigFetcher
+	if kc := obj.Spec.KubeConfig; kc != nil && kc.Provider != "" && kc.Provider != "generic" {
+		var opts []auth.Option
+		if r.TokenCache != nil {
+			involvedObject := cache.InvolvedObject{
+				Kind:      kustomizev1.KustomizationKind,
+				Name:      obj.GetName(),
+				Namespace: obj.GetNamespace(),
+				Operation: intcache.OperationFetchKubeConfig,
+			}
+			opts = append(opts, auth.WithCache(*r.TokenCache, involvedObject))
+		}
+		provider = runtimeClient.ProviderRESTConfigFetcher(authutils.GetRESTConfigFetcher(opts...))
+	}
+	return provider
 }
 
 // getOriginRevision returns the origin revision of the source artifact,

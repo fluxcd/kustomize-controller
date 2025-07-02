@@ -30,6 +30,7 @@ import (
 	"github.com/fluxcd/pkg/apis/kustomize"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/auth"
+	"github.com/fluxcd/pkg/auth/azure"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
@@ -126,7 +127,7 @@ data: {}
 		}
 	})
 
-	t.Run("object level workload identity feature gate disabled", func(t *testing.T) {
+	t.Run("object level workload identity feature gate disabled and decryption", func(t *testing.T) {
 		g := NewWithT(t)
 
 		kustomizationKey := types.NamespacedName{
@@ -175,7 +176,7 @@ data: {}
 		}
 	})
 
-	t.Run("object level workload identity feature gate enabled", func(t *testing.T) {
+	t.Run("object level workload identity feature gate enabled and decryption", func(t *testing.T) {
 		g := NewWithT(t)
 
 		t.Setenv(auth.EnvVarEnableObjectLevelWorkloadIdentity, "true")
@@ -211,6 +212,94 @@ data: {}
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			return conditions.IsTrue(resultK, meta.ReadyCondition)
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
+	t.Run("object level workload identity feature gate disabled and kubeconfig", func(t *testing.T) {
+		g := NewWithT(t)
+
+		kustomizationKey := types.NamespacedName{
+			Name:      fmt.Sprintf("invalid-config-%s", randStringRunes(5)),
+			Namespace: id,
+		}
+		kustomization := &kustomizev1.Kustomization{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      kustomizationKey.Name,
+				Namespace: kustomizationKey.Namespace,
+			},
+			Spec: kustomizev1.KustomizationSpec{
+				TargetNamespace: id,
+				Interval:        metav1.Duration{Duration: 2 * time.Minute},
+				SourceRef: kustomizev1.CrossNamespaceSourceReference{
+					Name:      repositoryName.Name,
+					Namespace: repositoryName.Namespace,
+					Kind:      sourcev1.GitRepositoryKind,
+				},
+				Prune: true,
+				KubeConfig: &meta.KubeConfigReference{
+					Provider:           azure.ProviderName,
+					ServiceAccountName: "foo",
+				},
+			},
+		}
+
+		err = k8sClient.Create(context.Background(), kustomization)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return conditions.IsFalse(resultK, meta.ReadyCondition)
+		}, timeout, time.Second).Should(BeTrue())
+
+		// In this case the controller does not update the observed generation
+		// because if the feature gate is enabled then the generation of the
+		// object can be properly observed.
+		g.Expect(resultK.Status.ObservedGeneration).To(Equal(int64(-1)))
+
+		g.Expect(conditions.IsTrue(resultK, meta.StalledCondition)).To(BeTrue())
+		for _, cond := range []string{meta.ReadyCondition, meta.StalledCondition} {
+			g.Expect(conditions.GetReason(resultK, cond)).To(Equal(meta.FeatureGateDisabledReason))
+			g.Expect(conditions.GetMessage(resultK, cond)).To(ContainSubstring(
+				"to use spec.kubeConfig.serviceAccountName for remote cluster authentication please enable the ObjectLevelWorkloadIdentity feature gate in the controller"))
+		}
+	})
+
+	t.Run("object level workload identity feature gate enabled and kubeconfig", func(t *testing.T) {
+		g := NewWithT(t)
+
+		t.Setenv(auth.EnvVarEnableObjectLevelWorkloadIdentity, "true")
+
+		kustomizationKey := types.NamespacedName{
+			Name:      fmt.Sprintf("invalid-config-%s", randStringRunes(5)),
+			Namespace: id,
+		}
+		kustomization := &kustomizev1.Kustomization{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      kustomizationKey.Name,
+				Namespace: kustomizationKey.Namespace,
+			},
+			Spec: kustomizev1.KustomizationSpec{
+				TargetNamespace: id,
+				Interval:        metav1.Duration{Duration: 2 * time.Minute},
+				SourceRef: kustomizev1.CrossNamespaceSourceReference{
+					Name:      repositoryName.Name,
+					Namespace: repositoryName.Namespace,
+					Kind:      sourcev1.GitRepositoryKind,
+				},
+				Prune: true,
+				KubeConfig: &meta.KubeConfigReference{
+					Provider:           azure.ProviderName,
+					ServiceAccountName: "foo",
+				},
+			},
+		}
+
+		err = k8sClient.Create(context.Background(), kustomization)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return conditions.GetReason(resultK, meta.ReadyCondition) == meta.ReconciliationFailedReason
 		}, timeout, time.Second).Should(BeTrue())
 	})
 }

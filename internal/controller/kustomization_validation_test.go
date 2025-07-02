@@ -80,7 +80,7 @@ func TestKustomizationReconciler_Validation(t *testing.T) {
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
 			KubeConfig: &meta.KubeConfigReference{
-				SecretRef: meta.SecretKeyReference{
+				SecretRef: &meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
 			},
