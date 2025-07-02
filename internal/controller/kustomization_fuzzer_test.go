@@ -232,7 +232,7 @@ func Fuzz_Controllers(f *testing.F) {
 				Spec: kustomizev1.KustomizationSpec{
 					Path: "./",
 					KubeConfig: &meta.KubeConfigReference{
-						SecretRef: meta.SecretKeyReference{
+						SecretRef: &meta.SecretKeyReference{
 							Name: "kubeconfig",
 						},
 					},

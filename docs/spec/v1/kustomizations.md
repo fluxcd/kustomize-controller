@@ -791,14 +791,40 @@ with:
 kustomize.toolkit.fluxcd.io/force: enabled
 ```
 
-### KubeConfig reference
+### KubeConfig (Remote clusters)
+
+With the `.spec.kubeConfig` field a Kustomization
+can apply and manage resources on a remote cluster.
+
+Two authentication alternatives are available:
+
+- `.spec.kubeConfig.secretRef`: Secret-based authentication using a
+  static kubeconfig stored in a Kubernetes Secret in the same namespace
+  as the Kustomization.
+- `.spec.kubeConfig.configMapRef` (Recommended): Secret-less authentication
+  building a kubeconfig dynamically with parameters stored in a Kubernetes
+  ConfigMap in the same namespace as the Kustomization via workload identity.
+
+When both `.spec.kubeConfig` and
+[`.spec.serviceAccountName`](#service-account-reference) are specified,
+the controller will impersonate the ServiceAccount on the target cluster,
+i.e. a ServiceAccount with name `.spec.serviceAccountName` must exist in
+the target cluster inside a namespace with the same name as the namespace
+of the Kustomization. For example, if the Kustomization is in the namespace
+`apps` of the cluster where Flux is running, then the ServiceAccount
+must be in the `apps` namespace of the target remote cluster, and have the
+name `.spec.serviceAccountName`. In other words, the namespace of the
+Kustomization must exist both in the cluster where Flux is running
+and in the target remote cluster where Flux will apply resources.
+
+#### Secret-based authentication
 
 `.spec.kubeConfig.secretRef.Name` is an optional field to specify the name of
 the secret containing a KubeConfig. If specified, objects will be applied,
 health-checked, pruned, and deleted for the default cluster specified in that
 KubeConfig instead of using the in-cluster ServiceAccount.
 
-The secret defined in the `kubeConfig.SecretRef` must exist in the same
+The secret defined in the `.spec.kubeConfig.secretRef` must exist in the same
 namespace as the Kustomization. On every reconciliation, the KubeConfig bytes
 will be loaded from the `.secretRef.key` key (default: `value` or `value.yaml`)
 of the Secret’s data , and the Secret can thus be regularly updated if
@@ -822,12 +848,88 @@ stringData:
 environment, or credential files from the kustomize-controller Pod.
 This matches the constraints of KubeConfigs from current Cluster API providers.
 KubeConfigs with `cmd-path` in them likely won't work without a custom,
-per-provider installation of kustomize-controller.
+per-provider installation of kustomize-controller. For more information, see
+[remote clusters/Cluster-API](#remote-cluster-api-clusters).
 
-When both `.spec.kubeConfig` and `.spec.ServiceAccountName` are specified,
-the controller will impersonate the service account on the target cluster.
+#### Secret-less authentication
 
-For more information, see [remote clusters/Cluster-API](#remote-clusterscluster-api).
+The field `.spec.kubeConfig.configMapRef.name` can be used to specify the
+name of a ConfigMap in the same namespace as the Kustomization containing
+parameters for secret-less authentication via workload identity. The
+supported keys inside the `.data` field of the ConfigMap are:
+
+- `.data.provider`: The provider to use. One of `aws`, `azure`, `gcp`,
+  or `generic`. Required. The `aws` provider is used for connecting to
+  remote EKS clusters, `azure` for AKS, `gcp` for GKE, and `generic`
+  for Kubernetes OIDC authentication between clusters. For the
+  `generic` provider, the remote cluster must be configured to trust
+  the OIDC issuer of the cluster where Flux is running.
+- `.data.cluster`: The fully qualified resource name of the Kubernetes
+  cluster in the cloud provider API. Not used by the `generic`
+  provider. Required when one of `.data.address` or `.data["ca.crt"]` is
+  not set, or if the provider is `aws` (required for defining a region).
+- `.data.address`: The address of the Kubernetes API server. Required
+  for `generic`. For the other providers, if not specified, the
+  first address in the cluster resource will be used, and if
+  specified, it must match one of the addresses in the cluster
+  resource.
+  If `audiences` is not set, will be used as the audience for the
+  `generic` provider.
+- `.data["ca.crt"]`: The optional PEM-encoded CA certificate for the
+  Kubernetes API server. If not set, the controller will use the
+  CA certificate from the cluster resource.
+- `.data.audiences`: The optional audiences as a list of
+  line-break-separated strings for the Kubernetes ServiceAccount token.
+  Defaults to the address for the `generic` provider, or to specific
+  values for the other providers depending on the provider.
+- `.data.serviceAccountName`: The optional name of the Kubernetes
+  ServiceAccount in the same namespace that should be used
+  for authentication. If not specified, the controller
+  ServiceAccount will be used. Not confuse with the ServiceAccount
+  used for impersonation, which is specified with
+  [`.spec.serviceAccountName`](#service-account-reference) directly
+  in the Kustomization spec and must exist in the target remote cluster.
+
+The `.data.cluster` field, when specified, must have the following formats:
+
+- `aws`: `arn:<partition>:eks:<region>:<account-id>:cluster/<cluster-name>`
+- `azure`: `/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ContainerService/managedClusters/<cluster-name>`
+- `gcp`: `projects/<project-id>/locations/<location>/clusters/<cluster-name>`
+
+For complete guides on workload identity and setting up permissions for
+this feature, see the following docs:
+
+- [EKS](/flux/integrations/aws/#for-amazon-elastic-kubernetes-service)
+- [AKS](/flux/integrations/azure/#for-azure-kubernetes-service)
+- [GKE](/flux/integrations/gcp/#for-google-kubernetes-engine)
+- [Generic](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#configuring-the-api-server)
+
+Example for an EKS cluster:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: backend
+  namespace: apps
+spec:
+  ... # other fields omitted for brevity
+  kubeConfig:
+    configMapRef:
+      name: kubeconfig
+  serviceAccountName: apps-sa # optional. must exist in the target cluster. user for impersonation
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubeconfig
+  namespace: apps
+data:
+  kubeConfig:
+    provider: aws
+    cluster: arn:aws:eks:eu-central-1:123456789012:cluster/my-cluster
+    serviceAccountName: apps-iam-role # optional. maps to an AWS IAM Role. used for authentication
+```
 
 ### Decryption
 
@@ -1353,9 +1455,9 @@ When the flag is set, all Kustomizations which don't have [`.spec.serviceAccount
 specified will use the service account name provided by
 `--default-service-account=<SA Name>` in the namespace of the object.
 
-### Remote clusters/Cluster-API
+### Remote Cluster API clusters
 
-With the [`.spec.kubeConfig` field](#kubeconfig-reference) a Kustomization can be fully
+Using a [`.spec.kubeConfig` reference](#kubeconfig-remote-clusters) a Kustomization can be fully
 reconciled on a remote cluster. This composes well with Cluster API bootstrap
 providers such as CAPBK (kubeadm), CAPA (AWS) and others.
 

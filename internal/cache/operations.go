@@ -14,15 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package intcache
+package cache
 
 const (
+	OperationFetchKubeConfig  = "fetch_kubeconfig"
 	OperationDecryptWithAWS   = "decrypt_with_aws"
 	OperationDecryptWithAzure = "decrypt_with_azure"
 	OperationDecryptWithGCP   = "decrypt_with_gcp"
 )
 
 var AllOperations = []string{
+	OperationFetchKubeConfig,
 	OperationDecryptWithAWS,
 	OperationDecryptWithAzure,
 	OperationDecryptWithGCP,
