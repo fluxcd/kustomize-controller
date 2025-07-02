@@ -105,7 +105,7 @@ parameters:
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
 			KubeConfig: &meta.KubeConfigReference{
-				SecretRef: meta.SecretKeyReference{
+				SecretRef: &meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
 			},
@@ -331,7 +331,7 @@ data: {}
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
 			KubeConfig: &meta.KubeConfigReference{
-				SecretRef: meta.SecretKeyReference{
+				SecretRef: &meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
 			},
@@ -411,7 +411,7 @@ func TestKustomizationReconciler_RESTMapper(t *testing.T) {
 			Kind:      sourcev1.GitRepositoryKind,
 		},
 		KubeConfig: &meta.KubeConfigReference{
-			SecretRef: meta.SecretKeyReference{
+			SecretRef: &meta.SecretKeyReference{
 				Name: "kubeconfig",
 			},
 		},

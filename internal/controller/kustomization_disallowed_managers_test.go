@@ -86,7 +86,7 @@ data:
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
 			KubeConfig: &meta.KubeConfigReference{
-				SecretRef: meta.SecretKeyReference{
+				SecretRef: &meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
 			},

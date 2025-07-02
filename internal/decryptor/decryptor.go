@@ -323,7 +323,8 @@ func (d *Decryptor) SetAuthOptions(ctx context.Context) {
 				Name:      d.kustomization.Spec.Decryption.ServiceAccountName,
 				Namespace: d.kustomization.GetNamespace(),
 			}
-			opts = append(opts, auth.WithServiceAccount(serviceAccount, d.client))
+			opts = append(opts, auth.WithClient(d.client))
+			opts = append(opts, auth.WithServiceAccount(serviceAccount))
 		}
 
 		involvedObject := cache.InvolvedObject{
