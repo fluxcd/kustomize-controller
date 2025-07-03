@@ -1156,14 +1156,19 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 func (r *KustomizationReconciler) event(obj *kustomizev1.Kustomization,
 	revision, originRevision, severity, msg string,
 	metadata map[string]string) {
-	if metadata == nil {
-		metadata = map[string]string{}
+	// Make a copy of the metadata map to avoid race conditions.
+	md := make(map[string]string)
+	if metadata != nil {
+		for k, v := range metadata {
+			md[k] = v
+		}
 	}
+
 	if revision != "" {
-		metadata[kustomizev1.GroupVersion.Group+"/"+eventv1.MetaRevisionKey] = revision
+		md[kustomizev1.GroupVersion.Group+"/"+eventv1.MetaRevisionKey] = revision
 	}
 	if originRevision != "" {
-		metadata[kustomizev1.GroupVersion.Group+"/"+eventv1.MetaOriginRevisionKey] = originRevision
+		md[kustomizev1.GroupVersion.Group+"/"+eventv1.MetaOriginRevisionKey] = originRevision
 	}
 
 	reason := severity
@@ -1176,7 +1181,9 @@ func (r *KustomizationReconciler) event(obj *kustomizev1.Kustomization,
 		eventtype = "Warning"
 	}
 
-	r.EventRecorder.AnnotatedEventf(obj, metadata, eventtype, reason, msg)
+	// Run the event recorder in a goroutine to not block the reconciliation loop.
+	// A deep copy of the object is passed to the goroutine to avoid race conditions.
+	go r.EventRecorder.AnnotatedEventf(obj.DeepCopy(), md, eventtype, reason, msg)
 }
 
 func (r *KustomizationReconciler) finalizeStatus(ctx context.Context,
