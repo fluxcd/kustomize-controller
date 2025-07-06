@@ -55,6 +55,7 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/kustomize-controller/internal/controller"
 	"github.com/fluxcd/kustomize-controller/internal/features"
+	intruntime "github.com/fluxcd/kustomize-controller/internal/runtime"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -96,6 +97,7 @@ func main() {
 		noRemoteBases           bool
 		httpRetry               int
 		defaultServiceAccount   string
+		sopsAgeSecret           string
 		featureGates            feathelper.FeatureGates
 		disallowedFieldManagers []string
 		tokenCacheOptions       pkgcache.TokenFlags
@@ -111,6 +113,7 @@ func main() {
 		"Disallow remote bases usage in Kustomize overlays. When this flag is enabled, all resources must refer to local files included in the source artifact.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
 	flag.StringVar(&defaultServiceAccount, "default-service-account", "", "Default service account used for impersonation.")
+	flag.StringVar(&sopsAgeSecret, "sops-age-secret", "", "The name of a Kubernetes secret in the RUNTIME_NAMESPACE containing a SOPS age decryption key for fallback usage.")
 	flag.StringArrayVar(&disallowedFieldManagers, "override-manager", []string{}, "Field manager disallowed to perform changes on managed resources.")
 
 	clientOptions.BindFlags(flag.CommandLine)
@@ -150,7 +153,7 @@ func main() {
 
 	watchNamespace := ""
 	if !watchOptions.AllNamespaces {
-		watchNamespace = os.Getenv("RUNTIME_NAMESPACE")
+		watchNamespace = intruntime.Namespace()
 	}
 
 	watchSelector, err := runtimeCtrl.GetWatchSelector(watchOptions)
@@ -271,6 +274,7 @@ func main() {
 	if err = (&controller.KustomizationReconciler{
 		ControllerName:          controllerName,
 		DefaultServiceAccount:   defaultServiceAccount,
+		SOPSAgeSecret:           sopsAgeSecret,
 		Client:                  mgr.GetClient(),
 		Mapper:                  restMapper,
 		APIReader:               mgr.GetAPIReader(),

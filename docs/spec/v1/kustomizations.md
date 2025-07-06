@@ -1430,155 +1430,24 @@ Kustomization object itself, it will fall back to these defaults.
 
 See also the [workload identity](/flux/installation/configuration/workload-identity/) docs.
 
-#### AWS KMS
+#### Cloud Provider KMS Services
 
-While making use of the [IAM OIDC provider](https://eksctl.io/usage/iamserviceaccounts/)
-on your EKS cluster, you can create an IAM Role and Service Account with access
-to AWS KMS (using at least `kms:Decrypt` and `kms:DescribeKey`). Once these are
-created, you can annotate the kustomize-controller Service Account with the
-Role ARN, granting the controller permission to decrypt the Secrets. Please refer
-to the [SOPS guide](https://fluxcd.io/flux/guides/mozilla-sops/#aws) for detailed steps.
+For cloud provider KMS services, please refer to the specific sections in the integration guides:
 
-```sh
-kubectl -n flux-system annotate serviceaccount kustomize-controller \
-  --field-manager=flux-client-side-apply \
-  eks.amazonaws.com/role-arn='arn:aws:iam::<ACCOUNT_ID>:role/<KMS-ROLE-NAME>'
-```
+Service-specific configuration:
 
-Furthermore, you can also use the usual [environment variables used for specifying AWS
-credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html#envvars-list),
-by patching the kustomize-controller Deployment:
+- [AWS KMS](https://fluxcd.io/flux/integrations/aws/#for-amazon-key-management-service)
+- [Azure Key Vault](https://fluxcd.io/flux/integrations/azure/#for-azure-key-vault)
+- [GCP KMS](https://fluxcd.io/flux/integrations/gcp/#for-google-cloud-key-management-service)
 
-```yaml
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: kustomize-controller
-  namespace: flux-system
-spec:
-  template:
-    spec:
-      containers:
-      - name: manager
-        env:
-        - name: AWS_ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-              name: aws-creds
-              key: awsAccessKeyID
-        - name: AWS_SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              name: aws-creds
-              key: awsSecretAccessKey
-        - name: AWS_SESSION_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: aws-creds
-              key: awsSessionToken
-```
+Controller-level configuration:
 
-In addition to this, the
-[general SOPS documentation around KMS AWS applies](https://github.com/mozilla/sops#27kms-aws-profiles),
-allowing you to specify e.g. a `SOPS_KMS_ARN` environment variable.
+- [AWS](https://fluxcd.io/flux/integrations/aws/#at-the-controller-level)
+- [Azure](https://fluxcd.io/flux/integrations/azure/#at-the-controller-level)
+- [GCP](https://fluxcd.io/flux/integrations/gcp/#at-the-controller-level)
 
-**Note:**: If you are mounting a secret containing the AWS credentials as a
-file in the `kustomize-controller` Pod, you need to specify an environment
-variable `$HOME`, since the AWS credentials file is expected to be present at
-`~/.aws`. For example:
-
-```yaml
-env:
-  - name: HOME
-    value: /home/{$USER}
-```
-
-#### Azure Key Vault
-
-##### Workload Identity
-
-If you have Workload Identity set up on your AKS cluster, you can establish
-a federated identity between the kustomize-controller ServiceAccount and an
-identity that has "Decrypt" role on the Azure Key Vault. Once, this is done
-you can label and annotate the kustomize-controller ServiceAccount and Pod
-with the patch shown below:
-
-```yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - gotk-components.yaml
-  - gotk-sync.yaml
-patches:
-  - patch: |-
-      apiVersion: v1
-      kind: ServiceAccount
-      metadata:
-        name: kustomize-controller
-        namespace: flux-system
-        annotations:
-          azure.workload.identity/client-id: <AZURE_CLIENT_ID>
-        labels:
-          azure.workload.identity/use: "true"
-  - patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: kustomize-controller
-        namespace: flux-system
-        labels:
-          azure.workload.identity/use: "true"
-      spec:
-        template:
-          metadata:
-            labels:
-              azure.workload.identity/use: "true"
-```
-
-##### Kubelet Identity
-
-If the kubelet managed identity has `Decrypt` permissions on Azure Key Vault,
-no additional configuration is required for the kustomize-controller to decrypt
-data.
-
-#### GCP KMS
-
-While making use of Google Cloud Platform, the [`GOOGLE_APPLICATION_CREDENTIALS`
-environment variable](https://cloud.google.com/docs/authentication/production)
-is automatically taken into account.
-[Granting permissions](https://cloud.google.com/kms/docs/reference/permissions-and-roles)
-to the Service Account attached to this will therefore be sufficient to decrypt
-data. When running outside GCP, it is possible to manually patch the
-kustomize-controller Deployment with a valid set of (mounted) credentials.
-
-```yaml
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: kustomize-controller
-  namespace: flux-system
-spec:
-  template:
-    spec:
-      containers:
-      - name: manager
-        env:
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: /var/gcp/credentials.json
-        volumeMounts:
-        - name: gcp-credentials
-          mountPath: /var/gcp/
-          readOnly: true
-      volumes:
-      - name: gcp-credentials
-        secret:
-          secretName: mysecret
-          items:
-          - key: credentials
-            path: credentials.json
-```
+These guides provide detailed instructions for setting up authentication,
+permissions, and controller configuration for each cloud provider.
 
 #### Hashicorp Vault
 
@@ -1601,6 +1470,48 @@ spec:
         - name: VAULT_TOKEN
           value: <token>
 ```
+
+#### SOPS Age Keys
+
+To configure global decryption for SOPS Age keys, use the `--sops-age-secret`
+controller flag to specify a Kubernetes Secret containing the Age private keys.
+
+First, create a Secret containing the Age private keys with the `.agekey` suffix:
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sops-age-keys
+  namespace: flux-system
+stringData:
+  identity1.agekey: <identity1 key>
+  identity2.agekey: <identity1 key>
+```
+
+The Secret must be in the same namespace as the kustomize-controller Deployment.
+
+Then, patch the kustomize-controller Deployment to add the `--sops-age-secret` flag:
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kustomize-controller
+  namespace: flux-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        args:
+        - --sops-age-secret=sops-age-keys
+```
+
+The field `.spec.decryption.secretRef` in the Kustomization will take precedence
+in case both the controller flag and the Kustomization field are set.
 
 ### Kustomize secretGenerator
 

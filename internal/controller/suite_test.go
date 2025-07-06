@@ -57,6 +57,7 @@ const (
 	reconciliationInterval = time.Second * 5
 	vaultVersion           = "1.13.2"
 	overrideManagerName    = "node-fetch"
+	sopsAgeSecret          = "sops-age-secret"
 )
 
 var (
@@ -180,6 +181,7 @@ func TestMain(m *testing.M) {
 			Metrics:                 testMetricsH,
 			ConcurrentSSA:           4,
 			DisallowedFieldManagers: []string{overrideManagerName},
+			SOPSAgeSecret:           sopsAgeSecret,
 		}
 		if err := (reconciler).SetupWithManager(ctx, testEnv, KustomizationReconcilerOptions{
 			DependencyRequeueInterval: 2 * time.Second,

@@ -194,4 +194,172 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		g.Expect(events[0].Message).Should(ContainSubstring("Reconciliation finished"))
 		g.Expect(events[0].Message).ShouldNot(ContainSubstring("configured"))
 	})
+
+	t.Run("global SOPS age secret as fallback", func(t *testing.T) {
+		g := NewWithT(t)
+
+		namespace := "global-sops-" + randStringRunes(5)
+		t.Setenv("RUNTIME_NAMESPACE", namespace)
+
+		err := createNamespace(namespace)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// Create the global SOPS age secret with the private key
+		ageKey, err := os.ReadFile("testdata/sops/keys/age-global.txt")
+		g.Expect(err).NotTo(HaveOccurred())
+
+		globalSOPSSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      sopsAgeSecret,
+				Namespace: namespace,
+			},
+			StringData: map[string]string{
+				"identity.agekey": string(ageKey),
+			},
+		}
+		g.Expect(k8sClient.Create(context.Background(), globalSOPSSecret)).To(Succeed())
+
+		artifactName := "global-sops-" + randStringRunes(5)
+		artifactChecksum, err := testServer.ArtifactFromDir("testdata/sops/global", artifactName)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		repositoryName := types.NamespacedName{
+			Name:      fmt.Sprintf("global-sops-%s", randStringRunes(5)),
+			Namespace: namespace,
+		}
+
+		err = applyGitRepository(repositoryName, artifactName, "main/"+artifactChecksum)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// Create Kustomization WITHOUT spec.decryption.secretRef
+		kustomizationKey := types.NamespacedName{
+			Name:      fmt.Sprintf("global-sops-%s", randStringRunes(5)),
+			Namespace: namespace,
+		}
+		kustomization := &kustomizev1.Kustomization{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      kustomizationKey.Name,
+				Namespace: kustomizationKey.Namespace,
+			},
+			Spec: kustomizev1.KustomizationSpec{
+				Interval: metav1.Duration{Duration: 2 * time.Minute},
+				Path:     "./",
+				SourceRef: kustomizev1.CrossNamespaceSourceReference{
+					Name:      repositoryName.Name,
+					Namespace: repositoryName.Namespace,
+					Kind:      sourcev1.GitRepositoryKind,
+				},
+				TargetNamespace: namespace,
+				Decryption: &kustomizev1.Decryption{
+					Provider: "sops",
+				},
+			},
+		}
+		g.Expect(k8sClient.Create(context.TODO(), kustomization)).To(Succeed())
+
+		g.Eventually(func() bool {
+			var obj kustomizev1.Kustomization
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
+			return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
+		}, timeout, time.Second).Should(BeTrue())
+
+		// Verify the SOPS encrypted secret was decrypted using the global secret
+		var secret corev1.Secret
+		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "global-age-secret", Namespace: namespace}, &secret)).To(Succeed())
+		g.Expect(string(secret.Data["key"])).To(Equal("global-value"))
+	})
+
+	t.Run("spec.decryption.secretRef takes precedence over global secret", func(t *testing.T) {
+		g := NewWithT(t)
+
+		namespace := "precedence-" + randStringRunes(5)
+		t.Setenv("RUNTIME_NAMESPACE", namespace)
+
+		err := createNamespace(namespace)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// Create global SOPS secret
+		ageGlobalKey, err := os.ReadFile("testdata/sops/keys/age-global.txt")
+		g.Expect(err).NotTo(HaveOccurred())
+
+		globalSOPSSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      sopsAgeSecret,
+				Namespace: namespace,
+			},
+			StringData: map[string]string{
+				"identity.agekey": string(ageGlobalKey),
+			},
+		}
+		g.Expect(k8sClient.Create(context.Background(), globalSOPSSecret)).To(Succeed())
+
+		localSOPSSecretKey := types.NamespacedName{
+			Name:      "local-sops-" + randStringRunes(5),
+			Namespace: namespace,
+		}
+		localSOPSSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      localSOPSSecretKey.Name,
+				Namespace: localSOPSSecretKey.Namespace,
+			},
+			StringData: map[string]string{
+				"pgp.asc":          string(pgpKey),
+				"age.agekey":       string(ageKey),
+				"sops.vault-token": "secret",
+			},
+		}
+		g.Expect(k8sClient.Create(context.Background(), localSOPSSecret)).To(Succeed())
+
+		artifactName := "precedence-" + randStringRunes(5)
+		artifactChecksum, err := testServer.ArtifactFromDir("testdata/sops/algorithms", artifactName)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		repositoryName := types.NamespacedName{
+			Name:      fmt.Sprintf("precedence-%s", randStringRunes(5)),
+			Namespace: namespace,
+		}
+
+		err = applyGitRepository(repositoryName, artifactName, "main/"+artifactChecksum)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// Create Kustomization WITH spec.decryption.secretRef
+		kustomizationKey := types.NamespacedName{
+			Name:      fmt.Sprintf("precedence-%s", randStringRunes(5)),
+			Namespace: namespace,
+		}
+		kustomization := &kustomizev1.Kustomization{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      kustomizationKey.Name,
+				Namespace: kustomizationKey.Namespace,
+			},
+			Spec: kustomizev1.KustomizationSpec{
+				Interval: metav1.Duration{Duration: 2 * time.Minute},
+				Path:     "./",
+				SourceRef: kustomizev1.CrossNamespaceSourceReference{
+					Name:      repositoryName.Name,
+					Namespace: repositoryName.Namespace,
+					Kind:      sourcev1.GitRepositoryKind,
+				},
+				Decryption: &kustomizev1.Decryption{
+					Provider: "sops",
+					SecretRef: &meta.LocalObjectReference{
+						Name: localSOPSSecretKey.Name,
+					},
+				},
+				TargetNamespace: namespace,
+			},
+		}
+		g.Expect(k8sClient.Create(context.TODO(), kustomization)).To(Succeed())
+
+		g.Eventually(func() bool {
+			var obj kustomizev1.Kustomization
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), &obj)
+			return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
+		}, timeout, time.Second).Should(BeTrue())
+
+		// Verify the secret was decrypted using the local secret (not the global one)
+		var secret corev1.Secret
+		g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "algo-age", Namespace: namespace}, &secret)).To(Succeed())
+		g.Expect(string(secret.Data["key"])).To(Equal("value"))
+	})
 }
