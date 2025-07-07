@@ -162,32 +162,30 @@ type Decryptor struct {
 	// decryptor.
 	keyServices      []keyservice.KeyServiceClient
 	localServiceOnce sync.Once
+
+	// sopsAgeSecret is the NamespacedName of the Secret containing
+	// a fallback SOPS age decryption key.
+	sopsAgeSecret *types.NamespacedName
 }
 
-// NewDecryptor creates a new Decryptor for the given kustomization.
-// gnuPGHome can be empty, in which case the systems' keyring is used.
-func NewDecryptor(root string, client client.Client, kustomization *kustomizev1.Kustomization,
-	maxFileSize int64, gnuPGHome string, tokenCache *cache.TokenCache) *Decryptor {
-	return &Decryptor{
-		root:          root,
-		client:        client,
-		kustomization: kustomization,
-		maxFileSize:   maxFileSize,
-		gnuPGHome:     pgp.GnuPGHome(gnuPGHome),
-		tokenCache:    tokenCache,
-	}
-}
-
-// NewTempDecryptor creates a new Decryptor, with a temporary GnuPG
+// New creates a new Decryptor, with a temporary GnuPG
 // home directory to Decryptor.ImportKeys() into.
-func NewTempDecryptor(root string, client client.Client, kustomization *kustomizev1.Kustomization,
-	tokenCache *cache.TokenCache) (*Decryptor, func(), error) {
+func New(client client.Client, kustomization *kustomizev1.Kustomization, opts ...Option) (*Decryptor, func(), error) {
 	gnuPGHome, err := pgp.NewGnuPGHome()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot create decryptor: %w", err)
 	}
 	cleanup := func() { _ = os.RemoveAll(gnuPGHome.String()) }
-	return NewDecryptor(root, client, kustomization, maxEncryptedFileSize, gnuPGHome.String(), tokenCache), cleanup, nil
+	d := &Decryptor{
+		client:        client,
+		kustomization: kustomization,
+		maxFileSize:   maxEncryptedFileSize,
+		gnuPGHome:     gnuPGHome,
+	}
+	for _, opt := range opts {
+		opt(d)
+	}
+	return d, cleanup, nil
 }
 
 // IsEncryptedSecret checks if the given object is a Kubernetes Secret encrypted
@@ -210,16 +208,43 @@ func IsEncryptedSecret(object *unstructured.Unstructured) bool {
 // For the import of PGP keys, the Decryptor must be configured with
 // an absolute GnuPG home directory path.
 func (d *Decryptor) ImportKeys(ctx context.Context) error {
-	if d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.SecretRef == nil {
+	if d.kustomization.Spec.Decryption == nil ||
+		(d.kustomization.Spec.Decryption.SecretRef == nil && d.sopsAgeSecret == nil) {
 		return nil
 	}
 
 	provider := d.kustomization.Spec.Decryption.Provider
 	switch provider {
 	case DecryptionProviderSOPS:
+		secretRef := d.kustomization.Spec.Decryption.SecretRef
+
+		// We handle the SOPS age global decryption separately, as most of the other
+		// decryption providers already support global decryption in other ways, and
+		// we don't want to introduce duplicate methods of achieving the same.
+		// Furthermore, allowing e.g. cloud provider credentials to be fetched
+		// from this global secret would prevent workload identity from working.
+		if secretRef == nil && d.sopsAgeSecret != nil {
+			var secret corev1.Secret
+			if err := d.client.Get(ctx, *d.sopsAgeSecret, &secret); err != nil {
+				if apierrors.IsNotFound(err) {
+					return err
+				}
+				return fmt.Errorf("cannot get %s SOPS age decryption Secret '%s': %w", provider, *d.sopsAgeSecret, err)
+			}
+			for name, value := range secret.Data {
+				if filepath.Ext(name) == DecryptionAgeExt {
+					if err := d.ageIdentities.Import(string(value)); err != nil {
+						return fmt.Errorf("failed to import '%s' data from %s SOPS age decryption Secret '%s': %w",
+							name, provider, *d.sopsAgeSecret, err)
+					}
+				}
+			}
+			return nil
+		}
+
 		secretName := types.NamespacedName{
 			Namespace: d.kustomization.GetNamespace(),
-			Name:      d.kustomization.Spec.Decryption.SecretRef.Name,
+			Name:      secretRef.Name,
 		}
 
 		var secret corev1.Secret

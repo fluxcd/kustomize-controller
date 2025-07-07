@@ -376,7 +376,7 @@ clientSecret: some-client-secret`),
 				},
 			}
 
-			d, cleanup, err := NewTempDecryptor("", cb.Build(), &kustomization, nil)
+			d, cleanup, err := New(cb.Build(), &kustomization)
 			g.Expect(err).ToNot(HaveOccurred())
 			t.Cleanup(cleanup)
 
@@ -605,7 +605,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 			Provider: DecryptionProviderSOPS,
 		}
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus, nil)
+		d, cleanup, err := New(fake.NewClientBuilder().Build(), kus)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -646,7 +646,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 			Provider: DecryptionProviderSOPS,
 		}
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus, nil)
+		d, cleanup, err := New(fake.NewClientBuilder().Build(), kus)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -681,7 +681,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 			Provider: DecryptionProviderSOPS,
 		}
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus, nil)
+		d, cleanup, err := New(fake.NewClientBuilder().Build(), kus)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -716,7 +716,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 			Provider: DecryptionProviderSOPS,
 		}
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus, nil)
+		d, cleanup, err := New(fake.NewClientBuilder().Build(), kus)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -765,7 +765,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 	t.Run("nil resource", func(t *testing.T) {
 		g := NewWithT(t)
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kustomization.DeepCopy(), nil)
+		d, cleanup, err := New(fake.NewClientBuilder().Build(), kustomization.DeepCopy())
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -777,7 +777,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 	t.Run("no decryption spec", func(t *testing.T) {
 		g := NewWithT(t)
 
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kustomization.DeepCopy(), nil)
+		d, cleanup, err := New(fake.NewClientBuilder().Build(), kustomization.DeepCopy())
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
@@ -793,7 +793,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		kus.Spec.Decryption = &kustomizev1.Decryption{
 			Provider: "not-supported",
 		}
-		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus, nil)
+		d, cleanup, err := New(fake.NewClientBuilder().Build(), kus)
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 

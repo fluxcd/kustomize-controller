@@ -75,6 +75,7 @@ import (
 	intcache "github.com/fluxcd/kustomize-controller/internal/cache"
 	"github.com/fluxcd/kustomize-controller/internal/decryptor"
 	"github.com/fluxcd/kustomize-controller/internal/inventory"
+	intruntime "github.com/fluxcd/kustomize-controller/internal/runtime"
 )
 
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
@@ -104,6 +105,7 @@ type KustomizationReconciler struct {
 	NoRemoteBases           bool
 	FailFast                bool
 	DefaultServiceAccount   string
+	SOPSAgeSecret           string
 	KubeConfigOpts          runtimeClient.KubeConfigOptions
 	ConcurrentSSA           int
 	DisallowedFieldManagers []string
@@ -642,7 +644,18 @@ func (r *KustomizationReconciler) generate(obj unstructured.Unstructured,
 func (r *KustomizationReconciler) build(ctx context.Context,
 	obj *kustomizev1.Kustomization, u unstructured.Unstructured,
 	workDir, dirPath string) ([]byte, error) {
-	dec, cleanup, err := decryptor.NewTempDecryptor(workDir, r.Client, obj, r.TokenCache)
+
+	// Build decryptor.
+	decryptorOpts := []decryptor.Option{
+		decryptor.WithRoot(workDir),
+	}
+	if r.TokenCache != nil {
+		decryptorOpts = append(decryptorOpts, decryptor.WithTokenCache(*r.TokenCache))
+	}
+	if name, ns := r.SOPSAgeSecret, intruntime.Namespace(); name != "" && ns != "" {
+		decryptorOpts = append(decryptorOpts, decryptor.WithSOPSAgeSecret(name, ns))
+	}
+	dec, cleanup, err := decryptor.New(r.Client, obj, decryptorOpts...)
 	if err != nil {
 		return nil, err
 	}
