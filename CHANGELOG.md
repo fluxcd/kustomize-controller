@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.6.1
+
+**Release date:** 2025-07-08
+
+This patch release fixes a bug introduced in v1.6.0
+that causes SOPS decryption with US Government KMS
+keys to fail with the error:
+
+```
+STS: AssumeRoleWithWebIdentity, https response error\n   StatusCode: 0, RequestID: ,
+request send failed, Post\n \"https://sts.arn.amazonaws.com/\": dial tcp:
+lookupts.arn.amazonaws.com on 10.100.0.10:53: no such host
+```
+
+Fixes:
+- Fix regression in STS endpoint for SOPS decryption with AWS KMS in US Gov partition
+  [#1478](https://github.com/fluxcd/kustomize-controller/pull/1478)
+
 ## 1.6.0
 
 **Release date:** 2025-05-28
