@@ -23,13 +23,13 @@ require (
 	github.com/fluxcd/pkg/apis/acl v0.7.0
 	github.com/fluxcd/pkg/apis/event v0.17.0
 	github.com/fluxcd/pkg/apis/kustomize v1.10.0
-	github.com/fluxcd/pkg/apis/meta v1.12.0
+	github.com/fluxcd/pkg/apis/meta v1.13.0
 	github.com/fluxcd/pkg/auth v0.16.0
 	github.com/fluxcd/pkg/cache v0.9.0
 	github.com/fluxcd/pkg/http/fetch v0.16.0
 	github.com/fluxcd/pkg/kustomize v1.18.0
-	github.com/fluxcd/pkg/runtime v0.60.0
-	github.com/fluxcd/pkg/ssa v0.49.0
+	github.com/fluxcd/pkg/runtime v0.63.0
+	github.com/fluxcd/pkg/ssa v0.50.1
 	github.com/fluxcd/pkg/tar v0.12.0
 	github.com/fluxcd/pkg/testserver v0.11.0
 	github.com/fluxcd/source-controller/api v1.6.0
@@ -46,7 +46,7 @@ require (
 	k8s.io/client-go v0.33.0
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 	sigs.k8s.io/controller-runtime v0.21.0
-	sigs.k8s.io/kustomize/api v0.19.0
+	sigs.k8s.io/kustomize/api v0.20.0
 	sigs.k8s.io/yaml v1.5.0
 )
 
