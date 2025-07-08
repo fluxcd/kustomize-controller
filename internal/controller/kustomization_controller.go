@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
@@ -807,119 +806,43 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		},
 	}
 
-	// contains only CRDs and Namespaces
-	var defStage []*unstructured.Unstructured
-
-	// contains only Kubernetes Class types e.g.: RuntimeClass, PriorityClass,
-	// StorageClass, VolumeSnapshotClass, IngressClass, GatewayClass, ClusterClass, etc
-	var classStage []*unstructured.Unstructured
-
-	// contains all objects except for CRDs, Namespaces and Class type objects
-	var resStage []*unstructured.Unstructured
-
-	// contains the objects' metadata after apply
-	resultSet := ssa.NewChangeSet()
-
 	for _, u := range objects {
 		if decryptor.IsEncryptedSecret(u) {
 			return false, nil,
 				fmt.Errorf("%s is SOPS encrypted, configuring decryption is required for this secret to be reconciled",
 					ssautil.FmtUnstructured(u))
 		}
-
-		switch {
-		case ssautil.IsClusterDefinition(u):
-			defStage = append(defStage, u)
-		case strings.HasSuffix(u.GetKind(), "Class"):
-			classStage = append(classStage, u)
-		default:
-			resStage = append(resStage, u)
-		}
-
 	}
 
+	// contains the objects' metadata after apply
+	resultSet := ssa.NewChangeSet()
 	var changeSetLog strings.Builder
 
-	// validate, apply and wait for CRDs and Namespaces to register
-	if len(defStage) > 0 {
-		changeSet, err := manager.ApplyAll(ctx, defStage, applyOpts)
-		if err != nil {
-			return false, nil, err
-		}
+	if len(objects) > 0 {
+		changeSet, err := manager.ApplyAllStaged(ctx, objects, applyOpts)
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
 			resultSet.Append(changeSet.Entries)
 
-			if r.GroupChangeLog {
-				log.Info("server-side apply for cluster definitions completed", "output", changeSet.ToGroupedMap())
-			} else {
-				log.Info("server-side apply for cluster definitions completed", "output", changeSet.ToMap())
-			}
+			// filter out the objects that have not changed
 			for _, change := range changeSet.Entries {
 				if HasChanged(change.Action) {
 					changeSetLog.WriteString(change.String() + "\n")
 				}
 			}
-
-			if err := manager.WaitForSet(changeSet.ToObjMetadataSet(), ssa.WaitOptions{
-				Interval: 2 * time.Second,
-				Timeout:  obj.GetTimeout(),
-			}); err != nil {
-				return false, nil, err
-			}
-		}
-	}
-
-	// validate, apply and wait for Class type objects to register
-	if len(classStage) > 0 {
-		changeSet, err := manager.ApplyAll(ctx, classStage, applyOpts)
-		if err != nil {
-			return false, nil, err
 		}
 
-		if changeSet != nil && len(changeSet.Entries) > 0 {
-			resultSet.Append(changeSet.Entries)
-
-			if r.GroupChangeLog {
-				log.Info("server-side apply for cluster definitions completed", "output", changeSet.ToGroupedMap())
-			} else {
-				log.Info("server-side apply for cluster class types completed", "output", changeSet.ToMap())
-			}
-			for _, change := range changeSet.Entries {
-				if HasChanged(change.Action) {
-					changeSetLog.WriteString(change.String() + "\n")
-				}
-			}
-
-			if err := manager.WaitForSet(changeSet.ToObjMetadataSet(), ssa.WaitOptions{
-				Interval: 2 * time.Second,
-				Timeout:  obj.GetTimeout(),
-			}); err != nil {
-				return false, nil, err
-			}
-		}
-	}
-
-	// sort by kind, validate and apply all the others objects
-	sort.Sort(ssa.SortableUnstructureds(resStage))
-	if len(resStage) > 0 {
-		changeSet, err := manager.ApplyAll(ctx, resStage, applyOpts)
+		// include the change log in the error message in case af a partial apply
 		if err != nil {
 			return false, nil, fmt.Errorf("%w\n%s", err, changeSetLog.String())
 		}
 
+		// log all applied objects
 		if changeSet != nil && len(changeSet.Entries) > 0 {
-			resultSet.Append(changeSet.Entries)
-
 			if r.GroupChangeLog {
-				log.Info("server-side apply for cluster definitions completed", "output", changeSet.ToGroupedMap())
+				log.Info("server-side apply completed", "output", changeSet.ToGroupedMap(), "revision", revision)
 			} else {
 				log.Info("server-side apply completed", "output", changeSet.ToMap(), "revision", revision)
-			}
-			for _, change := range changeSet.Entries {
-				if HasChanged(change.Action) {
-					changeSetLog.WriteString(change.String() + "\n")
-				}
 			}
 		}
 	}
