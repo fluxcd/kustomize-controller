@@ -93,7 +93,7 @@ data:
 			Interval: metav1.Duration{Duration: time.Minute},
 			Path:     "./",
 			KubeConfig: &meta.KubeConfigReference{
-				SecretRef: meta.SecretKeyReference{
+				SecretRef: &meta.SecretKeyReference{
 					Name: "kubeconfig",
 				},
 			},
@@ -261,7 +261,7 @@ data:
 			Interval: metav1.Duration{Duration: time.Minute},
 			Path:     "./",
 			KubeConfig: &meta.KubeConfigReference{
-				SecretRef: meta.SecretKeyReference{
+				SecretRef: &meta.SecretKeyReference{
 					Name: secretName,
 					Key:  secretKey,
 				},

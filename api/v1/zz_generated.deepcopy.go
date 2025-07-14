@@ -177,7 +177,7 @@ func (in *KustomizationSpec) DeepCopyInto(out *KustomizationSpec) {
 	if in.KubeConfig != nil {
 		in, out := &in.KubeConfig, &out.KubeConfig
 		*out = new(meta.KubeConfigReference)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 	if in.PostBuild != nil {
 		in, out := &in.PostBuild, &out.PostBuild

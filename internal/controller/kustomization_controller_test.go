@@ -76,7 +76,7 @@ func TestKustomizationReconciler_StagedApply(t *testing.T) {
 			Kind:      sourcev1.GitRepositoryKind,
 		},
 		KubeConfig: &meta.KubeConfigReference{
-			SecretRef: meta.SecretKeyReference{
+			SecretRef: &meta.SecretKeyReference{
 				Name: "kubeconfig",
 			},
 		},
