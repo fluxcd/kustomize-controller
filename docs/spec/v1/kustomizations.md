@@ -639,6 +639,10 @@ With `.spec.postBuild.substituteFrom` you can provide a list of ConfigMaps and
 Secrets from which the variables are loaded. The ConfigMap and Secret data keys
 are used as the variable names.
 
+To make a Kustomization react immediately to changes in the referenced Secret
+or ConfigMap see [this](#reacting-immediately-to-configuration-dependencies)
+section.
+
 The `.spec.postBuild.substituteFrom.optional` field indicates how the
 controller should handle a referenced ConfigMap or Secret being absent
 at reconciliation time. The controller's default behavior ― with
@@ -805,6 +809,10 @@ Two authentication alternatives are available:
   building a kubeconfig dynamically with parameters stored in a Kubernetes
   ConfigMap in the same namespace as the Kustomization via workload identity.
 
+To make a Kustomization react immediately to changes in the referenced Secret
+or ConfigMap see [this](#reacting-immediately-to-configuration-dependencies)
+section.
+
 When both `.spec.kubeConfig` and
 [`.spec.serviceAccountName`](#service-account-reference) are specified,
 the controller will impersonate the ServiceAccount on the target cluster,
@@ -957,6 +965,9 @@ The `.spec.decryption` field has the following subfields:
   static credentials for KMS services to be used for decryption.
 - `.serviceAccountName`: The name of the service account used for
   secret-less authentication with KMS services from cloud providers.
+
+To make a Kustomization react immediately to changes in the referenced Secret
+see [this](#reacting-immediately-to-configuration-dependencies) section.
 
 For a complete guide on how to set up authentication for KMS services from
 cloud providers, see the integration [docs](/flux/integrations/).
@@ -1909,6 +1920,29 @@ Besides being reported in Events, the reconciliation errors are also logged by
 the controller. The Flux CLI offer commands for filtering the logs for a
 specific Kustomization, e.g.
 `flux logs --level=error --kind=Kustomization --name=<kustomization-name>`.
+
+### Reacting immediately to configuration dependencies
+
+To trigger a reconciliation when changes occur in referenced
+Secrets or ConfigMaps, you can set the following label on the
+Secret or ConfigMap:
+
+```yaml
+metadata:
+  labels:
+    reconcile.fluxcd.io/watch: Enabled
+```
+
+An alternative to labeling every Secret or ConfigMap is
+setting the `--watch-configs-label-selector=owner!=helm`
+[flag](https://fluxcd.io/flux/components/kustomize/options/#flags)
+in kustomize-controller, which allows watching all Secrets and
+ConfigMaps except for Helm storage Secrets.
+
+**Note**: A reconciliation will be triggered for an event on a
+referenced Secret/ConfigMap even if it's marked as optional in
+the `.spec.postBuild.substituteFrom` field, including deletion
+events.
 
 ## Kustomization Status
 

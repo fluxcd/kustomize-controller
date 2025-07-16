@@ -64,15 +64,10 @@ func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) h
 			}
 			dd = append(dd, d.DeepCopy())
 		}
-		sorted, err := dependency.Sort(dd)
+		reqs, err := sortAndEnqueue(dd)
 		if err != nil {
 			log.Error(err, "failed to sort dependencies for revision change")
 			return nil
-		}
-		reqs := make([]reconcile.Request, len(sorted))
-		for i := range sorted {
-			reqs[i].NamespacedName.Name = sorted[i].Name
-			reqs[i].NamespacedName.Namespace = sorted[i].Namespace
 		}
 		return reqs
 	}
@@ -95,4 +90,55 @@ func (r *KustomizationReconciler) indexBy(kind string) func(o client.Object) []s
 
 		return nil
 	}
+}
+
+// requestsForConfigDependency enqueues requests for watched ConfigMaps or Secrets
+// according to the specified index.
+func (r *KustomizationReconciler) requestsForConfigDependency(
+	index string) func(ctx context.Context, o client.Object) []reconcile.Request {
+
+	return func(ctx context.Context, o client.Object) []reconcile.Request {
+		log := ctrl.LoggerFrom(ctx).WithValues("index", index, "objectRef", map[string]string{
+			"name":      o.GetName(),
+			"namespace": o.GetNamespace(),
+		})
+
+		// List Kustomizations that have a dependency on the ConfigMap or Secret.
+		var list kustomizev1.KustomizationList
+		if err := r.List(ctx, &list, client.MatchingFields{
+			index: client.ObjectKeyFromObject(o).String(),
+		}); err != nil {
+			log.Error(err, "failed to list Kustomizations for config dependency change")
+			return nil
+		}
+
+		// Sort the Kustomizations by their dependencies to ensure
+		// that dependent Kustomizations are reconciled after their dependencies.
+		dd := make([]dependency.Dependent, 0, len(list.Items))
+		for i := range list.Items {
+			dd = append(dd, &list.Items[i])
+		}
+
+		// Enqueue requests for each Kustomization in the list.
+		reqs, err := sortAndEnqueue(dd)
+		if err != nil {
+			log.Error(err, "failed to sort dependencies for config dependency change")
+			return nil
+		}
+		return reqs
+	}
+}
+
+// sortAndEnqueue sorts the dependencies and returns a slice of reconcile.Requests.
+func sortAndEnqueue(dd []dependency.Dependent) ([]reconcile.Request, error) {
+	sorted, err := dependency.Sort(dd)
+	if err != nil {
+		return nil, err
+	}
+	reqs := make([]reconcile.Request, len(sorted))
+	for i := range sorted {
+		reqs[i].NamespacedName.Name = sorted[i].Name
+		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
+	}
+	return reqs, nil
 }
