@@ -159,6 +159,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	watchConfigsPredicate, err := runtimeCtrl.GetWatchConfigsPredicate(watchOptions)
+	if err != nil {
+		setupLog.Error(err, "unable to configure watch configs label selector for controller")
+		os.Exit(1)
+	}
+
 	var disableCacheFor []ctrlclient.Object
 	shouldCache, err := features.Enabled(features.CacheSecretsAndConfigMaps)
 	if err != nil {
@@ -290,6 +296,7 @@ func main() {
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,
 		RateLimiter:               runtimeCtrl.GetRateLimiter(rateLimiterOptions),
+		WatchConfigsPredicate:     watchConfigsPredicate,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", controllerName)
 		os.Exit(1)

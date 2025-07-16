@@ -117,31 +117,78 @@ type KustomizationReconcilerOptions struct {
 	HTTPRetry                 int
 	DependencyRequeueInterval time.Duration
 	RateLimiter               workqueue.TypedRateLimiter[reconcile.Request]
+	WatchConfigsPredicate     predicate.Predicate
 }
 
 func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
 	const (
-		ociRepositoryIndexKey string = ".metadata.ociRepository"
-		gitRepositoryIndexKey string = ".metadata.gitRepository"
-		bucketIndexKey        string = ".metadata.bucket"
+		indexOCIRepository = ".metadata.ociRepository"
+		indexGitRepository = ".metadata.gitRepository"
+		indexBucket        = ".metadata.bucket"
+		indexConfigMap     = ".metadata.configMap"
+		indexSecret        = ".metadata.secret"
 	)
 
 	// Index the Kustomizations by the OCIRepository references they (may) point at.
-	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, ociRepositoryIndexKey,
+	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, indexOCIRepository,
 		r.indexBy(sourcev1.OCIRepositoryKind)); err != nil {
-		return fmt.Errorf("failed setting index fields: %w", err)
+		return fmt.Errorf("failed creating index %s: %w", indexOCIRepository, err)
 	}
 
 	// Index the Kustomizations by the GitRepository references they (may) point at.
-	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, gitRepositoryIndexKey,
+	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, indexGitRepository,
 		r.indexBy(sourcev1.GitRepositoryKind)); err != nil {
-		return fmt.Errorf("failed setting index fields: %w", err)
+		return fmt.Errorf("failed creating index %s: %w", indexGitRepository, err)
 	}
 
 	// Index the Kustomizations by the Bucket references they (may) point at.
-	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, bucketIndexKey,
+	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, indexBucket,
 		r.indexBy(sourcev1.BucketKind)); err != nil {
-		return fmt.Errorf("failed setting index fields: %w", err)
+		return fmt.Errorf("failed creating index %s: %w", indexBucket, err)
+	}
+
+	// Index the Kustomization by the ConfigMap references they point to.
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &kustomizev1.Kustomization{}, indexConfigMap,
+		func(o client.Object) []string {
+			obj := o.(*kustomizev1.Kustomization)
+			namespace := obj.GetNamespace()
+			var keys []string
+			if pb := obj.Spec.PostBuild; pb != nil {
+				for _, ref := range pb.SubstituteFrom {
+					if ref.Kind == "ConfigMap" {
+						keys = append(keys, fmt.Sprintf("%s/%s", namespace, ref.Name))
+					}
+				}
+			}
+			return keys
+		},
+	); err != nil {
+		return fmt.Errorf("failed creating index %s: %w", indexConfigMap, err)
+	}
+
+	// Index the Kustomization by the Secret references they point to.
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &kustomizev1.Kustomization{}, indexSecret,
+		func(o client.Object) []string {
+			obj := o.(*kustomizev1.Kustomization)
+			namespace := obj.GetNamespace()
+			var keys []string
+			if dec := obj.Spec.Decryption; dec != nil && dec.SecretRef != nil {
+				keys = append(keys, fmt.Sprintf("%s/%s", namespace, dec.SecretRef.Name))
+			}
+			if kc := obj.Spec.KubeConfig; kc != nil && kc.SecretRef != nil && kc.SecretRef.Name != "" {
+				keys = append(keys, fmt.Sprintf("%s/%s", namespace, kc.SecretRef.Name))
+			}
+			if pb := obj.Spec.PostBuild; pb != nil {
+				for _, ref := range pb.SubstituteFrom {
+					if ref.Kind == "Secret" {
+						keys = append(keys, fmt.Sprintf("%s/%s", namespace, ref.Name))
+					}
+				}
+			}
+			return keys
+		},
+	); err != nil {
+		return fmt.Errorf("failed creating index %s: %w", indexSecret, err)
 	}
 
 	r.requeueDependency = opts.DependencyRequeueInterval
@@ -154,18 +201,28 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		)).
 		Watches(
 			&sourcev1.OCIRepository{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(ociRepositoryIndexKey)),
+			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(indexOCIRepository)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
 			&sourcev1.GitRepository{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(gitRepositoryIndexKey)),
+			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(indexGitRepository)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
 			&sourcev1.Bucket{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(bucketIndexKey)),
+			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(indexBucket)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
+		).
+		WatchesMetadata(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(r.requestsForConfigDependency(indexConfigMap)),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, opts.WatchConfigsPredicate),
+		).
+		WatchesMetadata(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.requestsForConfigDependency(indexSecret)),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, opts.WatchConfigsPredicate),
 		).
 		WithOptions(controller.Options{
 			RateLimiter: opts.RateLimiter,
@@ -411,7 +468,7 @@ func (r *KustomizationReconciler) reconcile(
 	if obj.Spec.KubeConfig != nil {
 		mustImpersonate = true
 		impersonatorOpts = append(impersonatorOpts,
-			runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace()))
+			runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace(), nil))
 	}
 	if r.ClusterReader != nil || len(statusReaders) > 0 {
 		impersonatorOpts = append(impersonatorOpts,
@@ -1077,7 +1134,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 		if obj.Spec.KubeConfig != nil {
 			mustImpersonate = true
 			impersonatorOpts = append(impersonatorOpts,
-				runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace()))
+				runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace(), nil))
 		}
 		if r.ClusterReader != nil {
 			impersonatorOpts = append(impersonatorOpts, runtimeClient.WithPolling(r.ClusterReader))
