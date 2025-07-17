@@ -699,7 +699,7 @@ spec:
         # Fail if this Secret does not exist.
 ```
 
-**Note:** For substituting variables in a secret, `.spec.stringData` field must be used i.e:
+For substituting variables in a secret, `.spec.stringData` field must be used i.e:
 
 ```yaml
 ---
@@ -713,11 +713,11 @@ stringData:
   token: ${token}
 ```
 
-**Note:** The var values which are specified in-line with `substitute`
+The var values which are specified in-line with `substitute`
 take precedence over the ones derived from `substituteFrom`.
 When var values for the same variable keys are derived from multiple
-`ConfigMaps` or `Secrets` referenced in the `substituteFrom` list, then the
-first take precedence over the later values.
+`ConfigMaps` or `Secrets` referenced in the `substituteFrom` list,
+the later values overwrite earlier values.
 
 **Note:** If you want to avoid var substitutions in scripts embedded in
 ConfigMaps or container commands, you must use the format `$var` instead of
