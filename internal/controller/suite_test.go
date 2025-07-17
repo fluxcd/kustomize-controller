@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	controllerLog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/yaml"
 
 	"github.com/fluxcd/pkg/apis/meta"
@@ -185,6 +186,7 @@ func TestMain(m *testing.M) {
 		}
 		if err := (reconciler).SetupWithManager(ctx, testEnv, KustomizationReconcilerOptions{
 			DependencyRequeueInterval: 2 * time.Second,
+			WatchConfigsPredicate:     predicate.Not(predicate.Funcs{}),
 		}); err != nil {
 			panic(fmt.Sprintf("Failed to start KustomizationReconciler: %v", err))
 		}
