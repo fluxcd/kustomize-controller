@@ -48,9 +48,14 @@ const (
 	// but is missing from the input vars.
 	StrictPostBuildSubstitutions = "StrictPostBuildSubstitutions"
 
-	// GroupChangelog controls groups kubernetes objects names on log output
-	// reduces cardinality of logs when logging to elasticsearch
+	// GroupChangeLog controls whether to group Kubernetes objects names in log output
+	// to reduce cardinality of logs.
 	GroupChangeLog = "GroupChangeLog"
+
+	// AdditiveCELDependencyCheck controls whether the CEL dependency check
+	// should be additive, meaning that the built-in readiness check will
+	// be added to the user-defined CEL expressions.
+	AdditiveCELDependencyCheck = "AdditiveCELDependencyCheck"
 )
 
 var features = map[string]bool{
@@ -69,6 +74,9 @@ var features = map[string]bool{
 	// GroupChangeLog
 	// opt-in from v1.5
 	GroupChangeLog: false,
+	// AdditiveCELDependencyCheck
+	// opt-in from v1.7
+	AdditiveCELDependencyCheck: false,
 }
 
 func init() {

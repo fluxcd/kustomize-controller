@@ -16,4 +16,7 @@ limitations under the License.
 
 package controller
 
-const OCIArtifactOriginRevisionAnnotation = "org.opencontainers.image.revision"
+const (
+	OCIArtifactOriginRevisionAnnotation = "org.opencontainers.image.revision"
+	TerminalErrorMessage                = "Reconciliation failed terminally due to configuration error"
+)

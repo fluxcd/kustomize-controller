@@ -16,7 +16,9 @@ limitations under the License.
 
 package v1
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // CrossNamespaceSourceReference contains enough information to let you locate the
 // typed Kubernetes resource object at cluster level.
@@ -40,9 +42,31 @@ type CrossNamespaceSourceReference struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
+// String returns a string representation of the CrossNamespaceSourceReference
+// in the format "Kind/Name" or "Kind/Namespace/Name" if Namespace is set.
 func (s *CrossNamespaceSourceReference) String() string {
 	if s.Namespace != "" {
 		return fmt.Sprintf("%s/%s/%s", s.Kind, s.Namespace, s.Name)
 	}
 	return fmt.Sprintf("%s/%s", s.Kind, s.Name)
+}
+
+// DependencyReference defines a Kustomization dependency on another Kustomization resource.
+type DependencyReference struct {
+	// Name of the referent.
+	// +required
+	Name string `json:"name"`
+
+	// Namespace of the referent, defaults to the namespace of the Kustomization
+	// resource object that contains the reference.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
+	// ReadyExpr is a CEL expression that can be used to assess the readiness
+	// of a dependency. When specified, the built-in readiness check
+	// is replaced by the logic defined in the CEL expression.
+	// To make the CEL expression additive to the built-in readiness check,
+	// the feature gate `AdditiveCELDependencyCheck` must be set to `true`.
+	// +optional
+	ReadyExpr string `json:"readyExpr,omitempty"`
 }
