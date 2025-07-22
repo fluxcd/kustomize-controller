@@ -26,6 +26,7 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
+	celtypes "github.com/google/cel-go/common/types"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -96,22 +97,23 @@ type KustomizationReconciler struct {
 	artifactFetchRetries int
 	requeueDependency    time.Duration
 
-	Mapper                  apimeta.RESTMapper
-	APIReader               client.Reader
-	ClusterReader           engine.ClusterReaderFactory
-	ControllerName          string
-	statusManager           string
-	NoCrossNamespaceRefs    bool
-	NoRemoteBases           bool
-	FailFast                bool
-	DefaultServiceAccount   string
-	SOPSAgeSecret           string
-	KubeConfigOpts          runtimeClient.KubeConfigOptions
-	ConcurrentSSA           int
-	DisallowedFieldManagers []string
-	StrictSubstitutions     bool
-	GroupChangeLog          bool
-	TokenCache              *cache.TokenCache
+	Mapper                     apimeta.RESTMapper
+	APIReader                  client.Reader
+	ClusterReader              engine.ClusterReaderFactory
+	ControllerName             string
+	statusManager              string
+	NoCrossNamespaceRefs       bool
+	NoRemoteBases              bool
+	FailFast                   bool
+	DefaultServiceAccount      string
+	SOPSAgeSecret              string
+	KubeConfigOpts             runtimeClient.KubeConfigOptions
+	ConcurrentSSA              int
+	DisallowedFieldManagers    []string
+	StrictSubstitutions        bool
+	GroupChangeLog             bool
+	AdditiveCELDependencyCheck bool
+	TokenCache                 *cache.TokenCache
 }
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
@@ -298,14 +300,12 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Configure custom health checks.
 	statusReaders, err := cel.PollerWithCustomHealthChecks(ctx, obj.Spec.HealthCheckExprs)
 	if err != nil {
-		const msg = "Reconciliation failed terminally due to configuration error"
-		errMsg := fmt.Sprintf("%s: %v", msg, err)
+		errMsg := fmt.Sprintf("%s: %v", TerminalErrorMessage, err)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.InvalidCELExpressionReason, "%s", errMsg)
 		conditions.MarkStalled(obj, meta.InvalidCELExpressionReason, "%s", errMsg)
 		obj.Status.ObservedGeneration = obj.Generation
-		log.Error(err, msg)
 		r.event(obj, "", "", eventv1.EventSeverityError, errMsg, nil)
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, reconcile.TerminalError(err)
 	}
 
 	// Check object-level workload identity feature gate and decryption with service account.
@@ -355,6 +355,17 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Check dependencies and requeue the reconciliation if the check fails.
 	if len(obj.Spec.DependsOn) > 0 {
 		if err := r.checkDependencies(ctx, obj, artifactSource); err != nil {
+			// Check if this is a terminal error that should not trigger retries
+			if errors.Is(err, reconcile.TerminalError(nil)) {
+				errMsg := fmt.Sprintf("%s: %v", TerminalErrorMessage, err)
+				conditions.MarkFalse(obj, meta.ReadyCondition, meta.InvalidCELExpressionReason, "%s", errMsg)
+				conditions.MarkStalled(obj, meta.InvalidCELExpressionReason, "%s", errMsg)
+				obj.Status.ObservedGeneration = obj.Generation
+				r.event(obj, revision, originRevision, eventv1.EventSeverityError, errMsg, nil)
+				return ctrl.Result{}, err
+			}
+
+			// Retry on transient errors.
 			conditions.MarkFalse(obj, meta.ReadyCondition, meta.DependencyNotReadyReason, "%s", err)
 			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
 			log.Info(msg)
@@ -595,49 +606,118 @@ func (r *KustomizationReconciler) reconcile(
 	return nil
 }
 
+// checkDependencies checks if the dependencies of the current Kustomization are ready.
+// To be considered ready, a dependencies must meet the following criteria:
+// - The dependency exists in the API server.
+// - The CEL expression (if provided) must evaluate to true.
+// - The dependency observed generation must match the current generation.
+// - The dependency Ready condition must be true.
+// - The dependency last applied revision must match the current source artifact revision.
 func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 	obj *kustomizev1.Kustomization,
 	source sourcev1.Source) error {
-	for _, d := range obj.Spec.DependsOn {
-		if d.Namespace == "" {
-			d.Namespace = obj.GetNamespace()
+
+	// Convert the Kustomization object to Unstructured for CEL evaluation.
+	objMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return fmt.Errorf("failed to convert Kustomization to unstructured: %w", err)
+	}
+
+	for _, depRef := range obj.Spec.DependsOn {
+		// Check if the dependency exists by querying
+		// the API server bypassing the cache.
+		if depRef.Namespace == "" {
+			depRef.Namespace = obj.GetNamespace()
 		}
-		dName := types.NamespacedName{
-			Namespace: d.Namespace,
-			Name:      d.Name,
+		depName := types.NamespacedName{
+			Namespace: depRef.Namespace,
+			Name:      depRef.Name,
 		}
-		var k kustomizev1.Kustomization
-		err := r.APIReader.Get(ctx, dName, &k)
+		var dep kustomizev1.Kustomization
+		err := r.APIReader.Get(ctx, depName, &dep)
 		if err != nil {
-			return fmt.Errorf("dependency '%s' not found: %w", dName, err)
+			return fmt.Errorf("dependency '%s' not found: %w", depName, err)
 		}
 
-		if len(k.Status.Conditions) == 0 || k.Generation != k.Status.ObservedGeneration {
-			return fmt.Errorf("dependency '%s' is not ready", dName)
+		// Evaluate the CEL expression (if specified) to determine if the dependency is ready.
+		if depRef.ReadyExpr != "" {
+			ready, err := r.evalReadyExpr(ctx, depRef.ReadyExpr, objMap, &dep)
+			if err != nil {
+				return err
+			}
+			if !ready {
+				return fmt.Errorf("dependency '%s' is not ready according to readyExpr eval", depName)
+			}
 		}
 
-		if !apimeta.IsStatusConditionTrue(k.Status.Conditions, meta.ReadyCondition) {
-			return fmt.Errorf("dependency '%s' is not ready", dName)
+		// Skip the built-in readiness check if the CEL expression is provided
+		// and the AdditiveCELDependencyCheck feature gate is not enabled.
+		if depRef.ReadyExpr != "" && !r.AdditiveCELDependencyCheck {
+			continue
 		}
 
-		srcNamespace := k.Spec.SourceRef.Namespace
+		// Check if the dependency observed generation is up to date
+		// and if the dependency is in a ready state.
+		if len(dep.Status.Conditions) == 0 || dep.Generation != dep.Status.ObservedGeneration {
+			return fmt.Errorf("dependency '%s' is not ready", depName)
+		}
+		if !apimeta.IsStatusConditionTrue(dep.Status.Conditions, meta.ReadyCondition) {
+			return fmt.Errorf("dependency '%s' is not ready", depName)
+		}
+
+		// Check if the dependency source matches the current source
+		// and if so, verify that the last applied revision of the dependency
+		// matches the current source artifact revision.
+		srcNamespace := dep.Spec.SourceRef.Namespace
 		if srcNamespace == "" {
-			srcNamespace = k.GetNamespace()
+			srcNamespace = dep.GetNamespace()
 		}
-		dSrcNamespace := obj.Spec.SourceRef.Namespace
-		if dSrcNamespace == "" {
-			dSrcNamespace = obj.GetNamespace()
+		depSrcNamespace := obj.Spec.SourceRef.Namespace
+		if depSrcNamespace == "" {
+			depSrcNamespace = obj.GetNamespace()
 		}
-
-		if k.Spec.SourceRef.Name == obj.Spec.SourceRef.Name &&
-			srcNamespace == dSrcNamespace &&
-			k.Spec.SourceRef.Kind == obj.Spec.SourceRef.Kind &&
-			!source.GetArtifact().HasRevision(k.Status.LastAppliedRevision) {
-			return fmt.Errorf("dependency '%s' revision is not up to date", dName)
+		if dep.Spec.SourceRef.Name == obj.Spec.SourceRef.Name &&
+			srcNamespace == depSrcNamespace &&
+			dep.Spec.SourceRef.Kind == obj.Spec.SourceRef.Kind &&
+			!source.GetArtifact().HasRevision(dep.Status.LastAppliedRevision) {
+			return fmt.Errorf("dependency '%s' revision is not up to date", depName)
 		}
 	}
 
 	return nil
+}
+
+// evalReadyExpr evaluates the CEL expression for the dependency readiness check.
+func (r *KustomizationReconciler) evalReadyExpr(
+	ctx context.Context,
+	expr string,
+	selfMap map[string]any,
+	dep *kustomizev1.Kustomization,
+) (bool, error) {
+	const (
+		selfName = "self"
+		depName  = "dep"
+	)
+
+	celExpr, err := cel.NewExpression(expr,
+		cel.WithCompile(),
+		cel.WithOutputType(celtypes.BoolType),
+		cel.WithStructVariables(selfName, depName))
+	if err != nil {
+		return false, reconcile.TerminalError(fmt.Errorf("failed to evaluate dependency %s: %w", dep.Name, err))
+	}
+
+	depMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(dep)
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %s object to map: %w", depName, err)
+	}
+
+	vars := map[string]any{
+		selfName: selfMap,
+		depName:  depMap,
+	}
+
+	return celExpr.EvaluateBoolean(ctx, vars)
 }
 
 func (r *KustomizationReconciler) getSource(ctx context.Context,
