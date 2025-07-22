@@ -264,6 +264,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	additiveCELDependencyCheck, err := features.Enabled(features.AdditiveCELDependencyCheck)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.AdditiveCELDependencyCheck)
+		os.Exit(1)
+	}
+
 	var tokenCache *pkgcache.TokenCache
 	if tokenCacheOptions.MaxSize > 0 {
 		var err error
@@ -278,24 +284,25 @@ func main() {
 	}
 
 	if err = (&controller.KustomizationReconciler{
-		ControllerName:          controllerName,
-		DefaultServiceAccount:   defaultServiceAccount,
-		SOPSAgeSecret:           sopsAgeSecret,
-		Client:                  mgr.GetClient(),
-		Mapper:                  restMapper,
-		APIReader:               mgr.GetAPIReader(),
-		Metrics:                 metricsH,
-		EventRecorder:           eventRecorder,
-		NoCrossNamespaceRefs:    aclOptions.NoCrossNamespaceRefs,
-		NoRemoteBases:           noRemoteBases,
-		FailFast:                failFast,
-		ConcurrentSSA:           concurrentSSA,
-		KubeConfigOpts:          kubeConfigOpts,
-		ClusterReader:           clusterReader,
-		DisallowedFieldManagers: disallowedFieldManagers,
-		StrictSubstitutions:     strictSubstitutions,
-		GroupChangeLog:          groupChangeLog,
-		TokenCache:              tokenCache,
+		ControllerName:             controllerName,
+		DefaultServiceAccount:      defaultServiceAccount,
+		SOPSAgeSecret:              sopsAgeSecret,
+		Client:                     mgr.GetClient(),
+		Mapper:                     restMapper,
+		APIReader:                  mgr.GetAPIReader(),
+		Metrics:                    metricsH,
+		EventRecorder:              eventRecorder,
+		NoCrossNamespaceRefs:       aclOptions.NoCrossNamespaceRefs,
+		NoRemoteBases:              noRemoteBases,
+		FailFast:                   failFast,
+		ConcurrentSSA:              concurrentSSA,
+		KubeConfigOpts:             kubeConfigOpts,
+		ClusterReader:              clusterReader,
+		DisallowedFieldManagers:    disallowedFieldManagers,
+		StrictSubstitutions:        strictSubstitutions,
+		GroupChangeLog:             groupChangeLog,
+		AdditiveCELDependencyCheck: additiveCELDependencyCheck,
+		TokenCache:                 tokenCache,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,
