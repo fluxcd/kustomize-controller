@@ -487,6 +487,51 @@ is running before deploying applications inside the mesh.
 **Note:** Circular dependencies between Kustomizations must be avoided,
 otherwise the interdependent Kustomizations will never be applied on the cluster.
 
+#### Dependency Ready Expression
+
+`.spec.dependsOn[].readyExpr` is an optional field that can be used to define a CEL expression
+to determine the readiness of a Kustomization dependency. 
+
+This is helpful for when custom logic is needed to determine if a dependency is ready.
+For example, when performing a lockstep upgrade, the `readyExpr` can be used to
+verify that a dependency has a matching version label before proceeding with the
+reconciliation of the dependent Kustomization.
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app-backend
+  namespace: apps
+  labels:
+    app/version: v1.2.3
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app-frontend
+  namespace: apps
+  labels:
+    app/version: v1.2.3
+spec:
+  dependsOn:
+    - name: app-backend
+      readyExpr: >
+        dep.metadata.labels['app/version'] == self.metadata.labels['app/version'] &&
+        dep.status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True') &&
+        dep.metadata.generation == dep.status.observedGeneration
+```
+
+The CEL expression contains the following variables:
+
+- `dep`: The dependency Kustomization object being evaluated.
+- `self`: The Kustomization object being reconciled.
+
+**Note:** When `readyExpr` is specified, the built-in readiness check is replaced by the logic
+defined in the CEL expression. You can configure the controller to run both the CEL expression
+evaluation and the built-in readiness check, with the `AdditiveCELDependencyCheck`
+[feature gate](https://fluxcd.io/flux/components/kustomize/options/#feature-gates).
+
 ### Service Account reference
 
 `.spec.serviceAccountName` is an optional field used to specify the

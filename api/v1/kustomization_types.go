@@ -49,11 +49,11 @@ type KustomizationSpec struct {
 	// +optional
 	CommonMetadata *CommonMetadata `json:"commonMetadata,omitempty"`
 
-	// DependsOn may contain a meta.NamespacedObjectReference slice
+	// DependsOn may contain a DependencyReference slice
 	// with references to Kustomization resources that must be ready before this
 	// Kustomization can be reconciled.
 	// +optional
-	DependsOn []meta.NamespacedObjectReference `json:"dependsOn,omitempty"`
+	DependsOn []DependencyReference `json:"dependsOn,omitempty"`
 
 	// Decrypt Kubernetes secrets before applying them on the cluster.
 	// +optional
@@ -333,9 +333,19 @@ func (in Kustomization) GetDeletionPolicy() string {
 	return in.Spec.DeletionPolicy
 }
 
-// GetDependsOn returns the list of dependencies across-namespaces.
+// GetDependsOn returns the dependencies as a list of meta.NamespacedObjectReference.
+//
+// This function makes the Kustomization type conformant with the meta.ObjectWithDependencies interface
+// and allows the controller-runtime to index Kustomizations by their dependencies.
 func (in Kustomization) GetDependsOn() []meta.NamespacedObjectReference {
-	return in.Spec.DependsOn
+	deps := make([]meta.NamespacedObjectReference, len(in.Spec.DependsOn))
+	for i := range in.Spec.DependsOn {
+		deps[i] = meta.NamespacedObjectReference{
+			Name:      in.Spec.DependsOn[i].Name,
+			Namespace: in.Spec.DependsOn[i].Namespace,
+		}
+	}
+	return deps
 }
 
 // GetConditions returns the status conditions of the object.
