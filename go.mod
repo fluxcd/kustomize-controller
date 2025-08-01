@@ -28,18 +28,18 @@ require (
 	github.com/fluxcd/pkg/cache v0.10.0
 	github.com/fluxcd/pkg/http/fetch v0.17.0
 	github.com/fluxcd/pkg/kustomize v1.19.0
-	github.com/fluxcd/pkg/runtime v0.72.0
-	github.com/fluxcd/pkg/ssa v0.51.0
+	github.com/fluxcd/pkg/runtime v0.78.0
+	github.com/fluxcd/pkg/ssa v0.52.0
 	github.com/fluxcd/pkg/tar v0.13.0
 	github.com/fluxcd/pkg/testserver v0.11.0
 	github.com/fluxcd/source-controller/api v1.6.0
 	github.com/getsops/sops/v3 v3.10.2
-	github.com/google/cel-go v0.23.2
+	github.com/google/cel-go v0.26.0
 	github.com/hashicorp/vault/api v1.20.0
-	github.com/onsi/gomega v1.37.0
+	github.com/onsi/gomega v1.38.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/ory/dockertest/v3 v3.12.0
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.7
 	golang.org/x/net v0.42.0
 	golang.org/x/oauth2 v0.30.0
 	k8s.io/api v0.33.2
@@ -61,7 +61,7 @@ replace (
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
 
 require (
-	cel.dev/expr v0.23.0 // indirect
+	cel.dev/expr v0.24.0 // indirect
 	cloud.google.com/go v0.120.1 // indirect
 	cloud.google.com/go/auth v0.16.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
