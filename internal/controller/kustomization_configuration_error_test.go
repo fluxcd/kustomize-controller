@@ -178,7 +178,8 @@ data: {}
 	t.Run("object level workload identity feature gate enabled", func(t *testing.T) {
 		g := NewWithT(t)
 
-		t.Setenv(auth.EnvVarEnableObjectLevelWorkloadIdentity, "true")
+		auth.EnableObjectLevelWorkloadIdentity()
+		t.Cleanup(auth.DisableObjectLevelWorkloadIdentity)
 
 		kustomizationKey := types.NamespacedName{
 			Name:      fmt.Sprintf("invalid-config-%s", randStringRunes(5)),

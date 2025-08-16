@@ -316,14 +316,17 @@ func (d *Decryptor) SetAuthOptions(ctx context.Context) {
 
 	switch d.kustomization.Spec.Decryption.Provider {
 	case DecryptionProviderSOPS:
-		var opts []auth.Option
+		opts := []auth.Option{
+			auth.WithClient(d.client),
+		}
 
-		if d.kustomization.Spec.Decryption.ServiceAccountName != "" {
-			serviceAccount := types.NamespacedName{
-				Name:      d.kustomization.Spec.Decryption.ServiceAccountName,
-				Namespace: d.kustomization.GetNamespace(),
-			}
-			opts = append(opts, auth.WithServiceAccount(serviceAccount, d.client))
+		saName := d.kustomization.Spec.Decryption.ServiceAccountName
+		if saName == "" {
+			saName = auth.GetDefaultDecryptionServiceAccount()
+		}
+		if saName != "" {
+			opts = append(opts, auth.WithServiceAccountName(saName))
+			opts = append(opts, auth.WithServiceAccountNamespace(d.kustomization.GetNamespace()))
 		}
 
 		involvedObject := cache.InvolvedObject{
