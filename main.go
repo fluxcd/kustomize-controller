@@ -80,27 +80,29 @@ func main() {
 	)
 
 	var (
-		metricsAddr             string
-		eventsAddr              string
-		healthAddr              string
-		concurrent              int
-		concurrentSSA           int
-		requeueDependency       time.Duration
-		clientOptions           runtimeClient.Options
-		kubeConfigOpts          runtimeClient.KubeConfigOptions
-		logOptions              logger.Options
-		leaderElectionOptions   leaderelection.Options
-		rateLimiterOptions      runtimeCtrl.RateLimiterOptions
-		watchOptions            runtimeCtrl.WatchOptions
-		intervalJitterOptions   jitter.IntervalOptions
-		aclOptions              acl.Options
-		noRemoteBases           bool
-		httpRetry               int
-		defaultServiceAccount   string
-		sopsAgeSecret           string
-		featureGates            feathelper.FeatureGates
-		disallowedFieldManagers []string
-		tokenCacheOptions       pkgcache.TokenFlags
+		metricsAddr                     string
+		eventsAddr                      string
+		healthAddr                      string
+		concurrent                      int
+		concurrentSSA                   int
+		requeueDependency               time.Duration
+		clientOptions                   runtimeClient.Options
+		kubeConfigOpts                  runtimeClient.KubeConfigOptions
+		logOptions                      logger.Options
+		leaderElectionOptions           leaderelection.Options
+		rateLimiterOptions              runtimeCtrl.RateLimiterOptions
+		watchOptions                    runtimeCtrl.WatchOptions
+		intervalJitterOptions           jitter.IntervalOptions
+		aclOptions                      acl.Options
+		noRemoteBases                   bool
+		httpRetry                       int
+		defaultServiceAccount           string
+		defaultDecryptionServiceAccount string
+		defaultKubeConfigServiceAccount string
+		sopsAgeSecret                   string
+		featureGates                    feathelper.FeatureGates
+		disallowedFieldManagers         []string
+		tokenCacheOptions               pkgcache.TokenFlags
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -112,7 +114,9 @@ func main() {
 	flag.BoolVar(&noRemoteBases, "no-remote-bases", false,
 		"Disallow remote bases usage in Kustomize overlays. When this flag is enabled, all resources must refer to local files included in the source artifact.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
-	flag.StringVar(&defaultServiceAccount, "default-service-account", "", "Default service account used for impersonation.")
+	flag.StringVar(&defaultServiceAccount, auth.ControllerFlagDefaultServiceAccount, "", "Default service account used for impersonation.")
+	flag.StringVar(&defaultDecryptionServiceAccount, auth.ControllerFlagDefaultDecryptionServiceAccount, "", "Default service account used for decryption.")
+	flag.StringVar(&defaultKubeConfigServiceAccount, auth.ControllerFlagDefaultKubeConfigServiceAccount, "", "Default service account used for kubeconfig.")
 	flag.StringVar(&sopsAgeSecret, "sops-age-secret", "", "The name of a Kubernetes secret in the RUNTIME_NAMESPACE containing a SOPS age decryption key for fallback usage.")
 	flag.StringArrayVar(&disallowedFieldManagers, "override-manager", []string{}, "Field manager disallowed to perform changes on managed resources.")
 
@@ -144,6 +148,15 @@ func main() {
 		os.Exit(1)
 	case enabled:
 		auth.EnableObjectLevelWorkloadIdentity()
+	}
+
+	// NOTE: defaultServiceAccount is used for regular impersonation, not workload identity lockdown
+
+	if defaultDecryptionServiceAccount != "" {
+		auth.SetDefaultDecryptionServiceAccount(defaultDecryptionServiceAccount)
+	}
+	if defaultKubeConfigServiceAccount != "" {
+		auth.SetDefaultKubeConfigServiceAccount(defaultKubeConfigServiceAccount)
 	}
 
 	if err := intervalJitterOptions.SetGlobalJitter(nil); err != nil {
