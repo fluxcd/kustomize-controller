@@ -16,7 +16,7 @@ There are a number of dependencies required to be able to run the controller and
 ## How to run the test suite
 
 Prerequisites:
-* Go >= 1.24
+* Go >= 1.25
 
 You can run the test suite by simply doing
 
