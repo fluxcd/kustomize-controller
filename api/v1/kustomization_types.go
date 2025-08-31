@@ -297,6 +297,11 @@ type KustomizationStatus struct {
 	// have been successfully applied.
 	// +optional
 	Inventory *ResourceInventory `json:"inventory,omitempty"`
+
+	// History contains a set of snapshots of the last reconciliation attempts
+	// tracking the revision, the state and the duration of each attempt.
+	// +optional
+	History meta.History `json:"history,omitempty"`
 }
 
 // GetTimeout returns the timeout with default.
