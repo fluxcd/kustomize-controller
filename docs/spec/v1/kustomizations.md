@@ -2066,6 +2066,37 @@ configuration issue in the Kustomization spec. When a reconciliation fails, the
 `Reconciling` Condition `reason` would be `ProgressingWithRetry`. When the
 reconciliation is performed again after the failure, the `reason` is updated to `Progressing`.
 
+### History
+
+The kustomize-controller maintains a history of the last 5 reconciliations
+in `.status.history`, including the digest of the applied manifests, the
+source and origin revision, the timestamps and the duration of the reconciliations,
+the status and the total number of times a specific digest was reconciled.
+
+```yaml
+status:
+  history:
+    - digest: sha256:43ad78c94b2655429d84f21488f29d7cca9cd45b7f54d2b27e16bbec8eff9228
+      firstReconciled: "2025-08-15T10:11:00Z"
+      lastReconciled: "2025-08-15T11:12:00Z"
+      lastReconciledDuration: 2.818583s
+      lastReconciledStatus: ReconciliationSucceeded
+      totalReconciliations: 2
+      metadata:
+        revision: "v1.0.1@sha1:450796ddb2ab6724ee1cc32a4be56da032d1cca0"
+    - digest: sha256:ec8dbfe61777b65001190260cf873ffe454451bd2e464bd6f9a154cffcdcd7e5
+      firstReconciled: "2025-07-14T13:10:00Z"
+      lastReconciled: "2025-08-15T10:00:00Z"
+      lastReconciledDuration: 49.813292s
+      lastReconciledStatus: HealthCheckFailed
+      totalReconciliations: 120
+      metadata:
+        revision: "v1.0.0@sha1:67e2c98a60dc92283531412a9e604dd4bae005a9"
+```
+
+The kustomize-controller deduplicates entries based on the digest and status, with the
+most recent reconciliation being the first entry in the list.
+
 ### Inventory
 
 In order to perform operations such as drift detection, garbage collection, etc.

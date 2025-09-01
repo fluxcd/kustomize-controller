@@ -27,6 +27,7 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	celtypes "github.com/google/cel-go/common/types"
+	"github.com/opencontainers/go-digest"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -281,6 +282,7 @@ func (r *KustomizationReconciler) reconcile(
 	src sourcev1.Source,
 	patcher *patch.SerialPatcher,
 	statusReaders []func(apimeta.RESTMapper) engine.StatusReader) error {
+	reconcileStart := time.Now()
 	log := ctrl.LoggerFrom(ctx)
 
 	// Update status with the reconciliation progress.
@@ -314,13 +316,14 @@ func (r *KustomizationReconciler) reconcile(
 	}(tmpDir)
 
 	// Download artifact and extract files to the tmp dir.
-	if err = fetch.NewArchiveFetcherWithLogger(
-		r.artifactFetchRetries,
-		tar.UnlimitedUntarSize,
-		tar.UnlimitedUntarSize,
-		os.Getenv("SOURCE_CONTROLLER_LOCALHOST"),
-		ctrl.LoggerFrom(ctx),
-	).Fetch(src.GetArtifact().URL, src.GetArtifact().Digest, tmpDir); err != nil {
+	fetcher := fetch.New(
+		fetch.WithLogger(ctrl.LoggerFrom(ctx)),
+		fetch.WithRetries(r.artifactFetchRetries),
+		fetch.WithMaxDownloadSize(tar.UnlimitedUntarSize),
+		fetch.WithUntar(tar.WithMaxUntarSize(tar.UnlimitedUntarSize)),
+		fetch.WithHostnameOverwrite(os.Getenv("SOURCE_CONTROLLER_LOCALHOST")),
+	)
+	if err = fetcher.Fetch(src.GetArtifact().URL, src.GetArtifact().Digest, tmpDir); err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", err)
 		return err
 	}
@@ -398,6 +401,13 @@ func (r *KustomizationReconciler) reconcile(
 		return err
 	}
 
+	// Calculate the digest of the built resources for history tracking.
+	checksum := digest.FromBytes(resources).String()
+	historyMeta := map[string]string{"revision": revision}
+	if originRevision != "" {
+		historyMeta["originRevision"] = originRevision
+	}
+
 	// Convert the build result into Kubernetes unstructured objects.
 	objects, err := ssautil.ReadObjects(bytes.NewReader(resources))
 	if err != nil {
@@ -423,6 +433,7 @@ func (r *KustomizationReconciler) reconcile(
 	// Validate and apply resources in stages.
 	drifted, changeSet, err := r.apply(ctx, resourceManager, obj, revision, originRevision, objects)
 	if err != nil {
+		obj.Status.History.Upsert(checksum, time.Now(), time.Since(reconcileStart), meta.ReconciliationFailedReason, historyMeta)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return err
 	}
@@ -431,6 +442,7 @@ func (r *KustomizationReconciler) reconcile(
 	newInventory := inventory.New()
 	err = inventory.AddChangeSet(newInventory, changeSet)
 	if err != nil {
+		obj.Status.History.Upsert(checksum, time.Now(), time.Since(reconcileStart), meta.ReconciliationFailedReason, historyMeta)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return err
 	}
@@ -441,12 +453,14 @@ func (r *KustomizationReconciler) reconcile(
 	// Detect stale resources which are subject to garbage collection.
 	staleObjects, err := inventory.Diff(oldInventory, newInventory)
 	if err != nil {
+		obj.Status.History.Upsert(checksum, time.Now(), time.Since(reconcileStart), meta.ReconciliationFailedReason, historyMeta)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return err
 	}
 
 	// Run garbage collection for stale resources that do not have pruning disabled.
 	if _, err := r.prune(ctx, resourceManager, obj, revision, originRevision, staleObjects); err != nil {
+		obj.Status.History.Upsert(checksum, time.Now(), time.Since(reconcileStart), meta.PruneFailedReason, historyMeta)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.PruneFailedReason, "%s", err)
 		return err
 	}
@@ -462,6 +476,7 @@ func (r *KustomizationReconciler) reconcile(
 		isNewRevision,
 		drifted,
 		changeSet.ToObjMetadataSet()); err != nil {
+		obj.Status.History.Upsert(checksum, time.Now(), time.Since(reconcileStart), meta.HealthCheckFailedReason, historyMeta)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.HealthCheckFailedReason, "%s", err)
 		return err
 	}
@@ -475,6 +490,11 @@ func (r *KustomizationReconciler) reconcile(
 		meta.ReadyCondition,
 		meta.ReconciliationSucceededReason,
 		"Applied revision: %s", revision)
+	obj.Status.History.Upsert(checksum,
+		time.Now(),
+		time.Since(reconcileStart),
+		meta.ReconciliationSucceededReason,
+		historyMeta)
 
 	return nil
 }

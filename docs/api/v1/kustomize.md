@@ -1147,6 +1147,21 @@ ResourceInventory
 have been successfully applied.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>history</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#History">
+github.com/fluxcd/pkg/apis/meta.History
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>History contains a set of snapshots of the last reconciliation attempts
+tracking the revision, the state and the duration of each attempt.</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>
