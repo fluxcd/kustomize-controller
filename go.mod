@@ -39,7 +39,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/ory/dockertest/v3 v3.12.0
-	github.com/spf13/pflag v1.0.7
+	github.com/spf13/pflag v1.0.8
 	golang.org/x/net v0.43.0
 	golang.org/x/oauth2 v0.30.0
 	k8s.io/api v0.34.0
