@@ -71,8 +71,7 @@ spec:
                     type: object
                 type: object
               components:
-                description: Components specifies relative paths to specifications
-                  of other Components.
+                description: Components specifies relative paths to kustomize Components.
                 items:
                   type: string
                 type: array
@@ -218,6 +217,12 @@ spec:
                   - name
                   type: object
                 type: array
+              ignoreMissingComponents:
+                description: |-
+                  IgnoreMissingComponents instructs the controller to ignore Components paths
+                  not found in source by removing them from the generated kustomization.yaml
+                  before running kustomize build.
+                type: boolean
               images:
                 description: |-
                   Images is a list of (image name, new name, new tag or digest)

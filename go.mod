@@ -23,12 +23,12 @@ require (
 	github.com/fluxcd/pkg/apis/acl v0.9.0
 	github.com/fluxcd/pkg/apis/event v0.19.0
 	github.com/fluxcd/pkg/apis/kustomize v1.12.0
-	github.com/fluxcd/pkg/apis/meta v1.20.0
-	github.com/fluxcd/pkg/auth v0.29.0
+	github.com/fluxcd/pkg/apis/meta v1.21.0
+	github.com/fluxcd/pkg/auth v0.30.0
 	github.com/fluxcd/pkg/cache v0.11.0
 	github.com/fluxcd/pkg/http/fetch v0.19.0
-	github.com/fluxcd/pkg/kustomize v1.20.0
-	github.com/fluxcd/pkg/runtime v0.82.0
+	github.com/fluxcd/pkg/kustomize v1.21.0
+	github.com/fluxcd/pkg/runtime v0.83.0
 	github.com/fluxcd/pkg/ssa v0.53.0
 	github.com/fluxcd/pkg/tar v0.14.0
 	github.com/fluxcd/pkg/testserver v0.13.0
@@ -119,7 +119,7 @@ require (
 	github.com/containerd/continuity v0.4.5 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/docker/cli v28.2.2+incompatible // indirect
+	github.com/docker/cli v28.3.3+incompatible // indirect
 	github.com/docker/docker v28.3.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/docker/go-connections v0.5.0 // indirect

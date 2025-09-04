@@ -392,7 +392,21 @@ resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Components specifies relative paths to specifications of other Components.</p>
+<p>Components specifies relative paths to kustomize Components.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignoreMissingComponents</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IgnoreMissingComponents instructs the controller to ignore Components paths
+not found in source by removing them from the generated kustomization.yaml
+before running kustomize build.</p>
 </td>
 </tr>
 <tr>
@@ -1011,7 +1025,21 @@ resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Components specifies relative paths to specifications of other Components.</p>
+<p>Components specifies relative paths to kustomize Components.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignoreMissingComponents</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IgnoreMissingComponents instructs the controller to ignore Components paths
+not found in source by removing them from the generated kustomization.yaml
+before running kustomize build.</p>
 </td>
 </tr>
 <tr>
