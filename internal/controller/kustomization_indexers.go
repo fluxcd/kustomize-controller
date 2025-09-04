@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/fluxcd/pkg/runtime/dependency"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
@@ -36,7 +36,7 @@ func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) h
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
 		log := ctrl.LoggerFrom(ctx)
 		repo, ok := obj.(interface {
-			GetArtifact() *sourcev1.Artifact
+			GetArtifact() *meta.Artifact
 		})
 		if !ok {
 			log.Error(fmt.Errorf("expected an object conformed with GetArtifact() method, but got a %T", obj),
