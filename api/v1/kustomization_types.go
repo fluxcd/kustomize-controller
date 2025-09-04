@@ -177,9 +177,15 @@ type KustomizationSpec struct {
 	// +optional
 	Wait bool `json:"wait,omitempty"`
 
-	// Components specifies relative paths to specifications of other Components.
+	// Components specifies relative paths to kustomize Components.
 	// +optional
 	Components []string `json:"components,omitempty"`
+
+	// IgnoreMissingComponents instructs the controller to ignore Components paths
+	// not found in source by removing them from the generated kustomization.yaml
+	// before running kustomize build.
+	// +optional
+	IgnoreMissingComponents bool `json:"ignoreMissingComponents,omitempty"`
 
 	// HealthCheckExprs is a list of healthcheck expressions for evaluating the
 	// health of custom resources using Common Expression Language (CEL).

@@ -663,12 +663,18 @@ metadata:
   namespace: flux-system
 spec:
   # ...omitted for brevity
+  ignoreMissingComponents: false
   components:
   - ../ingress
   - ../tls
 ```
 
 **Note:** The components paths must be local and relative to the path specified by `.spec.path`.
+
+With `.spec.ignoreMissingComponents` you can specify whether the controller
+should ignore the component paths that are missing from the source. By default,
+it is set to `false`, meaning that the controller will fail the reconciliation
+if any of the specified paths are missing from the source.
 
 **Warning:** Components are an alpha feature in Kustomize and are therefore
 considered experimental in Flux. No guarantees are provided as the feature may
