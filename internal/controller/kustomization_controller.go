@@ -662,6 +662,16 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
 		src = &bucket
+	case sourcev1.ExternalArtifactKind:
+		var ea sourcev1.ExternalArtifact
+		err := r.Client.Get(ctx, namespacedName, &ea)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return src, err
+			}
+			return src, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
+		}
+		src = &ea
 	default:
 		return src, fmt.Errorf("source `%s` kind '%s' not supported",
 			obj.Spec.SourceRef.Name, obj.Spec.SourceRef.Kind)

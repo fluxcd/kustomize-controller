@@ -49,12 +49,19 @@ type KustomizationReconcilerOptions struct {
 // changes in those sources, as well as for ConfigMaps and Secrets that the Kustomizations depend on.
 func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
 	const (
-		indexOCIRepository = ".metadata.ociRepository"
-		indexGitRepository = ".metadata.gitRepository"
-		indexBucket        = ".metadata.bucket"
-		indexConfigMap     = ".metadata.configMap"
-		indexSecret        = ".metadata.secret"
+		indexExternalArtifact = ".metadata.externalArtifact"
+		indexOCIRepository    = ".metadata.ociRepository"
+		indexGitRepository    = ".metadata.gitRepository"
+		indexBucket           = ".metadata.bucket"
+		indexConfigMap        = ".metadata.configMap"
+		indexSecret           = ".metadata.secret"
 	)
+
+	// Index the Kustomizations by the ExternalArtifact references they (may) point at.
+	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, indexExternalArtifact,
+		r.indexBy(sourcev1.ExternalArtifactKind)); err != nil {
+		return fmt.Errorf("failed creating index %s: %w", indexExternalArtifact, err)
+	}
 
 	// Index the Kustomizations by the OCIRepository references they (may) point at.
 	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, indexOCIRepository,
@@ -129,6 +136,11 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
 			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
 		)).
+		Watches(
+			&sourcev1.ExternalArtifact{},
+			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(indexExternalArtifact)),
+			builder.WithPredicates(SourceRevisionChangePredicate{}),
+		).
 		Watches(
 			&sourcev1.OCIRepository{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(indexOCIRepository)),
