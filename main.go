@@ -288,6 +288,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	allowExternalArtifact, err := features.Enabled(features.ExternalArtifact)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.ExternalArtifact)
+		os.Exit(1)
+	}
+
 	var tokenCache *pkgcache.TokenCache
 	if tokenCacheOptions.MaxSize > 0 {
 		var err error
@@ -302,30 +308,33 @@ func main() {
 	}
 
 	if err = (&controller.KustomizationReconciler{
+		AdditiveCELDependencyCheck: additiveCELDependencyCheck,
+		AllowExternalArtifact:      allowExternalArtifact,
+		APIReader:                  mgr.GetAPIReader(),
+		ArtifactFetchRetries:       httpRetry,
+		Client:                     mgr.GetClient(),
+		ClusterReader:              clusterReader,
+		ConcurrentSSA:              concurrentSSA,
 		ControllerName:             controllerName,
 		DefaultServiceAccount:      defaultServiceAccount,
-		SOPSAgeSecret:              sopsAgeSecret,
-		Client:                     mgr.GetClient(),
-		Mapper:                     restMapper,
-		APIReader:                  mgr.GetAPIReader(),
-		Metrics:                    metricsH,
+		DependencyRequeueInterval:  requeueDependency,
+		DisallowedFieldManagers:    disallowedFieldManagers,
 		EventRecorder:              eventRecorder,
+		FailFast:                   failFast,
+		GroupChangeLog:             groupChangeLog,
+		KubeConfigOpts:             kubeConfigOpts,
+		Mapper:                     restMapper,
+		Metrics:                    metricsH,
 		NoCrossNamespaceRefs:       aclOptions.NoCrossNamespaceRefs,
 		NoRemoteBases:              noRemoteBases,
-		FailFast:                   failFast,
-		ConcurrentSSA:              concurrentSSA,
-		KubeConfigOpts:             kubeConfigOpts,
-		ClusterReader:              clusterReader,
-		DisallowedFieldManagers:    disallowedFieldManagers,
+		SOPSAgeSecret:              sopsAgeSecret,
+		StatusManager:              fmt.Sprintf("gotk-%s", controllerName),
 		StrictSubstitutions:        strictSubstitutions,
-		GroupChangeLog:             groupChangeLog,
-		AdditiveCELDependencyCheck: additiveCELDependencyCheck,
 		TokenCache:                 tokenCache,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
-		DependencyRequeueInterval: requeueDependency,
-		HTTPRetry:                 httpRetry,
-		RateLimiter:               runtimeCtrl.GetRateLimiter(rateLimiterOptions),
-		WatchConfigsPredicate:     watchConfigsPredicate,
+		RateLimiter:            runtimeCtrl.GetRateLimiter(rateLimiterOptions),
+		WatchConfigsPredicate:  watchConfigsPredicate,
+		WatchExternalArtifacts: allowExternalArtifact,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", controllerName)
 		os.Exit(1)

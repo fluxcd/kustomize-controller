@@ -117,6 +117,7 @@ Artifact containing the YAML manifests. It has two required fields:
   + [GitRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1/gitrepositories.md)
   + [OCIRepository](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1/ocirepositories.md)
   + [Bucket](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1/buckets.md)
+  + [ExternalArtifact](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1/externalartifacts.md) (requires `--feature-gates=ExternalArtifact=true` flag)
 - `name`: The Name of the referred Source object.
 
 #### Cross-namespace references

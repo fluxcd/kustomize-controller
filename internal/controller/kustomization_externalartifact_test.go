@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	apiacl "github.com/fluxcd/pkg/apis/acl"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
@@ -41,6 +42,7 @@ func TestKustomizationReconciler_ExternalArtifact(t *testing.T) {
 	g := NewWithT(t)
 	id := "ea-" + randStringRunes(5)
 	revision := "v1.0.0"
+	reconciler.AllowExternalArtifact = true
 
 	err := createNamespace(id)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
@@ -129,6 +131,7 @@ stringData:
 
 	t.Run("watches for external artifact revision change", func(t *testing.T) {
 		newRev := "v2.0.0"
+
 		err = applyExternalArtifact(eaName, artifact, newRev)
 		g.Expect(err).NotTo(HaveOccurred())
 
@@ -141,6 +144,27 @@ stringData:
 		g.Expect(resultK.Status.History[0].TotalReconciliations).To(BeEquivalentTo(2))
 		g.Expect(resultK.Status.History[0].LastReconciledStatus).To(Equal(meta.ReconciliationSucceededReason))
 		g.Expect(resultK.Status.History[0].Metadata).To(ContainElements(newRev))
+	})
+
+	t.Run("fails when external artifact feature gate is disable", func(t *testing.T) {
+		newRev := "v3.0.0"
+		reconciler.AllowExternalArtifact = false
+
+		err = applyExternalArtifact(eaName, artifact, newRev)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			readyCondition = apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
+			return apimeta.IsStatusConditionFalse(resultK.Status.Conditions, meta.ReadyCondition)
+		}, timeout, time.Second).Should(BeTrue())
+
+		g.Expect(readyCondition.Reason).To(Equal(apiacl.AccessDeniedReason))
+		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.StalledCondition)).Should(BeTrue())
+
+		events := getEvents(resultK.GetName(), nil)
+		g.Expect(events[len(events)-1].Reason).To(BeIdenticalTo(apiacl.AccessDeniedReason))
+		g.Expect(events[len(events)-1].Message).To(ContainSubstring("feature gate is disabled"))
 	})
 }
 

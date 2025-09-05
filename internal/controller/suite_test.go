@@ -174,19 +174,21 @@ func TestMain(m *testing.M) {
 		kstatusInProgressCheck = kcheck.NewInProgressChecker(testEnv.Client)
 		kstatusInProgressCheck.DisableFetch = true
 		reconciler = &KustomizationReconciler{
-			ControllerName:          controllerName,
-			Client:                  testEnv,
-			Mapper:                  testEnv.GetRESTMapper(),
-			APIReader:               testEnv,
-			EventRecorder:           testEnv.GetEventRecorderFor(controllerName),
-			Metrics:                 testMetricsH,
-			ConcurrentSSA:           4,
-			DisallowedFieldManagers: []string{overrideManagerName},
-			SOPSAgeSecret:           sopsAgeSecret,
+			ControllerName:            controllerName,
+			StatusManager:             fmt.Sprintf("gotk-%s", controllerName),
+			Client:                    testEnv,
+			Mapper:                    testEnv.GetRESTMapper(),
+			APIReader:                 testEnv,
+			EventRecorder:             testEnv.GetEventRecorderFor(controllerName),
+			Metrics:                   testMetricsH,
+			DependencyRequeueInterval: 2 * time.Second,
+			ConcurrentSSA:             4,
+			DisallowedFieldManagers:   []string{overrideManagerName},
+			SOPSAgeSecret:             sopsAgeSecret,
 		}
 		if err := (reconciler).SetupWithManager(ctx, testEnv, KustomizationReconcilerOptions{
-			DependencyRequeueInterval: 2 * time.Second,
-			WatchConfigsPredicate:     predicate.Not(predicate.Funcs{}),
+			WatchConfigsPredicate:  predicate.Not(predicate.Funcs{}),
+			WatchExternalArtifacts: true,
 		}); err != nil {
 			panic(fmt.Sprintf("Failed to start KustomizationReconciler: %v", err))
 		}

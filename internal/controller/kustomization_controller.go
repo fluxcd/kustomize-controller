@@ -70,6 +70,7 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	intcache "github.com/fluxcd/kustomize-controller/internal/cache"
 	"github.com/fluxcd/kustomize-controller/internal/decryptor"
+	"github.com/fluxcd/kustomize-controller/internal/features"
 	"github.com/fluxcd/kustomize-controller/internal/inventory"
 	intruntime "github.com/fluxcd/kustomize-controller/internal/runtime"
 )
@@ -89,26 +90,37 @@ type KustomizationReconciler struct {
 	kuberecorder.EventRecorder
 	runtimeCtrl.Metrics
 
-	artifactFetchRetries int
-	requeueDependency    time.Duration
+	// Kubernetes options
 
-	Mapper                     apimeta.RESTMapper
-	APIReader                  client.Reader
-	ClusterReader              engine.ClusterReaderFactory
-	ControllerName             string
-	statusManager              string
-	NoCrossNamespaceRefs       bool
-	NoRemoteBases              bool
-	FailFast                   bool
-	DefaultServiceAccount      string
-	SOPSAgeSecret              string
-	KubeConfigOpts             runtimeClient.KubeConfigOptions
-	ConcurrentSSA              int
-	DisallowedFieldManagers    []string
-	StrictSubstitutions        bool
-	GroupChangeLog             bool
+	APIReader      client.Reader
+	ClusterReader  engine.ClusterReaderFactory
+	ConcurrentSSA  int
+	ControllerName string
+	KubeConfigOpts runtimeClient.KubeConfigOptions
+	Mapper         apimeta.RESTMapper
+	StatusManager  string
+
+	// Multi-tenancy and security options
+
+	DefaultServiceAccount   string
+	DisallowedFieldManagers []string
+	NoCrossNamespaceRefs    bool
+	NoRemoteBases           bool
+	SOPSAgeSecret           string
+	TokenCache              *cache.TokenCache
+
+	// Retry and requeue options
+
+	ArtifactFetchRetries      int
+	DependencyRequeueInterval time.Duration
+
+	// Feature gates
+
 	AdditiveCELDependencyCheck bool
-	TokenCache                 *cache.TokenCache
+	AllowExternalArtifact      bool
+	FailFast                   bool
+	GroupChangeLog             bool
+	StrictSubstitutions        bool
 }
 
 func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, retErr error) {
@@ -207,9 +219,9 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		if acl.IsAccessDenied(err) {
 			conditions.MarkFalse(obj, meta.ReadyCondition, apiacl.AccessDeniedReason, "%s", err)
-			log.Error(err, "Access denied to cross-namespace source")
+			conditions.MarkStalled(obj, apiacl.AccessDeniedReason, "%s", err)
 			r.event(obj, "", "", eventv1.EventSeverityError, err.Error(), nil)
-			return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
+			return ctrl.Result{}, reconcile.TerminalError(err)
 		}
 
 		// Retry with backoff on transient errors.
@@ -218,10 +230,10 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Requeue the reconciliation if the source artifact is not found.
 	if artifactSource.GetArtifact() == nil {
-		msg := fmt.Sprintf("Source artifact not found, retrying in %s", r.requeueDependency.String())
+		msg := fmt.Sprintf("Source artifact not found, retrying in %s", r.DependencyRequeueInterval.String())
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", msg)
 		log.Info(msg)
-		return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
+		return ctrl.Result{RequeueAfter: r.DependencyRequeueInterval}, nil
 	}
 	revision := artifactSource.GetArtifact().Revision
 	originRevision := getOriginRevision(artifactSource)
@@ -241,10 +253,10 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 			// Retry on transient errors.
 			conditions.MarkFalse(obj, meta.ReadyCondition, meta.DependencyNotReadyReason, "%s", err)
-			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
+			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.DependencyRequeueInterval.String())
 			log.Info(msg)
 			r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, msg, nil)
-			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
+			return ctrl.Result{RequeueAfter: r.DependencyRequeueInterval}, nil
 		}
 		log.Info("All dependencies are ready, proceeding with reconciliation")
 	}
@@ -254,10 +266,10 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Requeue at the specified retry interval if the artifact tarball is not found.
 	if errors.Is(reconcileErr, fetch.ErrFileNotFound) {
-		msg := fmt.Sprintf("Source is not ready, artifact not found, retrying in %s", r.requeueDependency.String())
+		msg := fmt.Sprintf("Source is not ready, artifact not found, retrying in %s", r.DependencyRequeueInterval.String())
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", msg)
 		log.Info(msg)
-		return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
+		return ctrl.Result{RequeueAfter: r.DependencyRequeueInterval}, nil
 	}
 
 	// Broadcast the reconciliation failure and requeue at the specified retry interval.
@@ -318,7 +330,7 @@ func (r *KustomizationReconciler) reconcile(
 	// Download artifact and extract files to the tmp dir.
 	fetcher := fetch.New(
 		fetch.WithLogger(ctrl.LoggerFrom(ctx)),
-		fetch.WithRetries(r.artifactFetchRetries),
+		fetch.WithRetries(r.ArtifactFetchRetries),
 		fetch.WithMaxDownloadSize(tar.UnlimitedUntarSize),
 		fetch.WithUntar(tar.WithMaxUntarSize(tar.UnlimitedUntarSize)),
 		fetch.WithHostnameOverwrite(os.Getenv("SOURCE_CONTROLLER_LOCALHOST")),
@@ -613,6 +625,8 @@ func (r *KustomizationReconciler) evalReadyExpr(
 	return celExpr.EvaluateBoolean(ctx, vars)
 }
 
+// getSource resolves the source reference and returns the source object containing the artifact.
+// It returns an error if the source is not found or if access is denied.
 func (r *KustomizationReconciler) getSource(ctx context.Context,
 	obj *kustomizev1.Kustomization) (sourcev1.Source, error) {
 	var src sourcev1.Source
@@ -625,10 +639,18 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 		Name:      obj.Spec.SourceRef.Name,
 	}
 
+	// Check if cross-namespace references are allowed.
 	if r.NoCrossNamespaceRefs && sourceNamespace != obj.GetNamespace() {
 		return src, acl.AccessDeniedError(
 			fmt.Sprintf("can't access '%s/%s', cross-namespace references have been blocked",
 				obj.Spec.SourceRef.Kind, namespacedName))
+	}
+
+	// Check if ExternalArtifact kind is allowed.
+	if obj.Spec.SourceRef.Kind == sourcev1.ExternalArtifactKind && !r.AllowExternalArtifact {
+		return src, acl.AccessDeniedError(
+			fmt.Sprintf("can't access '%s/%s', %s feature gate is disabled",
+				obj.Spec.SourceRef.Kind, namespacedName, features.ExternalArtifact))
 	}
 
 	switch obj.Spec.SourceRef.Kind {
@@ -1204,7 +1226,7 @@ func (r *KustomizationReconciler) patch(ctx context.Context,
 	patchOpts = append(patchOpts,
 		patch.WithOwnedConditions{Conditions: ownedConditions},
 		patch.WithForceOverwriteConditions{},
-		patch.WithFieldOwner(r.statusManager),
+		patch.WithFieldOwner(r.StatusManager),
 	)
 
 	// Patch the object status, conditions and finalizers.
