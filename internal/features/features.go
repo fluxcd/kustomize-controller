@@ -56,6 +56,9 @@ const (
 	// should be additive, meaning that the built-in readiness check will
 	// be added to the user-defined CEL expressions.
 	AdditiveCELDependencyCheck = "AdditiveCELDependencyCheck"
+
+	// ExternalArtifact controls whether the ExternalArtifact source type is enabled.
+	ExternalArtifact = "ExternalArtifact"
 )
 
 var features = map[string]bool{
@@ -77,6 +80,9 @@ var features = map[string]bool{
 	// AdditiveCELDependencyCheck
 	// opt-in from v1.7
 	AdditiveCELDependencyCheck: false,
+	// ExternalArtifact
+	// opt-in from v1.7
+	ExternalArtifact: false,
 }
 
 func init() {

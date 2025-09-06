@@ -38,6 +38,7 @@ ENVTEST_ARCH ?= amd64
 GITREPO_CRD ?= config/crd/bases/gitrepositories.yaml
 BUCKET_CRD ?= config/crd/bases/buckets.yaml
 OCIREPO_CRD ?= config/crd/bases/ocirepositories.yaml
+EA_CRD ?= config/crd/bases/externalartifacts.yaml
 
 # Keep a record of the version of the downloaded source CRDs. It is used to
 # detect and download new CRDs when the SOURCE_VER changes.
@@ -90,12 +91,15 @@ $(BUCKET_CRD):
 $(OCIREPO_CRD):
 	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_ocirepositories.yaml -o $(OCIREPO_CRD)
 
+$(EA_CRD):
+	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_externalartifacts.yaml -o $(EA_CRD)
+
 # Download the CRDs the controller depends on
-download-crd-deps: $(SOURCE_CRD_VER) $(GITREPO_CRD) $(BUCKET_CRD) $(OCIREPO_CRD)
+download-crd-deps: $(SOURCE_CRD_VER) $(GITREPO_CRD) $(BUCKET_CRD) $(OCIREPO_CRD) $(EA_CRD)
 
 # Delete the downloaded CRD dependencies.
 cleanup-crd-deps:
-	rm -f $(GITREPO_CRD) $(BUCKET_CRD) $(OCIREPO_CRD)
+	rm -f $(GITREPO_CRD) $(BUCKET_CRD) $(OCIREPO_CRD) $(EA_CRD)
 
 # Install CRDs into a cluster
 install: manifests

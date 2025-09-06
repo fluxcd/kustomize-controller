@@ -19,10 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/fluxcd/pkg/runtime/predicates"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,15 +30,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/fluxcd/pkg/runtime/predicates"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
+
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
 type KustomizationReconcilerOptions struct {
-	HTTPRetry                 int
-	DependencyRequeueInterval time.Duration
-	RateLimiter               workqueue.TypedRateLimiter[reconcile.Request]
-	WatchConfigsPredicate     predicate.Predicate
+	RateLimiter            workqueue.TypedRateLimiter[reconcile.Request]
+	WatchConfigsPredicate  predicate.Predicate
+	WatchExternalArtifacts bool
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -49,11 +48,12 @@ type KustomizationReconcilerOptions struct {
 // changes in those sources, as well as for ConfigMaps and Secrets that the Kustomizations depend on.
 func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts KustomizationReconcilerOptions) error {
 	const (
-		indexOCIRepository = ".metadata.ociRepository"
-		indexGitRepository = ".metadata.gitRepository"
-		indexBucket        = ".metadata.bucket"
-		indexConfigMap     = ".metadata.configMap"
-		indexSecret        = ".metadata.secret"
+		indexExternalArtifact = ".metadata.externalArtifact"
+		indexOCIRepository    = ".metadata.ociRepository"
+		indexGitRepository    = ".metadata.gitRepository"
+		indexBucket           = ".metadata.bucket"
+		indexConfigMap        = ".metadata.configMap"
+		indexSecret           = ".metadata.secret"
 	)
 
 	// Index the Kustomizations by the OCIRepository references they (may) point at.
@@ -72,6 +72,14 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 	if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, indexBucket,
 		r.indexBy(sourcev1.BucketKind)); err != nil {
 		return fmt.Errorf("failed creating index %s: %w", indexBucket, err)
+	}
+
+	// Index the Kustomizations by the ExternalArtifact references they (may) point at (if enabled).
+	if opts.WatchExternalArtifacts {
+		if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, indexExternalArtifact,
+			r.indexBy(sourcev1.ExternalArtifactKind)); err != nil {
+			return fmt.Errorf("failed creating index %s: %w", indexExternalArtifact, err)
+		}
 	}
 
 	// Index the Kustomization by the ConfigMap references they point to.
@@ -121,11 +129,7 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		return fmt.Errorf("failed creating index %s: %w", indexSecret, err)
 	}
 
-	r.requeueDependency = opts.DependencyRequeueInterval
-	r.statusManager = fmt.Sprintf("gotk-%s", r.ControllerName)
-	r.artifactFetchRetries = opts.HTTPRetry
-
-	return ctrl.NewControllerManagedBy(mgr).
+	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
 			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
 		)).
@@ -153,9 +157,15 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForConfigDependency(indexSecret)),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, opts.WatchConfigsPredicate),
-		).
-		WithOptions(controller.Options{
-			RateLimiter: opts.RateLimiter,
-		}).
-		Complete(r)
+		)
+
+	if opts.WatchExternalArtifacts {
+		ctrlBuilder = ctrlBuilder.Watches(
+			&sourcev1.ExternalArtifact{},
+			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(indexExternalArtifact)),
+			builder.WithPredicates(SourceRevisionChangePredicate{}),
+		)
+	}
+
+	return ctrlBuilder.WithOptions(controller.Options{RateLimiter: opts.RateLimiter}).Complete(r)
 }
