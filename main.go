@@ -293,6 +293,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	enableRevisionAnnotation, err := features.Enabled(features.EnableRevisionAnnotation)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.EnableRevisionAnnotation)
+		os.Exit(1)
+	}
+
 	var tokenCache *pkgcache.TokenCache
 	if tokenCacheOptions.MaxSize > 0 {
 		var err error
@@ -330,6 +336,7 @@ func main() {
 		StatusManager:              fmt.Sprintf("gotk-%s", controllerName),
 		StrictSubstitutions:        strictSubstitutions,
 		TokenCache:                 tokenCache,
+		EnableRevisionAnnotation:   enableRevisionAnnotation,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
 		RateLimiter:            runtimeCtrl.GetRateLimiter(rateLimiterOptions),
 		WatchConfigsPredicate:  watchConfigsPredicate,
