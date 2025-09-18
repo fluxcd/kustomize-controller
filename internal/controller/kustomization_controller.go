@@ -803,8 +803,24 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		return false, nil, err
 	}
 
-	if cmeta := obj.Spec.CommonMetadata; cmeta != nil {
+	cmeta := obj.Spec.CommonMetadata
+	revisionAnnotations := map[string]string{
+		fmt.Sprintf("%s/source-revision", eventv1.Group): revision,
+	}
+	if originRevision != "" {
+		revisionAnnotations[fmt.Sprintf("%s/source-revision", eventv1.Group)] = originRevision
+	}
+
+	if cmeta != nil {
+		if cmeta.Annotations == nil {
+			cmeta.Annotations = make(map[string]string)
+		}
+		for k, v := range revisionAnnotations {
+			cmeta.Annotations[k] = v
+		}
 		ssautil.SetCommonMetadata(objects, cmeta.Labels, cmeta.Annotations)
+	} else {
+		ssautil.SetCommonMetadata(objects, nil, revisionAnnotations)
 	}
 
 	applyOpts := ssa.DefaultApplyOptions()
