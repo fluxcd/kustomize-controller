@@ -441,11 +441,22 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Validate and apply resources in stages.
-	drifted, changeSet, err := r.apply(ctx, resourceManager, obj, revision, originRevision, objects)
+	drifted, changeSetWithSkipped, err := r.apply(ctx, resourceManager, obj, revision, originRevision, objects)
 	if err != nil {
 		obj.Status.History.Upsert(checksum, time.Now(), time.Since(reconcileStart), meta.ReconciliationFailedReason, historyMeta)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return err
+	}
+
+	// Filter out skipped entries from the change set.
+	changeSet := ssa.NewChangeSet()
+	skippedSet := make(map[object.ObjMetadata]struct{})
+	for _, entry := range changeSetWithSkipped.Entries {
+		if entry.Action == ssa.SkippedAction {
+			skippedSet[entry.ObjMetadata] = struct{}{}
+		} else {
+			changeSet.Add(entry)
+		}
 	}
 
 	// Create an inventory from the reconciled resources.
@@ -461,7 +472,7 @@ func (r *KustomizationReconciler) reconcile(
 	obj.Status.Inventory = newInventory
 
 	// Detect stale resources which are subject to garbage collection.
-	staleObjects, err := inventory.Diff(oldInventory, newInventory)
+	staleObjects, err := inventory.Diff(oldInventory, newInventory, skippedSet)
 	if err != nil {
 		obj.Status.History.Upsert(checksum, time.Now(), time.Since(reconcileStart), meta.ReconciliationFailedReason, historyMeta)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
