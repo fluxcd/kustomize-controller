@@ -55,7 +55,6 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/kustomize-controller/internal/controller"
 	"github.com/fluxcd/kustomize-controller/internal/features"
-	intruntime "github.com/fluxcd/kustomize-controller/internal/runtime"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -171,7 +170,7 @@ func main() {
 
 	watchNamespace := ""
 	if !watchOptions.AllNamespaces {
-		watchNamespace = intruntime.Namespace()
+		watchNamespace = os.Getenv(runtimeCtrl.EnvRuntimeNamespace)
 	}
 
 	watchSelector, err := runtimeCtrl.GetWatchSelector(watchOptions)

@@ -59,7 +59,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
-	intcache "github.com/fluxcd/kustomize-controller/internal/cache"
 	intawskms "github.com/fluxcd/kustomize-controller/internal/sops/awskms"
 	intazkv "github.com/fluxcd/kustomize-controller/internal/sops/azkv"
 	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
@@ -338,7 +337,7 @@ func (d *Decryptor) SetAuthOptions(ctx context.Context) {
 		if d.awsCredentialsProvider == nil {
 			awsOpts := opts
 			if d.tokenCache != nil {
-				involvedObject.Operation = intcache.OperationDecryptWithAWS
+				involvedObject.Operation = kustomizev1.MetricDecryptWithAWS
 				awsOpts = append(awsOpts, auth.WithCache(*d.tokenCache, involvedObject))
 			}
 			d.awsCredentialsProvider = func(region string) awssdk.CredentialsProvider {
@@ -350,7 +349,7 @@ func (d *Decryptor) SetAuthOptions(ctx context.Context) {
 		if d.azureTokenCredential == nil {
 			azureOpts := opts
 			if d.tokenCache != nil {
-				involvedObject.Operation = intcache.OperationDecryptWithAzure
+				involvedObject.Operation = kustomizev1.MetricDecryptWithAzure
 				azureOpts = append(azureOpts, auth.WithCache(*d.tokenCache, involvedObject))
 			}
 			d.azureTokenCredential = azure.NewTokenCredential(ctx, azureOpts...)
@@ -359,7 +358,7 @@ func (d *Decryptor) SetAuthOptions(ctx context.Context) {
 		if d.gcpTokenSource == nil {
 			gcpOpts := opts
 			if d.tokenCache != nil {
-				involvedObject.Operation = intcache.OperationDecryptWithGCP
+				involvedObject.Operation = kustomizev1.MetricDecryptWithGCP
 				gcpOpts = append(gcpOpts, auth.WithCache(*d.tokenCache, involvedObject))
 			}
 			d.gcpTokenSource = gcp.NewTokenSource(ctx, gcpOpts...)
