@@ -68,11 +68,9 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
-	intcache "github.com/fluxcd/kustomize-controller/internal/cache"
 	"github.com/fluxcd/kustomize-controller/internal/decryptor"
 	"github.com/fluxcd/kustomize-controller/internal/features"
 	"github.com/fluxcd/kustomize-controller/internal/inventory"
-	intruntime "github.com/fluxcd/kustomize-controller/internal/runtime"
 )
 
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete
@@ -718,7 +716,7 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 	if r.TokenCache != nil {
 		decryptorOpts = append(decryptorOpts, decryptor.WithTokenCache(*r.TokenCache))
 	}
-	if name, ns := r.SOPSAgeSecret, intruntime.Namespace(); name != "" && ns != "" {
+	if name, ns := r.SOPSAgeSecret, os.Getenv(runtimeCtrl.EnvRuntimeNamespace); name != "" && ns != "" {
 		decryptorOpts = append(decryptorOpts, decryptor.WithSOPSAgeSecret(name, ns))
 	}
 	dec, cleanup, err := decryptor.New(r.Client, obj, decryptorOpts...)
@@ -1149,7 +1147,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 	controllerutil.RemoveFinalizer(obj, kustomizev1.KustomizationFinalizer)
 
 	// Cleanup caches.
-	for _, op := range intcache.AllOperations {
+	for _, op := range kustomizev1.AllMetrics {
 		r.TokenCache.DeleteEventsForObject(kustomizev1.KustomizationKind, obj.GetName(), obj.GetNamespace(), op)
 	}
 
@@ -1278,7 +1276,7 @@ func (r *KustomizationReconciler) getProviderRESTConfigFetcher(obj *kustomizev1.
 				Kind:      kustomizev1.KustomizationKind,
 				Name:      obj.GetName(),
 				Namespace: obj.GetNamespace(),
-				Operation: intcache.OperationFetchKubeConfig,
+				Operation: kustomizev1.MetricFetchKubeConfig,
 			}
 			opts = append(opts, auth.WithCache(*r.TokenCache, involvedObject))
 		}
