@@ -94,8 +94,11 @@ func ListMetadata(inv *kustomizev1.ResourceInventory) (object.ObjMetadataSet, er
 	return metas, nil
 }
 
-// Diff returns the slice of objects that do not exist in the target inventory.
-func Diff(inv *kustomizev1.ResourceInventory, target *kustomizev1.ResourceInventory) ([]*unstructured.Unstructured, error) {
+// Diff returns the slice of objects that do not exist in the target inventory,
+// ignoring those in the skippedSet.
+func Diff(inv *kustomizev1.ResourceInventory, target *kustomizev1.ResourceInventory,
+	skippedSet map[object.ObjMetadata]struct{}) ([]*unstructured.Unstructured, error) {
+
 	versionOf := func(i *kustomizev1.ResourceInventory, objMetadata object.ObjMetadata) string {
 		for _, entry := range i.Entries {
 			if entry.ID == objMetadata.String() {
@@ -106,9 +109,15 @@ func Diff(inv *kustomizev1.ResourceInventory, target *kustomizev1.ResourceInvent
 	}
 
 	objects := make([]*unstructured.Unstructured, 0)
-	aList, err := ListMetadata(inv)
+	aListWithSkipped, err := ListMetadata(inv)
 	if err != nil {
 		return nil, err
+	}
+	var aList object.ObjMetadataSet
+	for _, m := range aListWithSkipped {
+		if _, found := skippedSet[m]; !found {
+			aList = append(aList, m)
+		}
 	}
 
 	bList, err := ListMetadata(target)

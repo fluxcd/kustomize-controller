@@ -24,6 +24,7 @@ import (
 	"github.com/fluxcd/pkg/ssa"
 	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/fluxcd/cli-utils/pkg/object"
 )
@@ -60,10 +61,24 @@ func Test_Inventory(t *testing.T) {
 	})
 
 	t.Run("diff objects in inventory", func(t *testing.T) {
-		unList, err := Diff(inv2, inv1)
+		unList, err := Diff(inv2, inv1, nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(unList)).To(BeIdenticalTo(1))
 		g.Expect(unList[0].GetName()).To(BeIdenticalTo("test2"))
+	})
+
+	t.Run("diff objects in inventory ignoring skipped", func(t *testing.T) {
+		skipped := object.ObjMetadata{
+			Name:      "test2",
+			Namespace: "test",
+			GroupKind: schema.GroupKind{
+				Group: "",
+				Kind:  "ConfigMap",
+			},
+		}
+		unList, err := Diff(inv2, inv1, map[object.ObjMetadata]struct{}{skipped: {}})
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(unList)).To(BeIdenticalTo(0))
 	})
 }
 
