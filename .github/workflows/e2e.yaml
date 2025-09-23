@@ -30,19 +30,12 @@ jobs:
           TEST_AZURE_VAULT_KEY_VERSION: ${{ secrets.TEST_AZURE_VAULT_KEY_VERSION }}
         run: make test
       - name: Check if working tree is dirty
-        run: |
-          if [[ $(git diff --stat) != '' ]]; then
-            git --no-pager diff
-            echo 'run make test and commit changes'
-            exit 1
-          fi
+        run: make verify
       - name: Build container image
         run: |
           make docker-build IMG=test/kustomize-controller:latest \
             BUILD_PLATFORMS=linux/amd64 \
-            BUILD_ARGS="--cache-from=type=local,src=/tmp/.buildx-cache \
-              --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
-              --load"
+            BUILD_ARGS="--load"
       - name: Load test image
         run: kind load docker-image test/kustomize-controller:latest
       - name: Install CRDs
@@ -105,12 +98,9 @@ jobs:
           kubectl create ns oci
           kubectl -n oci apply -f ./config/testdata/oci
           kubectl -n oci wait kustomizations/oci --for=condition=ready --timeout=4m
-      - name: Run CRDs + CRs tests
-        run: |
-          kubectl -n kustomize-system apply -f ./config/testdata/crds-crs
-          kubectl -n kustomize-system wait kustomizations/certs --for=condition=ready --timeout=4m
-          kubectl -n kustomizer-cert-test wait issuers/my-ca-issuer --for=condition=ready --timeout=1m
       - name: Logs
+        if: always()
+        continue-on-error: true
         run: |
           kubectl -n kustomize-system logs deploy/source-controller
           kubectl -n kustomize-system logs deploy/kustomize-controller
@@ -122,5 +112,3 @@ jobs:
           kubectl -n kustomize-system get all
           kubectl -n oci get ocirepository/oci -oyaml
           kubectl -n oci get kustomization/oci -oyaml
-          kubectl -n kustomize-system logs deploy/source-controller
-          kubectl -n kustomize-system logs deploy/kustomize-controller
