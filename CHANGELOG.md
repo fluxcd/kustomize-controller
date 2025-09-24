@@ -2,6 +2,81 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.7.0
+
+**Release date:** 2025-09-24
+
+This minor release comes with various bug fixes and improvements.
+
+⚠️ The `v1beta1` APIs were removed. Before upgrading the CRDs, Flux users
+must run [`flux migrate`](https://github.com/fluxcd/flux2/pull/5473) to
+migrate the cluster storage off `v1beta1`.
+
+The Kustomization API now supports reconciling content from external storage systems
+through the new `ExternalArtifact` CRD. This feature is controlled by the `ExternalArtifact`
+feature gate and enables reconciliation of artifacts stored outside of Git repositories.
+
+Kustomizations now track their reconciliation history in `.status.history`, providing
+visibility into past reconciliation attempts and their outcomes.
+
+Dependencies can now be evaluated using CEL expressions through the new `readyExpr` field
+in `dependsOn`. This feature is controlled by the `AdditiveCELDependencyCheck` feature gate
+and allows for more flexible dependency readiness checks.
+
+The controller now supports global SOPS Age key decryption, allowing centralized
+management of decryption keys.
+
+Support for workload identity authentication has been added for remote clusters.
+This is support both at the controller and object levels. For object-level,
+enable the feature gate `ObjectLevelWorkloadIdentity`.
+
+The new `.spec.ignoreMissingComponents` field allows Kustomizations to continue
+reconciliation even when referenced components are missing, providing more resilient
+deployments.
+
+In addition, the Kubernetes dependencies have been updated to v1.34,
+Kustomize has been updated to v5.7 and various other controller
+dependencies have been updated to their latest version.
+The controller is now built with Go 1.25.
+
+Fixes:
+- Fix skipped entries from SSA being stored in the inventory
+  [#1513](https://github.com/fluxcd/kustomize-controller/pull/1513)
+
+Improvements:
+- [RFC-0010] Add workload identity authentication for remote clusters
+  [#1476](https://github.com/fluxcd/kustomize-controller/pull/1476)
+- [RFC-0010] Add multi-tenancy lockdown for decryption and kubeconfig
+  [#1495](https://github.com/fluxcd/kustomize-controller/pull/1495)
+- [RFC-0010] Add object-level configuration validation
+  [#1497](https://github.com/fluxcd/kustomize-controller/pull/1497)
+- [RFC-0010] Add support for all Azure clouds for remote cluster authentication
+  [#1488](https://github.com/fluxcd/kustomize-controller/pull/1488)
+- [RFC-0012] Add support for ExternalArtifact source type
+  [#1508](https://github.com/fluxcd/kustomize-controller/pull/1508)
+- Add reconciliation history tracking in Kustomization status
+  [#1502](https://github.com/fluxcd/kustomize-controller/pull/1502)
+- Add CEL expressions for dependency readiness evaluation
+  [#1491](https://github.com/fluxcd/kustomize-controller/pull/1491)
+- Add `.spec.ignoreMissingComponents` field to Kustomization API
+  [#1507](https://github.com/fluxcd/kustomize-controller/pull/1507)
+- Add global SOPS Age key decryption support
+  [#1481](https://github.com/fluxcd/kustomize-controller/pull/1481)
+- Add label selector for watching ConfigMaps and Secrets
+  [#1486](https://github.com/fluxcd/kustomize-controller/pull/1486)
+- Refactor reconciler to use staged server-side apply
+  [#1484](https://github.com/fluxcd/kustomize-controller/pull/1484)
+- Remove deprecated APIs in group `kustomize.toolkit.fluxcd.io/v1beta1`
+  [#1494](https://github.com/fluxcd/kustomize-controller/pull/1494)
+- CI improvements with `fluxcd/gha-workflows`
+  [#1512](https://github.com/fluxcd/kustomize-controller/pull/1512)
+  [#1514](https://github.com/fluxcd/kustomize-controller/pull/1514)
+- Various dependency updates
+  [#1470](https://github.com/fluxcd/kustomize-controller/pull/1470)
+  [#1505](https://github.com/fluxcd/kustomize-controller/pull/1505)
+  [#1511](https://github.com/fluxcd/kustomize-controller/pull/1511)
+  [#1515](https://github.com/fluxcd/kustomize-controller/pull/1515)
+
 ## 1.6.1
 
 **Release date:** 2025-07-08
