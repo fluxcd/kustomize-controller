@@ -119,6 +119,7 @@ type KustomizationReconciler struct {
 	FailFast                   bool
 	GroupChangeLog             bool
 	StrictSubstitutions        bool
+	EnableRevisionAnnotation   bool
 }
 
 func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, retErr error) {
@@ -812,7 +813,26 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		return false, nil, err
 	}
 
-	if cmeta := obj.Spec.CommonMetadata; cmeta != nil {
+	var revisionAnnotations map[string]string
+	if r.EnableRevisionAnnotation {
+		if obj.Status.LastAppliedRevision == "" || revision != obj.Status.LastAppliedRevision {
+			revisionAnnotations = map[string]string{
+				fmt.Sprintf("%s/source-revision", eventv1.Group): revision,
+			}
+		}
+		if originRevision != "" && originRevision != obj.Status.LastAppliedOriginRevision {
+			revisionAnnotations[fmt.Sprintf("%s/source-revision", eventv1.Group)] = originRevision
+		}
+	}
+
+	cmeta := obj.Spec.CommonMetadata
+	if cmeta != nil {
+		if cmeta.Annotations == nil {
+			cmeta.Annotations = make(map[string]string)
+		}
+		for k, v := range revisionAnnotations {
+			cmeta.Annotations[k] = v
+		}
 		ssautil.SetCommonMetadata(objects, cmeta.Labels, cmeta.Annotations)
 	}
 

@@ -59,6 +59,10 @@ const (
 
 	// ExternalArtifact controls whether the ExternalArtifact source type is enabled.
 	ExternalArtifact = "ExternalArtifact"
+
+	// EnableRevisionAnnotation controls whether source revision annotations
+	// should be enabled on applied resources.
+	EnableRevisionAnnotation = "EnableRevisionAnnotation"
 )
 
 var features = map[string]bool{
@@ -83,6 +87,9 @@ var features = map[string]bool{
 	// ExternalArtifact
 	// opt-in from v1.7
 	ExternalArtifact: false,
+	// EnableRevisionAnnotation
+	// opt-in from v1.8
+	EnableRevisionAnnotation: true,
 }
 
 func init() {
