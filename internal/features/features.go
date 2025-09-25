@@ -59,6 +59,15 @@ const (
 
 	// ExternalArtifact controls whether the ExternalArtifact source type is enabled.
 	ExternalArtifact = "ExternalArtifact"
+
+	// CancelHealthCheckOnNewRevision controls whether ongoing health checks
+	// should be cancelled when a new source revision becomes available.
+	//
+	// When enabled, if a new revision is detected while waiting for resources
+	// to become ready, the current health check will be cancelled to allow
+	// immediate processing of the new revision. This can help avoid getting
+	// stuck on failing deployments when fixes are available.
+	CancelHealthCheckOnNewRevision = "CancelHealthCheckOnNewRevision"
 )
 
 var features = map[string]bool{
@@ -83,6 +92,9 @@ var features = map[string]bool{
 	// ExternalArtifact
 	// opt-in from v1.7
 	ExternalArtifact: false,
+	// CancelHealthCheckOnNewRevision
+	// opt-in
+	CancelHealthCheckOnNewRevision: false,
 }
 
 func init() {
