@@ -466,3 +466,165 @@ func TestKustomizationReconciler_RESTMapper(t *testing.T) {
 		g.Expect(err).To(HaveOccurred())
 	})
 }
+
+func TestKustomizationReconciler_CancelHealthCheckOnNewRevision(t *testing.T) {
+	g := NewWithT(t)
+	id := "cancel-" + randStringRunes(5)
+	resultK := &kustomizev1.Kustomization{}
+	timeout := 60 * time.Second
+
+	reconciler.CancelHealthCheckOnNewRevision = true
+	t.Cleanup(func() { reconciler.CancelHealthCheckOnNewRevision = false })
+
+	err := createNamespace(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	err = createKubeConfigSecret(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	// Create initial successful manifests
+	successManifests := []testserver.File{
+		{
+			Name: "configmap.yaml",
+			Body: fmt.Sprintf(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  namespace: %s
+data:
+  foo: bar`, id),
+		},
+	}
+	artifact, err := testServer.ArtifactFromFiles(successManifests)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	repositoryName := types.NamespacedName{
+		Name:      fmt.Sprintf("cancel-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+
+	err = applyGitRepository(repositoryName, artifact, "main/"+artifact)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	kustomization := &kustomizev1.Kustomization{}
+	kustomization.Name = id
+	kustomization.Namespace = id
+	kustomization.Spec = kustomizev1.KustomizationSpec{
+		Interval: metav1.Duration{Duration: 10 * time.Minute},
+		Path:     "./",
+		Wait:     true,
+		Timeout:  &metav1.Duration{Duration: 5 * time.Minute},
+		SourceRef: kustomizev1.CrossNamespaceSourceReference{
+			Name:      repositoryName.Name,
+			Kind:      sourcev1.GitRepositoryKind,
+			Namespace: id,
+		},
+		KubeConfig: &meta.KubeConfigReference{
+			SecretRef: &meta.SecretKeyReference{
+				Name: "kubeconfig",
+			},
+		},
+	}
+
+	err = k8sClient.Create(context.Background(), kustomization)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// Wait for initial reconciliation to succeed
+	g.Eventually(func() bool {
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+		return conditions.IsReady(resultK)
+	}, timeout, time.Second).Should(BeTrue())
+
+	// Create failing manifests (deployment with bad image that will timeout)
+	failingManifests := []testserver.File{
+		{
+			Name: "deployment.yaml",
+			Body: fmt.Sprintf(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: failing-deployment
+  namespace: %s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: failing-app
+  template:
+    metadata:
+      labels:
+        app: failing-app
+    spec:
+      containers:
+      - name: app
+        image: nonexistent.registry/badimage:latest
+        ports:
+        - containerPort: 8080`, id),
+		},
+	}
+
+	// Apply failing revision
+	failingArtifact, err := testServer.ArtifactFromFiles(failingManifests)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	err = applyGitRepository(repositoryName, failingArtifact, "main/"+failingArtifact)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// Wait for reconciliation to start on failing revision
+	g.Eventually(func() bool {
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+		return resultK.Status.LastAttemptedRevision == "main/"+failingArtifact
+	}, timeout, time.Second).Should(BeTrue())
+
+	// Now quickly apply a fixed revision while health check should be in progress
+	fixedManifests := []testserver.File{
+		{
+			Name: "deployment.yaml",
+			Body: fmt.Sprintf(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: working-deployment
+  namespace: %s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: working-app
+  template:
+    metadata:
+      labels:
+        app: working-app
+    spec:
+      containers:
+      - name: app
+        image: nginx:latest
+        ports:
+        - containerPort: 80`, id),
+		},
+	}
+
+	fixedArtifact, err := testServer.ArtifactFromFiles(fixedManifests)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	// Apply the fixed revision shortly after the failing one
+	time.Sleep(2 * time.Second) // Give some time for health check to start
+	err = applyGitRepository(repositoryName, fixedArtifact, "main/"+fixedArtifact)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// The key test: verify that the fixed revision gets attempted
+	// and that the health check cancellation worked
+	g.Eventually(func() bool {
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+		return resultK.Status.LastAttemptedRevision == "main/"+fixedArtifact
+	}, timeout, time.Second).Should(BeTrue())
+
+	// Check cancellation event was emitted
+	events := getEvents(resultK.GetName(), nil)
+	var found bool
+	for _, e := range events {
+		if e.Message == "New revision detected during health check, cancelling" {
+			found = true
+			break
+		}
+	}
+	g.Expect(found).To(BeTrue(), "did not find event for health check cancellation")
+}

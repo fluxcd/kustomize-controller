@@ -114,11 +114,12 @@ type KustomizationReconciler struct {
 
 	// Feature gates
 
-	AdditiveCELDependencyCheck bool
-	AllowExternalArtifact      bool
-	FailFast                   bool
-	GroupChangeLog             bool
-	StrictSubstitutions        bool
+	AdditiveCELDependencyCheck     bool
+	AllowExternalArtifact          bool
+	CancelHealthCheckOnNewRevision bool
+	FailFast                       bool
+	GroupChangeLog                 bool
+	StrictSubstitutions            bool
 }
 
 func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, retErr error) {
@@ -983,7 +984,39 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	}
 
 	// Check the health with a default timeout of 30sec shorter than the reconciliation interval.
-	if err := manager.WaitForSet(toCheck, ssa.WaitOptions{
+	healthCtx := ctx
+	if r.CancelHealthCheckOnNewRevision {
+		// Create a cancellable context for health checks that monitors for new revisions
+		var cancel context.CancelFunc
+		healthCtx, cancel = context.WithCancel(ctx)
+		defer cancel()
+
+		// Start monitoring for new revisions to allow early cancellation
+		go func() {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-healthCtx.Done():
+					return
+				case <-ticker.C:
+					// Get the latest source artifact
+					latestSrc, err := r.getSource(ctx, obj)
+					if err == nil && latestSrc.GetArtifact() != nil {
+						if newRevision := latestSrc.GetArtifact().Revision; newRevision != revision {
+							const msg = "New revision detected during health check, cancelling"
+							r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, msg, nil)
+							ctrl.LoggerFrom(ctx).Info(msg, "current", revision, "new", newRevision)
+							cancel()
+							return
+						}
+					}
+				}
+			}
+		}()
+	}
+	if err := manager.WaitForSetWithContext(healthCtx, toCheck, ssa.WaitOptions{
 		Interval: 5 * time.Second,
 		Timeout:  obj.GetTimeout(),
 		FailFast: r.FailFast,
