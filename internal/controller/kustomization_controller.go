@@ -114,12 +114,11 @@ type KustomizationReconciler struct {
 
 	// Feature gates
 
-	AdditiveCELDependencyCheck     bool
-	AllowExternalArtifact          bool
-	CancelHealthCheckOnNewRevision bool
-	FailFast                       bool
-	GroupChangeLog                 bool
-	StrictSubstitutions            bool
+	AdditiveCELDependencyCheck bool
+	AllowExternalArtifact      bool
+	FailFast                   bool
+	GroupChangeLog             bool
+	StrictSubstitutions        bool
 }
 
 func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, retErr error) {
@@ -269,6 +268,19 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", msg)
 		log.Info(msg)
 		return ctrl.Result{RequeueAfter: r.DependencyRequeueInterval}, nil
+	}
+
+	// Handle health check cancellation.
+	if qes := new(runtimeCtrl.QueueEventSource); errors.As(reconcileErr, &qes) {
+		conditions.MarkFalse(obj,
+			meta.ReadyCondition,
+			meta.HealthCheckCanceledReason,
+			"New reconciliation triggered by %s/%s/%s", qes.Kind, qes.Namespace, qes.Name)
+		ctrl.LoggerFrom(ctx).Info("New reconciliation triggered, canceling health checks", "trigger", qes)
+		r.event(obj, revision, originRevision, eventv1.EventSeverityInfo,
+			fmt.Sprintf("Health checks canceled due to new reconciliation triggered by %s/%s/%s",
+				qes.Kind, qes.Namespace, qes.Name), nil)
+		return ctrl.Result{}, nil
 	}
 
 	// Broadcast the reconciliation failure and requeue at the specified retry interval.
@@ -504,6 +516,11 @@ func (r *KustomizationReconciler) reconcile(
 		isNewRevision,
 		drifted,
 		changeSet.ToObjMetadataSet()); err != nil {
+
+		if errors.Is(err, &runtimeCtrl.QueueEventSource{}) {
+			return err
+		}
+
 		obj.Status.History.Upsert(checksum, time.Now(), time.Since(reconcileStart), meta.HealthCheckFailedReason, historyMeta)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.HealthCheckFailedReason, "%s", err)
 		return err
@@ -990,43 +1007,15 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	}
 
 	// Check the health with a default timeout of 30sec shorter than the reconciliation interval.
-	healthCtx := ctx
-	if r.CancelHealthCheckOnNewRevision {
-		// Create a cancellable context for health checks that monitors for new revisions
-		var cancel context.CancelFunc
-		healthCtx, cancel = context.WithCancel(ctx)
-		defer cancel()
-
-		// Start monitoring for new revisions to allow early cancellation
-		go func() {
-			ticker := time.NewTicker(5 * time.Second)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-healthCtx.Done():
-					return
-				case <-ticker.C:
-					// Get the latest source artifact
-					latestSrc, err := r.getSource(ctx, obj)
-					if err == nil && latestSrc.GetArtifact() != nil {
-						if newRevision := latestSrc.GetArtifact().Revision; newRevision != revision {
-							const msg = "New revision detected during health check, cancelling"
-							r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, msg, nil)
-							ctrl.LoggerFrom(ctx).Info(msg, "current", revision, "new", newRevision)
-							cancel()
-							return
-						}
-					}
-				}
-			}
-		}()
-	}
+	healthCtx := runtimeCtrl.GetInterruptContext(ctx)
 	if err := manager.WaitForSetWithContext(healthCtx, toCheck, ssa.WaitOptions{
 		Interval: 5 * time.Second,
 		Timeout:  obj.GetTimeout(),
 		FailFast: r.FailFast,
 	}); err != nil {
+		if is, err := runtimeCtrl.IsObjectEnqueued(ctx); is {
+			return err
+		}
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.HealthCheckFailedReason, "%s", err)
 		conditions.MarkFalse(obj, meta.HealthyCondition, meta.HealthCheckFailedReason, "%s", err)
 		return fmt.Errorf("health check failed after %s: %w", time.Since(checkStart).String(), err)
@@ -1223,12 +1212,12 @@ func (r *KustomizationReconciler) event(obj *kustomizev1.Kustomization,
 		reason = r
 	}
 
-	eventtype := "Normal"
+	eventType := corev1.EventTypeNormal
 	if severity == eventv1.EventSeverityError {
-		eventtype = "Warning"
+		eventType = corev1.EventTypeWarning
 	}
 
-	r.EventRecorder.AnnotatedEventf(obj, metadata, eventtype, reason, msg)
+	r.EventRecorder.AnnotatedEventf(obj, metadata, eventType, reason, msg)
 }
 
 func (r *KustomizationReconciler) finalizeStatus(ctx context.Context,

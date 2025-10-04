@@ -187,8 +187,9 @@ func TestMain(m *testing.M) {
 			SOPSAgeSecret:             sopsAgeSecret,
 		}
 		if err := (reconciler).SetupWithManager(ctx, testEnv, KustomizationReconcilerOptions{
-			WatchConfigsPredicate:  predicate.Not(predicate.Funcs{}),
-			WatchExternalArtifacts: true,
+			WatchConfigsPredicate:      predicate.Not(predicate.Funcs{}),
+			WatchExternalArtifacts:     true,
+			CancelHealthCheckOnRequeue: true,
 		}); err != nil {
 			panic(fmt.Sprintf("Failed to start KustomizationReconciler: %v", err))
 		}
