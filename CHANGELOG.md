@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.7.2
+
+**Release date:** 2025-10-28
+
+This patch release allows running kustomize-controller
+on the same loopback interface as source-watcher.
+
+Improvements:
+- Allow fetching artifacts from a local source-watcher
+  [#1539](https://github.com/fluxcd/kustomize-controller/pull/1539)
+
 ## 1.7.1
 
 **Release date:** 2025-10-08
