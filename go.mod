@@ -9,14 +9,14 @@ replace github.com/fluxcd/kustomize-controller/api => ./api
 replace github.com/opencontainers/go-digest => github.com/opencontainers/go-digest v1.0.1-0.20220411205349-bde1400a84be
 
 require (
-	cloud.google.com/go/kms v1.23.1
+	cloud.google.com/go/kms v1.23.2
 	filippo.io/age v1.2.1
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.19.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.0
 	github.com/aws/aws-sdk-go-v2 v1.39.2
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.16
-	github.com/cyphar/filepath-securejoin v0.4.1
+	github.com/cyphar/filepath-securejoin v0.5.0
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/cli-utils v0.36.0-flux.15
 	github.com/fluxcd/kustomize-controller/api v1.7.0
@@ -28,7 +28,7 @@ require (
 	github.com/fluxcd/pkg/cache v0.12.0
 	github.com/fluxcd/pkg/http/fetch v0.20.0
 	github.com/fluxcd/pkg/kustomize v1.23.0
-	github.com/fluxcd/pkg/runtime v0.88.0
+	github.com/fluxcd/pkg/runtime v0.89.0
 	github.com/fluxcd/pkg/ssa v0.60.0
 	github.com/fluxcd/pkg/tar v0.15.0
 	github.com/fluxcd/pkg/testserver v0.13.0
@@ -40,7 +40,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/ory/dockertest/v3 v3.12.0
 	github.com/spf13/pflag v1.0.10
-	golang.org/x/net v0.45.0
+	golang.org/x/net v0.46.0
 	golang.org/x/oauth2 v0.32.0
 	k8s.io/api v0.34.1
 	k8s.io/apimachinery v0.34.1
@@ -233,12 +233,12 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.42.0 // indirect
+	golang.org/x/crypto v0.43.0 // indirect
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/term v0.35.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/term v0.36.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/time v0.13.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/api v0.252.0 // indirect
