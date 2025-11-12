@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -571,6 +572,11 @@ func (d *Decryptor) decryptKustomizationSources(visited map[string]struct{}) vis
 			if patch.Path == "" {
 				continue
 			}
+
+			if isRemoteURL(patch.Path) {
+				continue
+			}
+
 			// Determine the format for the patch, defaulting to YAML if not specified.
 			format := formatForPath(patch.Path)
 			// Visit the patch reference and attempt to decrypt it.
@@ -834,6 +840,17 @@ func recurseKustomizationFiles(root, path string, visit visitKustomization, visi
 		}
 	}
 	return nil
+}
+
+func isRemoteURL(path string) bool {
+	u, err := url.Parse(path)
+	if err != nil {
+		return false
+	}
+
+	// A remote URL will have a scheme (like "http", "https", "ssh")
+	// AND a host (like "example.com").
+	return u.Scheme != "" && u.Host != ""
 }
 
 // isSOPSEncryptedResource detects if the given resource is a SOPS' encrypted
