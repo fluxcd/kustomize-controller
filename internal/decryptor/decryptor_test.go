@@ -818,6 +818,7 @@ func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 		wordirSuffix    string
 		path            string
 		files           []file
+		patch           []kustypes.Patch
 		secretGenerator []kustypes.SecretArgs
 		expectVisited   []string
 		wantErr         error
@@ -922,6 +923,34 @@ func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 			wantErr:       &fs.PathError{Op: "lstat", Path: "data.env", Err: fmt.Errorf("")},
 			expectVisited: []string{},
 		},
+		{
+			name: "ignore remote patches",
+			path: "subdir",
+			files: []file{
+				{name: "subdir/file.txt", data: []byte("file"), encrypt: true, expectData: true},
+				{name: "subdir/patch.yaml", data: []byte("op: add\n"), encrypt: true, expectData: true},
+			},
+			patch: []kustypes.Patch{
+				{
+					Path: "patch.yaml",
+				},
+				{
+					// this patch gets ignored due to being remote
+					Path: "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/examples/wordpress/patch.yaml",
+				},
+			},
+			secretGenerator: []kustypes.SecretArgs{
+				{
+					GeneratorArgs: kustypes.GeneratorArgs{
+						Name: "envSecret",
+						KvPairSources: kustypes.KvPairSources{
+							FileSources: []string{"file.txt"},
+						},
+					},
+				},
+			},
+			expectVisited: []string{"subdir/patch.yaml", "subdir/file.txt"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -967,7 +996,10 @@ func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 
 			visited := make(map[string]struct{}, 0)
 			visit := d.decryptKustomizationSources(visited)
-			kus := &kustypes.Kustomization{SecretGenerator: tt.secretGenerator}
+			kus := &kustypes.Kustomization{
+				Patches:         tt.patch,
+				SecretGenerator: tt.secretGenerator,
+			}
 
 			err = visit(root, tt.path, kus)
 			if tt.wantErr == nil {
