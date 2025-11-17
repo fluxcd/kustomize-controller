@@ -187,6 +187,12 @@ func New(client client.Client, kustomization *kustomizev1.Kustomization, opts ..
 	return d, cleanup, nil
 }
 
+// IsDecryptionDisabled checks if the given object has the decrypt: disabled annotation set
+func IsDecryptionDisabled(annotations map[string]string) bool {
+	return annotations != nil &&
+		strings.EqualFold(annotations[fmt.Sprintf("%s/decrypt", kustomizev1.GroupVersion.Group)], kustomizev1.DisabledValue)
+}
+
 // IsEncryptedSecret checks if the given object is a Kubernetes Secret encrypted
 // with Mozilla SOPS.
 func IsEncryptedSecret(object *unstructured.Unstructured) bool {
@@ -436,7 +442,10 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 // while decrypting with DecryptionProviderSOPS, to allow individual data entries
 // injected by e.g. a Kustomize secret generator to be decrypted
 func (d *Decryptor) DecryptResource(res *resource.Resource) (*resource.Resource, error) {
-	if res == nil || d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.Provider == "" {
+	if res == nil ||
+		d.kustomization.Spec.Decryption == nil ||
+		d.kustomization.Spec.Decryption.Provider == "" ||
+		IsDecryptionDisabled(res.GetAnnotations()) {
 		return nil, nil
 	}
 

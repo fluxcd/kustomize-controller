@@ -1264,6 +1264,18 @@ data:
   sops.vault-token: <BASE64>
 ```
 
+#### Controlling the decryption behavior of resources
+
+To change the decryption behaviour for specific Kubernetes resources, you can annotate them with:
+
+| Annotation                          | Default    | Values                                                         | Role            |
+|-------------------------------------|------------|----------------------------------------------------------------|-----------------|
+| `kustomize.toolkit.fluxcd.io/decrypt` | `Enabled` | - `Enabled`<br/>- `Disabled`                                   | Decryption policy |
+
+##### Disabled
+
+The `Disabled` policy instructs the controller to not decrypt Kubernetes resources. This might be useful if there is another entity that is going to decrpyt the resource later.
+
 ## Working with Kustomizations
 
 ### Recommended settings
