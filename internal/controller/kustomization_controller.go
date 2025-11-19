@@ -890,7 +890,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	}
 
 	for _, u := range objects {
-		if decryptor.IsEncryptedSecret(u) {
+		if decryptor.IsEncryptedSecret(u) && !decryptor.IsDecryptionDisabled(u.GetAnnotations()) {
 			return false, nil,
 				fmt.Errorf("%s is SOPS encrypted, configuring decryption is required for this secret to be reconciled",
 					ssautil.FmtUnstructured(u))

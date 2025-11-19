@@ -632,7 +632,17 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g.Expect(secret.UnmarshalJSON(encData)).To(Succeed())
 		g.Expect(isSOPSEncryptedResource(secret)).To(BeTrue())
 
+		secret.SetAnnotations(map[string]string{
+			"kustomize.toolkit.fluxcd.io/decrypt": "disabled",
+		})
+
 		got, err := d.DecryptResource(secret)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(got).To(BeNil())
+
+		secret.SetAnnotations(map[string]string{})
+
+		got, err = d.DecryptResource(secret)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).ToNot(BeNil())
 		g.Expect(got.MarshalJSON()).To(Equal(secretData))
