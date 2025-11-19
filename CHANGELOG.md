@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.7.3
+
+**Release date:** 2025-11-19
+
+This patch release comes with a series of bug fixes, including
+Azure Workload Identity in Azure China Cloud. It also adds a
+feature gate to disable the ConfigMap and Secret watchers,
+`DisableConfigWatchers`.
+
+Fixes:
+- Fix: skip trying to decrypt remote patches as local
+  [#1548](https://github.com/fluxcd/kustomize-controller/pull/1548)
+- Add GVK to error message
+  [#1547](https://github.com/fluxcd/kustomize-controller/pull/1547)
+
+Improvements:
+- Add feature gate for disabling config watchers
+  [#1553](https://github.com/fluxcd/kustomize-controller/pull/1553)
+- Upgrade k8s to 1.34.2 and c-r to 0.22.4
+  [#1551](https://github.com/fluxcd/kustomize-controller/pull/1551)
+
 ## 1.7.2
 
 **Release date:** 2025-10-28
