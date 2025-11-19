@@ -771,7 +771,7 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 		if obj.Spec.Decryption != nil {
 			outRes, err := dec.DecryptResource(res)
 			if err != nil {
-				return nil, fmt.Errorf("decryption failed for '%s': %w", res.GetName(), err)
+				return nil, fmt.Errorf("decryption failed for '%s/%s': %w", res.GetGvk(), res.GetName(), err)
 			}
 
 			if outRes != nil {
@@ -787,7 +787,7 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 			outRes, err := generator.SubstituteVariables(ctx, r.Client, u, res,
 				generator.SubstituteWithStrict(r.StrictSubstitutions))
 			if err != nil {
-				return nil, fmt.Errorf("post build failed for '%s': %w", res.GetName(), err)
+				return nil, fmt.Errorf("post build failed for '%s/%s': %w", res.GetGvk(), res.GetName(), err)
 			}
 
 			if outRes != nil {
