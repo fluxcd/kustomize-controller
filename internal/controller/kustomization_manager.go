@@ -39,6 +39,7 @@ import (
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
 type KustomizationReconcilerOptions struct {
 	RateLimiter            workqueue.TypedRateLimiter[reconcile.Request]
+	WatchConfigs           bool
 	WatchConfigsPredicate  predicate.Predicate
 	WatchExternalArtifacts bool
 }
@@ -147,17 +148,21 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			&sourcev1.Bucket{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(indexBucket)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
-		).
-		WatchesMetadata(
-			&corev1.ConfigMap{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForConfigDependency(indexConfigMap)),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, opts.WatchConfigsPredicate),
-		).
-		WatchesMetadata(
-			&corev1.Secret{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForConfigDependency(indexSecret)),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, opts.WatchConfigsPredicate),
 		)
+
+	if opts.WatchConfigs {
+		ctrlBuilder = ctrlBuilder.
+			WatchesMetadata(
+				&corev1.ConfigMap{},
+				handler.EnqueueRequestsFromMapFunc(r.requestsForConfigDependency(indexConfigMap)),
+				builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, opts.WatchConfigsPredicate),
+			).
+			WatchesMetadata(
+				&corev1.Secret{},
+				handler.EnqueueRequestsFromMapFunc(r.requestsForConfigDependency(indexSecret)),
+				builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, opts.WatchConfigsPredicate),
+			)
+	}
 
 	if opts.WatchExternalArtifacts {
 		ctrlBuilder = ctrlBuilder.Watches(
