@@ -312,6 +312,13 @@ func main() {
 		}
 	}
 
+	disableConfigWatchers, err := features.Enabled(runtimeCtrl.FeatureGateDisableConfigWatchers)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+runtimeCtrl.FeatureGateDisableConfigWatchers)
+		os.Exit(1)
+	}
+	watchConfigs := !disableConfigWatchers
+
 	if err = (&controller.KustomizationReconciler{
 		AdditiveCELDependencyCheck:     additiveCELDependencyCheck,
 		AllowExternalArtifact:          allowExternalArtifact,
@@ -339,6 +346,7 @@ func main() {
 		TokenCache:                     tokenCache,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
 		RateLimiter:            runtimeCtrl.GetRateLimiter(rateLimiterOptions),
+		WatchConfigs:           watchConfigs,
 		WatchConfigsPredicate:  watchConfigsPredicate,
 		WatchExternalArtifacts: allowExternalArtifact,
 	}); err != nil {
