@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	runtimeCtrl "github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/predicates"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 
@@ -38,10 +39,11 @@ import (
 
 // KustomizationReconcilerOptions contains options for the KustomizationReconciler.
 type KustomizationReconcilerOptions struct {
-	RateLimiter            workqueue.TypedRateLimiter[reconcile.Request]
-	WatchConfigs           bool
-	WatchConfigsPredicate  predicate.Predicate
-	WatchExternalArtifacts bool
+	RateLimiter                workqueue.TypedRateLimiter[reconcile.Request]
+	WatchConfigs               bool
+	WatchConfigsPredicate      predicate.Predicate
+	WatchExternalArtifacts     bool
+	CancelHealthCheckOnRequeue bool
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -130,47 +132,68 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		return fmt.Errorf("failed creating index %s: %w", indexSecret, err)
 	}
 
-	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
-		For(&kustomizev1.Kustomization{}, builder.WithPredicates(
-			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
-		)).
+	var blder *builder.Builder
+	var toComplete reconcile.TypedReconciler[reconcile.Request]
+	var enqueueRequestsFromMapFunc func(objKind string, fn handler.MapFunc) handler.EventHandler
+
+	ksPredicate := predicate.Or(
+		predicate.GenerationChangedPredicate{},
+		predicates.ReconcileRequestedPredicate{},
+	)
+
+	if !opts.CancelHealthCheckOnRequeue {
+		toComplete = r
+		enqueueRequestsFromMapFunc = func(objKind string, fn handler.MapFunc) handler.EventHandler {
+			return handler.EnqueueRequestsFromMapFunc(fn)
+		}
+		blder = ctrl.NewControllerManagedBy(mgr).
+			For(&kustomizev1.Kustomization{}, builder.WithPredicates(ksPredicate))
+	} else {
+		wr := runtimeCtrl.WrapReconciler(r)
+		toComplete = wr
+		enqueueRequestsFromMapFunc = wr.EnqueueRequestsFromMapFunc
+		blder = runtimeCtrl.NewControllerManagedBy(mgr, wr).
+			For(&kustomizev1.Kustomization{}, ksPredicate).Builder
+	}
+
+	blder.
 		Watches(
 			&sourcev1.OCIRepository{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(indexOCIRepository)),
+			enqueueRequestsFromMapFunc(sourcev1.OCIRepositoryKind, r.requestsForRevisionChangeOf(indexOCIRepository)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
 			&sourcev1.GitRepository{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(indexGitRepository)),
+			enqueueRequestsFromMapFunc(sourcev1.GitRepositoryKind, r.requestsForRevisionChangeOf(indexGitRepository)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		Watches(
 			&sourcev1.Bucket{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(indexBucket)),
+			enqueueRequestsFromMapFunc(sourcev1.BucketKind, r.requestsForRevisionChangeOf(indexBucket)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		)
 
 	if opts.WatchConfigs {
-		ctrlBuilder = ctrlBuilder.
+		blder = blder.
 			WatchesMetadata(
 				&corev1.ConfigMap{},
-				handler.EnqueueRequestsFromMapFunc(r.requestsForConfigDependency(indexConfigMap)),
+				enqueueRequestsFromMapFunc("ConfigMap", r.requestsForConfigDependency(indexConfigMap)),
 				builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, opts.WatchConfigsPredicate),
 			).
 			WatchesMetadata(
 				&corev1.Secret{},
-				handler.EnqueueRequestsFromMapFunc(r.requestsForConfigDependency(indexSecret)),
+				enqueueRequestsFromMapFunc("Secret", r.requestsForConfigDependency(indexSecret)),
 				builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, opts.WatchConfigsPredicate),
 			)
 	}
 
 	if opts.WatchExternalArtifacts {
-		ctrlBuilder = ctrlBuilder.Watches(
+		blder = blder.Watches(
 			&sourcev1.ExternalArtifact{},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(indexExternalArtifact)),
+			enqueueRequestsFromMapFunc(sourcev1.ExternalArtifactKind, r.requestsForRevisionChangeOf(indexExternalArtifact)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		)
 	}
 
-	return ctrlBuilder.WithOptions(controller.Options{RateLimiter: opts.RateLimiter}).Complete(r)
+	return blder.WithOptions(controller.Options{RateLimiter: opts.RateLimiter}).Complete(toComplete)
 }

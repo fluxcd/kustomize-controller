@@ -24,6 +24,7 @@ import (
 
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -473,9 +474,6 @@ func TestKustomizationReconciler_CancelHealthCheckOnNewRevision(t *testing.T) {
 	resultK := &kustomizev1.Kustomization{}
 	timeout := 60 * time.Second
 
-	reconciler.CancelHealthCheckOnNewRevision = true
-	t.Cleanup(func() { reconciler.CancelHealthCheckOnNewRevision = false })
-
 	err := createNamespace(id)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
 
@@ -617,14 +615,28 @@ spec:
 		return resultK.Status.LastAttemptedRevision == "main/"+fixedArtifact
 	}, timeout, time.Second).Should(BeTrue())
 
-	// Check cancellation event was emitted
+	// Verify the HealthCheckCanceled event was emitted.
+	g.Eventually(func() bool {
+		events := getEvents(resultK.GetName(), nil)
+		for _, event := range events {
+			if event.Reason == meta.HealthCheckCanceledReason {
+				t.Logf("Found HealthCheckCanceled event: %s", event.Message)
+				return true
+			}
+		}
+		return false
+	}, timeout, time.Second).Should(BeTrue(), "HealthCheckCanceled event should be recorded")
+
+	// Verify the event message indicates the trigger source.
 	events := getEvents(resultK.GetName(), nil)
-	var found bool
-	for _, e := range events {
-		if e.Message == "New revision detected during health check, cancelling" {
-			found = true
+	var cancelEvent *corev1.Event
+	for i := range events {
+		if events[i].Reason == meta.HealthCheckCanceledReason {
+			cancelEvent = &events[i]
 			break
 		}
 	}
-	g.Expect(found).To(BeTrue(), "did not find event for health check cancellation")
+	g.Expect(cancelEvent).ToNot(BeNil())
+	g.Expect(cancelEvent.Message).To(ContainSubstring("Health checks canceled"))
+	g.Expect(cancelEvent.Message).To(ContainSubstring("GitRepository"))
 }
