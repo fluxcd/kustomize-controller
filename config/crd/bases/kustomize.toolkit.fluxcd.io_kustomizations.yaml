@@ -29,6 +29,10 @@ spec:
     name: v1
     schema:
       openAPIV3Schema:
+        x-kubernetes-group-version-kind:
+          - group: "kustomize.toolkit.fluxcd.io"
+            kind: "Kustomization"
+            version: "v1"
         description: Kustomization is the Schema for the kustomizations API.
         properties:
           apiVersion:
@@ -75,6 +79,8 @@ spec:
                 items:
                   type: string
                 type: array
+                x-kubernetes-list-type: set
+                x-kubernetes-patch-strategy: merge
               decryption:
                 description: Decrypt Kubernetes secrets before applying them on the
                   cluster.
