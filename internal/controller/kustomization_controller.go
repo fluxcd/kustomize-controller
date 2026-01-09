@@ -182,7 +182,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Configure custom health checks.
-	statusReaders, err := cel.PollerWithCustomHealthChecks(ctx, obj.Spec.HealthCheckExprs)
+	statusReader, err := cel.NewStatusReader(obj.Spec.HealthCheckExprs)
 	if err != nil {
 		errMsg := fmt.Sprintf("%s: %v", TerminalErrorMessage, err)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.InvalidCELExpressionReason, "%s", errMsg)
@@ -260,7 +260,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Reconcile the latest revision.
-	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher, statusReaders)
+	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher, statusReader)
 
 	// Requeue at the specified retry interval if the artifact tarball is not found.
 	if errors.Is(reconcileErr, fetch.ErrFileNotFound) {
@@ -304,7 +304,7 @@ func (r *KustomizationReconciler) reconcile(
 	obj *kustomizev1.Kustomization,
 	src sourcev1.Source,
 	patcher *patch.SerialPatcher,
-	statusReaders []func(apimeta.RESTMapper) engine.StatusReader) error {
+	statusReader func(apimeta.RESTMapper) engine.StatusReader) error {
 	reconcileStart := time.Now()
 	log := ctrl.LoggerFrom(ctx)
 
@@ -392,9 +392,9 @@ func (r *KustomizationReconciler) reconcile(
 		impersonatorOpts = append(impersonatorOpts,
 			runtimeClient.WithKubeConfig(obj.Spec.KubeConfig, r.KubeConfigOpts, obj.GetNamespace(), provider))
 	}
-	if r.ClusterReader != nil || len(statusReaders) > 0 {
+	if r.ClusterReader != nil || len(obj.Spec.HealthCheckExprs) > 0 {
 		impersonatorOpts = append(impersonatorOpts,
-			runtimeClient.WithPolling(r.ClusterReader, statusReaders...))
+			runtimeClient.WithPolling(r.ClusterReader, statusReader))
 	}
 	impersonation := runtimeClient.NewImpersonator(r.Client, impersonatorOpts...)
 
@@ -404,7 +404,7 @@ func (r *KustomizationReconciler) reconcile(
 	if mustImpersonate {
 		kubeClient, statusPoller, err = impersonation.GetClient(ctx)
 	} else {
-		kubeClient, statusPoller = r.getClientAndPoller(statusReaders)
+		kubeClient, statusPoller = r.getClientAndPoller(obj, statusReader)
 	}
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
@@ -1286,13 +1286,14 @@ func (r *KustomizationReconciler) patch(ctx context.Context,
 // Should be used for reconciliations that are not configured to use
 // ServiceAccount impersonation or kubeconfig.
 func (r *KustomizationReconciler) getClientAndPoller(
-	readerCtors []func(apimeta.RESTMapper) engine.StatusReader,
+	obj *kustomizev1.Kustomization,
+	readerCtor func(apimeta.RESTMapper) engine.StatusReader,
 ) (client.Client, *polling.StatusPoller) {
 
-	readers := make([]engine.StatusReader, 0, 1+len(readerCtors))
+	readers := make([]engine.StatusReader, 0, 1+len(obj.Spec.HealthCheckExprs))
 	readers = append(readers, statusreaders.NewCustomJobStatusReader(r.Mapper))
-	for _, ctor := range readerCtors {
-		readers = append(readers, ctor(r.Mapper))
+	if len(obj.Spec.HealthCheckExprs) > 0 {
+		readers = append(readers, readerCtor(r.Mapper))
 	}
 
 	poller := polling.NewStatusPoller(r.Client, r.Mapper, polling.Options{
