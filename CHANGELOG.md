@@ -83,7 +83,7 @@ The new `.spec.ignoreMissingComponents` field allows Kustomizations to continue
 reconciliation even when referenced components are missing, providing more resilient
 deployments.
 
-A feature gate `CancelHealthChecksOnNewRevision` has been added to cancel ongoing
+A feature gate `CancelHealthCheckOnNewRevision` has been added to cancel ongoing
 health checks when a new revision is detected.
 
 In addition, the Kubernetes dependencies have been updated to v1.34,
