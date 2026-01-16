@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -342,19 +343,20 @@ func (d *Decryptor) SetAuthOptions(ctx context.Context) {
 		}
 
 		if d.awsCredentialsProvider == nil {
-			awsOpts := opts
+			awsOpts := slices.Clone(opts)
 			if d.tokenCache != nil {
 				involvedObject.Operation = kustomizev1.MetricDecryptWithAWS
 				awsOpts = append(awsOpts, auth.WithCache(*d.tokenCache, involvedObject))
 			}
 			d.awsCredentialsProvider = func(region string) awssdk.CredentialsProvider {
-				awsOpts := append(awsOpts, auth.WithSTSRegion(region))
-				return aws.NewCredentialsProvider(ctx, awsOpts...)
+				awsOptsWithRegion := slices.Clone(awsOpts)
+				awsOptsWithRegion = append(awsOptsWithRegion, auth.WithSTSRegion(region))
+				return aws.NewCredentialsProvider(ctx, awsOptsWithRegion...)
 			}
 		}
 
 		if d.azureTokenCredential == nil {
-			azureOpts := opts
+			azureOpts := slices.Clone(opts)
 			if d.tokenCache != nil {
 				involvedObject.Operation = kustomizev1.MetricDecryptWithAzure
 				azureOpts = append(azureOpts, auth.WithCache(*d.tokenCache, involvedObject))
@@ -363,7 +365,7 @@ func (d *Decryptor) SetAuthOptions(ctx context.Context) {
 		}
 
 		if d.gcpTokenSource == nil {
-			gcpOpts := opts
+			gcpOpts := slices.Clone(opts)
 			if d.tokenCache != nil {
 				involvedObject.Operation = kustomizev1.MetricDecryptWithGCP
 				gcpOpts = append(gcpOpts, auth.WithCache(*d.tokenCache, involvedObject))

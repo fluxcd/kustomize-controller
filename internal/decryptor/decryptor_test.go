@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/cache"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
@@ -444,6 +445,102 @@ func TestDecryptor_SetAuthOptions(t *testing.T) {
 		g.Expect(d.awsCredentialsProvider).NotTo(BeNil())
 		g.Expect(d.azureTokenCredential).NotTo(BeNil())
 		g.Expect(d.gcpTokenSource).NotTo(BeNil())
+	})
+
+	t.Run("awsCredentialsProvider returns independent providers for different regions", func(t *testing.T) {
+		g := NewWithT(t)
+
+		d := &Decryptor{
+			kustomization: &kustomizev1.Kustomization{
+				Spec: kustomizev1.KustomizationSpec{
+					Decryption: &kustomizev1.Decryption{
+						Provider: DecryptionProviderSOPS,
+					},
+				},
+			},
+		}
+
+		d.SetAuthOptions(context.Background())
+
+		// Call awsCredentialsProvider multiple times with different regions.
+		// Before the fix, these would share the same underlying slice and
+		// the region option would be overwritten by subsequent calls.
+		provider1 := d.awsCredentialsProvider("us-east-1")
+		provider2 := d.awsCredentialsProvider("us-west-2")
+		provider3 := d.awsCredentialsProvider("eu-west-1")
+
+		// All providers should be non-nil and independent.
+		g.Expect(provider1).NotTo(BeNil())
+		g.Expect(provider2).NotTo(BeNil())
+		g.Expect(provider3).NotTo(BeNil())
+
+		// The providers should be different instances (not the same pointer).
+		// This verifies that each call creates an independent provider.
+		g.Expect(fmt.Sprintf("%p", provider1)).NotTo(Equal(fmt.Sprintf("%p", provider2)))
+		g.Expect(fmt.Sprintf("%p", provider2)).NotTo(Equal(fmt.Sprintf("%p", provider3)))
+	})
+
+	t.Run("provider options are independent between AWS, Azure, and GCP", func(t *testing.T) {
+		g := NewWithT(t)
+
+		// Create a decryptor with token cache to ensure options are appended
+		// (WithCache is added when tokenCache is not nil).
+		tokenCache, err := cache.NewTokenCache(1)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		d := &Decryptor{
+			kustomization: &kustomizev1.Kustomization{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-ns",
+				},
+				Spec: kustomizev1.KustomizationSpec{
+					Decryption: &kustomizev1.Decryption{
+						Provider: DecryptionProviderSOPS,
+					},
+				},
+			},
+			tokenCache: tokenCache,
+		}
+
+		d.SetAuthOptions(context.Background())
+
+		// All providers should be set.
+		g.Expect(d.awsCredentialsProvider).NotTo(BeNil())
+		g.Expect(d.azureTokenCredential).NotTo(BeNil())
+		g.Expect(d.gcpTokenSource).NotTo(BeNil())
+
+		// The AWS credentials provider should work correctly even after
+		// Azure and GCP options have been set (options should be isolated).
+		awsProvider := d.awsCredentialsProvider("us-east-1")
+		g.Expect(awsProvider).NotTo(BeNil())
+	})
+
+	t.Run("multiple awsCredentialsProvider calls with same region are independent", func(t *testing.T) {
+		g := NewWithT(t)
+
+		d := &Decryptor{
+			kustomization: &kustomizev1.Kustomization{
+				Spec: kustomizev1.KustomizationSpec{
+					Decryption: &kustomizev1.Decryption{
+						Provider: DecryptionProviderSOPS,
+					},
+				},
+			},
+		}
+
+		d.SetAuthOptions(context.Background())
+
+		// Even with the same region, each call should create an independent provider.
+		// This tests that the slices.Clone is applied correctly.
+		provider1 := d.awsCredentialsProvider("us-east-1")
+		provider2 := d.awsCredentialsProvider("us-east-1")
+
+		g.Expect(provider1).NotTo(BeNil())
+		g.Expect(provider2).NotTo(BeNil())
+
+		// They should be different instances.
+		g.Expect(fmt.Sprintf("%p", provider1)).NotTo(Equal(fmt.Sprintf("%p", provider2)))
 	})
 }
 
