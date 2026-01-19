@@ -50,6 +50,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/pprof"
 	"github.com/fluxcd/pkg/runtime/probes"
+	ssautils "github.com/fluxcd/pkg/ssa/utils"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
@@ -102,6 +103,7 @@ func main() {
 		featureGates                    feathelper.FeatureGates
 		disallowedFieldManagers         []string
 		tokenCacheOptions               pkgcache.TokenFlags
+		customApplyStageKinds           string
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -118,6 +120,8 @@ func main() {
 	flag.StringVar(&defaultKubeConfigServiceAccount, auth.ControllerFlagDefaultKubeConfigServiceAccount, "", "Default service account used for kubeconfig.")
 	flag.StringVar(&sopsAgeSecret, "sops-age-secret", "", "The name of a Kubernetes secret in the RUNTIME_NAMESPACE containing a SOPS age decryption key for fallback usage.")
 	flag.StringArrayVar(&disallowedFieldManagers, "override-manager", []string{}, "Field manager disallowed to perform changes on managed resources.")
+	flag.StringVar(&customApplyStageKinds, "custom-apply-stage-kinds", "", "A comma-separated list of GroupKind (e.g., 'rbac.authorization.k8s.io/Role,some.group.io/SomeResource') "+
+		"resources to be applied in a custom stage during server-side apply running after CRDs and before all namespaced resources not in this list.")
 
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)
@@ -319,6 +323,12 @@ func main() {
 	}
 	watchConfigs := !disableConfigWatchers
 
+	customStageKinds, err := ssautils.ParseGroupKindSet(customApplyStageKinds)
+	if err != nil {
+		setupLog.Error(err, "unable to parse --custom-apply-stage-kinds")
+		os.Exit(1)
+	}
+
 	if err = (&controller.KustomizationReconciler{
 		AdditiveCELDependencyCheck: additiveCELDependencyCheck,
 		AllowExternalArtifact:      allowExternalArtifact,
@@ -343,6 +353,7 @@ func main() {
 		StatusManager:              fmt.Sprintf("gotk-%s", controllerName),
 		StrictSubstitutions:        strictSubstitutions,
 		TokenCache:                 tokenCache,
+		CustomStageKinds:           customStageKinds,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
 		RateLimiter:                runtimeCtrl.GetRateLimiter(rateLimiterOptions),
 		WatchConfigs:               watchConfigs,
