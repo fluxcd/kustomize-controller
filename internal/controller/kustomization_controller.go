@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	kuberecorder "k8s.io/client-go/tools/record"
@@ -90,13 +91,14 @@ type KustomizationReconciler struct {
 
 	// Kubernetes options
 
-	APIReader      client.Reader
-	ClusterReader  engine.ClusterReaderFactory
-	ConcurrentSSA  int
-	ControllerName string
-	KubeConfigOpts runtimeClient.KubeConfigOptions
-	Mapper         apimeta.RESTMapper
-	StatusManager  string
+	APIReader        client.Reader
+	ClusterReader    engine.ClusterReaderFactory
+	ConcurrentSSA    int
+	ControllerName   string
+	KubeConfigOpts   runtimeClient.KubeConfigOptions
+	Mapper           apimeta.RESTMapper
+	StatusManager    string
+	CustomStageKinds map[schema.GroupKind]struct{}
 
 	// Multi-tenancy and security options
 
@@ -852,6 +854,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	applyOpts.ForceSelector = map[string]string{
 		fmt.Sprintf("%s/force", kustomizev1.GroupVersion.Group): kustomizev1.EnabledValue,
 	}
+	applyOpts.CustomStageKinds = r.CustomStageKinds
 
 	fieldManagers := []ssa.FieldManager{
 		{
