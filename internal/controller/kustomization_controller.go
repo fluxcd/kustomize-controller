@@ -517,7 +517,8 @@ func (r *KustomizationReconciler) reconcile(
 		originRevision,
 		isNewRevision,
 		drifted,
-		changeSet.ToObjMetadataSet()); err != nil {
+		changeSet.ToObjMetadataSet(),
+		ssautil.ExtractJobsWithTTL(objects)); err != nil {
 
 		if errors.Is(err, &runtimeCtrl.QueueEventSource{}) {
 			return err
@@ -967,7 +968,8 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	originRevision string,
 	isNewRevision bool,
 	drifted bool,
-	objects object.ObjMetadataSet) error {
+	objects object.ObjMetadataSet,
+	jobsWithTTL object.ObjMetadataSet) error {
 	if len(obj.Spec.HealthChecks) == 0 && !obj.Spec.Wait {
 		conditions.Delete(obj, meta.HealthyCondition)
 		return nil
@@ -1012,9 +1014,10 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	// Check the health with a default timeout of 30sec shorter than the reconciliation interval.
 	healthCtx := runtimeCtrl.GetInterruptContext(ctx)
 	if err := manager.WaitForSetWithContext(healthCtx, toCheck, ssa.WaitOptions{
-		Interval: 5 * time.Second,
-		Timeout:  obj.GetTimeout(),
-		FailFast: r.FailFast,
+		Interval:    5 * time.Second,
+		Timeout:     obj.GetTimeout(),
+		FailFast:    r.FailFast,
+		JobsWithTTL: jobsWithTTL,
 	}); err != nil {
 		if is, err := runtimeCtrl.IsObjectEnqueued(ctx); is {
 			return err
