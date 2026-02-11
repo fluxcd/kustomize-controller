@@ -4,10 +4,4 @@ resources:
 - group: kustomize
   kind: Kustomization
   version: v1
-- group: kustomize
-  kind: Kustomization
-  version: v1beta2
-- group: kustomize
-  kind: Kustomization
-  version: v1beta1
 version: "2"
