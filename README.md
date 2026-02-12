@@ -32,10 +32,9 @@ the controller performs actions to reconcile the cluster current state with the 
 * runs `Kustomizations` in a specific order, taking into account the depends-on relationship 
 * notifies whenever a `Kustomization` status changes
 
-## Specifications
+## Specification
 
-* [API](docs/spec/v1/README.md)
-* [Controller](docs/spec/README.md)
+[Kustomization API](docs/spec/v1/kustomizations.md)
 
 ## Guides
 
