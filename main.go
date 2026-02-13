@@ -190,9 +190,9 @@ func main() {
 	}
 
 	var disableCacheFor []ctrlclient.Object
-	shouldCache, err := features.Enabled(features.CacheSecretsAndConfigMaps)
+	shouldCache, err := features.Enabled(runtimeCtrl.FeatureGateCacheSecretsAndConfigMaps)
 	if err != nil {
-		setupLog.Error(err, "unable to check feature gate "+features.CacheSecretsAndConfigMaps)
+		setupLog.Error(err, "unable to check feature gate "+runtimeCtrl.FeatureGateCacheSecretsAndConfigMaps)
 		os.Exit(1)
 	}
 	if !shouldCache {
@@ -285,15 +285,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	additiveCELDependencyCheck, err := features.Enabled(features.AdditiveCELDependencyCheck)
+	additiveCELDependencyCheck, err := features.Enabled(runtimeCtrl.FeatureGateAdditiveCELDependencyCheck)
 	if err != nil {
-		setupLog.Error(err, "unable to check feature gate "+features.AdditiveCELDependencyCheck)
+		setupLog.Error(err, "unable to check feature gate "+runtimeCtrl.FeatureGateAdditiveCELDependencyCheck)
 		os.Exit(1)
 	}
 
-	allowExternalArtifact, err := features.Enabled(features.ExternalArtifact)
+	allowExternalArtifact, err := features.Enabled(runtimeCtrl.FeatureGateExternalArtifact)
 	if err != nil {
-		setupLog.Error(err, "unable to check feature gate "+features.ExternalArtifact)
+		setupLog.Error(err, "unable to check feature gate "+runtimeCtrl.FeatureGateExternalArtifact)
 		os.Exit(1)
 	}
 
@@ -323,6 +323,15 @@ func main() {
 	}
 	watchConfigs := !disableConfigWatchers
 
+	directSourceFetch, err := features.Enabled(runtimeCtrl.FeatureGateDirectSourceFetch)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+runtimeCtrl.FeatureGateDirectSourceFetch)
+		os.Exit(1)
+	}
+	if directSourceFetch {
+		setupLog.Info("DirectSourceFetch feature gate is enabled, sources will be fetched directly from the API server bypassing the cache")
+	}
+
 	customStageKinds, err := ssautils.ParseGroupKindSet(customApplyStageKinds)
 	if err != nil {
 		setupLog.Error(err, "unable to parse --custom-apply-stage-kinds")
@@ -340,6 +349,7 @@ func main() {
 		ControllerName:             controllerName,
 		DefaultServiceAccount:      defaultServiceAccount,
 		DependencyRequeueInterval:  requeueDependency,
+		DirectSourceFetch:          directSourceFetch,
 		DisallowedFieldManagers:    disallowedFieldManagers,
 		EventRecorder:              eventRecorder,
 		FailFast:                   failFast,
