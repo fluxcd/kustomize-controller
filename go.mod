@@ -1,6 +1,6 @@
 module github.com/fluxcd/kustomize-controller
 
-go 1.25.0
+go 1.26.0
 
 replace github.com/fluxcd/kustomize-controller/api => ./api
 
@@ -24,12 +24,12 @@ require (
 	github.com/fluxcd/pkg/apis/event v0.24.0
 	github.com/fluxcd/pkg/apis/kustomize v1.15.0
 	github.com/fluxcd/pkg/apis/meta v1.25.0
-	github.com/fluxcd/pkg/auth v0.38.0
+	github.com/fluxcd/pkg/auth v0.38.2
 	github.com/fluxcd/pkg/cache v0.13.0
 	github.com/fluxcd/pkg/http/fetch v0.22.0
 	github.com/fluxcd/pkg/kustomize v1.27.0
 	github.com/fluxcd/pkg/runtime v0.100.0
-	github.com/fluxcd/pkg/ssa v0.67.0
+	github.com/fluxcd/pkg/ssa v0.68.0
 	github.com/fluxcd/pkg/tar v0.17.0
 	github.com/fluxcd/pkg/testserver v0.13.0
 	github.com/fluxcd/source-controller/api v1.7.2
