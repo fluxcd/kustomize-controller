@@ -70,7 +70,6 @@ import (
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/kustomize-controller/internal/decryptor"
-	"github.com/fluxcd/kustomize-controller/internal/features"
 	"github.com/fluxcd/kustomize-controller/internal/inventory"
 )
 
@@ -118,6 +117,7 @@ type KustomizationReconciler struct {
 
 	AdditiveCELDependencyCheck bool
 	AllowExternalArtifact      bool
+	DirectSourceFetch          bool
 	FailFast                   bool
 	GroupChangeLog             bool
 	StrictSubstitutions        bool
@@ -686,13 +686,19 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 	if obj.Spec.SourceRef.Kind == sourcev1.ExternalArtifactKind && !r.AllowExternalArtifact {
 		return src, acl.AccessDeniedError(
 			fmt.Sprintf("can't access '%s/%s', %s feature gate is disabled",
-				obj.Spec.SourceRef.Kind, namespacedName, features.ExternalArtifact))
+				obj.Spec.SourceRef.Kind, namespacedName, runtimeCtrl.FeatureGateExternalArtifact))
+	}
+
+	// Use APIReader to bypass the cache when DirectSourceFetch is enabled.
+	var reader client.Reader = r.Client
+	if r.DirectSourceFetch {
+		reader = r.APIReader
 	}
 
 	switch obj.Spec.SourceRef.Kind {
 	case sourcev1.OCIRepositoryKind:
 		var repository sourcev1.OCIRepository
-		err := r.Client.Get(ctx, namespacedName, &repository)
+		err := reader.Get(ctx, namespacedName, &repository)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return src, err
@@ -702,7 +708,7 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 		src = &repository
 	case sourcev1.GitRepositoryKind:
 		var repository sourcev1.GitRepository
-		err := r.Client.Get(ctx, namespacedName, &repository)
+		err := reader.Get(ctx, namespacedName, &repository)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return src, err
@@ -712,7 +718,7 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 		src = &repository
 	case sourcev1.BucketKind:
 		var bucket sourcev1.Bucket
-		err := r.Client.Get(ctx, namespacedName, &bucket)
+		err := reader.Get(ctx, namespacedName, &bucket)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return src, err
@@ -722,7 +728,7 @@ func (r *KustomizationReconciler) getSource(ctx context.Context,
 		src = &bucket
 	case sourcev1.ExternalArtifactKind:
 		var ea sourcev1.ExternalArtifact
-		err := r.Client.Get(ctx, namespacedName, &ea)
+		err := reader.Get(ctx, namespacedName, &ea)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return src, err
