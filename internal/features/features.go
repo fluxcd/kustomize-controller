@@ -25,12 +25,6 @@ import (
 )
 
 const (
-	// CacheSecretsAndConfigMaps controls whether Secrets and ConfigMaps should
-	// be cached.
-	//
-	// When enabled, it will cache both object types, resulting in increased
-	// memory usage and cluster-wide RBAC permissions (list and watch).
-	CacheSecretsAndConfigMaps = "CacheSecretsAndConfigMaps"
 
 	// DisableStatusPollerCache controls whether the status polling cache
 	// should be disabled.
@@ -53,14 +47,6 @@ const (
 	// to reduce cardinality of logs.
 	GroupChangeLog = "GroupChangeLog"
 
-	// AdditiveCELDependencyCheck controls whether the CEL dependency check
-	// should be additive, meaning that the built-in readiness check will
-	// be added to the user-defined CEL expressions.
-	AdditiveCELDependencyCheck = "AdditiveCELDependencyCheck"
-
-	// ExternalArtifact controls whether the ExternalArtifact source type is enabled.
-	ExternalArtifact = "ExternalArtifact"
-
 	// CancelHealthCheckOnNewRevision controls whether ongoing health checks
 	// should be cancelled when a new source revision becomes available.
 	//
@@ -74,7 +60,7 @@ const (
 var features = map[string]bool{
 	// CacheSecretsAndConfigMaps
 	// opt-in from v0.33
-	CacheSecretsAndConfigMaps: false,
+	controller.FeatureGateCacheSecretsAndConfigMaps: false,
 	// DisableStatusPollerCache
 	// opt-out from v1.2
 	DisableStatusPollerCache: true,
@@ -89,16 +75,19 @@ var features = map[string]bool{
 	GroupChangeLog: false,
 	// AdditiveCELDependencyCheck
 	// opt-in from v1.7
-	AdditiveCELDependencyCheck: false,
+	controller.FeatureGateAdditiveCELDependencyCheck: false,
 	// ExternalArtifact
 	// opt-in from v1.7
-	ExternalArtifact: false,
+	controller.FeatureGateExternalArtifact: false,
 	// CancelHealthCheckOnNewRevision
 	// opt-in from v1.7
 	CancelHealthCheckOnNewRevision: false,
 	// DisableConfigWatchers
 	// opt-in from v1.7.3
 	controller.FeatureGateDisableConfigWatchers: false,
+	// DirectSourceFetch
+	// opt-in from v1.8
+	controller.FeatureGateDirectSourceFetch: false,
 }
 
 func init() {
