@@ -867,15 +867,41 @@ section.
 
 When both `.spec.kubeConfig` and
 [`.spec.serviceAccountName`](#service-account-reference) are specified,
-the controller will impersonate the ServiceAccount on the target cluster,
-i.e. a ServiceAccount with name `.spec.serviceAccountName` must exist in
-the target cluster inside a namespace with the same name as the namespace
-of the Kustomization. For example, if the Kustomization is in the namespace
-`apps` of the cluster where Flux is running, then the ServiceAccount
-must be in the `apps` namespace of the target remote cluster, and have the
-name `.spec.serviceAccountName`. In other words, the namespace of the
-Kustomization must exist both in the cluster where Flux is running
-and in the target remote cluster where Flux will apply resources.
+the controller will impersonate the ServiceAccount in the target cluster.
+The ServiceAccount must have the necessary RBAC permissions to perform
+the operations associated with the Kustomization.
+
+Example of RoleBinding in the target cluster granting the `admin` ClusterRole
+in a *namespaced* fashion (scoped to the `apps` namespace):
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: admin
+  # This namespace DOES NOT have to match the Kustomization namespace.
+  # It can be ANY namespace existing in the TARGET cluster.
+  namespace: apps
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole # Can be either Role or ClusterRole for RoleBinding.
+  name: admin
+subjects:
+  # This ServiceAccount MUST exist in the TARGET cluster,
+  # but its namespace MUST match the Kustomization namespace
+  # in the SOURCE cluster, i.e. the same namespace has to
+  # exist in both clusters.
+- apiGroup: rbac.authorization.k8s.io
+  kind: ServiceAccount
+  name: dev-team-sa
+  namespace: dev-team
+```
+
+Depending on the permissions required for applying the manifests in the
+[source](#source-reference), you can create RoleBinding objects like the
+above in multiple/any namespaces of the target cluster. This includes the
+[target namespace](#target-namespace) of the Kustomization. You can also
+create ClusterRoleBindings if needed (they can only bind ClusterRoles).
 
 #### Secret-based authentication
 
