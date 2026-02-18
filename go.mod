@@ -10,7 +10,7 @@ replace github.com/opencontainers/go-digest => github.com/opencontainers/go-dige
 
 require (
 	cloud.google.com/go/kms v1.25.0
-	filippo.io/age v1.2.1
+	filippo.io/age v1.3.1
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
@@ -24,17 +24,17 @@ require (
 	github.com/fluxcd/pkg/apis/event v0.24.0
 	github.com/fluxcd/pkg/apis/kustomize v1.15.0
 	github.com/fluxcd/pkg/apis/meta v1.25.0
-	github.com/fluxcd/pkg/auth v0.38.2
+	github.com/fluxcd/pkg/auth v0.39.0
 	github.com/fluxcd/pkg/cache v0.13.0
 	github.com/fluxcd/pkg/http/fetch v0.22.0
 	github.com/fluxcd/pkg/kustomize v1.27.0
-	github.com/fluxcd/pkg/runtime v0.100.2
-	github.com/fluxcd/pkg/ssa v0.67.1
+	github.com/fluxcd/pkg/runtime v0.102.0
+	github.com/fluxcd/pkg/ssa v0.69.0
 	github.com/fluxcd/pkg/tar v0.17.0
 	github.com/fluxcd/pkg/testserver v0.13.0
 	github.com/fluxcd/source-controller/api v1.8.0
 	github.com/getsops/sops/v3 v3.11.0
-	github.com/google/cel-go v0.26.1
+	github.com/google/cel-go v0.27.0
 	github.com/hashicorp/vault/api v1.22.0
 	github.com/onsi/gomega v1.39.1
 	github.com/opencontainers/go-digest v1.0.0
@@ -61,7 +61,7 @@ replace (
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
 
 require (
-	cel.dev/expr v0.24.0 // indirect
+	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go v0.121.6 // indirect
 	cloud.google.com/go/auth v0.18.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
@@ -72,6 +72,7 @@ require (
 	cloud.google.com/go/storage v1.57.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/containers/azcontainerregistry v0.2.3 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice v1.0.0 // indirect
@@ -208,7 +209,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.6.0 // indirect
-	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/urfave/cli v1.22.17 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
