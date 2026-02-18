@@ -19,7 +19,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.6.1
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/cli-utils v0.37.1-flux.1
-	github.com/fluxcd/kustomize-controller/api v1.7.0
+	github.com/fluxcd/kustomize-controller/api v1.8.0
 	github.com/fluxcd/pkg/apis/acl v0.9.0
 	github.com/fluxcd/pkg/apis/event v0.24.0
 	github.com/fluxcd/pkg/apis/kustomize v1.15.0
@@ -32,7 +32,7 @@ require (
 	github.com/fluxcd/pkg/ssa v0.67.1
 	github.com/fluxcd/pkg/tar v0.17.0
 	github.com/fluxcd/pkg/testserver v0.13.0
-	github.com/fluxcd/source-controller/api v1.7.2
+	github.com/fluxcd/source-controller/api v1.8.0
 	github.com/getsops/sops/v3 v3.11.0
 	github.com/google/cel-go v0.26.1
 	github.com/hashicorp/vault/api v1.22.0
