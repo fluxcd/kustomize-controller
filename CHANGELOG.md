@@ -2,6 +2,65 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.8.0
+
+**Release date:** 2026-02-17
+
+This minor release comes with various bug fixes and improvements.
+
+⚠️ The `v1beta2` APIs were removed. Before upgrading the CRDs, Flux users
+must run [`flux migrate`](https://github.com/fluxcd/flux2/pull/5473) to
+migrate the cluster storage off `v1beta2`.
+
+### Kustomization
+
+The controller now cancels in-progress health checks when a new reconciliation
+request is received, reducing the mean time to recovery (MTTR) in case of
+failed deployments. This is available through the `CancelHealthCheckOnNewRevision`
+feature gate, that previously worked only for new source revisions but now also
+works for any watch events that trigger a new reconciliation.
+
+A custom SSA stage has been introduced, allowing Role and RoleBinding objects
+to be applied in the same call even when the impersonated ServiceAccount does
+not have a ClusterRoleBinding for `cluster-admin`. This can be specified with
+the flag `--custom-apply-stage-kinds=rbac.authorization.k8s.io/Role`.
+
+Health checks now handle Jobs with TTL set to zero seconds that are deleted
+before or during health checking.
+
+A `DirectSourceFetch` feature gate has been added to bypass cache for source
+objects, enabling immediate consistency for source object reads.
+
+### General updates
+
+In addition, the Kubernetes dependencies have been updated to v1.35.0,
+Kustomize has been updated to v5.8.1 and the controller is now built
+with Go 1.26.
+
+Fixes:
+- Fix decryptor copy of auth.Option slices (avoid overrides)
+  [#1570](https://github.com/fluxcd/kustomize-controller/pull/1570)
+
+Improvements:
+- Reduce the mean time to recovery (MTTR) in case of failed deployments
+  [#1536](https://github.com/fluxcd/kustomize-controller/pull/1536)
+- Introduce custom SSA stage
+  [#1571](https://github.com/fluxcd/kustomize-controller/pull/1571)
+- Handle Jobs with TTL in health checks
+  [#1578](https://github.com/fluxcd/kustomize-controller/pull/1578)
+- Add `DirectSourceFetch` feature gate to bypass cache for source objects
+  [#1586](https://github.com/fluxcd/kustomize-controller/pull/1586)
+- Remove deprecated APIs in group `kustomize.toolkit.fluxcd.io/v1beta2`
+  [#1584](https://github.com/fluxcd/kustomize-controller/pull/1584)
+- Various dependency updates
+  [#1566](https://github.com/fluxcd/kustomize-controller/pull/1566)
+  [#1572](https://github.com/fluxcd/kustomize-controller/pull/1572)
+  [#1575](https://github.com/fluxcd/kustomize-controller/pull/1575)
+  [#1581](https://github.com/fluxcd/kustomize-controller/pull/1581)
+  [#1585](https://github.com/fluxcd/kustomize-controller/pull/1585)
+  [#1588](https://github.com/fluxcd/kustomize-controller/pull/1588)
+  [#1589](https://github.com/fluxcd/kustomize-controller/pull/1589)
+
 ## 1.7.3
 
 **Release date:** 2025-11-19
