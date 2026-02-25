@@ -840,12 +840,19 @@ metadata:
 will replace the resources in-cluster if the patching fails due to immutable
 field changes.
 
-It can also be enabled for specific resources by labelling or annotating them
-with:
+Note that this field should be set temporarily (e.g. when changing Deployment
+pod selectors) and not left enabled on the long run, as force-replacing
+resources may cause downtime.
+
+A safer alternative is to enable force-apply for specific resources by
+labelling or annotating them with:
 
 ```yaml
 kustomize.toolkit.fluxcd.io/force: enabled
 ```
+
+This way, only the targeted resources are force-replaced when immutable field
+changes are made. The annotation should be removed after the change is applied.
 
 ### KubeConfig (Remote clusters)
 
