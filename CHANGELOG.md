@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.8.1
+
+**Release date:** 2026-02-27
+
+This patch release fixes health check logic for StatefulSets during
+rolling updates when the Pods are Pending/Unschedulable.
+
+Fixes:
+- Fix health check logic for StatefulSets during rolling updates
+  [#1602](https://github.com/fluxcd/kustomize-controller/pull/1602)
+
+Improvements:
+- Improve docs for `.spec.force`
+  [#1597](https://github.com/fluxcd/kustomize-controller/pull/1597)
+- Remove no longer needed workaround for Flux 2.8
+  [#1595](https://github.com/fluxcd/kustomize-controller/pull/1595)
+
 ## 1.8.0
 
 **Release date:** 2026-02-17
