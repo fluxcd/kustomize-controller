@@ -1281,7 +1281,7 @@ To change the decryption behaviour for specific Kubernetes resources, you can an
 
 ##### Disabled
 
-The `Disabled` policy instructs the controller to not decrypt Kubernetes resources. This might be useful if there is another entity that is going to decrpyt the resource later.
+The `Disabled` policy instructs the controller to not decrypt Kubernetes resources. This might be useful if there is another entity that is going to decrypt the resource later.
 
 ## Working with Kustomizations
 
