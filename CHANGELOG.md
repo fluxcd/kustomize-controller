@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.8.2
+
+**Release date:** 2026-03-12
+
+This patch release fixes reconciliation queue behavior for source watch events
+while a Kustomization is already reconciling the watched revision.
+
+Fixes:
+- Fix enqueing the same revision while reconciling
+  [#1614](https://github.com/fluxcd/kustomize-controller/pull/1614)
+
+Improvements:
+- Fix docs typo
+  [#1609](https://github.com/fluxcd/kustomize-controller/pull/1609)
+- Update fluxcd/pkg dependencies
+  [#1616](https://github.com/fluxcd/kustomize-controller/pull/1616)
+
 ## 1.8.1
 
 **Release date:** 2026-02-27
