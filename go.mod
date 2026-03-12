@@ -18,18 +18,18 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.7
 	github.com/cyphar/filepath-securejoin v0.6.1
 	github.com/dimchansky/utfbom v1.1.1
-	github.com/fluxcd/cli-utils v0.37.1-flux.1
+	github.com/fluxcd/cli-utils v0.37.2-flux.1
 	github.com/fluxcd/kustomize-controller/api v1.8.0
 	github.com/fluxcd/pkg/apis/acl v0.9.0
-	github.com/fluxcd/pkg/apis/event v0.24.0
-	github.com/fluxcd/pkg/apis/kustomize v1.15.0
-	github.com/fluxcd/pkg/apis/meta v1.25.0
-	github.com/fluxcd/pkg/auth v0.38.2
+	github.com/fluxcd/pkg/apis/event v0.25.0
+	github.com/fluxcd/pkg/apis/kustomize v1.16.0
+	github.com/fluxcd/pkg/apis/meta v1.26.0
+	github.com/fluxcd/pkg/auth v0.40.0
 	github.com/fluxcd/pkg/cache v0.13.0
 	github.com/fluxcd/pkg/http/fetch v0.22.0
-	github.com/fluxcd/pkg/kustomize v1.27.0
-	github.com/fluxcd/pkg/runtime v0.100.2
-	github.com/fluxcd/pkg/ssa v0.67.1
+	github.com/fluxcd/pkg/kustomize v1.28.0
+	github.com/fluxcd/pkg/runtime v0.103.0
+	github.com/fluxcd/pkg/ssa v0.70.0
 	github.com/fluxcd/pkg/tar v0.17.0
 	github.com/fluxcd/pkg/testserver v0.13.0
 	github.com/fluxcd/source-controller/api v1.8.0
@@ -42,11 +42,11 @@ require (
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/net v0.50.0
 	golang.org/x/oauth2 v0.35.0
-	k8s.io/api v0.35.0
-	k8s.io/apimachinery v0.35.0
-	k8s.io/client-go v0.35.0
+	k8s.io/api v0.35.2
+	k8s.io/apimachinery v0.35.2
+	k8s.io/client-go v0.35.2
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
-	sigs.k8s.io/controller-runtime v0.23.1
+	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/kustomize/api v0.21.1
 	sigs.k8s.io/yaml v1.6.0
 )
@@ -124,7 +124,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/cli v29.0.3+incompatible // indirect
+	github.com/docker/cli v29.2.0+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -253,12 +253,12 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.35.0 // indirect
-	k8s.io/cli-runtime v0.35.0 // indirect
-	k8s.io/component-base v0.35.0 // indirect
+	k8s.io/apiextensions-apiserver v0.35.2 // indirect
+	k8s.io/cli-runtime v0.35.2 // indirect
+	k8s.io/component-base v0.35.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
-	k8s.io/kubectl v0.35.0 // indirect
+	k8s.io/kubectl v0.35.2 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
