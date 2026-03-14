@@ -562,27 +562,6 @@ func randStringRunes(n int) string {
 	return string(b)
 }
 
-func getEvents(objName string, annotations map[string]string) []corev1.Event {
-	var result []corev1.Event
-	events := &corev1.EventList{}
-	_ = k8sClient.List(ctx, events)
-	for _, event := range events.Items {
-		if event.InvolvedObject.Name == objName {
-			if annotations == nil && len(annotations) == 0 {
-				result = append(result, event)
-			} else {
-				for ak, av := range annotations {
-					if event.GetAnnotations()[ak] == av {
-						result = append(result, event)
-						break
-					}
-				}
-			}
-		}
-	}
-	return result
-}
-
 func applyGitRepository(objKey client.ObjectKey, artifactName string, revision string) error {
 	repo := &sourcev1.GitRepository{
 		TypeMeta: metav1.TypeMeta{

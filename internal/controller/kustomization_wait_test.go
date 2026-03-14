@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +34,9 @@ import (
 
 	"github.com/fluxcd/pkg/apis/kustomize"
 	"github.com/fluxcd/pkg/apis/meta"
+	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/fluxcd/pkg/runtime/conditions"
+	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 
@@ -207,7 +208,8 @@ parameters:
 	})
 
 	t.Run("emits unhealthy event", func(t *testing.T) {
-		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+		events, err := testenv.WaitForEvents(ctx, k8sClient, resultK.GetName(), "", map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision}, 1, timeout)
+		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(len(events) > 0).To(BeTrue())
 		g.Expect(events[len(events)-1].Type).To(BeIdenticalTo("Warning"))
 		g.Expect(events[len(events)-1].Message).To(ContainSubstring("does-not-exists"))
@@ -248,8 +250,10 @@ parameters:
 	})
 
 	t.Run("emits recovery event", func(t *testing.T) {
+		g := NewWithT(t)
 		expectedMessage := "Health check passed"
-		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+		events, err := testenv.WaitForEvents(ctx, k8sClient, resultK.GetName(), "", map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision}, 1, timeout)
+		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(len(events) > 1).To(BeTrue())
 		g.Expect(events[len(events)-2].Type).To(BeIdenticalTo("Normal"))
 		g.Expect(events[len(events)-2].Message).To(ContainSubstring(expectedMessage))
@@ -284,7 +288,8 @@ parameters:
 
 	t.Run("emits event for the new revision", func(t *testing.T) {
 		expectedMessage := "Health check passed"
-		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+		events, err := testenv.WaitForEvents(ctx, k8sClient, resultK.GetName(), "", map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision}, 1, timeout)
+		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(len(events) > 1).To(BeTrue())
 		g.Expect(events[len(events)-2].Type).To(BeIdenticalTo("Normal"))
 		g.Expect(events[len(events)-2].Message).To(ContainSubstring(expectedMessage))
@@ -744,20 +749,10 @@ spec:
 		return resultK.Status.LastAttemptedRevision == "main/"+fixedArtifact
 	}, timeout, time.Second).Should(BeTrue())
 
-	// Verify the HealthCheckCanceled event was emitted.
-	g.Eventually(func() bool {
-		events := getEvents(resultK.GetName(), nil)
-		for _, event := range events {
-			if event.Reason == meta.HealthCheckCanceledReason {
-				t.Logf("Found HealthCheckCanceled event: %s", event.Message)
-				return true
-			}
-		}
-		return false
-	}, timeout, time.Second).Should(BeTrue(), "HealthCheckCanceled event should be recorded")
-
-	// Verify the event message indicates the trigger source.
-	events := getEvents(resultK.GetName(), nil)
+	// Verify the HealthCheckCanceled event was emitted and indicates the
+	// trigger source.
+	events, err := testenv.WaitForEvents(ctx, k8sClient, resultK.GetName(), "", nil, 1, timeout)
+	g.Expect(err).NotTo(HaveOccurred())
 	var cancelEvent *corev1.Event
 	for i := range events {
 		if events[i].Reason == meta.HealthCheckCanceledReason {
@@ -765,7 +760,7 @@ spec:
 			break
 		}
 	}
-	g.Expect(cancelEvent).ToNot(BeNil())
+	g.Expect(cancelEvent).ToNot(BeNil(), "HealthCheckCanceled event should be recorded")
 	g.Expect(cancelEvent.Message).To(ContainSubstring("Health checks canceled"))
 	g.Expect(cancelEvent.Message).To(ContainSubstring("GitRepository"))
 }
