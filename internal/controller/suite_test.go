@@ -44,6 +44,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/conditions"
 	kcheck "github.com/fluxcd/pkg/runtime/conditions/check"
 	"github.com/fluxcd/pkg/runtime/controller"
+	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
@@ -179,7 +180,7 @@ func TestMain(m *testing.M) {
 			Client:                    testEnv,
 			Mapper:                    testEnv.GetRESTMapper(),
 			APIReader:                 testEnv,
-			EventRecorder:             testEnv.GetEventRecorderFor(controllerName),
+			EventRecorder:             &events.Recorder{EventRecorder: testEnv.GetEventRecorder(controllerName)},
 			Metrics:                   testMetricsH,
 			DependencyRequeueInterval: 2 * time.Second,
 			ConcurrentSSA:             4,
