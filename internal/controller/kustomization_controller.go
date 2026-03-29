@@ -282,7 +282,12 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		r.event(obj, revision, originRevision, eventv1.EventSeverityInfo,
 			fmt.Sprintf("Health checks canceled due to new reconciliation triggered by %s/%s/%s",
 				qes.Kind, qes.Namespace, qes.Name), nil)
-		return ctrl.Result{}, nil
+
+		// Requeue immediately to ensure the object is reconciled against the new revision in the eventuality
+		// of stale runtime cache that would cause the source predicate filter to drop the reconcile request.
+		// In the case where the cache is fresh and the object is already in the queue, the new reconcile request
+		// will be dropped by the controller runtime dedupe logic, so we don't risk reconciling twice the same revision.
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Broadcast the reconciliation failure and requeue at the specified retry interval.
