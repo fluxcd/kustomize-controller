@@ -63,6 +63,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/fluxcd/pkg/runtime/statusreaders"
 	"github.com/fluxcd/pkg/ssa"
+	"github.com/fluxcd/pkg/ssa/jsondiff"
 	"github.com/fluxcd/pkg/ssa/normalize"
 	ssautil "github.com/fluxcd/pkg/ssa/utils"
 	"github.com/fluxcd/pkg/tar"
@@ -858,6 +859,27 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	}
 	applyOpts.CustomStageKinds = r.CustomStageKinds
 	applyOpts.MigrateAPIVersion = r.MigrateAPIVersion
+
+	if len(obj.Spec.Ignore) > 0 {
+		ignoreRules := make([]jsondiff.IgnoreRule, len(obj.Spec.Ignore))
+		for i, rule := range obj.Spec.Ignore {
+			ignoreRules[i] = jsondiff.IgnoreRule{
+				Paths: rule.Paths,
+			}
+			if rule.Target != nil {
+				ignoreRules[i].Selector = &jsondiff.Selector{
+					Group:              rule.Target.Group,
+					Version:            rule.Target.Version,
+					Kind:               rule.Target.Kind,
+					Name:               rule.Target.Name,
+					Namespace:          rule.Target.Namespace,
+					AnnotationSelector: rule.Target.AnnotationSelector,
+					LabelSelector:      rule.Target.LabelSelector,
+				}
+			}
+		}
+		applyOpts.DriftIgnoreRules = ignoreRules
+	}
 
 	fieldManagers := []ssa.FieldManager{
 		{
