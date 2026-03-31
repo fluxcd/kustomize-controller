@@ -854,6 +854,120 @@ kustomize.toolkit.fluxcd.io/force: enabled
 This way, only the targeted resources are force-replaced when immutable field
 changes are made. The annotation should be removed after the change is applied.
 
+### Drift Ignore Rules
+
+`.spec.driftIgnoreRules` is an optional list used to selectively ignore changes
+to specific fields during drift detection and correction. This allows external
+controllers or tools to manage certain fields on Kubernetes resources without
+having those changes reverted by the kustomize-controller during reconciliation.
+
+Each item in the list must have the following fields:
+
+- `paths` (required): A list of [JSON Pointer (RFC 6901)](https://datatracker.ietf.org/doc/html/rfc6901)
+  paths to exclude from drift detection. These paths refer to specific fields
+  within the Kubernetes object manifest.
+- `target` (optional): A selector to scope the rule to specific Kubernetes
+  resources. If not set, the paths are ignored for all resources in the
+  Kustomization.
+
+**Warning:** Omitting the `target` selector causes the rule to match **all**
+objects managed by the Kustomization. Always scope rules to specific resources
+using `target` unless you intentionally want to ignore the specified paths
+across every resource.
+
+The `target` selector supports the following fields:
+
+| Field                | Description                          |
+|----------------------|--------------------------------------|
+| `group`              | API group (regex)                    |
+| `version`            | API version (regex)                  |
+| `kind`               | Resource kind (regex)                |
+| `name`               | Resource name (regex)                |
+| `namespace`          | Resource namespace (regex)           |
+| `labelSelector`      | Kubernetes label selector expression |
+| `annotationSelector` | Kubernetes annotation selector expression |
+
+**Note:** The `group`, `version`, `kind`, `name`, and `namespace` fields
+support regex patterns. The `labelSelector` and `annotationSelector` fields
+use the standard Kubernetes
+[label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors)
+syntax.
+
+**Note:** For JSON Pointer paths that contain `/` in the key name (e.g.
+annotation keys), the `/` must be escaped as `~1` per
+[RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901#section-3).
+For example, the annotation `external-dns.alpha.kubernetes.io/hostname`
+would be referenced as `/metadata/annotations/external-dns.alpha.kubernetes.io~1hostname`.
+
+#### Ignore a field on all resources
+
+To ignore a specific field on all resources managed by the Kustomization:
+
+```yaml
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app
+  namespace: flux-system
+spec:
+  # ...omitted for brevity
+  driftIgnoreRules:
+    - paths:
+        - "/spec/replicas"
+```
+
+#### Ignore fields on specific resources
+
+To ignore fields only on resources that match a target selector:
+
+```yaml
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app
+  namespace: flux-system
+spec:
+  # ...omitted for brevity
+  driftIgnoreRules:
+    - paths:
+        - "/spec/replicas"
+      target:
+        kind: Deployment
+    - paths:
+        - "/metadata/annotations/external-dns.alpha.kubernetes.io~1hostname"
+      target:
+        kind: Service
+        name: my-service
+    - paths:
+        - "/spec/template/spec/containers/0/resources"
+      target:
+        kind: Deployment
+        name: my-app
+```
+
+In the above example:
+
+- The `/spec/replicas` field is ignored on all Deployments, allowing
+  an HPA or other autoscaler to manage the replica count without
+  interference from the kustomize-controller.
+- The `external-dns.alpha.kubernetes.io/hostname` annotation is ignored
+  on a specific Service named `my-service`, allowing external-dns to
+  manage this annotation.
+- The entire `/resources` subtree under container spec is ignored on
+  a specific Deployment named `my-app`, allowing a VPA or other resource
+  management tool to adjust container resources.
+
+**Important:** Drift ignore rules work with the
+[server-side apply](https://kubernetes.io/docs/reference/using-api/server-side-apply/)
+field ownership model. The ignored paths are removed from the desired state
+before the controller applies, which relinquishes the controller's ownership of
+those fields. For the ignored fields to be preserved, they must be owned by
+another field manager (e.g. another controller or a `kubectl apply --server-side
+--field-manager=<name>` invocation). If no other field manager owns the field,
+the API server may remove it during garbage collection of abandoned fields.
+
 ### KubeConfig (Remote clusters)
 
 With the `.spec.kubeConfig` field a Kustomization
