@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.8.3
+
+**Release date:** 2026-04-07
+
+This patch release fixes a race condition where a cancelled reconciliation
+could leave stale data in the cache, causing Kustomizations to get stuck.
+
+Fixes:
+- Requeue on cancellation to avoid stale cache race condition
+  [#1625](https://github.com/fluxcd/kustomize-controller/pull/1625)
+
 ## 1.8.2
 
 **Release date:** 2026-03-12
