@@ -222,6 +222,11 @@ func (in *KustomizationSpec) DeepCopyInto(out *KustomizationSpec) {
 		*out = new(metav1.Duration)
 		**out = **in
 	}
+	if in.BuildMetadata != nil {
+		in, out := &in.BuildMetadata, &out.BuildMetadata
+		*out = make([]BuildMetadataOption, len(*in))
+		copy(*out, *in)
+	}
 	if in.Components != nil {
 		in, out := &in.Components, &out.Components
 		*out = make([]string, len(*in))

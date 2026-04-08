@@ -385,6 +385,23 @@ resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
 </tr>
 <tr>
 <td>
+<code>buildMetadata</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1.BuildMetadataOption">
+[]BuildMetadataOption
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>BuildMetadata specifies which kustomize build metadata should be added
+to the built resources. The allowed values are &lsquo;originAnnotations&rsquo; to
+annotate resources with their source origin, and &lsquo;transformerAnnotations&rsquo;
+to annotate resources with the transformers that produced them.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>components</code><br>
 <em>
 []string
@@ -444,6 +461,13 @@ KustomizationStatus
 </table>
 </div>
 </div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1.BuildMetadataOption">BuildMetadataOption
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationSpec">KustomizationSpec</a>)
+</p>
+<p>BuildMetadataOption defines the supported buildMetadata options.</p>
 <h3 id="kustomize.toolkit.fluxcd.io/v1.CommonMetadata">CommonMetadata
 </h3>
 <p>
@@ -1014,6 +1038,23 @@ bool
 <em>(Optional)</em>
 <p>Wait instructs the controller to check the health of all the reconciled
 resources. When enabled, the HealthChecks are ignored. Defaults to false.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>buildMetadata</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1.BuildMetadataOption">
+[]BuildMetadataOption
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>BuildMetadata specifies which kustomize build metadata should be added
+to the built resources. The allowed values are &lsquo;originAnnotations&rsquo; to
+annotate resources with their source origin, and &lsquo;transformerAnnotations&rsquo;
+to annotate resources with the transformers that produced them.</p>
 </td>
 </tr>
 <tr>

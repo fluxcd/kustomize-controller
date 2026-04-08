@@ -53,6 +53,20 @@ spec:
               KustomizationSpec defines the configuration to calculate the desired state
               from a Source using Kustomize.
             properties:
+              buildMetadata:
+                description: |-
+                  BuildMetadata specifies which kustomize build metadata should be added
+                  to the built resources. The allowed values are 'originAnnotations' to
+                  annotate resources with their source origin, and 'transformerAnnotations'
+                  to annotate resources with the transformers that produced them.
+                items:
+                  description: BuildMetadataOption defines the supported buildMetadata
+                    options.
+                  enum:
+                  - originAnnotations
+                  - transformerAnnotations
+                  type: string
+                type: array
               commonMetadata:
                 description: |-
                   CommonMetadata specifies the common labels and annotations that are
