@@ -199,6 +199,13 @@ type KustomizationSpec struct {
 	// The expressions are evaluated only when Wait or HealthChecks are specified.
 	// +optional
 	HealthCheckExprs []kustomize.CustomHealthCheck `json:"healthCheckExprs,omitempty"`
+
+	// DriftIgnoreRules is a list of rules for specifying which changes to ignore
+	// during drift detection. These rules are applied to the resources managed
+	// by the Kustomization and are used to exclude specific JSON pointer paths
+	// from the drift detection and apply process.
+	// +optional
+	DriftIgnoreRules []DriftIgnoreRule `json:"driftIgnoreRules,omitempty"`
 }
 
 // BuildMetadataOption defines the supported buildMetadata options.
@@ -223,6 +230,22 @@ type CommonMetadata struct {
 	// Labels to be added to the object's metadata.
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
+}
+
+// DriftIgnoreRule defines a rule to selectively disregard specific changes during
+// the drift detection process.
+type DriftIgnoreRule struct {
+	// Paths is a list of JSON Pointer (RFC 6901) paths to be excluded from
+	// consideration in a Kubernetes object.
+	// +required
+	Paths []string `json:"paths"`
+
+	// Target is a selector for specifying Kubernetes objects to which this
+	// rule applies.
+	// If Target is not set, the Paths will be ignored for all Kubernetes
+	// objects within the manifest of the Kustomization.
+	// +optional
+	Target *kustomize.Selector `json:"target,omitempty"`
 }
 
 // Decryption defines how decryption is handled for Kubernetes manifests.
