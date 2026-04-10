@@ -177,6 +177,13 @@ type KustomizationSpec struct {
 	// +optional
 	Wait bool `json:"wait,omitempty"`
 
+	// BuildMetadata specifies which kustomize build metadata should be added
+	// to the built resources. The allowed values are 'originAnnotations' to
+	// annotate resources with their source origin, and 'transformerAnnotations'
+	// to annotate resources with the transformers that produced them.
+	// +optional
+	BuildMetadata []BuildMetadataOption `json:"buildMetadata,omitempty"`
+
 	// Components specifies relative paths to kustomize Components.
 	// +optional
 	Components []string `json:"components,omitempty"`
@@ -193,6 +200,19 @@ type KustomizationSpec struct {
 	// +optional
 	HealthCheckExprs []kustomize.CustomHealthCheck `json:"healthCheckExprs,omitempty"`
 }
+
+// BuildMetadataOption defines the supported buildMetadata options.
+// +kubebuilder:validation:Enum=originAnnotations;transformerAnnotations
+type BuildMetadataOption string
+
+const (
+	// BuildMetadataOriginAnnotations enables config.kubernetes.io/origin annotations
+	// that track which file and path each resource was loaded from.
+	BuildMetadataOriginAnnotations BuildMetadataOption = "originAnnotations"
+	// BuildMetadataTransformerAnnotations enables internal.config.kubernetes.io annotations
+	// that record which kustomize transformers modified each resource.
+	BuildMetadataTransformerAnnotations BuildMetadataOption = "transformerAnnotations"
+)
 
 // CommonMetadata defines the common labels and annotations.
 type CommonMetadata struct {

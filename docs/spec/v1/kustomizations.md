@@ -649,6 +649,41 @@ spec:
     digest: sha256:24a0c4b4a4c0eb97a1aabb8e29f18e917d05abfe1b7a7c07857230879ce7d3d3
 ```
 
+### Build metadata
+
+`.spec.buildMetadata` is an optional list used to specify which
+[Kustomize `buildMetadata`](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/buildmetadata/)
+options should be added to the built resources. The allowed values are:
+
+- `originAnnotations`: Adds `config.kubernetes.io/origin` annotations that
+  track which file and path each resource was loaded from.
+- `transformerAnnotations`: Adds `internal.config.kubernetes.io` annotations
+  that record which kustomize transformers modified each resource.
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: flux-system
+spec:
+  # ...omitted for brevity
+  buildMetadata:
+  - originAnnotations
+```
+
+When `originAnnotations` is enabled, each resource gets an annotation like:
+
+```yaml
+metadata:
+  annotations:
+    config.kubernetes.io/origin: |
+      path: apps/deployment.yaml
+```
+
+This is useful for debugging, auditing, and tooling that needs to trace
+resources back to their source files.
+
 ### Components
 
 `.spec.components` is an optional list used to specify

@@ -27,7 +27,7 @@ require (
 	github.com/fluxcd/pkg/auth v0.40.0
 	github.com/fluxcd/pkg/cache v0.13.0
 	github.com/fluxcd/pkg/http/fetch v0.22.0
-	github.com/fluxcd/pkg/kustomize v1.28.0
+	github.com/fluxcd/pkg/kustomize v1.29.0
 	github.com/fluxcd/pkg/runtime v0.103.0
 	github.com/fluxcd/pkg/ssa v0.70.0
 	github.com/fluxcd/pkg/tar v0.17.0
