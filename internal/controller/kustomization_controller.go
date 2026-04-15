@@ -120,6 +120,7 @@ type KustomizationReconciler struct {
 	DirectSourceFetch          bool
 	FailFast                   bool
 	GroupChangeLog             bool
+	MigrateAPIVersion          bool
 	StrictSubstitutions        bool
 }
 
@@ -867,6 +868,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		fmt.Sprintf("%s/force", kustomizev1.GroupVersion.Group): kustomizev1.EnabledValue,
 	}
 	applyOpts.CustomStageKinds = r.CustomStageKinds
+	applyOpts.MigrateAPIVersion = r.MigrateAPIVersion
 
 	fieldManagers := []ssa.FieldManager{
 		{

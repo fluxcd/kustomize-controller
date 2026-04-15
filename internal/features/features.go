@@ -55,6 +55,18 @@ const (
 	// immediate processing of the new revision. This can help avoid getting
 	// stuck on failing deployments when fixes are available.
 	CancelHealthCheckOnNewRevision = "CancelHealthCheckOnNewRevision"
+
+	// MigrateAPIVersion controls whether the controller migrates the API
+	// version referenced by the managed fields entries of in-cluster objects
+	// to the API version of the applied objects when they differ.
+	//
+	// This works around a server-side apply dry-run failure that can occur
+	// after a CRD upgrade introduces a new optional field with a default
+	// value in a newer API version: the managed fields entry owned by the
+	// controller still references the old API version, and the API server
+	// reports the defaulted field as "field not declared in schema" when
+	// validating managed fields against the old version's schema.
+	MigrateAPIVersion = "MigrateAPIVersion"
 )
 
 var features = map[string]bool{
@@ -88,6 +100,9 @@ var features = map[string]bool{
 	// DirectSourceFetch
 	// opt-in from v1.8
 	controller.FeatureGateDirectSourceFetch: false,
+	// MigrateAPIVersion
+	// opt-in from v1.8.4
+	MigrateAPIVersion: false,
 }
 
 func init() {
