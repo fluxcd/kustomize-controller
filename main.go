@@ -303,6 +303,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	migrateAPIVersion, err := features.Enabled(features.MigrateAPIVersion)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.MigrateAPIVersion)
+		os.Exit(1)
+	}
+
 	var tokenCache *pkgcache.TokenCache
 	if tokenCacheOptions.MaxSize > 0 {
 		var err error
@@ -357,6 +363,7 @@ func main() {
 		KubeConfigOpts:             kubeConfigOpts,
 		Mapper:                     restMapper,
 		Metrics:                    metricsH,
+		MigrateAPIVersion:          migrateAPIVersion,
 		NoCrossNamespaceRefs:       aclOptions.NoCrossNamespaceRefs,
 		NoRemoteBases:              noRemoteBases,
 		SOPSAgeSecret:              sopsAgeSecret,
