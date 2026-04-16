@@ -24,13 +24,13 @@ require (
 	github.com/fluxcd/pkg/apis/event v0.25.0
 	github.com/fluxcd/pkg/apis/kustomize v1.16.0
 	github.com/fluxcd/pkg/apis/meta v1.26.0
-	github.com/fluxcd/pkg/auth v0.40.0
+	github.com/fluxcd/pkg/auth v0.41.0
 	github.com/fluxcd/pkg/cache v0.13.0
-	github.com/fluxcd/pkg/http/fetch v0.22.0
-	github.com/fluxcd/pkg/kustomize v1.29.0
+	github.com/fluxcd/pkg/http/fetch v0.24.0
+	github.com/fluxcd/pkg/kustomize v1.30.0
 	github.com/fluxcd/pkg/runtime v0.103.0
-	github.com/fluxcd/pkg/ssa v0.70.0
-	github.com/fluxcd/pkg/tar v0.17.0
+	github.com/fluxcd/pkg/ssa v0.71.0
+	github.com/fluxcd/pkg/tar v1.1.0
 	github.com/fluxcd/pkg/testserver v0.13.0
 	github.com/fluxcd/source-controller/api v1.8.0
 	github.com/getsops/sops/v3 v3.12.1
@@ -110,6 +110,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.13 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.6 // indirect
 	github.com/aws/smithy-go v1.24.0 // indirect
+	github.com/aws/smithy-go/aws-http-auth v1.1.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
@@ -135,7 +136,7 @@ require (
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fluxcd/pkg/envsubst v1.5.0 // indirect
+	github.com/fluxcd/pkg/envsubst v1.6.0 // indirect
 	github.com/fluxcd/pkg/sourceignore v0.17.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
