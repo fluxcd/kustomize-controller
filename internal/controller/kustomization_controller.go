@@ -133,6 +133,9 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// Snapshot the object's readiness state to detect failure recovery.
+	oldReadyFailing := !conditions.IsReady(obj)
+
 	// Initialize the runtime patcher with the current version of the object.
 	patcher := patch.NewSerialPatcher(obj, r.Client)
 
@@ -153,6 +156,17 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		// Log and emit success event.
 		if conditions.IsReady(obj) {
+			// Emit explicit recovery event if the object was previously failing.
+			if oldReadyFailing {
+				recoveryMsg := fmt.Sprintf("Reconciliation recovered from failure in %s",
+					time.Since(reconcileStart).String())
+				log.Info(recoveryMsg, "revision", obj.Status.LastAttemptedRevision)
+				r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityInfo, recoveryMsg,
+					map[string]string{
+						kustomizev1.GroupVersion.Group + "/" + eventv1.MetaCommitStatusKey: eventv1.MetaCommitStatusUpdateValue,
+					})
+			}
+
 			msg := fmt.Sprintf("Reconciliation finished in %s, next run in %s",
 				time.Since(reconcileStart).String(),
 				obj.Spec.Interval.Duration.String())
