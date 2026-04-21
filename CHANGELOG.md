@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.8.4
+
+**Release date:** 2026-04-21
+
+This patch release introduces the `MigrateAPIVersion` feature gate for
+migrating the API version of resources in managed field entries, which
+fixes errors like `dry-run failed: .spec.accessPolicy: field not declared
+in schema`.
+
+Improvements:
+- Introduce support for migrating API version
+  [#1639](https://github.com/fluxcd/kustomize-controller/pull/1639)
+- Update fluxcd/pkg dependencies
+  [#1637](https://github.com/fluxcd/kustomize-controller/pull/1637)
+
 ## 1.8.3
 
 **Release date:** 2026-04-07
