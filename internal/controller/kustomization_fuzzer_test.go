@@ -263,7 +263,7 @@ func Fuzz_Controllers(f *testing.F) {
 			}
 
 			// ensure the deferred deletion of all objects (namespace, secret, sopSecret) and
-			// the kustomization above were reconciled before moving on. This avoids unneccessary
+			// the kustomization above were reconciled before moving on. This avoids unnecessary
 			// errors whilst tearing down the testing infrastructure.
 			time.Sleep(10 * time.Second)
 
