@@ -1340,6 +1340,7 @@ func deleteObjects(
 		Exclusions: map[string]string{
 			fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group):     kustomizev1.DisabledValue,
 			fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
+			fmt.Sprintf("%s/ssa", kustomizev1.GroupVersion.Group):       kustomizev1.IgnoreValue,
 		},
 	}
 	return manager.DeleteAll(ctx, objects, opts)
