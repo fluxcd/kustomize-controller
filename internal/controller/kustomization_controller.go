@@ -512,7 +512,7 @@ func (r *KustomizationReconciler) reconcile(
 		originRevision,
 		isNewRevision,
 		drifted,
-		changeSet.ToObjMetadataSet(),
+		changeSet,
 		ssautil.ExtractJobsWithTTL(objects)); err != nil {
 
 		if errors.Is(err, &runtimeCtrl.QueueEventSource{}) {
@@ -970,8 +970,19 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	originRevision string,
 	isNewRevision bool,
 	drifted bool,
-	objects object.ObjMetadataSet,
+	changeSet *ssa.ChangeSet,
 	jobsWithTTL object.ObjMetadataSet) error {
+
+	// We should not check the health of skipped objects, as they are chosen
+	// to be ignored by the user and may not be in a healthy state.
+	changeSetWithoutSkipped := ssa.NewChangeSet()
+	for _, entry := range changeSet.Entries {
+		if entry.Action != ssa.SkippedAction {
+			changeSetWithoutSkipped.Add(entry)
+		}
+	}
+	objects := changeSetWithoutSkipped.ToObjMetadataSet()
+
 	if len(obj.Spec.HealthChecks) == 0 && !obj.Spec.Wait {
 		conditions.Delete(obj, meta.HealthyCondition)
 		return nil

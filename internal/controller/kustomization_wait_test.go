@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -298,6 +299,134 @@ parameters:
 			return apierrors.IsNotFound(err)
 		}, timeout, time.Second).Should(BeTrue())
 	})
+}
+
+// TestKustomizationReconciler_WaitIgnoresSkippedObjects verifies that objects
+// annotated with kustomize.toolkit.fluxcd.io/ssa: Ignore are excluded from
+// health checks when spec.wait is true. The user has declared that the
+// controller should not manage these objects, so their state — healthy or not,
+// existing or not — must not affect the Kustomization's reconciliation outcome.
+// Without skipped-entry filtering in checkHealth the status poller would wait
+// on the ignored object and the reconciliation could fail or stall on a state
+// the user explicitly opted out of.
+func TestKustomizationReconciler_WaitIgnoresSkippedObjects(t *testing.T) {
+	g := NewWithT(t)
+	id := "wait-skipped-" + randStringRunes(5)
+	revision := "v1.0.0"
+	resultK := &kustomizev1.Kustomization{}
+	timeout := 60 * time.Second
+
+	err := createNamespace(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	err = createKubeConfigSecret(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	// The Deployment is annotated with ssa: Ignore so the controller will not
+	// apply it. Its image is invalid so that, were it ever to be applied, it
+	// would never reach a healthy state — modelling the realistic case where a
+	// user opts out of managing an object that may exist but is unhealthy.
+	manifests := func(name string) []testserver.File {
+		return []testserver.File{
+			{
+				Name: "config.yaml",
+				Body: fmt.Sprintf(`---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %[1]s
+data:
+  key: value
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: %[1]s-ignored
+  annotations:
+    kustomize.toolkit.fluxcd.io/ssa: Ignore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: %[1]s-ignored
+  template:
+    metadata:
+      labels:
+        app: %[1]s-ignored
+    spec:
+      containers:
+        - name: app
+          image: registry.invalid/never-exists:nope
+`, name),
+			},
+		}
+	}
+
+	artifact, err := testServer.ArtifactFromFiles(manifests(id))
+	g.Expect(err).NotTo(HaveOccurred())
+
+	repositoryName := types.NamespacedName{
+		Name:      fmt.Sprintf("wait-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+
+	err = applyGitRepository(repositoryName, artifact, revision)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	kustomizationKey := types.NamespacedName{
+		Name:      fmt.Sprintf("wait-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+	kustomization := &kustomizev1.Kustomization{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kustomizationKey.Name,
+			Namespace: kustomizationKey.Namespace,
+		},
+		Spec: kustomizev1.KustomizationSpec{
+			Interval: metav1.Duration{Duration: 2 * time.Minute},
+			Path:     "./",
+			KubeConfig: &meta.KubeConfigReference{
+				SecretRef: &meta.SecretKeyReference{
+					Name: "kubeconfig",
+				},
+			},
+			SourceRef: kustomizev1.CrossNamespaceSourceReference{
+				Name:      repositoryName.Name,
+				Namespace: repositoryName.Namespace,
+				Kind:      sourcev1.GitRepositoryKind,
+			},
+			TargetNamespace: id,
+			Prune:           true,
+			Timeout:         &metav1.Duration{Duration: 5 * time.Second},
+			Wait:            true,
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+	// Reconciliation must succeed: the skipped Deployment is excluded from
+	// the wait set, so health checks pass on the ConfigMap alone.
+	g.Eventually(func() bool {
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+		return isReconcileSuccess(resultK)
+	}, timeout, time.Second).Should(BeTrue())
+	logStatus(t, resultK)
+
+	g.Expect(conditions.IsTrue(resultK, meta.HealthyCondition)).To(BeTrue())
+	g.Expect(conditions.GetReason(resultK, meta.HealthyCondition)).To(BeIdenticalTo(meta.SucceededReason))
+
+	// The skipped Deployment must never have been created in the cluster.
+	deploy := &unstructured.Unstructured{}
+	deploy.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    "Deployment",
+	})
+	err = k8sClient.Get(context.Background(), types.NamespacedName{
+		Name:      id + "-ignored",
+		Namespace: id,
+	}, deploy)
+	g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "ssa: Ignore Deployment must not be applied")
 }
 
 func TestKustomizationReconciler_WaitsForCustomHealthChecks(t *testing.T) {
