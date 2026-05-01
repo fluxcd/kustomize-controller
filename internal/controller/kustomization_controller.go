@@ -1066,16 +1066,7 @@ func (r *KustomizationReconciler) prune(ctx context.Context,
 
 	log := ctrl.LoggerFrom(ctx)
 
-	opts := ssa.DeleteOptions{
-		PropagationPolicy: metav1.DeletePropagationBackground,
-		Inclusions:        manager.GetOwnerLabels(obj.Name, obj.Namespace),
-		Exclusions: map[string]string{
-			fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group):     kustomizev1.DisabledValue,
-			fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
-		},
-	}
-
-	changeSet, err := manager.DeleteAll(ctx, objects, opts)
+	changeSet, err := deleteObjects(ctx, obj, manager, objects)
 	if err != nil {
 		return false, err
 	}
@@ -1160,16 +1151,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 				Group: kustomizev1.GroupVersion.Group,
 			})
 
-			opts := ssa.DeleteOptions{
-				PropagationPolicy: metav1.DeletePropagationBackground,
-				Inclusions:        resourceManager.GetOwnerLabels(obj.Name, obj.Namespace),
-				Exclusions: map[string]string{
-					fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group):     kustomizev1.DisabledValue,
-					fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
-				},
-			}
-
-			changeSet, err := resourceManager.DeleteAll(ctx, objects, opts)
+			changeSet, err := deleteObjects(ctx, obj, resourceManager, objects)
 			if err != nil {
 				r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityError, "pruning for deleted resource failed", nil)
 				// Return the error so we retry the failed garbage collection
@@ -1342,6 +1324,25 @@ func (r *KustomizationReconciler) getProviderRESTConfigFetcher(obj *kustomizev1.
 		provider = runtimeClient.ProviderRESTConfigFetcher(authutils.GetRESTConfigFetcher(opts...))
 	}
 	return provider
+}
+
+// deleteObjects deletes the given objects using the provided ResourceManager
+// and returns a ChangeSet containing the metadata of the deleted objects.
+func deleteObjects(
+	ctx context.Context,
+	obj *kustomizev1.Kustomization,
+	manager *ssa.ResourceManager,
+	objects []*unstructured.Unstructured,
+) (*ssa.ChangeSet, error) {
+	opts := ssa.DeleteOptions{
+		PropagationPolicy: metav1.DeletePropagationBackground,
+		Inclusions:        manager.GetOwnerLabels(obj.Name, obj.Namespace),
+		Exclusions: map[string]string{
+			fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group):     kustomizev1.DisabledValue,
+			fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
+		},
+	}
+	return manager.DeleteAll(ctx, objects, opts)
 }
 
 // getOriginRevision returns the origin revision of the source artifact,
