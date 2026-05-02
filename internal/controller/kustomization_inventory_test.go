@@ -63,16 +63,6 @@ data:
   key: "%[2]s"
 ---
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: "%[1]s-ssa-ignore"
-  annotations:
-    # This tests that objects with the SSA ignore annotation are not stored in the inventory.
-    kustomize.toolkit.fluxcd.io/ssa: ignore
-data:
-  key: "%[2]s"
----
-apiVersion: v1
 kind: Secret
 metadata:
   name: "%[1]s"

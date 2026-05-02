@@ -468,22 +468,11 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Validate and apply resources in stages.
-	drifted, changeSetWithSkipped, err := r.apply(ctx, resourceManager, obj, revision, originRevision, objects)
+	drifted, changeSet, err := r.apply(ctx, resourceManager, obj, revision, originRevision, objects)
 	if err != nil {
 		obj.Status.History.Upsert(checksum, time.Now(), time.Since(reconcileStart), meta.ReconciliationFailedReason, historyMeta)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
 		return err
-	}
-
-	// Filter out skipped entries from the change set.
-	changeSet := ssa.NewChangeSet()
-	skippedSet := make(map[object.ObjMetadata]struct{})
-	for _, entry := range changeSetWithSkipped.Entries {
-		if entry.Action == ssa.SkippedAction {
-			skippedSet[entry.ObjMetadata] = struct{}{}
-		} else {
-			changeSet.Add(entry)
-		}
 	}
 
 	// Create an inventory from the reconciled resources.
@@ -499,7 +488,7 @@ func (r *KustomizationReconciler) reconcile(
 	obj.Status.Inventory = newInventory
 
 	// Detect stale resources which are subject to garbage collection.
-	staleObjects, err := inventory.Diff(oldInventory, newInventory, skippedSet)
+	staleObjects, err := inventory.Diff(oldInventory, newInventory)
 	if err != nil {
 		obj.Status.History.Upsert(checksum, time.Now(), time.Since(reconcileStart), meta.ReconciliationFailedReason, historyMeta)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ReconciliationFailedReason, "%s", err)
@@ -523,7 +512,7 @@ func (r *KustomizationReconciler) reconcile(
 		originRevision,
 		isNewRevision,
 		drifted,
-		changeSet.ToObjMetadataSet(),
+		changeSet,
 		ssautil.ExtractJobsWithTTL(objects)); err != nil {
 
 		if errors.Is(err, &runtimeCtrl.QueueEventSource{}) {
@@ -981,8 +970,19 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	originRevision string,
 	isNewRevision bool,
 	drifted bool,
-	objects object.ObjMetadataSet,
+	changeSet *ssa.ChangeSet,
 	jobsWithTTL object.ObjMetadataSet) error {
+
+	// We should not check the health of skipped objects, as they are chosen
+	// to be ignored by the user and may not be in a healthy state.
+	changeSetWithoutSkipped := ssa.NewChangeSet()
+	for _, entry := range changeSet.Entries {
+		if entry.Action != ssa.SkippedAction {
+			changeSetWithoutSkipped.Add(entry)
+		}
+	}
+	objects := changeSetWithoutSkipped.ToObjMetadataSet()
+
 	if len(obj.Spec.HealthChecks) == 0 && !obj.Spec.Wait {
 		conditions.Delete(obj, meta.HealthyCondition)
 		return nil
@@ -1066,16 +1066,7 @@ func (r *KustomizationReconciler) prune(ctx context.Context,
 
 	log := ctrl.LoggerFrom(ctx)
 
-	opts := ssa.DeleteOptions{
-		PropagationPolicy: metav1.DeletePropagationBackground,
-		Inclusions:        manager.GetOwnerLabels(obj.Name, obj.Namespace),
-		Exclusions: map[string]string{
-			fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group):     kustomizev1.DisabledValue,
-			fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
-		},
-	}
-
-	changeSet, err := manager.DeleteAll(ctx, objects, opts)
+	changeSet, err := deleteObjects(ctx, obj, manager, objects)
 	if err != nil {
 		return false, err
 	}
@@ -1160,16 +1151,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 				Group: kustomizev1.GroupVersion.Group,
 			})
 
-			opts := ssa.DeleteOptions{
-				PropagationPolicy: metav1.DeletePropagationBackground,
-				Inclusions:        resourceManager.GetOwnerLabels(obj.Name, obj.Namespace),
-				Exclusions: map[string]string{
-					fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group):     kustomizev1.DisabledValue,
-					fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
-				},
-			}
-
-			changeSet, err := resourceManager.DeleteAll(ctx, objects, opts)
+			changeSet, err := deleteObjects(ctx, obj, resourceManager, objects)
 			if err != nil {
 				r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityError, "pruning for deleted resource failed", nil)
 				// Return the error so we retry the failed garbage collection
@@ -1342,6 +1324,26 @@ func (r *KustomizationReconciler) getProviderRESTConfigFetcher(obj *kustomizev1.
 		provider = runtimeClient.ProviderRESTConfigFetcher(authutils.GetRESTConfigFetcher(opts...))
 	}
 	return provider
+}
+
+// deleteObjects deletes the given objects using the provided ResourceManager
+// and returns a ChangeSet containing the metadata of the deleted objects.
+func deleteObjects(
+	ctx context.Context,
+	obj *kustomizev1.Kustomization,
+	manager *ssa.ResourceManager,
+	objects []*unstructured.Unstructured,
+) (*ssa.ChangeSet, error) {
+	opts := ssa.DeleteOptions{
+		PropagationPolicy: metav1.DeletePropagationBackground,
+		Inclusions:        manager.GetOwnerLabels(obj.Name, obj.Namespace),
+		Exclusions: map[string]string{
+			fmt.Sprintf("%s/prune", kustomizev1.GroupVersion.Group):     kustomizev1.DisabledValue,
+			fmt.Sprintf("%s/reconcile", kustomizev1.GroupVersion.Group): kustomizev1.DisabledValue,
+			fmt.Sprintf("%s/ssa", kustomizev1.GroupVersion.Group):       kustomizev1.IgnoreValue,
+		},
+	}
+	return manager.DeleteAll(ctx, objects, opts)
 }
 
 // getOriginRevision returns the origin revision of the source artifact,
