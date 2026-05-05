@@ -97,7 +97,7 @@ overridden if its key matches a common one.</p>
 <td>
 <em>(Optional)</em>
 <p>DependsOn may contain a DependencyReference slice
-with references to Kustomization resources that must be ready before this
+with references to Kubernetes resources that must be ready before this
 Kustomization can be reconciled.</p>
 </td>
 </tr>
@@ -653,7 +653,8 @@ field.</p>
 (<em>Appears on:</em>
 <a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationSpec">KustomizationSpec</a>)
 </p>
-<p>DependencyReference defines a Kustomization dependency on another Kustomization resource.</p>
+<p>DependencyReference defines a Kustomization dependency on a Kubernetes resource.
+When the dependency is a Kustomization, defaults are applied during reconciliation.</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -666,13 +667,38 @@ field.</p>
 <tbody>
 <tr>
 <td>
+<code>apiVersion</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>APIVersion of the resource to depend on, defaults to the Kustomization API
+group version when the dependency is a Kustomization.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Kind of the resource to depend on, defaults to Kustomization.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>name</code><br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Name of the referent.</p>
+<p>Name of the resource to depend on.</p>
 </td>
 </tr>
 <tr>
@@ -684,8 +710,21 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Namespace of the referent, defaults to the namespace of the Kustomization
-resource object that contains the reference.</p>
+<p>Namespace of the resource to depend on, defaults to the namespace of the
+Kustomization resource object that contains the reference.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ready</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Ready checks if the resource Ready status condition is true, defaults to
+true when the dependency is a Kustomization.</p>
 </td>
 </tr>
 <tr>
@@ -754,7 +793,7 @@ overridden if its key matches a common one.</p>
 <td>
 <em>(Optional)</em>
 <p>DependsOn may contain a DependencyReference slice
-with references to Kustomization resources that must be ready before this
+with references to Kubernetes resources that must be ready before this
 Kustomization can be reconciled.</p>
 </td>
 </tr>

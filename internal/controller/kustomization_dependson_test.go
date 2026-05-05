@@ -28,6 +28,8 @@ import (
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -164,6 +166,26 @@ spec:
 		}, timeout, time.Second).Should(BeTrue())
 	})
 
+	t.Run("reconciles when dependency is found", func(t *testing.T) {
+		g := NewWithT(t)
+		g.Eventually(func() error {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			resultK.Spec.DependsOn = []kustomizev1.DependencyReference{
+				{
+					APIVersion: apiextensionsv1.SchemeGroupVersion.String(),
+					Kind:       "CustomResourceDefinition",
+					Name:       "kustomizations.kustomize.toolkit.fluxcd.io",
+				},
+			}
+			return k8sClient.Update(context.Background(), resultK)
+		}, timeout, time.Second).Should(BeNil())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return conditions.IsReady(resultK)
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
 	t.Run("fails due to dependency not found", func(t *testing.T) {
 		g := NewWithT(t)
 		g.Eventually(func() error {
@@ -180,6 +202,160 @@ spec:
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			return conditions.HasAnyReason(resultK, meta.ReadyCondition, meta.DependencyNotReadyReason)
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
+	t.Run("fails due to other dependency not found", func(t *testing.T) {
+		g := NewWithT(t)
+		g.Eventually(func() error {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			resultK.Spec.DependsOn = []kustomizev1.DependencyReference{
+				{
+					APIVersion: apiextensionsv1.SchemeGroupVersion.String(),
+					Kind:       "CustomResourceDefinition",
+					Name:       "helmreleases.helm.toolkit.fluxcd.io",
+				},
+			}
+			return k8sClient.Update(context.Background(), resultK)
+		}, timeout, time.Second).Should(BeNil())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			ready := conditions.Get(resultK, meta.ReadyCondition)
+			return ready.Reason == meta.DependencyNotReadyReason &&
+				strings.Contains(ready.Message, "CustomResourceDefinition") &&
+				strings.Contains(ready.Message, "not found")
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
+	t.Run("fails due to multiple dependencies not found", func(t *testing.T) {
+		g := NewWithT(t)
+		g.Eventually(func() error {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			resultK.Spec.DependsOn = []kustomizev1.DependencyReference{
+				{
+					APIVersion: corev1.SchemeGroupVersion.String(),
+					Kind:       "ConfigMap",
+					Name:       "root",
+					Namespace:  id,
+				},
+				{
+					APIVersion: corev1.SchemeGroupVersion.String(),
+					Kind:       "Pod",
+					Name:       "root",
+					Namespace:  id,
+				},
+			}
+			return k8sClient.Update(context.Background(), resultK)
+		}, timeout, time.Second).Should(BeNil())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			ready := conditions.Get(resultK, meta.ReadyCondition)
+			return ready.Reason == meta.DependencyNotReadyReason &&
+				strings.Contains(ready.Message, "ConfigMap") &&
+				strings.Contains(ready.Message, "not found")
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
+	podKey := types.NamespacedName{
+		Name:      fmt.Sprintf("dep-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+	pod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: corev1.SchemeGroupVersion.String(),
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Generation: 3,
+			Name:       podKey.Name,
+			Namespace:  podKey.Namespace,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "test",
+					Image: "alpine:latest",
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			ObservedGeneration: 2,
+			Conditions: []corev1.PodCondition{
+				{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+			},
+			Phase: corev1.PodRunning,
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), pod)).To(Succeed())
+
+	t.Run("fails due to dependency with ObservedGeneration < Generation", func(t *testing.T) {
+		g := NewWithT(t)
+		g.Eventually(func() error {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			resultK.Spec.DependsOn = []kustomizev1.DependencyReference{
+				{
+					APIVersion: corev1.SchemeGroupVersion.String(),
+					Kind:       "Pod",
+					Name:       podKey.Name,
+					Namespace:  podKey.Namespace,
+					Ready:      new(true),
+				},
+			}
+			return k8sClient.Update(context.Background(), resultK)
+		}, timeout, time.Second).Should(BeNil())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			ready := conditions.Get(resultK, meta.ReadyCondition)
+			return ready.Reason == meta.DependencyNotReadyReason &&
+				strings.Contains(ready.Message, "Pod") &&
+				strings.Contains(ready.Message, podKey.Name) &&
+				strings.Contains(ready.Message, "is not ready")
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
+	podKey.Name = fmt.Sprintf("dep-%s", randStringRunes(5))
+	pod.ObjectMeta = metav1.ObjectMeta{
+		Generation: 1,
+		Name:       podKey.Name,
+		Namespace:  podKey.Namespace,
+	}
+	pod.Status = corev1.PodStatus{
+		ObservedGeneration: 1,
+		Conditions: []corev1.PodCondition{
+			{Type: corev1.PodReady, Status: corev1.ConditionFalse},
+		},
+		Phase: corev1.PodRunning,
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), pod)).To(Succeed())
+
+	t.Run("fails due to dependency with ObservedGeneration = Generation and ReadyCondition = False", func(t *testing.T) {
+		g := NewWithT(t)
+		g.Eventually(func() error {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			resultK.Spec.DependsOn = []kustomizev1.DependencyReference{
+				{
+					APIVersion: corev1.SchemeGroupVersion.String(),
+					Kind:       "Pod",
+					Name:       podKey.Name,
+					Namespace:  podKey.Namespace,
+					Ready:      new(true),
+				},
+			}
+			return k8sClient.Update(context.Background(), resultK)
+		}, timeout, time.Second).Should(BeNil())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			ready := conditions.Get(resultK, meta.ReadyCondition)
+			return ready.Reason == meta.DependencyNotReadyReason &&
+				strings.Contains(ready.Message, "Pod") &&
+				strings.Contains(ready.Message, podKey.Name) &&
+				strings.Contains(ready.Message, "is not ready")
 		}, timeout, time.Second).Should(BeTrue())
 	})
 }
@@ -261,7 +437,7 @@ data:
 	t.Run("succeeds with readyExpr dependency check", func(t *testing.T) {
 		g := NewWithT(t)
 
-		// Create a dependency Kustomization with matching annotations
+		// Create a Kustomization dependency with matching annotations
 		dependency := &kustomizev1.Kustomization{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      depID,
@@ -301,6 +477,14 @@ data:
 					Name:      dependency.Name,
 					ReadyExpr: `self.metadata.annotations['app/version'] == dep.metadata.annotations['app/version']`,
 				},
+				{
+					APIVersion: corev1.SchemeGroupVersion.String(),
+					Kind:       "ConfigMap",
+					Name:       id,
+					Namespace:  id,
+					Ready:      new(true),
+					ReadyExpr:  "has(dep.data)",
+				},
 			}
 			return k8sClient.Update(context.Background(), resultK)
 		}, timeout, time.Second).Should(BeNil())
@@ -336,6 +520,37 @@ data:
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
 			ready := conditions.Get(resultK, meta.ReadyCondition)
 			return ready.Reason == meta.DependencyNotReadyReason &&
+				strings.Contains(ready.Message, "not ready according to readyExpr")
+		}, timeout, time.Second).Should(BeTrue())
+
+		g.Expect(conditions.IsStalled(resultK)).Should(BeFalse())
+	})
+
+	t.Run("fails with readyExpr when other condition not met", func(t *testing.T) {
+		g := NewWithT(t)
+
+		// Update the main kustomization with a ConfigMap dependency
+		g.Eventually(func() error {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			resultK.Spec.DependsOn = []kustomizev1.DependencyReference{
+				{
+					APIVersion: corev1.SchemeGroupVersion.String(),
+					Kind:       "ConfigMap",
+					Name:       id,
+					Namespace:  id,
+					Ready:      new(true),
+					ReadyExpr:  "!has(dep.data)",
+				},
+			}
+			return k8sClient.Update(context.Background(), resultK)
+		}, timeout, time.Second).Should(BeNil())
+
+		// Should fail because CEL expression evaluates to false
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			ready := conditions.Get(resultK, meta.ReadyCondition)
+			return ready.Reason == meta.DependencyNotReadyReason &&
+				strings.Contains(ready.Message, "ConfigMap") &&
 				strings.Contains(ready.Message, "not ready according to readyExpr")
 		}, timeout, time.Second).Should(BeTrue())
 

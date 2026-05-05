@@ -50,7 +50,7 @@ type KustomizationSpec struct {
 	CommonMetadata *CommonMetadata `json:"commonMetadata,omitempty"`
 
 	// DependsOn may contain a DependencyReference slice
-	// with references to Kustomization resources that must be ready before this
+	// with references to Kubernetes resources that must be ready before this
 	// Kustomization can be reconciled.
 	// +optional
 	DependsOn []DependencyReference `json:"dependsOn,omitempty"`
