@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.8.5
+
+**Release date:** 2026-05-12
+
+This patch release fixes a regression in the management of objects annotated
+with `kustomize.toolkit.fluxcd.io/ssa: IfNotPresent` where non-namespaced resources were
+being deleted and recreated on each reconciliation.
+
+Fixes:
+- Fix management of skipped objects
+  [#1651](https://github.com/fluxcd/kustomize-controller/pull/1651)
+
+Improvements:
+- Update fluxcd/pkg dependencies
+  [#1648](https://github.com/fluxcd/kustomize-controller/pull/1648)
+
 ## 1.8.4
 
 **Release date:** 2026-04-21
