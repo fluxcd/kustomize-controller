@@ -364,14 +364,14 @@ func (in Kustomization) GetDeletionPolicy() string {
 	return in.Spec.DeletionPolicy
 }
 
-// GetDependsOn returns the dependencies as a list of meta.NamespacedObjectReference.
+// GetDependsOn returns the dependencies as a list of meta.DependencyReference.
 //
 // This function makes the Kustomization type conformant with the meta.ObjectWithDependencies interface
 // and allows the controller-runtime to index Kustomizations by their dependencies.
-func (in Kustomization) GetDependsOn() []meta.NamespacedObjectReference {
-	deps := make([]meta.NamespacedObjectReference, len(in.Spec.DependsOn))
+func (in Kustomization) GetDependsOn() []meta.DependencyReference {
+	deps := make([]meta.DependencyReference, len(in.Spec.DependsOn))
 	for i := range in.Spec.DependsOn {
-		deps[i] = meta.NamespacedObjectReference{
+		deps[i] = meta.DependencyReference{
 			Name:      in.Spec.DependsOn[i].Name,
 			Namespace: in.Spec.DependsOn[i].Namespace,
 		}

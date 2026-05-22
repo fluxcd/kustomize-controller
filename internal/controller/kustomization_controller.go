@@ -1218,7 +1218,7 @@ func (r *KustomizationReconciler) event(obj *kustomizev1.Kustomization,
 		eventType = corev1.EventTypeWarning
 	}
 
-	r.EventRecorder.AnnotatedEventf(obj, metadata, eventType, reason, msg)
+	r.EventRecorder.AnnotatedEventf(obj, metadata, eventType, reason, "%s", msg)
 }
 
 func (r *KustomizationReconciler) finalizeStatus(ctx context.Context,
