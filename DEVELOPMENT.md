@@ -10,8 +10,17 @@ There are a number of dependencies required to be able to run the controller and
 
 - [Install Go](https://golang.org/doc/install)
 - [Install Kustomize](https://kubernetes-sigs.github.io/kustomize/installation/)
-- [Install Docker](https://docs.docker.com/engine/install/)
+- [Install Docker](https://docs.docker.com/engine/install/) or [Podman](https://podman.io/).
 - (Optional) [Install Kubebuilder](https://book.kubebuilder.io/quick-start.html#installation)
+
+> [!NOTE]
+>
+> When using Podman, start the user daemon before running the tests:
+>
+> ```shell
+> systemctl --user enable --now podman.socket
+> export DOCKER_HOST=unix:///run/user/1000/podman/podman.sock
+> ```
 
 ## How to run the test suite
 
@@ -23,6 +32,9 @@ You can run the test suite by simply doing
 ```sh
 make test
 ```
+
+These tests spin up containers using `ory/dockertest` and will read
+`DOCKER_HOST`.
 
 ## How to run the controller locally
 
