@@ -51,16 +51,31 @@ func (s *CrossNamespaceSourceReference) String() string {
 	return fmt.Sprintf("%s/%s", s.Kind, s.Name)
 }
 
-// DependencyReference defines a Kustomization dependency on another Kustomization resource.
+// DependencyReference defines a Kustomization dependency on a Kubernetes resource.
+// When the dependency is a Kustomization, defaults are applied during reconciliation.
 type DependencyReference struct {
-	// Name of the referent.
+	// APIVersion of the resource to depend on, defaults to the Kustomization API
+	// group version when the dependency is a Kustomization.
+	// +optional
+	APIVersion string `json:"apiVersion,omitempty"`
+
+	// Kind of the resource to depend on, defaults to Kustomization.
+	// +optional
+	Kind string `json:"kind,omitempty"`
+
+	// Name of the resource to depend on.
 	// +required
 	Name string `json:"name"`
 
-	// Namespace of the referent, defaults to the namespace of the Kustomization
-	// resource object that contains the reference.
+	// Namespace of the resource to depend on, defaults to the namespace of the
+	// Kustomization resource object that contains the reference.
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
+
+	// Ready checks if the resource Ready status condition is true, defaults to
+	// true when the dependency is a Kustomization.
+	// +optional
+	Ready *bool `json:"ready,omitempty"`
 
 	// ReadyExpr is a CEL expression that can be used to assess the readiness
 	// of a dependency. When specified, the built-in readiness check

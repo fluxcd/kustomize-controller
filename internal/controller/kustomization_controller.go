@@ -45,6 +45,7 @@ import (
 
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling"
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/engine"
+	"github.com/fluxcd/cli-utils/pkg/kstatus/status"
 	"github.com/fluxcd/cli-utils/pkg/object"
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
@@ -560,29 +561,62 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 	}
 
 	for _, depRef := range obj.Spec.DependsOn {
+		// Default the dependency Kind to Kustomization if unset.
+		if depRef.Kind == "" {
+			depRef.Kind = kustomizev1.KustomizationKind
+		}
+
+		// Apply Kustomization defaults if the dependency is a Kustomization.
+		if depRef.Kind == kustomizev1.KustomizationKind {
+			// Default APIVersion to Kustomization if unset.
+			if depRef.APIVersion == "" {
+				depRef.APIVersion = kustomizev1.GroupVersion.String()
+			}
+			// Default namespace to the dependent's namespace if unset.
+			if depRef.Namespace == "" {
+				depRef.Namespace = obj.GetNamespace()
+			}
+			// Default readiness check to true if unset.
+			if depRef.Ready == nil {
+				depRef.Ready = new(true)
+			}
+		}
+
+		depMd := object.ObjMetadata{
+			GroupKind: schema.GroupKind{Kind: depRef.Kind},
+			Name:      depRef.Name,
+			Namespace: depRef.Namespace,
+		}
+		depObj := &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": depRef.APIVersion,
+				"kind":       depRef.Kind,
+				"metadata": map[string]any{
+					"name":      depRef.Name,
+					"namespace": depRef.Namespace,
+				},
+			},
+		}
+
 		// Check if the dependency exists by querying
 		// the API server bypassing the cache.
-		if depRef.Namespace == "" {
-			depRef.Namespace = obj.GetNamespace()
+		if err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(depObj), depObj); err != nil {
+			return fmt.Errorf("dependency '%s/%s' not found: %w", depRef.APIVersion, ssautil.FmtObjMetadata(depMd), err)
 		}
-		depName := types.NamespacedName{
-			Namespace: depRef.Namespace,
-			Name:      depRef.Name,
-		}
-		var dep kustomizev1.Kustomization
-		err := r.APIReader.Get(ctx, depName, &dep)
-		if err != nil {
-			return fmt.Errorf("dependency '%s' not found: %w", depName, err)
+
+		// Skip all readiness checks if unset or set to false.
+		if depRef.Ready == nil || !*depRef.Ready {
+			continue
 		}
 
 		// Evaluate the CEL expression (if specified) to determine if the dependency is ready.
 		if depRef.ReadyExpr != "" {
-			ready, err := r.evalReadyExpr(ctx, depRef.ReadyExpr, objMap, &dep)
+			ready, err := r.evalReadyExpr(ctx, depRef.ReadyExpr, objMap, depObj)
 			if err != nil {
 				return err
 			}
 			if !ready {
-				return fmt.Errorf("dependency '%s' is not ready according to readyExpr eval", depName)
+				return fmt.Errorf("dependency '%s/%s' is not ready according to readyExpr eval", depRef.APIVersion, ssautil.FmtObjMetadata(depMd))
 			}
 		}
 
@@ -594,16 +628,32 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 
 		// Check if the dependency observed generation is up to date
 		// and if the dependency is in a ready state.
-		if len(dep.Status.Conditions) == 0 || dep.Generation != dep.Status.ObservedGeneration {
-			return fmt.Errorf("dependency '%s' is not ready", depName)
+		stat, err := status.Compute(depObj)
+		if err != nil {
+			return fmt.Errorf("dependency '%s/%s' is not ready: %w", depRef.APIVersion, ssautil.FmtObjMetadata(depMd), err)
 		}
-		if !apimeta.IsStatusConditionTrue(dep.Status.Conditions, meta.ReadyCondition) {
-			return fmt.Errorf("dependency '%s' is not ready", depName)
+		if stat.Status != status.CurrentStatus {
+			return fmt.Errorf("dependency '%s/%s' is not ready: status %s", depRef.APIVersion, ssautil.FmtObjMetadata(depMd), stat.Status)
 		}
 
-		// Check if the dependency source matches the current source
+		// These checks only apply to Kustomization dependencies.
+		// Check if the Kustomization dependency source matches the current source
 		// and if so, verify that the last applied revision of the dependency
 		// matches the current source artifact revision.
+		// Additionally check Kustomization dependencies for readiness.
+		// kstatus.Compute() tolerates missing conditions, but Kustomizations are required to have a Ready condition.
+		if depRef.Kind != kustomizev1.KustomizationKind {
+			continue
+		}
+
+		var dep kustomizev1.Kustomization
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(depObj.Object, &dep); err != nil {
+			return fmt.Errorf("failed to convert unstructured to Kustomization: %w", err)
+		}
+		if !apimeta.IsStatusConditionTrue(dep.Status.Conditions, meta.ReadyCondition) {
+			return fmt.Errorf("dependency '%s/%s' is not ready", depRef.APIVersion, ssautil.FmtObjMetadata(depMd))
+		}
+
 		srcNamespace := dep.Spec.SourceRef.Namespace
 		if srcNamespace == "" {
 			srcNamespace = dep.GetNamespace()
@@ -616,7 +666,7 @@ func (r *KustomizationReconciler) checkDependencies(ctx context.Context,
 			srcNamespace == depSrcNamespace &&
 			dep.Spec.SourceRef.Kind == obj.Spec.SourceRef.Kind &&
 			!source.GetArtifact().HasRevision(dep.Status.LastAppliedRevision) {
-			return fmt.Errorf("dependency '%s' revision is not up to date", depName)
+			return fmt.Errorf("dependency '%s/%s' revision is not up to date", depRef.APIVersion, ssautil.FmtObjMetadata(depMd))
 		}
 	}
 
@@ -628,7 +678,7 @@ func (r *KustomizationReconciler) evalReadyExpr(
 	ctx context.Context,
 	expr string,
 	selfMap map[string]any,
-	dep *kustomizev1.Kustomization,
+	dep *unstructured.Unstructured,
 ) (bool, error) {
 	const (
 		selfName = "self"
@@ -640,7 +690,7 @@ func (r *KustomizationReconciler) evalReadyExpr(
 		cel.WithOutputType(celtypes.BoolType),
 		cel.WithStructVariables(selfName, depName))
 	if err != nil {
-		return false, reconcile.TerminalError(fmt.Errorf("failed to evaluate dependency %s: %w", dep.Name, err))
+		return false, reconcile.TerminalError(fmt.Errorf("failed to evaluate dependency %s: %w", dep.GetName(), err))
 	}
 
 	depMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(dep)

@@ -137,20 +137,35 @@ spec:
               dependsOn:
                 description: |-
                   DependsOn may contain a DependencyReference slice
-                  with references to Kustomization resources that must be ready before this
+                  with references to Kubernetes resources that must be ready before this
                   Kustomization can be reconciled.
                 items:
-                  description: DependencyReference defines a Kustomization dependency
-                    on another Kustomization resource.
+                  description: |-
+                    DependencyReference defines a Kustomization dependency on a Kubernetes resource.
+                    When the dependency is a Kustomization, defaults are applied during reconciliation.
                   properties:
+                    apiVersion:
+                      description: |-
+                        APIVersion of the resource to depend on, defaults to the Kustomization API
+                        group version when the dependency is a Kustomization.
+                      type: string
+                    kind:
+                      description: Kind of the resource to depend on, defaults to
+                        Kustomization.
+                      type: string
                     name:
-                      description: Name of the referent.
+                      description: Name of the resource to depend on.
                       type: string
                     namespace:
                       description: |-
-                        Namespace of the referent, defaults to the namespace of the Kustomization
-                        resource object that contains the reference.
+                        Namespace of the resource to depend on, defaults to the namespace of the
+                        Kustomization resource object that contains the reference.
                       type: string
+                    ready:
+                      description: |-
+                        Ready checks if the resource Ready status condition is true, defaults to
+                        true when the dependency is a Kustomization.
+                      type: boolean
                     readyExpr:
                       description: |-
                         ReadyExpr is a CEL expression that can be used to assess the readiness
