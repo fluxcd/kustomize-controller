@@ -43,6 +43,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/ory/dockertest/v3"
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -562,12 +563,12 @@ func randStringRunes(n int) string {
 	return string(b)
 }
 
-func getEvents(objName string, annotations map[string]string) []corev1.Event {
-	var result []corev1.Event
-	events := &corev1.EventList{}
+func getEvents(objName string, annotations map[string]string) []eventsv1.Event {
+	var result []eventsv1.Event
+	events := &eventsv1.EventList{}
 	_ = k8sClient.List(ctx, events)
 	for _, event := range events.Items {
-		if event.InvolvedObject.Name == objName {
+		if event.Regarding.Name == objName {
 			if annotations == nil && len(annotations) == 0 {
 				result = append(result, event)
 			} else {

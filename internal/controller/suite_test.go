@@ -29,6 +29,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/ory/dockertest/v3"
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -44,6 +45,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/conditions"
 	kcheck "github.com/fluxcd/pkg/runtime/conditions/check"
 	"github.com/fluxcd/pkg/runtime/controller"
+	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
@@ -136,12 +138,12 @@ func runInContext(registerControllers func(*testenv.Environment), run func() int
 	code = run()
 
 	if debugMode {
-		events := &corev1.EventList{}
+		events := &eventsv1.EventList{}
 		_ = k8sClient.List(ctx, events)
 		for _, event := range events.Items {
 			fmt.Printf("%s %s \n%s\n",
-				event.InvolvedObject.Name, event.GetAnnotations()["kustomize.toolkit.fluxcd.io/revision"],
-				event.Message)
+				event.Regarding.Name, event.GetAnnotations()["kustomize.toolkit.fluxcd.io/revision"],
+				event.Note)
 		}
 	}
 
@@ -179,7 +181,7 @@ func TestMain(m *testing.M) {
 			Client:                    testEnv,
 			Mapper:                    testEnv.GetRESTMapper(),
 			APIReader:                 testEnv,
-			EventRecorder:             testEnv.GetEventRecorderFor(controllerName),
+			EventRecorder:             createMockEventRecorder(testEnv, controllerName),
 			Metrics:                   testMetricsH,
 			DependencyRequeueInterval: 2 * time.Second,
 			ConcurrentSSA:             4,
@@ -196,6 +198,15 @@ func TestMain(m *testing.M) {
 	}, m.Run)
 
 	os.Exit(code)
+}
+
+func createMockEventRecorder(testEnv *testenv.Environment, controllerName string) events.EventRecorder {
+	logger := ctrl.Log.WithName("events")
+	eventRecorder, err := events.NewRecorder(testEnv, logger, "", controllerName)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create event recorder: %v", err))
+	}
+	return eventRecorder
 }
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
@@ -241,12 +252,12 @@ func logStatus(t *testing.T, k *kustomizev1.Kustomization) {
 	t.Log(string(sts))
 }
 
-func getEvents(objName string, annotations map[string]string) []corev1.Event {
-	var result []corev1.Event
-	events := &corev1.EventList{}
+func getEvents(objName string, annotations map[string]string) []eventsv1.Event {
+	var result []eventsv1.Event
+	events := &eventsv1.EventList{}
 	_ = k8sClient.List(ctx, events)
 	for _, event := range events.Items {
-		if event.InvolvedObject.Name == objName {
+		if event.Regarding.Name == objName {
 			if annotations == nil && len(annotations) == 0 {
 				result = append(result, event)
 			} else {

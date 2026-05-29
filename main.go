@@ -249,8 +249,8 @@ func main() {
 
 	probes.SetupChecks(mgr, setupLog)
 
-	var eventRecorder *events.Recorder
-	if eventRecorder, err = events.NewRecorder(mgr, ctrl.Log, eventsAddr, controllerName); err != nil {
+	eventRecorder, err := events.NewRecorder(mgr, ctrl.Log, eventsAddr, controllerName)
+	if err != nil {
 		setupLog.Error(err, "unable to create event recorder")
 		os.Exit(1)
 	}

@@ -24,7 +24,7 @@ import (
 
 	runtimeClient "github.com/fluxcd/pkg/runtime/client"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -210,7 +210,7 @@ parameters:
 		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
 		g.Expect(len(events) > 0).To(BeTrue())
 		g.Expect(events[len(events)-1].Type).To(BeIdenticalTo("Warning"))
-		g.Expect(events[len(events)-1].Message).To(ContainSubstring("does-not-exists"))
+		g.Expect(events[len(events)-1].Note).To(ContainSubstring("does-not-exists"))
 	})
 
 	t.Run("recovers and reports healthy status", func(t *testing.T) {
@@ -252,7 +252,7 @@ parameters:
 		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
 		g.Expect(len(events) > 1).To(BeTrue())
 		g.Expect(events[len(events)-2].Type).To(BeIdenticalTo("Normal"))
-		g.Expect(events[len(events)-2].Message).To(ContainSubstring(expectedMessage))
+		g.Expect(events[len(events)-2].Note).To(ContainSubstring(expectedMessage))
 	})
 
 	t.Run("reports new revision healthy status", func(t *testing.T) {
@@ -287,7 +287,7 @@ parameters:
 		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
 		g.Expect(len(events) > 1).To(BeTrue())
 		g.Expect(events[len(events)-2].Type).To(BeIdenticalTo("Normal"))
-		g.Expect(events[len(events)-2].Message).To(ContainSubstring(expectedMessage))
+		g.Expect(events[len(events)-2].Note).To(ContainSubstring(expectedMessage))
 	})
 
 	t.Run("finalizes object", func(t *testing.T) {
@@ -749,7 +749,7 @@ spec:
 		events := getEvents(resultK.GetName(), nil)
 		for _, event := range events {
 			if event.Reason == meta.HealthCheckCanceledReason {
-				t.Logf("Found HealthCheckCanceled event: %s", event.Message)
+				t.Logf("Found HealthCheckCanceled event: %s", event.Note)
 				return true
 			}
 		}
@@ -758,7 +758,7 @@ spec:
 
 	// Verify the event message indicates the trigger source.
 	events := getEvents(resultK.GetName(), nil)
-	var cancelEvent *corev1.Event
+	var cancelEvent *eventsv1.Event
 	for i := range events {
 		if events[i].Reason == meta.HealthCheckCanceledReason {
 			cancelEvent = &events[i]
@@ -766,8 +766,8 @@ spec:
 		}
 	}
 	g.Expect(cancelEvent).ToNot(BeNil())
-	g.Expect(cancelEvent.Message).To(ContainSubstring("Health checks canceled"))
-	g.Expect(cancelEvent.Message).To(ContainSubstring("GitRepository"))
+	g.Expect(cancelEvent.Note).To(ContainSubstring("Health checks canceled"))
+	g.Expect(cancelEvent.Note).To(ContainSubstring("GitRepository"))
 }
 
 func TestKustomizationReconciler_HealthCheckExprs_GroupOnly(t *testing.T) {

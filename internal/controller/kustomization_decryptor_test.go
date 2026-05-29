@@ -195,8 +195,8 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 
 		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
 		g.Expect(len(events)).To(BeIdenticalTo(1))
-		g.Expect(events[0].Message).Should(ContainSubstring("Reconciliation finished"))
-		g.Expect(events[0].Message).ShouldNot(ContainSubstring("configured"))
+		g.Expect(events[0].Note).Should(ContainSubstring("Reconciliation finished"))
+		g.Expect(events[0].Note).ShouldNot(ContainSubstring("configured"))
 	})
 
 	t.Run("global SOPS age secret as fallback", func(t *testing.T) {

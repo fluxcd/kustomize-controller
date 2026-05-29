@@ -122,11 +122,11 @@ stringData:
 		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
 		g.Expect(len(events) > 2).To(BeTrue())
 		g.Expect(events[0].Reason).To(BeIdenticalTo(meta.ProgressingReason))
-		g.Expect(events[0].Message).To(ContainSubstring("created"))
+		g.Expect(events[0].Note).To(ContainSubstring("created"))
 		g.Expect(events[1].Reason).To(BeIdenticalTo(meta.ProgressingReason))
-		g.Expect(events[1].Message).To(ContainSubstring("check passed"))
+		g.Expect(events[1].Note).To(ContainSubstring("check passed"))
 		g.Expect(events[2].Reason).To(BeIdenticalTo(meta.ReconciliationSucceededReason))
-		g.Expect(events[2].Message).To(ContainSubstring("finished"))
+		g.Expect(events[2].Note).To(ContainSubstring("finished"))
 	})
 
 	t.Run("watches for external artifact revision change", func(t *testing.T) {
@@ -164,7 +164,7 @@ stringData:
 
 		events := getEvents(resultK.GetName(), nil)
 		g.Expect(events[len(events)-1].Reason).To(BeIdenticalTo(apiacl.AccessDeniedReason))
-		g.Expect(events[len(events)-1].Message).To(ContainSubstring("feature gate is disabled"))
+		g.Expect(events[len(events)-1].Note).To(ContainSubstring("feature gate is disabled"))
 	})
 }
 
