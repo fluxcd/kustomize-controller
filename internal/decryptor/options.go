@@ -48,3 +48,17 @@ func WithSOPSAgeSecret(name, namespace string) Option {
 		}
 	}
 }
+
+// WithVaultConfigMap sets the ConfigMap (by name and namespace)
+// mapping Vault/OpenBao addresses to the Kubernetes auth mount to use for each,
+// used to authenticate for SOPS decryption. The ConfigMap also acts as an
+// allowlist: only addresses listed in it can be used. When unset, Vault
+// Kubernetes auth is disabled.
+func WithVaultConfigMap(name, namespace string) Option {
+	return func(o *Decryptor) {
+		o.vaultConfigMap = &types.NamespacedName{
+			Name:      name,
+			Namespace: namespace,
+		}
+	}
+}

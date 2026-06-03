@@ -48,9 +48,20 @@ type Server struct {
 	ageIdentities age.ParsedIdentities
 
 	// vaultToken is the token used for Encrypt and Decrypt operations of
-	// Hashicorp Vault requests.
-	// When empty, the request will be handled by defaultServer.
+	// OpenBao/Vault requests.
+	// When empty, vaultK8sAuth is used to obtain a token, and if that is also
+	// not configured the request will be handled by defaultServer.
 	vaultToken hcvault.Token
+
+	// vaultK8sAuth obtains an OpenBao/Vault token for the Vault server
+	// at the given address by authenticating with the Kubernetes auth method.
+	// It is only consulted when vaultToken is empty, allowing a static token to
+	// take precedence. The token cannot be resolved ahead of time, as the Vault
+	// address is only known from the SOPS metadata of the data key being
+	// decrypted (similar to how the AWS region is derived from the KMS ARN).
+	// When nil, and vaultToken is also empty, the request is handled by
+	// defaultServer.
+	vaultK8sAuth func(ctx context.Context, vaultAddress string) (string, error)
 
 	// azureTokenCredential is the credential token used for Encrypt and Decrypt
 	// operations of Azure Key Vault requests.
@@ -116,8 +127,8 @@ func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*
 			Ciphertext: ciphertext,
 		}, nil
 	case *keyservice.Key_VaultKey:
-		if ks.vaultToken != "" {
-			ciphertext, err := ks.encryptWithHCVault(k.VaultKey, req.Plaintext)
+		if ks.vaultToken != "" || ks.vaultK8sAuth != nil {
+			ciphertext, err := ks.encryptWithHCVault(ctx, k.VaultKey, req.Plaintext)
 			if err != nil {
 				return nil, err
 			}
@@ -178,8 +189,8 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 			Plaintext: plaintext,
 		}, nil
 	case *keyservice.Key_VaultKey:
-		if ks.vaultToken != "" {
-			plaintext, err := ks.decryptWithHCVault(k.VaultKey, req.Ciphertext)
+		if ks.vaultToken != "" || ks.vaultK8sAuth != nil {
+			plaintext, err := ks.decryptWithHCVault(ctx, k.VaultKey, req.Ciphertext)
 			if err != nil {
 				return nil, err
 			}
@@ -266,29 +277,51 @@ func (ks *Server) decryptWithAge(key *keyservice.AgeKey, ciphertext []byte) ([]b
 	return plaintext, err
 }
 
-func (ks *Server) encryptWithHCVault(key *keyservice.VaultKey, plaintext []byte) ([]byte, error) {
+func (ks *Server) encryptWithHCVault(ctx context.Context, key *keyservice.VaultKey, plaintext []byte) ([]byte, error) {
 	vaultKey := hcvault.MasterKey{
 		VaultAddress: key.VaultAddress,
 		EnginePath:   key.EnginePath,
 		KeyName:      key.KeyName,
 	}
-	ks.vaultToken.ApplyToMasterKey(&vaultKey)
+	token, err := ks.resolveVaultToken(ctx, key.VaultAddress)
+	if err != nil {
+		return nil, err
+	}
+	token.ApplyToMasterKey(&vaultKey)
 	if err := vaultKey.Encrypt(plaintext); err != nil {
 		return nil, err
 	}
 	return []byte(vaultKey.EncryptedKey), nil
 }
 
-func (ks *Server) decryptWithHCVault(key *keyservice.VaultKey, ciphertext []byte) ([]byte, error) {
+func (ks *Server) decryptWithHCVault(ctx context.Context, key *keyservice.VaultKey, ciphertext []byte) ([]byte, error) {
 	vaultKey := hcvault.MasterKey{
 		VaultAddress: key.VaultAddress,
 		EnginePath:   key.EnginePath,
 		KeyName:      key.KeyName,
 	}
 	vaultKey.EncryptedKey = string(ciphertext)
-	ks.vaultToken.ApplyToMasterKey(&vaultKey)
+	token, err := ks.resolveVaultToken(ctx, key.VaultAddress)
+	if err != nil {
+		return nil, err
+	}
+	token.ApplyToMasterKey(&vaultKey)
 	plaintext, err := vaultKey.Decrypt()
 	return plaintext, err
+}
+
+// resolveVaultToken returns the OpenBao/Vault token to use for the
+// Vault server at the given address. A statically configured token takes
+// precedence; otherwise the token is obtained via the Kubernetes auth method.
+func (ks *Server) resolveVaultToken(ctx context.Context, vaultAddress string) (hcvault.Token, error) {
+	if ks.vaultToken != "" {
+		return ks.vaultToken, nil
+	}
+	token, err := ks.vaultK8sAuth(ctx, vaultAddress)
+	if err != nil {
+		return "", err
+	}
+	return hcvault.Token(token), nil
 }
 
 func (ks *Server) encryptWithAWSKMS(key *keyservice.KmsKey, plaintext []byte) ([]byte, error) {

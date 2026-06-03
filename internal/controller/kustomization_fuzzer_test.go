@@ -76,7 +76,7 @@ var (
 	debugMode    = os.Getenv("DEBUG_TEST") != ""
 )
 
-const vaultVersion = "1.13.2"
+const openbaoVersion = "2.5.4"
 const defaultBinVersion = "1.24"
 
 //go:embed testdata/crd/*.yaml
@@ -743,7 +743,7 @@ func createVaultTestInstance() (*dockertest.Pool, *dockertest.Resource, error) {
 	}
 
 	// pulls an image, creates a container based on it and runs it
-	resource, err := pool.Run("vault", vaultVersion, []string{"VAULT_DEV_ROOT_TOKEN_ID=secret"})
+	resource, err := pool.Run("openbao/openbao", openbaoVersion, []string{"BAO_DEV_ROOT_TOKEN_ID=secret"})
 	if err != nil {
 		return nil, nil, fmt.Errorf("Could not start resource: %s", err)
 	}

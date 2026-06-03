@@ -56,7 +56,7 @@ const (
 	timeout                = time.Second * 30
 	interval               = time.Second * 1
 	reconciliationInterval = time.Second * 5
-	vaultVersion           = "1.13.2"
+	openbaoVersion         = "2.5.4"
 	overrideManagerName    = "node-fetch"
 	sopsAgeSecret          = "sops-age-secret"
 )
@@ -376,7 +376,7 @@ func createVaultTestInstance() (*dockertest.Pool, *dockertest.Resource, error) {
 	}
 
 	// pulls an image, creates a container based on it and runs it
-	resource, err := pool.Run("vault", vaultVersion, []string{"VAULT_DEV_ROOT_TOKEN_ID=secret"})
+	resource, err := pool.Run("openbao/openbao", openbaoVersion, []string{"BAO_DEV_ROOT_TOKEN_ID=secret"})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not start resource: %s", err)
 	}
