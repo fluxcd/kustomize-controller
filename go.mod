@@ -24,7 +24,7 @@ require (
 	github.com/fluxcd/pkg/apis/event v0.26.0
 	github.com/fluxcd/pkg/apis/kustomize v1.18.0
 	github.com/fluxcd/pkg/apis/meta v1.29.0
-	github.com/fluxcd/pkg/auth v0.50.0
+	github.com/fluxcd/pkg/auth v0.51.0
 	github.com/fluxcd/pkg/cache v0.14.0
 	github.com/fluxcd/pkg/http/fetch v0.25.0
 	github.com/fluxcd/pkg/kustomize v1.32.0
