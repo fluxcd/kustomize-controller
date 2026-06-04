@@ -107,6 +107,7 @@ type KustomizationReconciler struct {
 	NoCrossNamespaceRefs    bool
 	NoRemoteBases           bool
 	SOPSAgeSecret           string
+	SOPSVaultConfigMap      string
 	TokenCache              *cache.TokenCache
 
 	// Retry and requeue options
@@ -758,6 +759,9 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 	}
 	if name, ns := r.SOPSAgeSecret, os.Getenv(runtimeCtrl.EnvRuntimeNamespace); name != "" && ns != "" {
 		decryptorOpts = append(decryptorOpts, decryptor.WithSOPSAgeSecret(name, ns))
+	}
+	if name, ns := r.SOPSVaultConfigMap, os.Getenv(runtimeCtrl.EnvRuntimeNamespace); name != "" && ns != "" {
+		decryptorOpts = append(decryptorOpts, decryptor.WithVaultConfigMap(name, ns))
 	}
 	dec, cleanup, err := decryptor.New(r.Client, obj, decryptorOpts...)
 	if err != nil {

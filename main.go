@@ -100,6 +100,7 @@ func main() {
 		defaultDecryptionServiceAccount string
 		defaultKubeConfigServiceAccount string
 		sopsAgeSecret                   string
+		sopsVaultConfigMap              string
 		featureGates                    feathelper.FeatureGates
 		disallowedFieldManagers         []string
 		tokenCacheOptions               pkgcache.TokenFlags
@@ -119,6 +120,7 @@ func main() {
 	flag.StringVar(&defaultDecryptionServiceAccount, auth.ControllerFlagDefaultDecryptionServiceAccount, "", "Default service account used for decryption.")
 	flag.StringVar(&defaultKubeConfigServiceAccount, auth.ControllerFlagDefaultKubeConfigServiceAccount, "", "Default service account used for kubeconfig.")
 	flag.StringVar(&sopsAgeSecret, "sops-age-secret", "", "The name of a Kubernetes secret in the RUNTIME_NAMESPACE containing a SOPS age decryption key for fallback usage.")
+	flag.StringVar(&sopsVaultConfigMap, "sops-vault-configmap", "", "The name of a ConfigMap in the RUNTIME_NAMESPACE configuring the OpenBao/Vault instances (address and login path) trusted for SOPS decryption. It acts as an allowlist of trusted Vault servers. When empty, SOPS decryption via Vault ServiceAccount-token authentication is disabled.")
 	flag.StringArrayVar(&disallowedFieldManagers, "override-manager", []string{}, "Field manager disallowed to perform changes on managed resources.")
 	flag.StringVar(&customApplyStageKinds, "custom-apply-stage-kinds", "", "A comma-separated list of GroupKind (e.g., 'rbac.authorization.k8s.io/Role,some.group.io/SomeResource') "+
 		"resources to be applied in a custom stage during server-side apply running after CRDs and before all namespaced resources not in this list.")
@@ -367,6 +369,7 @@ func main() {
 		NoCrossNamespaceRefs:       aclOptions.NoCrossNamespaceRefs,
 		NoRemoteBases:              noRemoteBases,
 		SOPSAgeSecret:              sopsAgeSecret,
+		SOPSVaultConfigMap:         sopsVaultConfigMap,
 		StatusManager:              fmt.Sprintf("gotk-%s", controllerName),
 		StrictSubstitutions:        strictSubstitutions,
 		TokenCache:                 tokenCache,

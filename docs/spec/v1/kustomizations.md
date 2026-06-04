@@ -1155,7 +1155,7 @@ configure decryption for Secrets that are a part of the Kustomization.
 The only supported encryption provider is [SOPS](https://getsops.io/).
 With SOPS you can encrypt your secrets with [age](https://github.com/FiloSottile/age)
 or [OpenPGP](https://www.openpgp.org) keys, or with keys from Key Management Services
-(KMS), like AWS KMS, Azure Key Vault, GCP KMS or Hashicorp Vault.
+(KMS), like AWS KMS, Azure Key Vault, GCP KMS or OpenBao/Vault.
 
 **Note:** You must leave `metadata`, `kind` or `apiVersion` in plain text.
 An easy way to do this is limiting the encrypted keys with the flag
@@ -1168,7 +1168,12 @@ The `.spec.decryption` field has the following subfields:
 - `.secretRef.name`: The name of the secret that contains the keys or cloud provider
   static credentials for KMS services to be used for decryption.
 - `.serviceAccountName`: The name of the service account used for
-  secret-less authentication with KMS services from cloud providers.
+  secret-less authentication with KMS services from cloud providers, and
+  with OpenBao/Vault via the
+  [Kubernetes auth method](#openbaovault-kubernetes-auth) (object-level workload
+  identity). This requires the `ObjectLevelWorkloadIdentity` feature gate to be
+  enabled. When unset, the controller falls back to its own ServiceAccount
+  ([controller-level workload identity](#controller-global-decryption)).
 
 To make a Kustomization react immediately to changes in the referenced Secret
 see [this](#reacting-immediately-to-configuration-dependencies) section.
@@ -1222,7 +1227,7 @@ metadata:
 data:
   # Exemplary age private key
   identity.agekey: <BASE64>
-  # Exemplary Hashicorp Vault token
+  # Exemplary OpenBao/Vault token
   sops.vault-token: <BASE64>
 ```
 
@@ -1400,9 +1405,9 @@ stringData:
     }
 ```
 
-#### Hashicorp Vault Secret entry
+#### OpenBao/Vault Secret entry
 
-To specify credentials for Hashicorp Vault in a Kubernetes Secret, append a
+To specify credentials for OpenBao/Vault in a Kubernetes Secret, append a
 `.data` entry with a fixed `sops.vault-token` key and the token as value.
 
 ```yaml
@@ -1413,9 +1418,94 @@ metadata:
   name: sops-keys
   namespace: default
 data:
-  # Exemplary Hashicorp Vault Secret token
+  # Exemplary OpenBao/Vault Secret token
   sops.vault-token: <BASE64>
 ```
+
+#### OpenBao/Vault Kubernetes auth
+
+Instead of a static `sops.vault-token`, the controller can authenticate to
+OpenBao/Vault by exchanging a Kubernetes ServiceAccount token for a short-lived
+Vault token via a JWT-backed auth method (e.g. the
+[Kubernetes auth method](https://openbao.org/docs/auth/kubernetes/) or the
+[JWT auth method](https://openbao.org/docs/auth/jwt/)). This is enabled with the
+`--sops-vault-configmap` flag, which names a ConfigMap in the controller's
+namespace that maps each Vault address to the login path to authenticate at. The
+ConfigMap also acts as an **allowlist**: only addresses listed in it can be
+authenticated to this way. This does not affect the static token paths — the
+`sops.vault-token` Secret entry and the `VAULT_TOKEN` environment variable
+continue to work for any address. When the flag is empty, this authentication is
+disabled and decryption falls back to those static token paths.
+
+The mapping is stored under the `config.yaml` key as a list of instances, each
+with an `address` and the `loginPath` to authenticate at. The login path is used
+verbatim, so it supports any JWT-backed auth method and namespace-prefixed paths
+(e.g. `ns1/ns2/auth/kubernetes/login`). The ConfigMap must be in the same
+namespace as the kustomize-controller Deployment.
+
+```yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sops-vault-config
+  namespace: flux-system
+data:
+  config.yaml: |
+    instances:
+      - address: https://vault-a.example.com:8200
+        loginPath: auth/kubernetes/login
+      - address: https://vault-b.example.com:8200
+        loginPath: ns1/ns2/auth/kubernetes/login
+```
+
+Then, patch the kustomize-controller Deployment to add the flag:
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kustomize-controller
+  namespace: flux-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        args:
+        - --sops-vault-configmap=sops-vault-config
+```
+
+When enabled, a Kustomization whose decryption Secret does **not** contain a
+`sops.vault-token` authenticates to the Vault address found in the SOPS metadata
+of each encrypted data key as follows:
+
+- The Kubernetes ServiceAccount token is issued for
+  [`.spec.decryption.serviceAccountName`](#decryption) when set (object-level
+  workload identity, which requires the `ObjectLevelWorkloadIdentity` feature
+  gate to be enabled), otherwise for the controller's own ServiceAccount
+  ([controller-level workload identity](#controller-global-decryption)).
+- The token audience is set to the Vault address.
+- The Vault role is derived from the ServiceAccount as `{namespace}_{name}`
+  (e.g. a ServiceAccount `sops` in namespace `apps` maps to the role `apps_sops`).
+
+On the Vault server, the operator must enable and configure the auth method
+behind the configured login path (for the Kubernetes auth method, with the
+cluster's API server address, CA certificate and a token reviewer JWT), and
+create a role `{namespace}_{name}` bound to the ServiceAccount and namespace,
+with its audience set to the Vault address and a policy granting `update` on the
+relevant `transit/decrypt/<key>` paths. See the
+[OpenBao Kubernetes auth docs](https://openbao.org/docs/auth/kubernetes/) for the
+auth method and role configuration. When several clusters share one Vault, enable
+a separate auth mount per cluster (each configured with that cluster's API
+server, CA and reviewer JWT) and set each cluster's login path in its own
+ConfigMap.
+
+The authentication methods are tried in order of precedence: a static
+`sops.vault-token` in the Secret referenced by
+[`.spec.decryption.secretRef`](#decryption) takes priority over Kubernetes auth,
+which in turn takes priority over the global `VAULT_TOKEN` environment variable.
 
 #### Controlling the decryption behavior of resources
 
@@ -1778,10 +1868,15 @@ Controller-level configuration:
 These guides provide detailed instructions for setting up authentication,
 permissions, and controller configuration for each cloud provider.
 
-#### Hashicorp Vault
+#### OpenBao/Vault
 
-To configure a global default for Hashicorp Vault, patch the controller's
-Deployment with a `VAULT_TOKEN` environment variable.
+There are two ways to configure controller-level authentication to OpenBao/Vault
+for SOPS decryption: a static token, or the Kubernetes auth method.
+
+##### Static token
+
+To configure a global default token, patch the controller's Deployment with a
+`VAULT_TOKEN` environment variable.
 
 ```yaml
 ---
@@ -1799,6 +1894,22 @@ spec:
         - name: VAULT_TOKEN
           value: <token>
 ```
+
+##### Kubernetes auth
+
+When SOPS decryption uses OpenBao/Vault with the
+[Kubernetes auth method](#openbaovault-kubernetes-auth), the controller-global
+identity is simply kustomize-controller's own ServiceAccount: a Kustomization
+that sets no [`.spec.decryption.serviceAccountName`](#decryption) authenticates
+to Vault as the controller's ServiceAccount (controller-level workload identity).
+
+Setting `.spec.decryption.serviceAccountName` makes the authentication
+object-level rather than global, and requires the `ObjectLevelWorkloadIdentity`
+feature gate to be enabled.
+
+See [OpenBao/Vault Kubernetes auth](#openbaovault-kubernetes-auth) for enabling
+the method (the `--sops-vault-configmap` flag and ConfigMap) and the Vault server
+configuration.
 
 #### SOPS Age Keys
 

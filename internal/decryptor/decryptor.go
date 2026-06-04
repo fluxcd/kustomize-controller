@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -39,6 +40,7 @@ import (
 	"github.com/fluxcd/pkg/auth/aws"
 	"github.com/fluxcd/pkg/auth/azure"
 	"github.com/fluxcd/pkg/auth/gcp"
+	"github.com/fluxcd/pkg/auth/generic"
 	"github.com/fluxcd/pkg/cache"
 	"github.com/getsops/sops/v3"
 	"github.com/getsops/sops/v3/aes"
@@ -48,6 +50,7 @@ import (
 	"github.com/getsops/sops/v3/config"
 	"github.com/getsops/sops/v3/keyservice"
 	"github.com/getsops/sops/v3/pgp"
+	vaultapi "github.com/hashicorp/vault/api"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	corev1 "k8s.io/api/core/v1"
@@ -76,7 +79,7 @@ const (
 	// file.
 	DecryptionAgeExt = ".agekey"
 	// DecryptionVaultTokenFileName is the name of the file containing the
-	// Hashicorp Vault token.
+	// OpenBao/Vault token.
 	DecryptionVaultTokenFileName = "sops.vault-token"
 	// DecryptionAWSKmsFile is the name of the file containing the AWS KMS
 	// credentials.
@@ -146,9 +149,19 @@ type Decryptor struct {
 	gnuPGHome pgp.GnuPGHome
 	// ageIdentities is the set of age identities available to the decryptor.
 	ageIdentities age.ParsedIdentities
-	// vaultToken is the Hashicorp Vault token used to authenticate towards
+	// vaultToken is the OpenBao/Vault token used to authenticate towards
 	// any Vault server.
 	vaultToken string
+	// vaultK8sAuth obtains an OpenBao/Vault token for the Vault server
+	// at the given address using the Kubernetes auth method, by exchanging a
+	// token of the decryption ServiceAccount. It is only set when no static
+	// vaultToken was imported and a decryption ServiceAccount is resolvable.
+	vaultK8sAuth func(ctx context.Context, vaultAddress string) (string, error)
+	// vaultConfigMap is the NamespacedName of a ConfigMap mapping
+	// Vault/OpenBao addresses to the login path to use for each, used by
+	// vaultK8sAuth. It also acts as an allowlist of trusted Vault servers.
+	// When nil, Vault ServiceAccount-token authentication is disabled.
+	vaultConfigMap *types.NamespacedName
 	// awsCredentialsProvider is the AWS credentials provider object used to authenticate
 	// towards any AWS KMS.
 	awsCredentialsProvider func(region string) awssdk.CredentialsProvider
@@ -372,7 +385,175 @@ func (d *Decryptor) SetAuthOptions(ctx context.Context) {
 			}
 			d.gcpTokenSource = gcp.NewTokenSource(ctx, gcpOpts...)
 		}
+
+		// Configure OpenBao/Vault ServiceAccount-token auth. Unlike a
+		// static sops.vault-token (which takes precedence and is imported in
+		// ImportKeys), this exchanges a Kubernetes ServiceAccount token for a
+		// Vault token at the instance's configured login path (any JWT-backed
+		// auth method). It is enabled by the operator providing the
+		// address-to-login-path ConfigMap (which also acts as an allowlist of
+		// trusted Vault servers). The token is issued for the decryption
+		// ServiceAccount when set (object-level workload identity), otherwise
+		// for the controller's own ServiceAccount (controller-level workload
+		// identity), and the Vault role is derived from that token's identity
+		// as "{namespace}_{name}". The token can only be obtained when a request
+		// is handled, as the Vault address is only known from the SOPS metadata
+		// then (the address is also used as the token audience).
+		if d.vaultToken == "" && d.vaultK8sAuth == nil && d.vaultConfigMap != nil {
+			vaultOpts := slices.Clone(opts)
+			vaultInvolvedObject := involvedObject
+			vaultInvolvedObject.Operation = kustomizev1.MetricDecryptWithVault
+
+			var mu sync.Mutex
+			tokens := make(map[string]string)
+			var loginPaths map[string]string
+			d.vaultK8sAuth = func(ctx context.Context, vaultAddress string) (string, error) {
+				mu.Lock()
+				defer mu.Unlock()
+				if token, ok := tokens[vaultAddress]; ok {
+					return token, nil
+				}
+
+				// Resolve the login path for this address from the
+				// operator-managed ConfigMap, which acts as an allowlist of
+				// trusted Vault servers.
+				if loginPaths == nil {
+					var err error
+					loginPaths, err = d.loadVaultLoginPaths(ctx)
+					if err != nil {
+						return "", err
+					}
+				}
+				loginPath := loginPaths[vaultAddress]
+				if loginPath == "" {
+					return "", fmt.Errorf("no Vault login path configured for address '%s' in ConfigMap '%s'",
+						vaultAddress, d.vaultConfigMap)
+				}
+
+				// Issue a Kubernetes token (for the decryption ServiceAccount if
+				// set, otherwise the controller's own), audience-scoped to the
+				// Vault address.
+				tokenOpts := slices.Clone(vaultOpts)
+				tokenOpts = append(tokenOpts, auth.WithAudiences(vaultAddress))
+				if d.tokenCache != nil {
+					tokenOpts = append(tokenOpts, auth.WithCache(*d.tokenCache, vaultInvolvedObject))
+				}
+				accessToken, err := auth.GetAccessToken(ctx, generic.Provider{}, tokenOpts...)
+				if err != nil {
+					return "", fmt.Errorf("failed to issue Kubernetes token for Vault authentication: %w", err)
+				}
+				ksaToken, ok := accessToken.(*generic.Token)
+				if !ok {
+					return "", fmt.Errorf("unexpected token type %T for Vault authentication", accessToken)
+				}
+
+				// Derive the Vault role from the token's own identity, so it is
+				// correct for both object-level and controller-level workload
+				// identity.
+				ns, name, err := serviceAccountFromToken(ksaToken.Token)
+				if err != nil {
+					return "", fmt.Errorf("failed to derive Vault role for authentication: %w", err)
+				}
+				role := fmt.Sprintf("%s_%s", ns, name)
+
+				// Exchange the Kubernetes token for a Vault token.
+				token, err := vaultLogin(ctx, vaultAddress, loginPath, role, ksaToken.Token)
+				if err != nil {
+					return "", err
+				}
+				tokens[vaultAddress] = token
+				return token, nil
+			}
+		}
 	}
+}
+
+// serviceAccountFromToken extracts the ServiceAccount namespace and name from
+// the subject claim of a Kubernetes ServiceAccount token, which has the form
+// "system:serviceaccount:<namespace>:<name>".
+func serviceAccountFromToken(token string) (namespace, name string, err error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return "", "", fmt.Errorf("not a JWT")
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", "", fmt.Errorf("failed to decode token payload: %w", err)
+	}
+	var claims struct {
+		Sub string `json:"sub"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return "", "", fmt.Errorf("failed to unmarshal token payload: %w", err)
+	}
+	const prefix = "system:serviceaccount:"
+	rest, ok := strings.CutPrefix(claims.Sub, prefix)
+	if !ok {
+		return "", "", fmt.Errorf("unexpected token subject '%s'", claims.Sub)
+	}
+	if ns, n, ok := strings.Cut(rest, ":"); ok && ns != "" && n != "" {
+		return ns, n, nil
+	}
+	return "", "", fmt.Errorf("unexpected token subject '%s'", claims.Sub)
+}
+
+// vaultConfigKey is the ConfigMap data key holding the Vault/OpenBao
+// configuration consumed by loadVaultLoginPaths.
+const vaultConfigKey = "config.yaml"
+
+// loadVaultLoginPaths reads the operator-managed ConfigMap and returns the
+// mapping from Vault/OpenBao address to login path. The mapping is parsed from
+// the 'config.yaml' entry, which has the form:
+//
+//	instances:
+//	  - address: https://vault.example.com:8200
+//	    loginPath: auth/kubernetes/login
+func (d *Decryptor) loadVaultLoginPaths(ctx context.Context) (map[string]string, error) {
+	var cm corev1.ConfigMap
+	if err := d.client.Get(ctx, *d.vaultConfigMap, &cm); err != nil {
+		return nil, fmt.Errorf("failed to get Vault ConfigMap '%s': %w", d.vaultConfigMap, err)
+	}
+	data, ok := cm.Data[vaultConfigKey]
+	if !ok {
+		return nil, fmt.Errorf("Vault ConfigMap '%s' is missing the '%s' key",
+			d.vaultConfigMap, vaultConfigKey)
+	}
+	var config kustomizev1.VaultConfig
+	if err := yaml.Unmarshal([]byte(data), &config); err != nil {
+		return nil, fmt.Errorf("failed to parse '%s' in Vault ConfigMap '%s': %w",
+			vaultConfigKey, d.vaultConfigMap, err)
+	}
+	loginPaths := make(map[string]string, len(config.Instances))
+	for _, instance := range config.Instances {
+		loginPaths[instance.Address] = instance.LoginPath
+	}
+	return loginPaths, nil
+}
+
+// vaultLogin authenticates with the OpenBao/Vault server at the given
+// address by writing the provided Kubernetes ServiceAccount token to loginPath
+// (e.g. "auth/kubernetes/login", optionally namespace-prefixed), logging in as
+// role, and returns the resulting Vault token. The login path is used verbatim,
+// so any JWT-backed auth method is supported. TLS and proxy settings are read
+// from the standard VAULT_* environment variables, with the address overridden
+// by vaultAddress.
+func vaultLogin(ctx context.Context, vaultAddress, loginPath, role, jwt string) (string, error) {
+	cfg := vaultapi.DefaultConfig()
+	cfg.Address = vaultAddress
+	client, err := vaultapi.NewClient(cfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to create Vault client for '%s': %w", vaultAddress, err)
+	}
+	secret, err := client.Logical().WriteWithContext(ctx, loginPath,
+		map[string]any{"role": role, "jwt": jwt})
+	if err != nil {
+		return "", fmt.Errorf("failed to authenticate with Vault '%s' at login path '%s' as role '%s': %w",
+			vaultAddress, loginPath, role, err)
+	}
+	if secret == nil || secret.Auth == nil || secret.Auth.ClientToken == "" {
+		return "", fmt.Errorf("Vault '%s' returned no token for login at '%s' as role '%s'", vaultAddress, loginPath, role)
+	}
+	return secret.Auth.ClientToken, nil
 }
 
 // SopsDecryptWithFormat attempts to load a SOPS encrypted file using the store
@@ -699,6 +880,7 @@ func (d *Decryptor) loadKeyServiceServer() {
 	serverOpts := []intkeyservice.ServerOption{
 		intkeyservice.WithGnuPGHome(d.gnuPGHome),
 		intkeyservice.WithVaultToken(d.vaultToken),
+		intkeyservice.WithVaultK8sAuth{TokenFunc: d.vaultK8sAuth},
 		intkeyservice.WithAgeIdentities(d.ageIdentities),
 		intkeyservice.WithAWSCredentialsProvider{CredentialsProvider: d.awsCredentialsProvider},
 		intkeyservice.WithAzureTokenCredential{TokenCredential: d.azureTokenCredential},

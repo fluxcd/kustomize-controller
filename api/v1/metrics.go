@@ -32,6 +32,11 @@ const (
 	// MetricDecryptWithGCP is the metric name for counting
 	// decryption attempts using GCP KMS.
 	MetricDecryptWithGCP = "decrypt_with_gcp"
+
+	// MetricDecryptWithVault is the metric name for counting
+	// decryption attempts using OpenBao/Vault transit
+	// authenticated with the Kubernetes auth method.
+	MetricDecryptWithVault = "decrypt_with_vault"
 )
 
 // AllMetrics is the list of all supported cache metrics.
@@ -40,4 +45,5 @@ var AllMetrics = []string{
 	MetricDecryptWithAWS,
 	MetricDecryptWithAzure,
 	MetricDecryptWithGCP,
+	MetricDecryptWithVault,
 }

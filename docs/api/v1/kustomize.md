@@ -1453,6 +1453,92 @@ as if the resource was present but empty, without any variables defined.</p>
 </table>
 </div>
 </div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1.VaultConfig">VaultConfig
+</h3>
+<p>VaultConfig is the controller-level configuration that enables and scopes
+authentication to OpenBao/Vault instances for SOPS decryption. The
+controller presents a Kubernetes ServiceAccount token to a JWT-backed auth
+method (e.g. the Kubernetes or JWT auth method). The operator provides this
+config through a ConfigMap, listing the instances the controller may
+authenticate to along with each instance&rsquo;s login path. It only governs this
+ServiceAccount-token authentication: the existing static token decryption
+paths (the sops.vault-token Secret entry and the VAULT_TOKEN environment
+variable) are unaffected and continue to work for any address.</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>instances</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1.VaultInstance">
+[]VaultInstance
+</a>
+</em>
+</td>
+<td>
+<p>Instances is the list of known OpenBao/Vault instances.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1.VaultInstance">VaultInstance
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kustomize.toolkit.fluxcd.io/v1.VaultConfig">VaultConfig</a>)
+</p>
+<p>VaultInstance describes a single OpenBao/Vault instance and how the
+controller should authenticate to it.</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>address</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Address is the address of the OpenBao/Vault instance, matching
+the address stored in the SOPS metadata of the encrypted data key.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>loginPath</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>LoginPath is the API path of the login endpoint to authenticate to this
+instance with, e.g. &ldquo;auth/kubernetes/login&rdquo;. It is used verbatim, so it
+supports any JWT-backed auth method (e.g. the Kubernetes or JWT auth
+method) and namespace-prefixed paths (e.g. &ldquo;ns1/ns2/auth/kubernetes/login&rdquo;).</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="admonition note">
 <p class="last">This page was automatically generated with <code>gen-crd-api-reference-docs</code></p>
 </div>

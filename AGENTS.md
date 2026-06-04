@@ -44,7 +44,7 @@ kustomize-controller is a core component of the [Flux GitOps Toolkit](https://fl
 
 1. Fetches a source artifact produced by source-controller from a `GitRepository`, `Bucket`, `OCIRepository`, or (feature-gated) generic `ExternalArtifact`.
 2. Runs a Kustomize build against the referenced path, with optional `postBuild` variable substitution (envsubst).
-3. Decrypts SOPS-encrypted Kubernetes secrets inline using keys from PGP, age, Hashicorp Vault, AWS KMS, GCP KMS, or Azure Key Vault.
+3. Decrypts SOPS-encrypted Kubernetes secrets inline using keys from PGP, age, OpenBao/Vault, AWS KMS, GCP KMS, or Azure Key Vault.
 4. Applies the resulting manifests with server-side apply using a stable field manager, detects drift, prunes objects removed from source via a resource inventory, and waits on health checks using `cli-utils` kstatus.
 5. Optionally impersonates a `ServiceAccount` and/or targets a remote cluster via a `kubeconfig` secret.
 

@@ -17,6 +17,8 @@ limitations under the License.
 package keyservice
 
 import (
+	"context"
+
 	extage "filippo.io/age"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -46,12 +48,26 @@ func (o WithGnuPGHome) ApplyToServer(s *Server) {
 	s.gnuPGHome = pgp.GnuPGHome(o)
 }
 
-// WithVaultToken configures the Hashicorp Vault token on the Server.
+// WithVaultToken configures the OpenBao/Vault token on the Server.
 type WithVaultToken string
 
 // ApplyToServer applies this configuration to the given Server.
 func (o WithVaultToken) ApplyToServer(s *Server) {
 	s.vaultToken = hcvault.Token(o)
+}
+
+// WithVaultK8sAuth configures a function that obtains an OpenBao/Vault
+// token by authenticating with the Kubernetes auth method, on the Server. The
+// function receives the Vault address of the data key being processed, as the
+// address is only known from the SOPS metadata at request time. It is only used
+// when no static token is configured via WithVaultToken.
+type WithVaultK8sAuth struct {
+	TokenFunc func(ctx context.Context, vaultAddress string) (string, error)
+}
+
+// ApplyToServer applies this configuration to the given Server.
+func (o WithVaultK8sAuth) ApplyToServer(s *Server) {
+	s.vaultK8sAuth = o.TokenFunc
 }
 
 // WithAgeIdentities configures the parsed age identities on the Server.
