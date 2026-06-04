@@ -442,6 +442,23 @@ health of custom resources using Common Expression Language (CEL).
 The expressions are evaluated only when Wait or HealthChecks are specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>ignore</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1.IgnoreRule">
+[]IgnoreRule
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Ignore is a list of rules for specifying which changes to ignore
+during drift detection. These rules are applied to the resources managed
+by the Kustomization and are used to exclude specific JSON pointer paths
+from the drift detection and apply process.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -641,6 +658,57 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 A static credential for a cloud provider defined inside the Secret
 takes priority to secret-less authentication with the ServiceAccountName
 field.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1.IgnoreRule">IgnoreRule
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationSpec">KustomizationSpec</a>)
+</p>
+<p>IgnoreRule defines a rule to selectively disregard specific changes during
+the drift detection process.</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>paths</code><br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Paths is a list of JSON Pointer (RFC 6901) paths to be excluded from
+consideration in a Kubernetes object.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>target</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#Selector">
+github.com/fluxcd/pkg/apis/kustomize.Selector
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Target is a selector for specifying Kubernetes objects to which this
+rule applies.
+If Target is not set, the Paths will be ignored for all Kubernetes
+objects within the manifest of the Kustomization.</p>
 </td>
 </tr>
 </tbody>
@@ -1036,6 +1104,23 @@ before running kustomize build.</p>
 <p>HealthCheckExprs is a list of healthcheck expressions for evaluating the
 health of custom resources using Common Expression Language (CEL).
 The expressions are evaluated only when Wait or HealthChecks are specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignore</code><br>
+<em>
+<a href="#kustomize.toolkit.fluxcd.io/v1.IgnoreRule">
+[]IgnoreRule
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Ignore is a list of rules for specifying which changes to ignore
+during drift detection. These rules are applied to the resources managed
+by the Kustomization and are used to exclude specific JSON pointer paths
+from the drift detection and apply process.</p>
 </td>
 </tr>
 </tbody>
