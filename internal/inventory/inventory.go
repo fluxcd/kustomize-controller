@@ -51,6 +51,31 @@ func AddChangeSet(inv *kustomizev1.ResourceInventory, set *ssa.ChangeSet) error 
 	return nil
 }
 
+// Merge appends the given objects to the inventory unless they already exist.
+// Used to re-track resources whose prune was rejected by the apiserver
+// (e.g. by an admission webhook) so that subsequent reconciles retry the
+// deletion instead of leaving them as untracked orphans.
+func Merge(inv *kustomizev1.ResourceInventory, objects []*unstructured.Unstructured) {
+	if inv == nil || len(objects) == 0 {
+		return
+	}
+	seen := make(map[string]bool, len(inv.Entries))
+	for _, e := range inv.Entries {
+		seen[e.ID] = true
+	}
+	for _, obj := range objects {
+		id := object.UnstructuredToObjMetadata(obj).String()
+		if seen[id] {
+			continue
+		}
+		inv.Entries = append(inv.Entries, kustomizev1.ResourceRef{
+			ID:      id,
+			Version: obj.GroupVersionKind().Version,
+		})
+		seen[id] = true
+	}
+}
+
 // List returns the inventory entries as unstructured.Unstructured objects.
 func List(inv *kustomizev1.ResourceInventory) ([]*unstructured.Unstructured, error) {
 	objects := make([]*unstructured.Unstructured, 0)
