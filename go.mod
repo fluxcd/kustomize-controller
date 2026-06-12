@@ -21,15 +21,15 @@ require (
 	github.com/fluxcd/cli-utils v1.2.1
 	github.com/fluxcd/kustomize-controller/api v1.8.0
 	github.com/fluxcd/pkg/apis/acl v0.10.0
-	github.com/fluxcd/pkg/apis/event v0.26.0
-	github.com/fluxcd/pkg/apis/kustomize v1.18.0
-	github.com/fluxcd/pkg/apis/meta v1.29.0
-	github.com/fluxcd/pkg/auth v0.52.0
+	github.com/fluxcd/pkg/apis/event v0.27.0
+	github.com/fluxcd/pkg/apis/kustomize v1.19.0
+	github.com/fluxcd/pkg/apis/meta v1.30.0
+	github.com/fluxcd/pkg/auth v0.53.0
 	github.com/fluxcd/pkg/cache v0.14.0
 	github.com/fluxcd/pkg/http/fetch v0.25.0
-	github.com/fluxcd/pkg/kustomize v1.33.0
-	github.com/fluxcd/pkg/runtime v0.109.0
-	github.com/fluxcd/pkg/ssa v0.75.0
+	github.com/fluxcd/pkg/kustomize v1.34.0
+	github.com/fluxcd/pkg/runtime v0.110.0
+	github.com/fluxcd/pkg/ssa v0.76.0
 	github.com/fluxcd/pkg/tar v1.2.0
 	github.com/fluxcd/pkg/testserver v0.14.0
 	github.com/fluxcd/source-controller/api v1.8.5
@@ -261,7 +261,7 @@ require (
 	k8s.io/component-base v0.36.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
-	k8s.io/kubectl v0.36.0 // indirect
+	k8s.io/kubectl v0.36.1 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
