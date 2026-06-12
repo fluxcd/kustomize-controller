@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -163,6 +165,165 @@ data:
 	t.Run("preserves objects with pruning disabled", func(t *testing.T) {
 		g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(resultConfig), resultConfig)).Should(Succeed())
 	})
+}
+
+func TestKustomizationReconciler_PruneFailedInventoryRetry(t *testing.T) {
+	g := NewWithT(t)
+	id := "gc-" + randStringRunes(5)
+	revision := "v1.0.0"
+
+	err := createNamespace(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	manifests := func(name string) []testserver.File {
+		return []testserver.File{
+			{
+				Name: "config.yaml",
+				Body: fmt.Sprintf(`---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %[1]s
+data:
+  key: value
+`, name),
+			},
+		}
+	}
+
+	artifact, err := testServer.ArtifactFromFiles(manifests(id))
+	g.Expect(err).NotTo(HaveOccurred())
+
+	repositoryName := types.NamespacedName{
+		Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
+		Namespace: id,
+	}
+	g.Expect(applyGitRepository(repositoryName, artifact, revision)).To(Succeed())
+
+	kustomization := &kustomizev1.Kustomization{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
+			Namespace: id,
+		},
+		Spec: kustomizev1.KustomizationSpec{
+			Interval: metav1.Duration{Duration: reconciliationInterval},
+			Path:     "./",
+			SourceRef: kustomizev1.CrossNamespaceSourceReference{
+				Name:      repositoryName.Name,
+				Namespace: repositoryName.Namespace,
+				Kind:      sourcev1.GitRepositoryKind,
+			},
+			TargetNamespace: id,
+			Prune:           true,
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.Background(), kustomization)).To(Succeed())
+
+	resultK := &kustomizev1.Kustomization{}
+	g.Eventually(func() bool {
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+		return resultK.Status.LastAppliedRevision == revision
+	}, timeout, time.Second).Should(BeTrue())
+	g.Expect(resultK.Status.Inventory.Entries).To(HaveLen(1))
+
+	cmKey := types.NamespacedName{Name: id, Namespace: id}
+	g.Expect(k8sClient.Get(context.Background(), cmKey, &corev1.ConfigMap{})).To(Succeed())
+
+	t.Run("accepted delete leaves inventory", func(t *testing.T) {
+		got := &corev1.ConfigMap{}
+		g.Expect(k8sClient.Get(context.Background(), cmKey, got)).To(Succeed())
+		got.SetFinalizers([]string{"test.finalizers.fluxcd.io/block"})
+		g.Expect(k8sClient.Update(context.Background(), got)).To(Succeed())
+
+		artifact, err := testServer.ArtifactFromFiles(nil)
+		g.Expect(err).NotTo(HaveOccurred())
+		revision = "v2.0.0"
+		g.Expect(applyGitRepository(repositoryName, artifact, revision)).To(Succeed())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return resultK.Status.LastAppliedRevision == revision
+		}, timeout, time.Second).Should(BeTrue())
+		g.Expect(resultK.Status.Inventory.Entries).To(BeEmpty())
+
+		g.Expect(k8sClient.Get(context.Background(), cmKey, got)).To(Succeed())
+		g.Expect(got.GetDeletionTimestamp()).ToNot(BeNil())
+
+		got.SetFinalizers(nil)
+		g.Expect(k8sClient.Update(context.Background(), got)).To(Succeed())
+		g.Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), cmKey, &corev1.ConfigMap{})
+			return apierrors.IsNotFound(err)
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
+	t.Run("rejected delete stays in inventory until retry succeeds", func(t *testing.T) {
+		artifact, err := testServer.ArtifactFromFiles(manifests(id))
+		g.Expect(err).NotTo(HaveOccurred())
+		revision = "v3.0.0"
+		g.Expect(applyGitRepository(repositoryName, artifact, revision)).To(Succeed())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return resultK.Status.LastAppliedRevision == revision
+		}, timeout, time.Second).Should(BeTrue())
+		g.Expect(resultK.Status.Inventory.Entries).To(HaveLen(1))
+
+		originalClient := reconciler.Client
+		failDelete := &failingDeleteClient{
+			Client: originalClient,
+			key:    cmKey,
+		}
+		failDelete.block.Store(true)
+		reconciler.Client = failDelete
+		defer func() {
+			reconciler.Client = originalClient
+		}()
+
+		artifact, err = testServer.ArtifactFromFiles(nil)
+		g.Expect(err).NotTo(HaveOccurred())
+		revision = "v4.0.0"
+		g.Expect(applyGitRepository(repositoryName, artifact, revision)).To(Succeed())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
+			return ready != nil && ready.Status == metav1.ConditionFalse && ready.Reason == meta.PruneFailedReason
+		}, timeout, time.Second).Should(BeTrue())
+		g.Expect(resultK.Status.Inventory.Entries).To(HaveLen(1))
+
+		got := &corev1.ConfigMap{}
+		g.Expect(k8sClient.Get(context.Background(), cmKey, got)).To(Succeed())
+		g.Expect(got.GetDeletionTimestamp()).To(BeNil())
+
+		failDelete.block.Store(false)
+
+		g.Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), cmKey, &corev1.ConfigMap{})
+			return apierrors.IsNotFound(err)
+		}, timeout, time.Second).Should(BeTrue())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return resultK.Status.LastAppliedRevision == revision && len(resultK.Status.Inventory.Entries) == 0
+		}, timeout, time.Second).Should(BeTrue())
+	})
+}
+
+type failingDeleteClient struct {
+	client.Client
+	key   types.NamespacedName
+	block atomic.Bool
+}
+
+func (c *failingDeleteClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+	if c.block.Load() &&
+		obj.GetObjectKind().GroupVersionKind().Kind == "ConfigMap" &&
+		client.ObjectKeyFromObject(obj) == c.key {
+		return fmt.Errorf("injected delete failure")
+	}
+	return c.Client.Delete(ctx, obj, opts...)
 }
 
 func TestKustomizationReconciler_PruneEmpty(t *testing.T) {
