@@ -65,6 +65,33 @@ func Test_Inventory(t *testing.T) {
 		g.Expect(len(unList)).To(BeIdenticalTo(1))
 		g.Expect(unList[0].GetName()).To(BeIdenticalTo("test2"))
 	})
+
+	t.Run("merge re-adds objects whose prune failed", func(t *testing.T) {
+		// Simulates what reconcile does after a failed prune. Treat inv2 (the
+		// inventory with test2) as the OLD state and inv1 (without test2) as
+		// the NEW state — i.e. test2 is the stale object the operator removed
+		// from git and Flux failed to prune. Merge must put it back into the
+		// new inventory so the next reconcile retries.
+		stale, err := Diff(inv2, inv1)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(len(stale)).To(BeIdenticalTo(1))
+		g.Expect(stale[0].GetName()).To(BeIdenticalTo("test2"))
+
+		merged := New()
+		merged.Entries = append(merged.Entries, inv1.Entries...)
+		before := len(merged.Entries)
+		Merge(merged, stale)
+		g.Expect(len(merged.Entries)).To(BeIdenticalTo(before + 1))
+
+		// Idempotent: a second call must not duplicate entries.
+		Merge(merged, stale)
+		g.Expect(len(merged.Entries)).To(BeIdenticalTo(before + 1))
+	})
+
+	t.Run("merge is nil-safe", func(t *testing.T) {
+		Merge(nil, nil)
+		Merge(inv1, nil)
+	})
 }
 
 func readManifest(manifest string) (*ssa.ChangeSet, error) {

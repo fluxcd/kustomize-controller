@@ -498,7 +498,11 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Run garbage collection for stale resources that do not have pruning disabled.
-	if _, err := r.prune(ctx, resourceManager, obj, revision, originRevision, staleObjects); err != nil {
+	// On failure, re-track the objects whose DELETE wasn't confirmed so that the
+	// next reconcile retries — otherwise status.Inventory advances past them
+	// and they leak as untracked orphans (issue #1664).
+	if _, survivors, err := r.prune(ctx, resourceManager, obj, revision, originRevision, staleObjects); err != nil {
+		inventory.Merge(obj.Status.Inventory, survivors)
 		obj.Status.History.Upsert(checksum, time.Now(), time.Since(reconcileStart), meta.PruneFailedReason, historyMeta)
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.PruneFailedReason, "%s", err)
 		return err
@@ -1080,31 +1084,69 @@ func (r *KustomizationReconciler) checkHealth(ctx context.Context,
 	return nil
 }
 
+// prune issues delete requests for the given stale objects. In addition to the
+// changed/error return, it returns the slice of objects whose deletion was NOT
+// confirmed by the apiserver (e.g. rejected by an admission webhook). Callers
+// must merge those survivors back into status.Inventory; otherwise the next
+// reconcile's old-vs-new diff will not surface them again and they become
+// untracked orphans labeled with this Kustomization. See issue #1664.
 func (r *KustomizationReconciler) prune(ctx context.Context,
 	manager *ssa.ResourceManager,
 	obj *kustomizev1.Kustomization,
 	revision string,
 	originRevision string,
-	objects []*unstructured.Unstructured) (bool, error) {
+	objects []*unstructured.Unstructured) (bool, []*unstructured.Unstructured, error) {
 	if !obj.Spec.Prune {
-		return false, nil
+		return false, nil, nil
 	}
 
 	log := ctrl.LoggerFrom(ctx)
 
 	changeSet, err := deleteObjects(ctx, obj, manager, objects)
 	if err != nil {
-		return false, err
+		// Identify objects whose DELETE wasn't confirmed (apiserver rejected,
+		// transient error, etc.) so the caller can re-track them. SkippedAction
+		// entries are intentional opt-outs (kustomize.toolkit.fluxcd.io/prune:
+		// disabled) and are treated as settled, otherwise we'd cause an endless
+		// retry of a delete the operator explicitly disabled.
+		return false, pruneSurvivors(objects, changeSet), err
 	}
 
 	// emit event only if the prune operation resulted in changes
 	if changeSet != nil && len(changeSet.Entries) > 0 {
 		log.Info(fmt.Sprintf("garbage collection completed: %s", changeSet.String()))
 		r.event(obj, revision, originRevision, eventv1.EventSeverityInfo, changeSet.String(), nil)
-		return true, nil
+		return true, nil, nil
 	}
 
-	return false, nil
+	return false, nil, nil
+}
+
+// pruneSurvivors returns the subset of objects whose DELETE was not confirmed
+// by the apiserver — i.e. objects without a corresponding DeletedAction or
+// SkippedAction entry in the returned ChangeSet. These should be re-merged into
+// status.Inventory so subsequent reconciles retry their prune. See #1664.
+func pruneSurvivors(objects []*unstructured.Unstructured, changeSet *ssa.ChangeSet) []*unstructured.Unstructured {
+	if len(objects) == 0 {
+		return nil
+	}
+	settled := make(map[string]bool)
+	if changeSet != nil {
+		for _, entry := range changeSet.Entries {
+			switch entry.Action {
+			case ssa.DeletedAction, ssa.SkippedAction:
+				settled[entry.ObjMetadata.String()] = true
+			}
+		}
+	}
+	var survivors []*unstructured.Unstructured
+	for _, obj := range objects {
+		id := object.UnstructuredToObjMetadata(obj).String()
+		if !settled[id] {
+			survivors = append(survivors, obj)
+		}
+	}
+	return survivors
 }
 
 // finalizerShouldDeleteResources determines if resources should be deleted
