@@ -814,8 +814,10 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 
 		// run variable substitutions
 		if obj.Spec.PostBuild != nil {
+			always := obj.GetSubstituteStrategy() == kustomizev1.SubstituteStrategyAlways
 			outRes, err := generator.SubstituteVariables(ctx, r.Client, u, res,
-				generator.SubstituteWithStrict(r.StrictSubstitutions))
+				generator.SubstituteWithStrict(r.StrictSubstitutions),
+				generator.SubstituteWithAlways(always))
 			if err != nil {
 				return nil, fmt.Errorf("post build failed for '%s/%s': %w", res.GetGvk(), res.GetName(), err)
 			}
