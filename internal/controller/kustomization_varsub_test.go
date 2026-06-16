@@ -350,6 +350,153 @@ metadata:
 	})
 }
 
+func TestKustomizationReconciler_VarsubAlways(t *testing.T) {
+	ctx := context.Background()
+
+	g := NewWithT(t)
+	id := "vars-" + randStringRunes(5)
+	revision := "v1.0.0/" + randStringRunes(7)
+
+	err := createNamespace(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	err = createKubeConfigSecret(id)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
+
+	// The manifest only relies on substitution expressions with defaults and
+	// defines no variables through substitute or substituteFrom.
+	manifests := func(name string) []testserver.File {
+		return []testserver.File{
+			{
+				Name: "service-account.yaml",
+				Body: fmt.Sprintf(`
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: %[1]s
+  namespace: %[1]s
+  labels:
+    color: "${color:=blue}"
+    shape: "${shape:=square}"
+`, name),
+			},
+		}
+	}
+
+	artifact, err := testServer.ArtifactFromFiles(manifests(id))
+	g.Expect(err).NotTo(HaveOccurred())
+
+	repositoryName := types.NamespacedName{
+		Name:      randStringRunes(5),
+		Namespace: id,
+	}
+
+	err = applyGitRepository(repositoryName, artifact, revision)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	resultSA := &corev1.ServiceAccount{}
+
+	t.Run("WithVariables strategy skips substitution without variables", func(t *testing.T) {
+		g := NewWithT(t)
+
+		name := id + "-with-variables"
+		inputK := &kustomizev1.Kustomization{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: id,
+			},
+			Spec: kustomizev1.KustomizationSpec{
+				KubeConfig: &meta.KubeConfigReference{
+					SecretRef: &meta.SecretKeyReference{
+						Name: "kubeconfig",
+					},
+				},
+				Interval:        metav1.Duration{Duration: reconciliationInterval},
+				Path:            "./",
+				Prune:           true,
+				TargetNamespace: id,
+				SourceRef: kustomizev1.CrossNamespaceSourceReference{
+					Kind: sourcev1.GitRepositoryKind,
+					Name: repositoryName.Name,
+				},
+				// PostBuild without variables and the default WithVariables strategy.
+				PostBuild: &kustomizev1.PostBuild{},
+				Wait:      true,
+			},
+		}
+		g.Expect(k8sClient.Create(ctx, inputK)).Should(Succeed())
+		defer func() { g.Expect(k8sClient.Delete(ctx, inputK)).To(Succeed()) }()
+
+		// The ServiceAccount fails to apply because the unresolved expressions
+		// are invalid label values, proving substitution was skipped.
+		g.Eventually(func() bool {
+			resultK := &kustomizev1.Kustomization{}
+			_ = k8sClient.Get(ctx, client.ObjectKeyFromObject(inputK), resultK)
+			for _, c := range resultK.Status.Conditions {
+				if c.Reason == meta.ReconciliationFailedReason && c.Status == metav1.ConditionFalse {
+					return true
+				}
+			}
+			return false
+		}, timeout, interval).Should(BeTrue())
+	})
+
+	t.Run("Always strategy substitutes defaults without variables", func(t *testing.T) {
+		g := NewWithT(t)
+
+		name := id + "-always"
+		inputK := &kustomizev1.Kustomization{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: id,
+			},
+			Spec: kustomizev1.KustomizationSpec{
+				KubeConfig: &meta.KubeConfigReference{
+					SecretRef: &meta.SecretKeyReference{
+						Name: "kubeconfig",
+					},
+				},
+				Interval: metav1.Duration{Duration: reconciliationInterval},
+				Path:     "./",
+				Prune:    true,
+				SourceRef: kustomizev1.CrossNamespaceSourceReference{
+					Kind: sourcev1.GitRepositoryKind,
+					Name: repositoryName.Name,
+				},
+				// PostBuild with no variables but the Always strategy.
+				PostBuild: &kustomizev1.PostBuild{
+					SubstituteStrategy: kustomizev1.SubstituteStrategyAlways,
+				},
+				HealthChecks: []meta.NamespacedObjectKindReference{
+					{
+						APIVersion: "v1",
+						Kind:       "ServiceAccount",
+						Name:       id,
+						Namespace:  id,
+					},
+				},
+			},
+		}
+		g.Expect(k8sClient.Create(ctx, inputK)).Should(Succeed())
+		defer func() { g.Expect(k8sClient.Delete(ctx, inputK)).To(Succeed()) }()
+
+		g.Eventually(func() bool {
+			resultK := &kustomizev1.Kustomization{}
+			_ = k8sClient.Get(ctx, client.ObjectKeyFromObject(inputK), resultK)
+			for _, c := range resultK.Status.Conditions {
+				if c.Reason == meta.ReconciliationSucceededReason {
+					return true
+				}
+			}
+			return false
+		}, timeout, interval).Should(BeTrue())
+
+		g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: id, Namespace: id}, resultSA)).Should(Succeed())
+		g.Expect(resultSA.Labels["color"]).To(Equal("blue"))
+		g.Expect(resultSA.Labels["shape"]).To(Equal("square"))
+	})
+}
+
 func TestKustomizationReconciler_VarsubNumberBool(t *testing.T) {
 	ctx := context.Background()
 

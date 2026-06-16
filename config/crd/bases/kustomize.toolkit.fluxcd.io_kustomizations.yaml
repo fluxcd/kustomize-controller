@@ -546,6 +546,19 @@ spec:
                       - name
                       type: object
                     type: array
+                  substituteStrategy:
+                    description: |-
+                      SubstituteStrategy defines the strategy for substituting variables in the YAML manifests.
+                      Valid values are:
+
+                       - WithVariables (the default): require at least one variable to be defined,
+                         either through the inline map or through the resolved references to ConfigMaps
+                         and Secrets.
+                       - Always: perform the substitution even if no variables are defined.
+                    enum:
+                    - WithVariables
+                    - Always
+                    type: string
                 type: object
               prune:
                 description: Prune enables garbage collection.

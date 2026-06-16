@@ -829,11 +829,17 @@ labelling or annotating them with:
 kustomize.toolkit.fluxcd.io/substitute: disabled
 ```
 
-Substitution of variables only happens if at least a single variable or resource
-to substitute from is defined. This may cause issues if you rely on expressions
+By default, substitution of variables only happens if at least a single variable
+is available, either defined in-line with `substitute` or resolved from the
+ConfigMaps and Secrets referenced in `substituteFrom`. Note that defining a
+`substituteFrom` reference is not enough on its own: the referenced ConfigMaps
+and Secrets must be resolved and actually contain variables, otherwise the
+substitution is still skipped. This may cause issues if you rely on expressions
 which should evaluate to a default value, even if no other variables are
-configured. To work around this, one can set an arbitrary key/value pair to
-enable the substitution of variables. For example:
+configured, e.g. `${var:=default}`.
+
+To always perform the substitution regardless of whether any variables are
+defined, set `.spec.postBuild.substituteStrategy` to `Always`:
 
 ```yaml
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -843,9 +849,19 @@ metadata:
 spec:
   # ...omitted for brevity
   postBuild:
-    substitute:
-      var_substitution_enabled: "true"
+    substituteStrategy: Always
 ```
+
+The `.spec.postBuild.substituteStrategy` field accepts the following values:
+
+- `WithVariables` (default): the substitution is only performed if at least one
+  variable is available, either defined in-line with `substitute` or resolved
+  from the ConfigMaps and Secrets referenced in `substituteFrom`. Note that a
+  `substituteFrom` reference to an empty ConfigMap or Secret yields no variables,
+  so the substitution is still skipped.
+- `Always`: the substitution is always performed, even if no variables are
+  defined. This is useful when the substitution expressions have defaults, e.g.
+  `${var:=default}`.
 
 **Note:** When using numbers or booleans as values for variables, they must be
 enclosed in double quotes vars to be treated as strings, for more information see
