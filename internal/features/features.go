@@ -80,8 +80,8 @@ var features = map[string]bool{
 	// opt-in from v1.1
 	DisableFailFastBehavior: false,
 	// StrictPostBuildSubstitutions
-	// opt-in from v1.3
-	StrictPostBuildSubstitutions: false,
+	// opt-out from v1.9
+	StrictPostBuildSubstitutions: true,
 	// GroupChangeLog
 	// opt-in from v1.5
 	GroupChangeLog: false,
