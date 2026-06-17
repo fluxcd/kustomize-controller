@@ -1995,7 +1995,7 @@ the input type when encrypting them with SOPS:
 ```sh
 sops -e --input-type=json config.json > config.json.encrypted
 sops -e --input-type=yaml config.yaml > config.yaml.encrypted
-sops -e --input-type=env config.env > config.env.encrypted
+sops -e --input-type=dotenv --output-type=dotenv config.env > config.env.encrypted
 ```
 
 For kustomize-controller to be able to decrypt a JSON config, you need to set
