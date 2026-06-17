@@ -19,7 +19,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.6.1
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/cli-utils v1.2.1
-	github.com/fluxcd/kustomize-controller/api v1.8.0
+	github.com/fluxcd/kustomize-controller/api v1.9.0
 	github.com/fluxcd/pkg/apis/acl v0.10.0
 	github.com/fluxcd/pkg/apis/event v0.27.0
 	github.com/fluxcd/pkg/apis/kustomize v1.19.0
