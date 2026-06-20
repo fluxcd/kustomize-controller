@@ -449,7 +449,7 @@ func (in *Kustomization) SetConditions(conditions []metav1.Condition) {
 // +genclient
 // +kubebuilder:storageversion
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:shortName=ks
+// +kubebuilder:resource:shortName=ks,categories=all;fluxcd;fluxcd-kustomize
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
