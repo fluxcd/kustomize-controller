@@ -8,6 +8,10 @@ metadata:
 spec:
   group: kustomize.toolkit.fluxcd.io
   names:
+    categories:
+    - all
+    - fluxcd
+    - fluxcd-appliers
     kind: Kustomization
     listKind: KustomizationList
     plural: kustomizations
