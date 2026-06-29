@@ -24,16 +24,18 @@ import (
 	"testing"
 	"time"
 
-	apiacl "github.com/fluxcd/pkg/apis/acl"
-	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	. "github.com/onsi/gomega"
 	"github.com/opencontainers/go-digest"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	apiacl "github.com/fluxcd/pkg/apis/acl"
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/testenv"
+	"github.com/fluxcd/pkg/testserver"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
@@ -119,14 +121,14 @@ stringData:
 		g.Expect(readyCondition.Reason).To(Equal(meta.ReconciliationSucceededReason))
 		g.Expect(resultK.Status.LastAppliedRevision).To(Equal(revision))
 
-		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+		events := testenv.GetEvents(ctx, k8sClient, resultK.GetName(), "", map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
 		g.Expect(len(events) > 2).To(BeTrue())
 		g.Expect(events[0].Reason).To(BeIdenticalTo(meta.ProgressingReason))
-		g.Expect(events[0].Message).To(ContainSubstring("created"))
+		g.Expect(events[0].Note).To(ContainSubstring("created"))
 		g.Expect(events[1].Reason).To(BeIdenticalTo(meta.ProgressingReason))
-		g.Expect(events[1].Message).To(ContainSubstring("check passed"))
+		g.Expect(events[1].Note).To(ContainSubstring("check passed"))
 		g.Expect(events[2].Reason).To(BeIdenticalTo(meta.ReconciliationSucceededReason))
-		g.Expect(events[2].Message).To(ContainSubstring("finished"))
+		g.Expect(events[2].Note).To(ContainSubstring("finished"))
 	})
 
 	t.Run("watches for external artifact revision change", func(t *testing.T) {
@@ -162,9 +164,9 @@ stringData:
 		g.Expect(readyCondition.Reason).To(Equal(apiacl.AccessDeniedReason))
 		g.Expect(apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.StalledCondition)).Should(BeTrue())
 
-		events := getEvents(resultK.GetName(), nil)
+		events := testenv.GetEvents(ctx, k8sClient, resultK.GetName(), "", nil)
 		g.Expect(events[len(events)-1].Reason).To(BeIdenticalTo(apiacl.AccessDeniedReason))
-		g.Expect(events[len(events)-1].Message).To(ContainSubstring("feature gate is disabled"))
+		g.Expect(events[len(events)-1].Note).To(ContainSubstring("feature gate is disabled"))
 	})
 }
 
