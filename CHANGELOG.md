@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.9.1
+
+**Release date:** 2026-06-30
+
+This patch release updates Kubernetes to 1.36.2 and the fluxcd/pkg dependencies,
+adds kubectl categories to the Kustomization CRD and documents the controller's
+command-line options.
+
+Improvements:
+- Add categories to the Kustomization CRD
+  [#1682](https://github.com/fluxcd/kustomize-controller/pull/1682)
+- Document controller options
+  [#1685](https://github.com/fluxcd/kustomize-controller/pull/1685)
+- Update fluxcd/pkg dependencies
+  [#1683](https://github.com/fluxcd/kustomize-controller/pull/1683)
+
 ## 1.9.0
 
 **Release date:** 2026-06-17
