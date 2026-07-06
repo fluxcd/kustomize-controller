@@ -22,12 +22,12 @@ require (
 	github.com/fluxcd/kustomize-controller/api v1.9.1
 	github.com/fluxcd/pkg/apis/acl v0.10.0
 	github.com/fluxcd/pkg/apis/event v0.27.1
-	github.com/fluxcd/pkg/apis/kustomize v1.19.1
+	github.com/fluxcd/pkg/apis/kustomize v1.20.0
 	github.com/fluxcd/pkg/apis/meta v1.30.1
 	github.com/fluxcd/pkg/auth v0.54.1
 	github.com/fluxcd/pkg/cache v0.14.0
 	github.com/fluxcd/pkg/http/fetch v0.25.0
-	github.com/fluxcd/pkg/kustomize v1.35.1
+	github.com/fluxcd/pkg/kustomize v1.36.1-0.20260703201813-add36fa9c056
 	github.com/fluxcd/pkg/runtime v0.110.1
 	github.com/fluxcd/pkg/ssa v0.76.1
 	github.com/fluxcd/pkg/tar v1.2.0
