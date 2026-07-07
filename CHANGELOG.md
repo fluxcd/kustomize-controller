@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.9.2
+
+**Release date:** 2026-07-07
+
+This patch release fixes three bugs. Flux variable substitution is now disabled
+on the Kustomization CRD by annotating it with
+`kustomize.toolkit.fluxcd.io/substitute: disabled`, preventing post-build
+substitution from corrupting the CRD schema when it contains `${...}` sequences.
+The SOPS dependency was updated to fix decryption of `.ini` files. Finally, the
+fluxcd/pkg dependencies were updated to fix a dry-run error where applying a
+resource with a strategic merge patch could fail with `<resource> is invalid`.
+
+Fixes:
+- Fix CRD going through variable substitution
+  [#1694](https://github.com/fluxcd/kustomize-controller/pull/1694)
+- Update SOPS dependency to fix `.ini` file decryption
+  [#1699](https://github.com/fluxcd/kustomize-controller/pull/1699)
+- Update fluxcd/pkg dependencies
+  [#1697](https://github.com/fluxcd/kustomize-controller/pull/1697)
+
 ## 1.9.1
 
 **Release date:** 2026-06-30
