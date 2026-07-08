@@ -207,8 +207,8 @@ github.com/fluxcd/pkg/apis/acl v0.10.0 h1:KPfAmELNvtvaz8wixnm/MYXqa+MJf7ntVVMUU9
 github.com/fluxcd/pkg/apis/acl v0.10.0/go.mod h1:a87i2A7AlFO5N2J8CxtzaUCCDmuLLWOHwkKu3eJF5fY=
 github.com/fluxcd/pkg/apis/event v0.27.1 h1:bFnP6gcZzCVm/Dxf/ByFz6BW+FzSn4RoWUkf7ri2bOs=
 github.com/fluxcd/pkg/apis/event v0.27.1/go.mod h1:ThqUZxG48o5PDN9Qh0tVTdpb+6PlVa6J2beEeMZoKMk=
-github.com/fluxcd/pkg/apis/kustomize v1.19.1 h1:rmN3hTceBVABGbrqRXEDYoAJDBUIPFRO9zbDJ98Xt/o=
-github.com/fluxcd/pkg/apis/kustomize v1.19.1/go.mod h1:9FUs77fd/Rh5/mDgZbGBUCL0UqmXiGj8rYywG3T3x+s=
+github.com/fluxcd/pkg/apis/kustomize v1.20.0 h1:Aur2337TwSYGUffDQVlawOR3SJfRvxH7ikEKD6cJSxs=
+github.com/fluxcd/pkg/apis/kustomize v1.20.0/go.mod h1:9FUs77fd/Rh5/mDgZbGBUCL0UqmXiGj8rYywG3T3x+s=
 github.com/fluxcd/pkg/apis/meta v1.30.1 h1:TRqdvb/zo9h9Ig10xHxV7jMilG+e1jOv3djI00GFr9g=
 github.com/fluxcd/pkg/apis/meta v1.30.1/go.mod h1:Gx+YRq26a+mTbCjotSXC7/6kSSyo0zXQ8JnsEXf2vVk=
 github.com/fluxcd/pkg/auth v0.54.1 h1:UomwXboodolc5MWcyfXMw4aviqICKfcwlIDXCUOnNiQ=
@@ -219,8 +219,8 @@ github.com/fluxcd/pkg/envsubst v1.7.0 h1:PL9Nj/V2fgaMR9KYZR7mEEw+vlYgP80nFZjOQQK
 github.com/fluxcd/pkg/envsubst v1.7.0/go.mod h1:aoWeSIOamhqBZ3bHVj1GDwpdA10DXrI8yYbyjPiFly0=
 github.com/fluxcd/pkg/http/fetch v0.25.0 h1:BM2sv9MygBBQ7+G+ISuTEGLVRV4GX9bpKK5UoAKLiQo=
 github.com/fluxcd/pkg/http/fetch v0.25.0/go.mod h1:UOpeGiEBB+I7jW8uMBdptnvWa4zlyGnGfGwUxtzM4vo=
-github.com/fluxcd/pkg/kustomize v1.35.2 h1:e4ugU3M78n2rD4/CP62dzEGLy6iLS2sRnUxMgEKvi9M=
-github.com/fluxcd/pkg/kustomize v1.35.2/go.mod h1:P+KuhN0CMPekzDOV6ySPDdTu0XOkiEQaGgNtZEnwibU=
+github.com/fluxcd/pkg/kustomize v1.37.1-0.20260708160934-4ccc4a65db7f h1:4VSspIX5HZqYvYD5rIdGtWGMtE3lfE9UM1VUS701Rek=
+github.com/fluxcd/pkg/kustomize v1.37.1-0.20260708160934-4ccc4a65db7f/go.mod h1:OCKAb5Tc0bFVpeclk/W0uWjjlB9dcLm/6XMvx69zu/4=
 github.com/fluxcd/pkg/runtime v0.110.1 h1:O7eVI/R40MQMQpi6cAlWsNka2hZ0YfMXzETmui9D06c=
 github.com/fluxcd/pkg/runtime v0.110.1/go.mod h1:h5HDYgi4RXHGZD/5TCdy/47Vdlplf3/KM6U8aEDcagA=
 github.com/fluxcd/pkg/sourceignore v0.18.0 h1:WU2tPKasG9AM7/H/LlqdjULyaSknnZBTrpHsDDtOuns=
