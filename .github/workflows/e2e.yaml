@@ -20,6 +20,11 @@ jobs:
           cache-dependency-path: |
             **/go.sum
             **/go.mod
+      - name: Enable integration tests
+        # Only run integration tests for main branch
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo 'GO_TEST_ARGS=-tags integration' >> $GITHUB_ENV
       - name: Run controller tests
         env:
           TEST_AZURE_CLIENT_ID: ${{ secrets.TEST_AZURE_CLIENT_ID }}
@@ -40,11 +45,6 @@ jobs:
         uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.11.0
         with:
           go-version: 1.26.x
-      - name: Enable integration tests
-        # Only run integration tests for main branch
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo 'GO_TEST_ARGS=-tags integration' >> $GITHUB_ENV
       - name: Build container image
         run: |
           make docker-build IMG=test/kustomize-controller:latest \
