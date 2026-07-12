@@ -36,7 +36,7 @@ jobs:
         run: make test
       - name: Check if working tree is dirty
         run: make verify
-  e2e:
+  kind:
     runs-on: ubuntu-latest
     permissions:
       contents: read # for reading the repository code.
