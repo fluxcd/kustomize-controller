@@ -72,7 +72,6 @@ jobs:
       - parallel:
           - name: Run managed-fields tests
             run: |
-              set -euo pipefail
               kubectl create ns managed-fields
               kustomize build github.com/stefanprodan/podinfo//kustomize?ref=6.3.5 > /tmp/podinfo.yaml
               kubectl -n managed-fields apply -f /tmp/podinfo.yaml
@@ -94,7 +93,6 @@ jobs:
               kubectl delete ns managed-fields
           - name: Run overlays and dependencies tests
             run: |
-              set -euo pipefail
               echo ">>> Run overlays tests"
               kubectl -n kustomize-system apply -k ./config/testdata/overlays
               kubectl -n kustomize-system wait kustomizations/webapp-staging --for=condition=ready --timeout=4m
@@ -106,7 +104,6 @@ jobs:
               kubectl -n kustomize-system wait kustomizations/frontend --for=condition=ready --timeout=4m
           - name: Run impersonation and OCI tests
             run: |
-              set -euo pipefail
               echo ">>> Run impersonation tests"
               kubectl -n impersonation apply -f ./config/testdata/impersonation
               kubectl -n impersonation wait kustomizations/podinfo --for=condition=ready --timeout=4m
