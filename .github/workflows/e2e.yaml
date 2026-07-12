@@ -6,15 +6,20 @@ on:
       - 'main'
       - 'release/**'
 jobs:
-  kind:
+  test:
     runs-on: ubuntu-latest
     permissions:
-      contents: read # for reading the repository code.
+      contents: read
     steps:
-      - name: Test suite setup
-        uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.11.0
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version: 1.26.x
+          cache-dependency-path: |
+            **/go.sum
+            **/go.mod
       - name: Enable integration tests
         # Only run integration tests for main branch
         if: github.ref == 'refs/heads/main'
@@ -31,6 +36,15 @@ jobs:
         run: make test
       - name: Check if working tree is dirty
         run: make verify
+  e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # for reading the repository code.
+    steps:
+      - name: Test suite setup
+        uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.11.0
+        with:
+          go-version: 1.26.x
       - name: Build container image
         run: |
           make docker-build IMG=test/kustomize-controller:latest \
@@ -55,49 +69,50 @@ jobs:
           make dev-deploy IMG=test/kustomize-controller:latest
           kubectl -n kustomize-system rollout status deploy/source-controller --timeout=1m
           kubectl -n kustomize-system rollout status deploy/kustomize-controller --timeout=1m
-      - name: Run tests for removing kubectl managed fields
-        run: |
-          kubectl create ns managed-fields
-          kustomize build github.com/stefanprodan/podinfo//kustomize?ref=6.3.5 > /tmp/podinfo.yaml
-          kubectl -n managed-fields apply -f /tmp/podinfo.yaml
-          kubectl -n managed-fields apply -f ./config/testdata/managed-fields
-          kubectl -n managed-fields wait kustomization/podinfo --for=condition=ready --timeout=4m
-          OUTDATA=$(kubectl -n managed-fields get deploy podinfo --show-managed-fields -oyaml)
-          if echo "$OUTDATA" | grep -q "kubectl";then
-            echo "kubectl client-side manager not removed"
-            exit 1
-          fi
-          kubectl -n managed-fields apply --server-side --force-conflicts -f /tmp/podinfo.yaml
-          kubectl -n managed-fields annotate --overwrite kustomization/podinfo reconcile.fluxcd.io/requestedAt="$(date +%s)"
-          kubectl -n managed-fields wait kustomization/podinfo --for=condition=ready --timeout=4m
-          OUTDATA=$(kubectl -n managed-fields get deploy podinfo --show-managed-fields -oyaml)
-          if echo "$OUTDATA" | grep -q "kubectl";then
-            echo "kubectl server-side manager not removed"
-            exit 1
-          fi
-          kubectl delete ns managed-fields
-      - name: Run overlays tests
-        run: |
-          kubectl -n kustomize-system apply -k ./config/testdata/overlays
-          kubectl -n kustomize-system wait kustomizations/webapp-staging --for=condition=ready --timeout=4m
-          kubectl -n kustomize-system wait kustomizations/webapp-production --for=condition=ready --timeout=4m
-      - name: Run dependencies tests
-        run: |
-          kubectl -n kustomize-system apply -k ./config/testdata/dependencies
-          kubectl -n kustomize-system wait kustomizations/common --for=condition=ready --timeout=4m
-          kubectl -n kustomize-system wait kustomizations/backend --for=condition=ready --timeout=4m
-          kubectl -n kustomize-system wait kustomizations/frontend --for=condition=ready --timeout=4m
-      - name: Run impersonation tests
-        run: |
-          kubectl -n impersonation apply -f ./config/testdata/impersonation
-          kubectl -n impersonation wait kustomizations/podinfo --for=condition=ready --timeout=4m
-          kubectl -n impersonation delete kustomizations/podinfo
-          until kubectl -n impersonation get deploy/podinfo 2>&1 | grep NotFound ; do sleep 2; done
-      - name: Run OCI tests
-        run: |
-          kubectl create ns oci
-          kubectl -n oci apply -f ./config/testdata/oci
-          kubectl -n oci wait kustomizations/oci --for=condition=ready --timeout=4m
+      - parallel:
+          - name: Run managed-fields tests
+            run: |
+              kubectl create ns managed-fields
+              kustomize build github.com/stefanprodan/podinfo//kustomize?ref=6.3.5 > /tmp/podinfo.yaml
+              kubectl -n managed-fields apply -f /tmp/podinfo.yaml
+              kubectl -n managed-fields apply -f ./config/testdata/managed-fields
+              kubectl -n managed-fields wait kustomization/podinfo --for=condition=ready --timeout=4m
+              OUTDATA=$(kubectl -n managed-fields get deploy podinfo --show-managed-fields -oyaml)
+              if echo "$OUTDATA" | grep -q "kubectl";then
+                echo "kubectl client-side manager not removed"
+                exit 1
+              fi
+              kubectl -n managed-fields apply --server-side --force-conflicts -f /tmp/podinfo.yaml
+              kubectl -n managed-fields annotate --overwrite kustomization/podinfo reconcile.fluxcd.io/requestedAt="$(date +%s)"
+              kubectl -n managed-fields wait kustomization/podinfo --for=condition=ready --timeout=4m
+              OUTDATA=$(kubectl -n managed-fields get deploy podinfo --show-managed-fields -oyaml)
+              if echo "$OUTDATA" | grep -q "kubectl";then
+                echo "kubectl server-side manager not removed"
+                exit 1
+              fi
+              kubectl delete ns managed-fields
+          - name: Run overlays and dependencies tests
+            run: |
+              echo ">>> Run overlays tests"
+              kubectl -n kustomize-system apply -k ./config/testdata/overlays
+              kubectl -n kustomize-system wait kustomizations/webapp-staging --for=condition=ready --timeout=4m
+              kubectl -n kustomize-system wait kustomizations/webapp-production --for=condition=ready --timeout=4m
+              echo ">>> Run dependencies tests"
+              kubectl -n kustomize-system apply -k ./config/testdata/dependencies
+              kubectl -n kustomize-system wait kustomizations/common --for=condition=ready --timeout=4m
+              kubectl -n kustomize-system wait kustomizations/backend --for=condition=ready --timeout=4m
+              kubectl -n kustomize-system wait kustomizations/frontend --for=condition=ready --timeout=4m
+          - name: Run impersonation and OCI tests
+            run: |
+              echo ">>> Run impersonation tests"
+              kubectl -n impersonation apply -f ./config/testdata/impersonation
+              kubectl -n impersonation wait kustomizations/podinfo --for=condition=ready --timeout=4m
+              kubectl -n impersonation delete kustomizations/podinfo
+              until kubectl -n impersonation get deploy/podinfo 2>&1 | grep NotFound ; do sleep 2; done
+              echo ">>> Run OCI tests"
+              kubectl create ns oci
+              kubectl -n oci apply -f ./config/testdata/oci
+              kubectl -n oci wait kustomizations/oci --for=condition=ready --timeout=4m
       - name: Logs
         if: always()
         continue-on-error: true
@@ -110,8 +125,8 @@ jobs:
           kubectl -n kustomize-system get gitrepositories -oyaml
           kubectl -n kustomize-system get kustomizations -oyaml
           kubectl -n kustomize-system get all
-          kubectl -n oci get ocirepository/oci -oyaml
-          kubectl -n oci get kustomization/oci -oyaml
+          kubectl -n oci get ocirepository/oci -oyaml || true
+          kubectl -n oci get kustomization/oci -oyaml || true
   sops-openbao:
     runs-on: ubuntu-latest
     permissions:
