@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.9.3
+
+**Release date:** 2026-07-13
+
+This patch release fixes a regression introduced in v1.9.2 where a Kustomization
+with `openapi.path` pointing to a URL failed to reconcile with
+`failed to read OpenAPI schema`.
+
+Fixes:
+- Update fluxcd/pkg dependencies
+  [#1703](https://github.com/fluxcd/kustomize-controller/pull/1703)
+
 ## 1.9.2
 
 **Release date:** 2026-07-07
