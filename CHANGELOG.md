@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.9.4
+
+**Release date:** 2026-07-23
+
+This patch release fixes a `spec.images` entry that sets only some of the
+image fields discarding the remaining fields already declared for the same
+image in the `kustomization.yaml` at `spec.path`, e.g. overriding only
+`newName` produced an untagged image reference.
+
+Fixes:
+- Update fluxcd/pkg dependencies
+  [#1714](https://github.com/fluxcd/kustomize-controller/pull/1714)
+
 ## 1.9.3
 
 **Release date:** 2026-07-13
