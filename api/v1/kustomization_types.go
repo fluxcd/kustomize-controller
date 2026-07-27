@@ -474,7 +474,3 @@ type KustomizationList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Kustomization `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&Kustomization{}, &KustomizationList{})
-}
