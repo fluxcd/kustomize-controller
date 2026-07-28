@@ -293,10 +293,6 @@ type KustomizationList struct {
 	Items           []Kustomization `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&Kustomization{}, &KustomizationList{})
-}
-
 func trimString(str string, limit int) string {
 	if len(str) <= limit {
 		return str
