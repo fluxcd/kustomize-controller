@@ -22,15 +22,17 @@ import (
 	"testing"
 	"time"
 
-	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
-	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	. "github.com/onsi/gomega"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	eventv1 "github.com/fluxcd/pkg/apis/event/v1"
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/testenv"
+	"github.com/fluxcd/pkg/testserver"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
@@ -124,7 +126,7 @@ stringData:
 	g.Expect(resultK.Status.History[0].LastReconciledDuration.Duration).To(BeNumerically(">", 0))
 	g.Expect(resultK.Status.History[0].Metadata).To(ContainElements(revision, "orev"))
 
-	events := getEvents(kustomizationKey.Name, nil)
+	events := testenv.GetEvents(ctx, k8sClient, kustomizationKey.Name, "", nil)
 	g.Expect(events).To(Not(BeEmpty()))
 
 	annotationKey := kustomizev1.GroupVersion.Group + "/" + eventv1.MetaOriginRevisionKey
