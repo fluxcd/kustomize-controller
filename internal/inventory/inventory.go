@@ -121,13 +121,9 @@ func ListMetadata(inv *kustomizev1.ResourceInventory) (object.ObjMetadataSet, er
 
 // Diff returns the slice of objects that do not exist in the target inventory.
 func Diff(inv *kustomizev1.ResourceInventory, target *kustomizev1.ResourceInventory) ([]*unstructured.Unstructured, error) {
-	versionOf := func(i *kustomizev1.ResourceInventory, objMetadata object.ObjMetadata) string {
-		for _, entry := range i.Entries {
-			if entry.ID == objMetadata.String() {
-				return entry.Version
-			}
-		}
-		return ""
+	versionMap := make(map[string]string, len(inv.Entries))
+	for _, entry := range inv.Entries {
+		versionMap[entry.ID] = entry.Version
 	}
 
 	objects := make([]*unstructured.Unstructured, 0)
@@ -151,7 +147,7 @@ func Diff(inv *kustomizev1.ResourceInventory, target *kustomizev1.ResourceInvent
 		u.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   metadata.GroupKind.Group,
 			Kind:    metadata.GroupKind.Kind,
-			Version: versionOf(inv, metadata),
+			Version: versionMap[metadata.String()],
 		})
 		u.SetName(metadata.Name)
 		u.SetNamespace(metadata.Namespace)
