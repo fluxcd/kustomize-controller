@@ -29,6 +29,7 @@
 | `--no-cross-namespace-refs`            | boolean       | When set to true, references between custom resources are allowed only if the reference and the referee are in the same namespace.                                                                                                                  |
 | `--no-remote-bases`                    | boolean       | Disallow remote bases usage in Kustomize overlays. When this flag is enabled, all resources must refer to local files included in the source artifact.                                                                                              |
 | `--override-manager`                   | stringArray   | Field manager disallowed to perform changes on managed resources.                                                                                                                                                                                   |
+| `--override-manager-before-dry-run`    | stringArray   | Field manager whose ownership is taken over before the server-side apply dry-run, to recover objects wedged at dry-run validation by a stale co-owner of a required field. Unlike `--override-manager`, this mutates managedFields before validation, so scope it narrowly. See [Caution](#caution-override-manager-before-dry-run) below before using this flag. |
 | `--requeue-dependency`                 | duration      | The interval at which failing dependencies are reevaluated. (default 30s)                                                                                                                                                                           |
 | `--sops-age-secret`                    | string        | The name of a Kubernetes secret in the RUNTIME_NAMESPACE containing a SOPS age decryption key for fallback usage.                                                                                                                                   |
 | `--sops-vault-configmap`               | string        | The name of a Kubernetes ConfigMap in the RUNTIME_NAMESPACE containing an OpenBao/Vault configuration with instances and login paths for SOPS decryption.                                                                                           |
@@ -38,6 +39,43 @@
 | `--watch-configs-label-selector`       | string        | Watch for ConfigMaps and Secrets with matching labels (default 'reconcile.fluxcd.io/watch=Enabled').                                                                                                                                                |
 | `--watch-label-selector`               | string        | Watch for resources with matching labels e.g. 'sharding.fluxcd.io/key=shard1'.                                                                                                                                                                      |
 | `--feature-gates`                      | mapStringBool | A comma separated list of key=value pairs defining the state of experimental features.                                                                                                                                                              |
+
+### Caution: `--override-manager-before-dry-run`
+
+`--override-manager` reclaims ownership of the named field managers only
+**after** a successful server-side apply dry-run. If a stale or foreign
+manager co-owns a field such that the merged object itself is invalid (e.g. a
+required field ends up orphaned when the applier prunes an element another
+manager still owns), the dry-run fails before that cleanup ever runs, and
+`--override-manager` cannot recover the object. This is the "break-glass"
+class of issue: an object gets permanently wedged, failing dry-run validation
+on every reconcile.
+
+`--override-manager-before-dry-run` takes over the named field managers
+**before** the dry-run runs, so ownership is repaired and the merge can
+succeed. It is intentionally a separate flag rather than a mode of
+`--override-manager`, because it carries different risks:
+
+- **Whole-manager, not per-field.** Every field a listed manager owns is
+  reassigned to the controller, not just the field that is blocking the
+  dry-run. If the manager also owns unrelated fields that are not declared in
+  the Kustomization's source, those fields can be pruned by the very same
+  reconcile that fixes the wedge. Only list managers you know are safe to
+  fully take over, not just partially responsible for the immediate problem.
+- **Not transactional.** The takeover mutates `metadata.managedFields` before
+  the dry-run runs. If the dry-run subsequently fails for an unrelated
+  reason (a different missing field, a webhook rejection, etc.), that
+  mutation is not rolled back, even though the reconcile as a whole still
+  fails.
+- **Exact match only.** Unlike `--override-manager`, manager names passed to
+  this flag are matched exactly, not by prefix, since a false-positive match
+  here mutates ownership pre-validation rather than only after a dry-run has
+  already proven the result valid.
+
+Use this flag only for field managers you have specifically identified as
+the cause of a dry-run wedge (for example, a legacy controller's client-side
+`kubectl`/PUT writes left over from before a workload was migrated to Flux),
+and remove it once the affected objects have recovered.
 
 ### Feature Gates
 
