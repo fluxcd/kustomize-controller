@@ -131,10 +131,21 @@ func (r *KustomizationReconciler) requestsForConfigDependency(
 }
 
 // sortAndEnqueue sorts the dependencies and returns a slice of reconcile.Requests.
+// On circular dependency or sort error, it falls back to enqueuing the requests
+// unsorted instead of dropping all of them. This prevents the entire source's
+// event-driven reconciliation from being silently disabled.
 func sortAndEnqueue(dd []dependency.Dependent) ([]reconcile.Request, error) {
 	sorted, err := dependency.Sort(dd)
 	if err != nil {
-		return nil, err
+		// Graceful fallback: enqueue unsorted instead of returning nil.
+		// Circular dependencies only affect ordering, not correctness,
+		// since out-of-order reconciles are handled by the DependencyNotReady requeue.
+		reqs := make([]reconcile.Request, len(dd))
+		for i := range dd {
+			reqs[i].NamespacedName.Name = dd[i].GetName()
+			reqs[i].NamespacedName.Namespace = dd[i].GetNamespace()
+		}
+		return reqs, nil
 	}
 	reqs := make([]reconcile.Request, len(sorted))
 	for i := range sorted {
