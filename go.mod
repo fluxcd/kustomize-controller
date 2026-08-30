@@ -34,6 +34,7 @@ require (
 	github.com/fluxcd/pkg/testserver v0.14.0
 	github.com/fluxcd/source-controller/api v1.9.0
 	github.com/getsops/sops/v3 v3.13.2
+	github.com/go-logr/logr v1.4.3
 	github.com/google/cel-go v0.26.1
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/onsi/gomega v1.42.1
@@ -142,7 +143,6 @@ require (
 	github.com/getsops/gopgagent v0.0.0-20241224165529-7044f28e491e // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
-	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.1 // indirect
