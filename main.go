@@ -18,9 +18,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/go-logr/logr"
 	flag "github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -387,8 +390,33 @@ func main() {
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
+	if err := sweepStaleTmpDirs(setupLog); err != nil {
+		setupLog.Error(err, "failed to sweep stale tmp dirs")
+	}
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// sweepStaleTmpDirs removes leftover kustomization-* directories from ungraceful exits.
+// Deferred os.RemoveAll calls in reconcile do not run on SIGKILL or os.Exit(1),
+// so stale dirs can accumulate and consume ephemeral storage (or memory if /tmp is tmpfs).
+func sweepStaleTmpDirs(log logr.Logger) error {
+	dirs, err := ioutil.ReadDir(os.TempDir())
+	if err != nil {
+		return err
+	}
+	for _, d := range dirs {
+		if !d.IsDir() || !filepath.HasPrefix(d.Name(), "kustomization-") {
+			continue
+		}
+		path := filepath.Join(os.TempDir(), d.Name())
+		if err := os.RemoveAll(path); err != nil {
+			log.Error(err, "failed to remove stale tmp dir", "dir", path)
+		} else {
+			log.Info("removed stale tmp dir", "dir", path)
+		}
+	}
+	return nil
 }
