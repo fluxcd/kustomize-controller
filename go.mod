@@ -27,8 +27,8 @@ require (
 	github.com/fluxcd/pkg/auth v0.54.3
 	github.com/fluxcd/pkg/cache v0.14.0
 	github.com/fluxcd/pkg/http/fetch v0.25.0
-	github.com/fluxcd/pkg/kustomize v1.35.5
-	github.com/fluxcd/pkg/runtime v0.110.2
+	github.com/fluxcd/pkg/kustomize v1.35.6
+	github.com/fluxcd/pkg/runtime v0.110.3
 	github.com/fluxcd/pkg/ssa v0.76.2
 	github.com/fluxcd/pkg/tar v1.2.0
 	github.com/fluxcd/pkg/testserver v0.14.0
@@ -135,7 +135,7 @@ require (
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
-	github.com/fluxcd/pkg/envsubst v1.7.0 // indirect
+	github.com/fluxcd/pkg/envsubst v1.7.1 // indirect
 	github.com/fluxcd/pkg/sourceignore v0.18.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.2 // indirect
