@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -386,9 +387,35 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
+	purgeStaleTempDirs(ctx)
+
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// purgeStaleTempDirs removes the tmp dirs left behind by a previous process
+// that exited without running its deferred cleanup. The dirs are listed
+// synchronously, before the reconcilers start creating new ones, and removed
+// in the background so that the manager startup is not delayed.
+func purgeStaleTempDirs(ctx context.Context) {
+	const purgeTimeout = 2 * time.Minute
+
+	dirs, err := controller.ListStaleTempDirs(os.TempDir())
+	if err != nil {
+		setupLog.Error(err, "unable to list stale tmp dirs")
+		return
+	}
+	if len(dirs) == 0 {
+		return
+	}
+
+	setupLog.Info("purging stale tmp dirs", "count", len(dirs))
+	go func() {
+		ctx, cancel := context.WithTimeout(ctx, purgeTimeout)
+		defer cancel()
+		controller.PurgeTempDirs(ctx, setupLog, dirs)
+	}()
 }
