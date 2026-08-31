@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.9.5
+
+**Release date:** 2026-08-31
+
+This patch release stops the controller from leaving behind the temporary
+directories of a previous process that exited without running its cleanup, and
+fixes a crash in post-build substitution: a substring expression with a negative
+length, e.g. `${VAR:2:-1}`, panicked instead of counting back from the end of
+the string like Bash does. In addition, the kubeconfigs read from
+`.spec.kubeConfig` Secrets are now required to be self-contained: credentials
+and certificates must be embedded inline (`token`, `client-certificate-data`,
+`client-key-data`, `certificate-authority-data`), and entries referencing files
+on the local filesystem are rejected. The fluxcd/pkg updates also bring
+Kubernetes to 1.36.4.
+
+Fixes:
+- fix: purge tmp dirs at startup
+  [#1730](https://github.com/fluxcd/kustomize-controller/pull/1730)
+- Update fluxcd/pkg dependencies
+  [#1727](https://github.com/fluxcd/kustomize-controller/pull/1727)
+  [#1728](https://github.com/fluxcd/kustomize-controller/pull/1728)
+
 ## 1.9.4
 
 **Release date:** 2026-07-23
