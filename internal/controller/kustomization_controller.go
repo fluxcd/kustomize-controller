@@ -83,6 +83,11 @@ import (
 // +kubebuilder:rbac:groups="",resources=serviceaccounts/token,verbs=create
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
+// errBuildRefNotFound is returned when a Kubernetes object referenced in
+// the build process of a Kustomization, e.g. a substituteFrom ConfigMap or
+// Secret, does not exist.
+var errBuildRefNotFound = errors.New("build reference not found")
+
 // KustomizationReconciler reconciles a Kustomization object
 type KustomizationReconciler struct {
 	client.Client
@@ -215,9 +220,10 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", err)
 
 		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("Source '%s' not found", obj.Spec.SourceRef.String())
+			msg := fmt.Sprintf("Source '%s' not found, retrying in %s",
+				obj.Spec.SourceRef.String(), r.DependencyRequeueInterval.String())
 			log.Info(msg)
-			return ctrl.Result{RequeueAfter: obj.GetRetryInterval()}, nil
+			return ctrl.Result{RequeueAfter: r.DependencyRequeueInterval}, nil
 		}
 
 		if acl.IsAccessDenied(err) {
@@ -271,6 +277,15 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if errors.Is(reconcileErr, fetch.ErrFileNotFound) {
 		msg := fmt.Sprintf("Source is not ready, artifact not found, retrying in %s", r.DependencyRequeueInterval.String())
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", msg)
+		log.Info(msg)
+		return ctrl.Result{RequeueAfter: r.DependencyRequeueInterval}, nil
+	}
+
+	// Requeue at the dependency interval if a Kubernetes object referenced
+	// in the build was not found, the object may be created later.
+	if errors.Is(reconcileErr, errBuildRefNotFound) {
+		msg := fmt.Sprintf("Reconciliation failed, retrying in %s: %s",
+			r.DependencyRequeueInterval.String(), reconcileErr.Error())
 		log.Info(msg)
 		return ctrl.Result{RequeueAfter: r.DependencyRequeueInterval}, nil
 	}
@@ -437,6 +452,14 @@ func (r *KustomizationReconciler) reconcile(
 	resources, err := r.build(ctx, obj, unstructured.Unstructured{Object: k}, tmpDir, dirPath)
 	if err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.BuildFailedReason, "%s", err)
+		if apierrors.IsNotFound(err) {
+			// A Kubernetes object referenced in the build, e.g. a
+			// substituteFrom ConfigMap or Secret, does not exist yet.
+			// Exponential backoff would cause the wait for the object
+			// to be prolonged too much, instead we requeue on a fixed
+			// interval by tagging the error with errBuildRefNotFound.
+			return fmt.Errorf("%w: %w", errBuildRefNotFound, err)
+		}
 		return err
 	}
 
