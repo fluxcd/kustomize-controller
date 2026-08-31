@@ -335,7 +335,7 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Create tmp dir.
-	tmpDir, err := MkdirTempAbs("", "kustomization-")
+	tmpDir, err := MkdirTempAbs("", TempDirPrefix)
 	if err != nil {
 		err = fmt.Errorf("tmp dir error: %w", err)
 		conditions.MarkFalse(obj, meta.ReadyCondition, sourcev1.DirCreationFailedReason, "%s", err)
