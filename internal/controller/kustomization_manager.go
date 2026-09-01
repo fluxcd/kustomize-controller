@@ -44,6 +44,7 @@ type KustomizationReconcilerOptions struct {
 	WatchConfigsPredicate      predicate.Predicate
 	WatchExternalArtifacts     bool
 	CancelHealthCheckOnRequeue bool
+	EnableDependencyQueueing   bool
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -154,6 +155,21 @@ func (r *KustomizationReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		enqueueRequestsFromMapFunc = wr.EnqueueRequestsFromMapFunc
 		blder = runtimeCtrl.NewControllerManagedBy(mgr, wr).
 			For(&kustomizev1.Kustomization{}, ksPredicate).Builder
+	}
+
+	if opts.EnableDependencyQueueing {
+		// Index the Kustomizations by the dependsOn references they (may) point at.
+		if err := mgr.GetCache().IndexField(ctx, &kustomizev1.Kustomization{}, dependsOnIndexKey,
+			r.indexDependsOn); err != nil {
+			return fmt.Errorf("failed setting index fields: %w", err)
+		}
+
+		blder = blder.
+			Watches(
+				&kustomizev1.Kustomization{},
+				handler.EnqueueRequestsFromMapFunc(r.requestsForDependents),
+				builder.WithPredicates(KustomizationReadyChangePredicate{}),
+			)
 	}
 
 	blder.
