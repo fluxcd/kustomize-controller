@@ -24,14 +24,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fluxcd/pkg/apis/meta"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	"github.com/hashicorp/vault/api"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/testenv"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
@@ -193,10 +195,10 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 			return resultK.Status.LastAppliedRevision == revision
 		}, timeout, time.Second).Should(BeTrue())
 
-		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
+		events := testenv.GetEvents(ctx, k8sClient, resultK.GetName(), "", map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
 		g.Expect(len(events)).To(BeIdenticalTo(1))
-		g.Expect(events[0].Message).Should(ContainSubstring("Reconciliation finished"))
-		g.Expect(events[0].Message).ShouldNot(ContainSubstring("configured"))
+		g.Expect(events[0].Note).Should(ContainSubstring("Reconciliation finished"))
+		g.Expect(events[0].Note).ShouldNot(ContainSubstring("configured"))
 	})
 
 	t.Run("global SOPS age secret as fallback", func(t *testing.T) {
