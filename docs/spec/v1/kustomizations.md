@@ -495,7 +495,7 @@ otherwise the interdependent Kustomizations will never be applied on the cluster
 #### Dependency Ready Expression
 
 `.spec.dependsOn[].readyExpr` is an optional field that can be used to define a CEL expression
-to determine the readiness of a Kustomization dependency. 
+to determine the readiness of a Kustomization dependency.
 
 This is helpful for when custom logic is needed to determine if a dependency is ready.
 For example, when performing a lockstep upgrade, the `readyExpr` can be used to
@@ -1605,9 +1605,9 @@ spec:
     .gitlab-ci.yml
 ```
 
-It is recommended to generate the `kustomization.yaml` on your own and store it
-in Git, this way you can validate your manifests in CI
-([example script](https://github.com/fluxcd/flux2-multi-tenancy/blob/main/scripts/validate.sh)).
+It is recommended to generate the `kustomization.yaml` on your own and store it in Git.
+By doing so, you can validate your manifests in CI, for example by using the [fluxcd/flux-schema](https://github.com/fluxcd/flux-schema)
+tool ([example configuration](https://github.com/fluxcd/flux2-kustomize-helm-example/blob/main/.fluxschema.yml)).
 Assuming your manifests are inside `apps/my-app`, you can generate a
 `kustomization.yaml` with:
 
