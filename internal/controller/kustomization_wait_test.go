@@ -251,8 +251,8 @@ parameters:
 		expectedMessage := "Health check passed"
 		events := getEvents(resultK.GetName(), map[string]string{"kustomize.toolkit.fluxcd.io/revision": revision})
 		g.Expect(len(events) > 1).To(BeTrue())
-		g.Expect(events[len(events)-2].Type).To(BeIdenticalTo("Normal"))
-		g.Expect(events[len(events)-2].Message).To(ContainSubstring(expectedMessage))
+		g.Expect(events[len(events)-1].Type).To(BeIdenticalTo("Normal"))
+		g.Expect(events[len(events)-1].Message).To(ContainSubstring(expectedMessage))
 	})
 
 	t.Run("reports new revision healthy status", func(t *testing.T) {

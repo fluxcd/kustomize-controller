@@ -27,6 +27,7 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	celtypes "github.com/google/cel-go/common/types"
+	"github.com/google/uuid"
 	"github.com/opencontainers/go-digest"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -155,13 +156,22 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		// Log and emit success event.
 		if conditions.IsReady(obj) {
-			msg := fmt.Sprintf("Reconciliation finished in %s, next run in %s",
-				time.Since(reconcileStart).String(),
+			// Keep the event message stable across reconciliations of the
+			// same revision so that the Kubernetes event recorder can
+			// aggregate the events, while still producing a distinct event
+			// per revision.
+			msg := fmt.Sprintf("Reconciliation finished revision %s, next run in %s",
+				obj.Status.LastAppliedRevision,
 				obj.Spec.Interval.Duration.String())
-			log.Info(msg, "revision", obj.Status.LastAttemptedRevision)
+			log.Info(msg,
+				"revision", obj.Status.LastAttemptedRevision,
+				"duration", time.Since(reconcileStart).String())
 			r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityInfo, msg,
 				map[string]string{
 					kustomizev1.GroupVersion.Group + "/" + eventv1.MetaCommitStatusKey: eventv1.MetaCommitStatusUpdateValue,
+					// A unique token per event prevents notification-controller
+					// from deduplicating the stable event message.
+					kustomizev1.GroupVersion.Group + "/" + eventv1.MetaTokenKey: uuid.NewString(),
 				})
 		}
 	}()
