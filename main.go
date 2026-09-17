@@ -104,6 +104,7 @@ func main() {
 		sopsVaultConfigMap              string
 		featureGates                    feathelper.FeatureGates
 		disallowedFieldManagers         []string
+		overrideManagersBeforeDryRun    []string
 		tokenCacheOptions               pkgcache.TokenFlags
 		customApplyStageKinds           string
 	)
@@ -123,6 +124,8 @@ func main() {
 	flag.StringVar(&sopsAgeSecret, "sops-age-secret", "", "The name of a Kubernetes secret in the RUNTIME_NAMESPACE containing a SOPS age decryption key for fallback usage.")
 	flag.StringVar(&sopsVaultConfigMap, "sops-vault-configmap", "", "The name of a ConfigMap in the RUNTIME_NAMESPACE configuring the OpenBao/Vault instances (address and login path) trusted for SOPS decryption. It acts as an allowlist of trusted Vault servers. When empty, SOPS decryption via Vault ServiceAccount-token authentication is disabled.")
 	flag.StringArrayVar(&disallowedFieldManagers, "override-manager", []string{}, "Field manager disallowed to perform changes on managed resources.")
+	flag.StringArrayVar(&overrideManagersBeforeDryRun, "override-manager-before-dry-run", []string{},
+		"Field manager whose ownership is taken over before the server-side apply dry-run, to recover objects wedged at dry-run validation by a stale co-owner of a required field. Unlike --override-manager, this mutates managedFields before validation, so scope it narrowly.")
 	flag.StringVar(&customApplyStageKinds, "custom-apply-stage-kinds", "", "A comma-separated list of GroupKind (e.g., 'rbac.authorization.k8s.io/Role,some.group.io/SomeResource') "+
 		"resources to be applied in a custom stage during server-side apply running after CRDs and before all namespaced resources not in this list.")
 
@@ -348,33 +351,34 @@ func main() {
 	}
 
 	if err = (&controller.KustomizationReconciler{
-		AdditiveCELDependencyCheck: additiveCELDependencyCheck,
-		AllowExternalArtifact:      allowExternalArtifact,
-		APIReader:                  mgr.GetAPIReader(),
-		ArtifactFetchRetries:       httpRetry,
-		Client:                     mgr.GetClient(),
-		ClusterReader:              clusterReader,
-		ConcurrentSSA:              concurrentSSA,
-		ControllerName:             controllerName,
-		DefaultServiceAccount:      defaultServiceAccount,
-		DependencyRequeueInterval:  requeueDependency,
-		DirectSourceFetch:          directSourceFetch,
-		DisallowedFieldManagers:    disallowedFieldManagers,
-		EventRecorder:              eventRecorder,
-		FailFast:                   failFast,
-		GroupChangeLog:             groupChangeLog,
-		KubeConfigOpts:             kubeConfigOpts,
-		Mapper:                     restMapper,
-		Metrics:                    metricsH,
-		MigrateAPIVersion:          migrateAPIVersion,
-		NoCrossNamespaceRefs:       aclOptions.NoCrossNamespaceRefs,
-		NoRemoteBases:              noRemoteBases,
-		SOPSAgeSecret:              sopsAgeSecret,
-		SOPSVaultConfigMap:         sopsVaultConfigMap,
-		StatusManager:              fmt.Sprintf("gotk-%s", controllerName),
-		StrictSubstitutions:        strictSubstitutions,
-		TokenCache:                 tokenCache,
-		CustomStageKinds:           customStageKinds,
+		AdditiveCELDependencyCheck:   additiveCELDependencyCheck,
+		AllowExternalArtifact:        allowExternalArtifact,
+		APIReader:                    mgr.GetAPIReader(),
+		ArtifactFetchRetries:         httpRetry,
+		Client:                       mgr.GetClient(),
+		ClusterReader:                clusterReader,
+		ConcurrentSSA:                concurrentSSA,
+		ControllerName:               controllerName,
+		DefaultServiceAccount:        defaultServiceAccount,
+		DependencyRequeueInterval:    requeueDependency,
+		DirectSourceFetch:            directSourceFetch,
+		DisallowedFieldManagers:      disallowedFieldManagers,
+		OverrideManagersBeforeDryRun: overrideManagersBeforeDryRun,
+		EventRecorder:                eventRecorder,
+		FailFast:                     failFast,
+		GroupChangeLog:               groupChangeLog,
+		KubeConfigOpts:               kubeConfigOpts,
+		Mapper:                       restMapper,
+		Metrics:                      metricsH,
+		MigrateAPIVersion:            migrateAPIVersion,
+		NoCrossNamespaceRefs:         aclOptions.NoCrossNamespaceRefs,
+		NoRemoteBases:                noRemoteBases,
+		SOPSAgeSecret:                sopsAgeSecret,
+		SOPSVaultConfigMap:           sopsVaultConfigMap,
+		StatusManager:                fmt.Sprintf("gotk-%s", controllerName),
+		StrictSubstitutions:          strictSubstitutions,
+		TokenCache:                   tokenCache,
+		CustomStageKinds:             customStageKinds,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
 		RateLimiter:                runtimeCtrl.GetRateLimiter(rateLimiterOptions),
 		WatchConfigs:               watchConfigs,
