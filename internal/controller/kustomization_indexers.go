@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -30,6 +32,10 @@ import (
 	"github.com/fluxcd/pkg/runtime/dependency"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
+)
+
+const (
+	dependsOnIndexKey string = ".metadata.dependsOn"
 )
 
 func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) handler.MapFunc {
@@ -72,6 +78,73 @@ func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) h
 		}
 		return reqs
 	}
+}
+
+func isNotWaitingForDependency(k *kustomizev1.Kustomization) bool {
+	c := conditions.Get(k, meta.ReadyCondition)
+	if c == nil {
+		return true
+	}
+	return c.Status != metav1.ConditionFalse || c.Reason != meta.DependencyNotReadyReason
+}
+
+func (r *KustomizationReconciler) hasNotReadyDependency(ctx context.Context,
+	k *kustomizev1.Kustomization, current client.ObjectKey) bool {
+
+	log := ctrl.LoggerFrom(ctx)
+	var ks kustomizev1.Kustomization
+	for _, d := range k.Spec.DependsOn {
+		namespace := k.GetNamespace()
+		if d.Namespace != "" {
+			namespace = d.Namespace
+		}
+		objectKey := client.ObjectKey{Namespace: namespace, Name: d.Name}
+		if objectKey == current {
+			continue
+		}
+		if err := r.Get(ctx, objectKey, &ks); err != nil {
+			log.Error(err, "failed to get object for dependency change")
+			return true
+		}
+		if !conditions.IsReady(&ks) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *KustomizationReconciler) requestsForDependents(ctx context.Context, obj client.Object) []reconcile.Request {
+	objectKey := client.ObjectKeyFromObject(obj)
+	log := ctrl.LoggerFrom(ctx)
+	debugLog := log.V(1).WithValues("dependency", map[string]string{
+		"name":      objectKey.Name,
+		"namespace": objectKey.Namespace,
+	})
+
+	var list kustomizev1.KustomizationList
+	if err := r.List(ctx, &list, client.MatchingFields{dependsOnIndexKey: objectKey.String()}); err != nil {
+		log.Error(err, "failed to list objects for dependency change")
+		return nil
+	}
+
+	var reqs []reconcile.Request
+	for _, d := range list.Items {
+		if isNotWaitingForDependency(&d) {
+			continue
+		}
+		if r.hasNotReadyDependency(ctx, &d, objectKey) {
+			continue
+		}
+		debugLog.Info("requesting reconciliation of dependent", "dependent", map[string]string{
+			"name":      d.Name,
+			"namespace": d.Namespace,
+		})
+		reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      d.Name,
+			Namespace: d.Namespace,
+		}})
+	}
+	return reqs
 }
 
 func (r *KustomizationReconciler) indexBy(kind string) func(o client.Object) []string {
@@ -142,4 +215,23 @@ func sortAndEnqueue(dd []dependency.Dependent) ([]reconcile.Request, error) {
 		reqs[i].NamespacedName.Namespace = sorted[i].Namespace
 	}
 	return reqs, nil
+}
+
+// index kustomizations by their Spec.DependsOn
+func (r *KustomizationReconciler) indexDependsOn(o client.Object) []string {
+	k, ok := o.(*kustomizev1.Kustomization)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Kustomization, got %T", o))
+	}
+
+	deps := make([]string, len(k.Spec.DependsOn))
+	for i, dep := range k.Spec.DependsOn {
+		namespace := k.GetNamespace()
+		if dep.Namespace != "" {
+			namespace = dep.Namespace
+		}
+		deps[i] = fmt.Sprintf("%s/%s", namespace, dep.Name)
+	}
+
+	return deps
 }

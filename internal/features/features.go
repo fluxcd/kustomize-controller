@@ -67,6 +67,11 @@ const (
 	// reports the defaulted field as "field not declared in schema" when
 	// validating managed fields against the old version's schema.
 	MigrateAPIVersion = "MigrateAPIVersion"
+
+	// EnableDependencyQueueing controls whether reconciliation of a kustomization
+	// should be queued once one of its dependencies becomes ready, or if only
+	// time-based retries with requeue-dependency delays should be attempted
+	EnableDependencyQueueing = "EnableDependencyQueueing"
 )
 
 var features = map[string]bool{
@@ -103,6 +108,9 @@ var features = map[string]bool{
 	// MigrateAPIVersion
 	// opt-in from v1.8.4
 	MigrateAPIVersion: false,
+	// EnableDependencyQueueing
+	// opt-in from v1.10
+	EnableDependencyQueueing: false,
 }
 
 func init() {

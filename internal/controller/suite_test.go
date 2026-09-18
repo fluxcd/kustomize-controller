@@ -181,7 +181,7 @@ func TestMain(m *testing.M) {
 			APIReader:                 testEnv,
 			EventRecorder:             testEnv.GetEventRecorderFor(controllerName),
 			Metrics:                   testMetricsH,
-			DependencyRequeueInterval: 2 * time.Second,
+			DependencyRequeueInterval: 2 * time.Hour,
 			ConcurrentSSA:             4,
 			DisallowedFieldManagers:   []string{overrideManagerName},
 			SOPSAgeSecret:             sopsAgeSecret,
@@ -190,6 +190,7 @@ func TestMain(m *testing.M) {
 			WatchConfigsPredicate:      predicate.Not(predicate.Funcs{}),
 			WatchExternalArtifacts:     true,
 			CancelHealthCheckOnRequeue: true,
+			EnableDependencyQueueing:   true,
 		}); err != nil {
 			panic(fmt.Sprintf("Failed to start KustomizationReconciler: %v", err))
 		}

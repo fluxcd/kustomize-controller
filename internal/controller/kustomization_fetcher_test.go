@@ -143,6 +143,7 @@ stringData:
 	t.Run("recovers after not found errors", func(t *testing.T) {
 		g.Expect(k8sClient.Get(context.Background(), repositoryName, repo)).Should(Succeed())
 		repo.Status.Artifact.URL = repoURL
+		repo.Status.Artifact.Revision = "new-revision"
 		repo.ManagedFields = nil
 		g.Expect(k8sClient.Status().Update(context.Background(), repo)).To(Succeed())
 
