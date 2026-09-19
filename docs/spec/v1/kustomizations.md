@@ -225,8 +225,11 @@ inspection after the specified interval. The value must be in a
 e.g. `10m0s` to reconcile the object every 10 minutes.
 
 If the `.metadata.generation` of a resource changes (due to e.g. a change to
-the spec) or the Source revision changes (which generates a Kubernetes event),
+the spec) or the Source artifact revision or digest changes (which generates a Kubernetes event),
 this is handled instantly outside the interval window.
+
+Digest changes also trigger reconciliation when the Git revision is unchanged,
+for example when an included GitRepository changes the source artifact's contents.
 
 **Note:** The controller can be configured to apply a jitter to the interval in
 order to distribute the load more evenly when multiple Kustomization objects are
