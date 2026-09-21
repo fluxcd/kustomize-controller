@@ -21,12 +21,13 @@ import (
 	"testing"
 	"time"
 
-	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
+	eventv1 "github.com/fluxcd/pkg/apis/event/v1"
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -91,11 +92,12 @@ data:
 	// commitStatusEvents returns the reconciliation success events carrying the
 	// applied revision. These are the events used by notification-controller to
 	// update the Git commit status.
-	commitStatusEvents := func(name string) []corev1.Event {
-		var result []corev1.Event
-		for _, event := range getEvents(name, map[string]string{
+	commitStatusEvents := func(name string) []eventsv1.Event {
+		var result []eventsv1.Event
+		events, _ := testenv.GetEvents(ctx, k8sClient, name, "", map[string]string{
 			group + "/" + eventv1.MetaRevisionKey: revision,
-		}) {
+		})
+		for _, event := range events {
 			if event.Reason == meta.ReconciliationSucceededReason {
 				result = append(result, event)
 			}

@@ -43,6 +43,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/ory/dockertest/v3"
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -529,12 +530,12 @@ func runInContext(registerControllers func(*testenv.Environment), run func() err
 	runErr := run()
 
 	if debugMode {
-		events := &corev1.EventList{}
+		events := &eventsv1.EventList{}
 		_ = k8sClient.List(ctx, events)
 		for _, event := range events.Items {
 			fmt.Printf("%s %s \n%s\n",
-				event.InvolvedObject.Name, event.GetAnnotations()["kustomize.toolkit.fluxcd.io/revision"],
-				event.Message)
+				event.Regarding.Name, event.GetAnnotations()["kustomize.toolkit.fluxcd.io/revision"],
+				event.Note)
 		}
 	}
 
@@ -560,27 +561,6 @@ func randStringRunes(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
-}
-
-func getEvents(objName string, annotations map[string]string) []corev1.Event {
-	var result []corev1.Event
-	events := &corev1.EventList{}
-	_ = k8sClient.List(ctx, events)
-	for _, event := range events.Items {
-		if event.InvolvedObject.Name == objName {
-			if annotations == nil && len(annotations) == 0 {
-				result = append(result, event)
-			} else {
-				for ak, av := range annotations {
-					if event.GetAnnotations()[ak] == av {
-						result = append(result, event)
-						break
-					}
-				}
-			}
-		}
-	}
-	return result
 }
 
 func applyGitRepository(objKey client.ObjectKey, artifactName string, revision string) error {
