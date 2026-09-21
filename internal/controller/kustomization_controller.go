@@ -119,6 +119,7 @@ type KustomizationReconciler struct {
 
 	AdditiveCELDependencyCheck bool
 	AllowExternalArtifact      bool
+	DisableCommitStatusEvent   bool
 	DirectSourceFetch          bool
 	FailFast                   bool
 	GroupChangeLog             bool
@@ -159,10 +160,14 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				time.Since(reconcileStart).String(),
 				obj.Spec.Interval.Duration.String())
 			log.Info(msg, "revision", obj.Status.LastAttemptedRevision)
-			r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityInfo, msg,
-				map[string]string{
-					kustomizev1.GroupVersion.Group + "/" + eventv1.MetaCommitStatusKey: eventv1.MetaCommitStatusUpdateValue,
-				})
+			// The success event is used by notification-controller to update
+			// the Git commit status. Skip it when the feature gate is enabled.
+			if !r.DisableCommitStatusEvent {
+				r.event(obj, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision, eventv1.EventSeverityInfo, msg,
+					map[string]string{
+						kustomizev1.GroupVersion.Group + "/" + eventv1.MetaCommitStatusKey: eventv1.MetaCommitStatusUpdateValue,
+					})
+			}
 		}
 	}()
 
