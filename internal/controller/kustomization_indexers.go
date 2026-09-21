@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/conditions"
+
 	"github.com/fluxcd/pkg/runtime/dependency"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
@@ -56,13 +56,9 @@ func (r *KustomizationReconciler) requestsForRevisionChangeOf(indexKey string) h
 			return nil
 		}
 		var dd []dependency.Dependent
-		for i, d := range list.Items {
-			// If the Kustomization is ready or reconciling and the revision of the artifact equals
-			// to the last attempted revision, we should not make a request for this Kustomization
-			if (conditions.IsReady(&list.Items[i]) || conditions.IsReconciling(&list.Items[i])) &&
-				repo.GetArtifact().HasRevision(d.Status.LastAttemptedRevision) {
-				continue
-			}
+		// The source predicate filters unchanged artifacts. Revision alone cannot
+		// identify content changes, e.g. changes to a GitRepository include.
+		for _, d := range list.Items {
 			dd = append(dd, d.DeepCopy())
 		}
 		reqs, err := sortAndEnqueue(dd)

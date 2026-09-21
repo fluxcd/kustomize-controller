@@ -47,7 +47,8 @@ func (SourceRevisionChangePredicate) Update(e event.UpdateEvent) bool {
 	}
 
 	if oldSource.GetArtifact() != nil && newSource.GetArtifact() != nil &&
-		!oldSource.GetArtifact().HasRevision(newSource.GetArtifact().Revision) {
+		(!oldSource.GetArtifact().HasRevision(newSource.GetArtifact().Revision) ||
+			oldSource.GetArtifact().Digest != newSource.GetArtifact().Digest) {
 		return true
 	}
 
