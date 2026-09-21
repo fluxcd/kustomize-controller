@@ -36,7 +36,6 @@ require (
 	github.com/getsops/sops/v3 v3.13.2
 	github.com/go-logr/logr v1.4.4
 	github.com/google/cel-go v0.29.2
-	github.com/google/uuid v1.6.0
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/onsi/gomega v1.43.0
 	github.com/opencontainers/go-digest v1.0.0
@@ -169,6 +168,7 @@ require (
 	github.com/google/go-containerregistry v0.22.1 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.20 // indirect
 	github.com/googleapis/gax-go/v2 v2.24.0 // indirect
 	github.com/goware/prefixer v0.0.0-20160118172347-395022866408 // indirect
