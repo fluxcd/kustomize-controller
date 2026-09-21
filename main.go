@@ -312,6 +312,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	disableCommitStatusEvent, err := features.Enabled(features.DisableCommitStatusEvent)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.DisableCommitStatusEvent)
+		os.Exit(1)
+	}
+
 	var tokenCache *pkgcache.TokenCache
 	if tokenCacheOptions.MaxSize > 0 {
 		var err error
@@ -358,6 +364,7 @@ func main() {
 		ControllerName:             controllerName,
 		DefaultServiceAccount:      defaultServiceAccount,
 		DependencyRequeueInterval:  requeueDependency,
+		DisableCommitStatusEvent:   disableCommitStatusEvent,
 		DirectSourceFetch:          directSourceFetch,
 		DisallowedFieldManagers:    disallowedFieldManagers,
 		EventRecorder:              eventRecorder,

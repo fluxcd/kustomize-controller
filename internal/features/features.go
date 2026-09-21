@@ -67,6 +67,15 @@ const (
 	// reports the defaulted field as "field not declared in schema" when
 	// validating managed fields against the old version's schema.
 	MigrateAPIVersion = "MigrateAPIVersion"
+
+	// DisableCommitStatusEvent controls whether the controller emits the
+	// reconciliation success event that is used by notification-controller
+	// to update the Git commit status.
+	//
+	// This may be useful when the number of managed Kustomizations is large,
+	// as the event is emitted on every successful reconciliation and could
+	// flood the notification system.
+	DisableCommitStatusEvent = "DisableCommitStatusEvent"
 )
 
 var features = map[string]bool{
@@ -103,6 +112,9 @@ var features = map[string]bool{
 	// MigrateAPIVersion
 	// opt-in from v1.8.4
 	MigrateAPIVersion: false,
+	// DisableCommitStatusEvent
+	// opt-in from v1.9.6
+	DisableCommitStatusEvent: false,
 }
 
 func init() {
