@@ -711,6 +711,33 @@ If Target is not set, the Paths will be ignored for all Kubernetes
 objects within the manifest of the Kustomization.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>beforeDryRun</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>BeforeDryRun, when set to true, resolves this rule&rsquo;s Paths on the desired
+object before the server-side apply dry-run instead of after it.</p>
+<p>By default (unset or false) ignore rules are resolved after a successful
+dry-run, so an ignored field whose desired value would be rejected by
+schema or admission validation still fails the dry-run and wedges
+reconciliation. Setting this to true strips the Paths from (or, when Flux
+is the sole owner, replaces them with the in-cluster value of) the desired
+object before the dry-run, so the API server validates the reshaped
+payload.</p>
+<p>This relaxes the dry-run validation boundary and is intended as a narrow,
+opt-in escape hatch. Use it at your own risk: the API server validates a
+different shape than the manifest, which can mask a genuine error on the
+field or break a cross-field invariant, and the apply is not transactional
+with the reshape. A path resolved before the dry-run is not resolved again
+after it; also listing the same path in a default (post-dry-run) rule is
+redundant and has no additional effect.</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>
