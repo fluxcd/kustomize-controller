@@ -100,6 +100,7 @@ func TokenCredentialFromAADConfig(c AADConfig) (token azcore.TokenCredential, er
 				},
 			})
 		}
+		return nil, fmt.Errorf("invalid data: requires 'clientSecret' or 'clientCertificate' when both 'tenantId' and 'clientId' are set")
 	}
 
 	switch {
