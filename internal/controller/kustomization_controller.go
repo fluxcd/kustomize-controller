@@ -876,13 +876,17 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	applyOpts.MigrateAPIVersion = r.MigrateAPIVersion
 
 	if len(obj.Spec.Ignore) > 0 {
-		ignoreRules := make([]jsondiff.IgnoreRule, len(obj.Spec.Ignore))
-		for i, rule := range obj.Spec.Ignore {
-			ignoreRules[i] = jsondiff.IgnoreRule{
+		// Partition ignore rules by when they are resolved relative to the
+		// server-side apply dry-run. Rules with BeforeDryRun=true reshape the
+		// desired object before the dry-run; the rest keep the default
+		// post-dry-run behavior. A rule is resolved only once, so the two sets
+		// are disjoint by construction.
+		for _, rule := range obj.Spec.Ignore {
+			ignoreRule := jsondiff.IgnoreRule{
 				Paths: rule.Paths,
 			}
 			if rule.Target != nil {
-				ignoreRules[i].Selector = &jsondiff.Selector{
+				ignoreRule.Selector = &jsondiff.Selector{
 					Group:              rule.Target.Group,
 					Version:            rule.Target.Version,
 					Kind:               rule.Target.Kind,
@@ -892,8 +896,12 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 					LabelSelector:      rule.Target.LabelSelector,
 				}
 			}
+			if rule.BeforeDryRun != nil && *rule.BeforeDryRun {
+				applyOpts.DriftIgnoreRulesBeforeDryRun = append(applyOpts.DriftIgnoreRulesBeforeDryRun, ignoreRule)
+			} else {
+				applyOpts.DriftIgnoreRules = append(applyOpts.DriftIgnoreRules, ignoreRule)
+			}
 		}
-		applyOpts.DriftIgnoreRules = ignoreRules
 	}
 
 	fieldManagers := []ssa.FieldManager{

@@ -167,6 +167,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dimchansky/utfbom v1.1.1 h1:vV6w1AhK4VMnhBno/TPVCoK9U/LP0PkLCS9tbxHdi/U=
 github.com/dimchansky/utfbom v1.1.1/go.mod h1:SxdoEBH5qIqFocHMyGOXVAybYJdr71b1Q/j0mACtrfE=
+github.com/dipti-pai/pkg/ssa v0.51.1-0.20260923225625-33953cf44116 h1:8Wue/8w9TQYmgdzxsyduH+uuqPLr8QO0Ql3eUmWdqOo=
+github.com/dipti-pai/pkg/ssa v0.51.1-0.20260923225625-33953cf44116/go.mod h1:yuW/1rJj6w89NpRgj2OJAP7tfqaXD6JmKm+WVnPrHKk=
 github.com/distribution/reference v0.6.0 h1:0IXCQ5g4/QMHHkarYzh5l+u8T3t73zM5QvfrDyIgxBk=
 github.com/distribution/reference v0.6.0/go.mod h1:BbU0aIcezP1/5jX/8MP0YiH4SdvB5Y4f/wlDRiLyi3E=
 github.com/docker/cli v29.7.2+incompatible h1:dlkwallR8XqfeVnA2ELEhdwvb4lsSwuB4IgsG8Q9cLY=
@@ -225,8 +227,6 @@ github.com/fluxcd/pkg/runtime v0.112.0 h1:FnE+98Fg2LJYRBxMYGOIuE4C7nwtLMCXxFFJpM
 github.com/fluxcd/pkg/runtime v0.112.0/go.mod h1:YUljTAXVaeWG+GLnXNZopFFMZstUoTxJs7+vl91OV58=
 github.com/fluxcd/pkg/sourceignore v0.19.0 h1:s3/E03o9JTAvjIE7K8vI257AT2+0zy8cFOFaX+lx0z8=
 github.com/fluxcd/pkg/sourceignore v0.19.0/go.mod h1:MYwDEmDdj5GjHg1r1ljgtNkXNGkeV42G8BnCsggqExg=
-github.com/fluxcd/pkg/ssa v0.78.0 h1:Wzm9uoYLDUCRV2SlJuBLkOQu/OnPKuTWyTzIFZbpVfY=
-github.com/fluxcd/pkg/ssa v0.78.0/go.mod h1:yuW/1rJj6w89NpRgj2OJAP7tfqaXD6JmKm+WVnPrHKk=
 github.com/fluxcd/pkg/tar v1.2.0 h1:T6WFB5M0YRHktlrgdKNskqpdp76TVDdWTOeuWz33CFs=
 github.com/fluxcd/pkg/tar v1.2.0/go.mod h1:Wlalp5vIVe+BbckkKkqExKcoHAeeWJPAzwK7ONeFcS0=
 github.com/fluxcd/pkg/testserver v0.14.0 h1:wVv/JPY3i4OEJ8xakfriuN2oHiUyZZ+BfhC/6RCD2nI=

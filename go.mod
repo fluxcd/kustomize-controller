@@ -4,6 +4,11 @@ go 1.26.0
 
 replace github.com/fluxcd/kustomize-controller/api => ./api
 
+// Temporary replace for the before-dry-run ignore rules feature, pointing at the
+// fork branch dipti-pai/pkg ssa-ignore-rules-before-dry-run. Remove and bump the
+// require above once the corresponding fluxcd/pkg/ssa release is tagged.
+replace github.com/fluxcd/pkg/ssa => github.com/dipti-pai/pkg/ssa v0.51.1-0.20260923225625-33953cf44116
+
 // Replace digest lib to master to gather access to BLAKE3.
 // xref: https://github.com/opencontainers/go-digest/pull/66
 replace github.com/opencontainers/go-digest => github.com/opencontainers/go-digest v1.0.1-0.20220411205349-bde1400a84be
