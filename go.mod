@@ -28,6 +28,7 @@ require (
 	github.com/fluxcd/pkg/cache v0.15.0
 	github.com/fluxcd/pkg/http/fetch v0.26.0
 	github.com/fluxcd/pkg/kustomize v1.41.0
+	github.com/fluxcd/pkg/masktoken v0.9.0
 	github.com/fluxcd/pkg/runtime v0.112.0
 	github.com/fluxcd/pkg/ssa v0.78.0
 	github.com/fluxcd/pkg/tar v1.2.0
