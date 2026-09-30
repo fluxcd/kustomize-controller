@@ -33,7 +33,9 @@ import (
 	"fmt"
 	"testing"
 
+	eventv1 "github.com/fluxcd/pkg/apis/event/v1"
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	. "github.com/onsi/gomega"
@@ -151,7 +153,12 @@ data:
 	// The message should still be informative, with the value redacted.
 	g.Expect(readyCond.Message).To(ContainSubstring("*****"))
 
-	events := getEvents(resultK.Name, nil)
+	// The failure is reported via a Warning event carrying the applied
+	// revision; the redacted value must not leak into its message either.
+	events, err := testenv.WaitForEvents(ctx, k8sClient, resultK.GetName(), "", map[string]string{
+		kustomizev1.GroupVersion.Group + "/" + eventv1.MetaRevisionKey: revision,
+	}, 1, timeout)
+	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(events).NotTo(BeEmpty())
 	for _, e := range events {
 		g.Expect(e.Message).NotTo(ContainSubstring(syntheticSecretValue))

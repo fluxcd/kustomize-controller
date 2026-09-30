@@ -478,6 +478,11 @@ KustomizationStatus
 </table>
 </div>
 </div>
+<h3 id="kustomize.toolkit.fluxcd.io/v1.Action">Action
+(<code>string</code> alias)</h3>
+<p>Action describes an observable stage of the reconcile loop, from resolving
+the source and dependencies through applying, pruning and finalizing the
+desired state.</p>
 <h3 id="kustomize.toolkit.fluxcd.io/v1.BuildMetadataOption">BuildMetadataOption
 (<code>string</code> alias)</h3>
 <p>
