@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.9.6
+
+**Release date:** 2026-10-01
+
+This patch release extends the SOPS decryption error redaction to
+`spec.postBuild.substituteFrom` values: when a substituted value is echoed back in
+a Kubernetes API validation error, it is now masked out of the Kustomization status
+conditions and events instead of leaking into them. It also adds the opt-in
+`DisableCommitStatusEvent` feature gate, which lets users disable the reconciliation
+success event that notification-controller turns into a Git commit status update.
+
+Fixes:
+- Extend SOPS redaction to postBuild substitutions
+  [#1741](https://github.com/fluxcd/kustomize-controller/pull/1741)
+- Update fluxcd/pkg dependencies
+  [#1761](https://github.com/fluxcd/kustomize-controller/pull/1761)
+
+Improvements:
+- Add feature gate to disable commit status event
+  [#1755](https://github.com/fluxcd/kustomize-controller/pull/1755)
+- docs: Add reference to flux-schema
+  [#1738](https://github.com/fluxcd/kustomize-controller/pull/1738)
+
 ## 1.9.5
 
 **Release date:** 2026-08-31
