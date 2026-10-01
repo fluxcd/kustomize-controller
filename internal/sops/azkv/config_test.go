@@ -153,6 +153,14 @@ func TestTokenFromAADConfig(t *testing.T) {
 			},
 			want: &azidentity.ManagedIdentityCredential{},
 		},
+		{
+			name: "Incomplete Service Principal does not fall back to Managed Identity",
+			config: AADConfig{
+				TenantID: "some-tenant-id",
+				ClientID: "some-client-id",
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
