@@ -919,6 +919,12 @@ Each item in the list must have the following fields:
 - `target` (optional): A selector to scope the rule to specific Kubernetes
   resources. If not set, the paths are ignored for all resources in the
   Kustomization.
+- `beforeDryRun` (optional): When set to `true`, the rule's `paths` are resolved
+  on the desired object **before** the server-side apply dry-run instead of after
+  it. Defaults to `false` (post-dry-run). This is an opt-in escape hatch for
+  fields whose desired value would be rejected by the API server; see
+  [Resolving ignore rules before the dry-run](#resolving-ignore-rules-before-the-dry-run)
+  for the semantics and the risks.
 
 **Warning:** Omitting the `target` selector causes the rule to match **all**
 objects managed by the Kustomization. Always scope rules to specific resources
@@ -1010,6 +1016,69 @@ field ownership:
   the current value without reverting changes made by Update-type operations
   (e.g. `kubectl patch`, `kubectl edit`, or client-go Update calls) while
   keeping the controller's field ownership intact.
+
+#### Resolving ignore rules before the dry-run
+
+By default, ignore rules are resolved **after** a successful server-side apply
+dry-run. The controller submits the full desired object for the dry-run, so the
+API server validates the desired value of an ignored field even though that value
+is never applied. If the desired value is rejected by schema or admission
+validation (for example a forbidden version downgrade, or a required field that
+another controller owns), the dry-run fails and the ignore rule never runs — the
+Kustomization is wedged.
+
+Setting `beforeDryRun: true` on a rule resolves its `paths` on the desired object
+**before** the dry-run, so the API server validates a payload it accepts:
+
+- **Strip** — if the field is owned by another Apply-type field manager, it is
+  removed from the payload before the dry-run.
+- **Adopt** — if the controller is the sole Apply-type owner, the in-cluster
+  value is copied into the payload before the dry-run. The dry-run therefore
+  validates the **live** value, not the value in Git.
+
+```yaml
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app
+  namespace: flux-system
+spec:
+  # ...omitted for brevity
+  ignore:
+    - paths:
+        - "/spec/kubernetes/version"
+      target:
+        kind: Shoot
+      beforeDryRun: true
+```
+
+**Warning — use at your own risk.** Resolving an ignore rule before the dry-run
+relaxes the controller's validation boundary. Consider the following before
+enabling it:
+
+- **The validated value is not the value in Git.** For an adopted field, the
+  API server validates the in-cluster value. A failure caused by a bad live value
+  surfaces at the real apply with an error that does not match your manifest,
+  which can be confusing to debug.
+- **Cross-field invariants may break.** Stripping or adopting one field while
+  the rest of the object keeps its desired values can produce a payload that a
+  validating webhook considers internally inconsistent, either masking a genuine
+  error or causing a spurious one.
+- **The apply is not transactional.** The reshape happens before the dry-run and
+  the real apply happens later; another controller may change the field in
+  between. Unlike some other pre-dry-run operations, the reshape is purely
+  client-side — nothing is written to the cluster until the real apply.
+- **Immutable-field recreates.** If a `beforeDryRun` rule targets a field on an
+  object that is recreated due to an immutable-field change, the field is
+  recreated from the desired manifest (there is no live object to adopt from
+  after the delete). A rule that strips a **required** field will fail the
+  recreate — scope such rules to mutable or optional fields.
+
+A path resolved before the dry-run is not resolved again after it; listing the
+same path in a default (post-dry-run) rule as well is redundant and has no
+additional effect. Prefer the default (post-dry-run) behavior unless a field is
+specifically wedging reconciliation.
 
 ### KubeConfig (Remote clusters)
 
