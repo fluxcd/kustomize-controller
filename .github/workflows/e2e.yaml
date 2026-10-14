@@ -16,7 +16,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: 1.26.x
+          go-version: 1.27.x
           cache-dependency-path: |
             **/go.sum
             **/go.mod
@@ -44,7 +44,7 @@ jobs:
       - name: Test suite setup
         uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.14.0
         with:
-          go-version: 1.26.x
+          go-version: 1.27.x
       - name: Build container image
         run: |
           make docker-build IMG=test/kustomize-controller:latest \
@@ -135,7 +135,7 @@ jobs:
       - name: Test suite setup
         uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.14.0
         with:
-          go-version: 1.26.x
+          go-version: 1.27.x
       - name: Setup SOPS
         uses: fluxcd/pkg/actions/sops@main
       - name: Setup Flux CLI
