@@ -134,6 +134,17 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	obj := &kustomizev1.Kustomization{}
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
+		if apierrors.IsNotFound(err) {
+			// The deferred metrics recording below never runs on this path,
+			// so drop the duration series directly or it leaks until restart.
+			if r.Metrics.MetricsRecorder != nil {
+				r.Metrics.MetricsRecorder.DeleteDuration(corev1.ObjectReference{
+					Kind:      kustomizev1.KustomizationKind,
+					Name:      req.Name,
+					Namespace: req.Namespace,
+				})
+			}
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
