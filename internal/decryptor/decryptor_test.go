@@ -99,10 +99,8 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pgp-secret",
-					Namespace: provider,
-				},
+				Name:      "pgp-secret",
+				Namespace: provider,
 				Data: map[string][]byte{
 					"pgp" + DecryptionPGPExt: pgpKey,
 				},
@@ -117,10 +115,8 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pgp-secret",
-					Namespace: provider,
-				},
+				Name:      "pgp-secret",
+				Namespace: provider,
 				Data: map[string][]byte{
 					"pgp" + DecryptionPGPExt: []byte("not-a-valid-armored-key"),
 				},
@@ -136,10 +132,8 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "age-secret",
-					Namespace: provider,
-				},
+				Name:      "age-secret",
+				Namespace: provider,
 				Data: map[string][]byte{
 					"age" + DecryptionAgeExt: ageKey,
 				},
@@ -157,10 +151,8 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "age-secret",
-					Namespace: provider,
-				},
+				Name:      "age-secret",
+				Namespace: provider,
 				Data: map[string][]byte{
 					"age" + DecryptionAgeExt: []byte("not-a-valid-key"),
 				},
@@ -179,10 +171,8 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "hcvault-secret",
-					Namespace: provider,
-				},
+				Name:      "hcvault-secret",
+				Namespace: provider,
 				Data: map[string][]byte{
 					DecryptionVaultTokenFileName: []byte("some-hcvault-token"),
 				},
@@ -200,10 +190,8 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "awskms-secret",
-					Namespace: provider,
-				},
+				Name:      "awskms-secret",
+				Namespace: provider,
 				Data: map[string][]byte{
 					DecryptionAWSKmsFile: []byte(`aws_access_key_id: test-id
 aws_secret_access_key: test-secret
@@ -223,10 +211,8 @@ aws_session_token: test-token`),
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gcpkms-secret",
-					Namespace: provider,
-				},
+				Name:      "gcpkms-secret",
+				Namespace: provider,
 				Data: map[string][]byte{
 					DecryptionGCPCredsFile: []byte(`{ "client_id": "<client-id>.apps.googleusercontent.com",
 					"client_secret": "<secret>",
@@ -246,10 +232,8 @@ aws_session_token: test-token`),
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "azkv-secret",
-					Namespace: provider,
-				},
+				Name:      "azkv-secret",
+				Namespace: provider,
 				Data: map[string][]byte{
 					DecryptionAzureAuthFile: []byte(`tenantId: some-tenant-id
 clientId: some-client-id
@@ -269,10 +253,8 @@ clientSecret: some-client-secret`),
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "azkv-secret",
-					Namespace: provider,
-				},
+				Name:      "azkv-secret",
+				Namespace: provider,
 				Data: map[string][]byte{
 					DecryptionAzureAuthFile: []byte(`{"malformed\: JSON"}`),
 				},
@@ -291,10 +273,8 @@ clientSecret: some-client-secret`),
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "azkv-secret",
-					Namespace: provider,
-				},
+				Name:      "azkv-secret",
+				Namespace: provider,
 				Data: map[string][]byte{
 					DecryptionAzureAuthFile: []byte(`tenantId: incomplete`),
 				},
@@ -313,10 +293,8 @@ clientSecret: some-client-secret`),
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "multiple-secret",
-					Namespace: provider,
-				},
+				Name:      "multiple-secret",
+				Namespace: provider,
 				Data: map[string][]byte{
 					"age" + DecryptionAgeExt:     ageKey,
 					DecryptionVaultTokenFileName: []byte("some-hcvault-token"),
@@ -366,10 +344,8 @@ clientSecret: some-client-secret`),
 				cb.WithObjects(tt.secret)
 			}
 			kustomization := kustomizev1.Kustomization{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      provider + "-" + tt.name,
-					Namespace: provider,
-				},
+				Name:      provider + "-" + tt.name,
+				Namespace: provider,
 				Spec: kustomizev1.KustomizationSpec{
 					Interval:   metav1.Duration{Duration: 2 * time.Minute},
 					Path:       "./",
@@ -490,10 +466,8 @@ func TestDecryptor_SetAuthOptions(t *testing.T) {
 
 		d := &Decryptor{
 			kustomization: &kustomizev1.Kustomization{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
-					Namespace: "test-ns",
-				},
+				Name:      "test",
+				Namespace: "test-ns",
 				Spec: kustomizev1.KustomizationSpec{
 					Decryption: &kustomizev1.Decryption{
 						Provider: DecryptionProviderSOPS,
@@ -668,14 +642,14 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 func TestDecryptor_DecryptResource(t *testing.T) {
 	var (
 		resourceFactory  = provider.NewDefaultDepProvider().GetResourceFactory()
-		emptyResource, _ = resourceFactory.FromMap(map[string]interface{}{})
+		emptyResource, _ = resourceFactory.FromMap(map[string]any{})
 	)
 
-	newSecretResource := func(namespace, name string, data map[string]interface{}) (*resource.Resource, error) {
-		return resourceFactory.FromMap(map[string]interface{}{
+	newSecretResource := func(namespace, name string, data map[string]any) (*resource.Resource, error) {
+		return resourceFactory.FromMap(map[string]any{
 			"apiVersion": "v1",
 			"kind":       "Secret",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      name,
 				"namespace": namespace,
 			},
@@ -684,10 +658,8 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 	}
 
 	kustomization := kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "decrypt",
-			Namespace: "decrypt",
-		},
+		Name:      "decrypt",
+		Namespace: "decrypt",
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
@@ -710,7 +682,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		d.ageIdentities = append(d.ageIdentities, ageID)
 
-		secret, _ := newSecretResource("test", "secret", map[string]interface{}{
+		secret, _ := newSecretResource("test", "secret", map[string]any{
 			"key": "value",
 		})
 		g.Expect(isSOPSEncryptedResource(secret)).To(BeFalse())
@@ -761,7 +733,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		d.ageIdentities = append(d.ageIdentities, ageID)
 
-		secret, _ := newSecretResource("test", "secret", map[string]interface{}{
+		secret, _ := newSecretResource("test", "secret", map[string]any{
 			"key": "value",
 		})
 		g.Expect(isSOPSEncryptedResource(secret)).To(BeFalse())
@@ -820,7 +792,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		}, plainData, formats.Ini, formats.Yaml)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		secret, _ := newSecretResource("test", "secret-data", map[string]interface{}{
+		secret, _ := newSecretResource("test", "secret-data", map[string]any{
 			"file.ini": base64.StdEncoding.EncodeToString(encData),
 		})
 		g.Expect(isSOPSEncryptedResource(secret)).To(BeFalse())
@@ -855,7 +827,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		}, plainData, formats.Yaml, formats.Yaml)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		secret, _ := newSecretResource("test", "secret-data", map[string]interface{}{
+		secret, _ := newSecretResource("test", "secret-data", map[string]any{
 			"key.yaml": base64.StdEncoding.EncodeToString(encData),
 		})
 		g.Expect(isSOPSEncryptedResource(secret)).To(BeFalse())
@@ -899,15 +871,15 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		}, plainData, formats.Json, formats.Yaml)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		secret, _ := resourceFactory.FromMap(map[string]interface{}{
+		secret, _ := resourceFactory.FromMap(map[string]any{
 			"apiVersion": "v1",
 			"kind":       "Secret",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      "secret",
 				"namespace": "test",
 			},
 			"type": corev1.SecretTypeDockerConfigJson,
-			"data": map[string]interface{}{
+			"data": map[string]any{
 				corev1.DockerConfigJsonKey: base64.StdEncoding.EncodeToString(encData),
 			},
 		})
@@ -994,13 +966,9 @@ func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 			},
 			secretGenerator: []kustypes.SecretArgs{
 				{
-					GeneratorArgs: kustypes.GeneratorArgs{
-						Name: "envSecret",
-						KvPairSources: kustypes.KvPairSources{
-							FileSources: []string{"file.txt", "combo=combination.json"},
-							EnvSources:  []string{"app.env", "../secret.env"},
-						},
-					},
+					Name:        "envSecret",
+					FileSources: []string{"file.txt", "combo=combination.json"},
+					EnvSources:  []string{"app.env", "../secret.env"},
 				},
 			},
 			expectVisited: []string{"subdir/app.env", "subdir/combination.json", "subdir/file.txt", "secret.env"},
@@ -1010,12 +978,8 @@ func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 			files: []file{},
 			secretGenerator: []kustypes.SecretArgs{
 				{
-					GeneratorArgs: kustypes.GeneratorArgs{
-						Name: "envSecret",
-						KvPairSources: kustypes.KvPairSources{
-							EnvSources: []string{"file.txt"},
-						},
-					},
+					Name:       "envSecret",
+					EnvSources: []string{"file.txt"},
 				},
 			},
 			expectVisited: []string{},
@@ -1030,12 +994,8 @@ func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 			},
 			secretGenerator: []kustypes.SecretArgs{
 				{
-					GeneratorArgs: kustypes.GeneratorArgs{
-						Name: "envSecret",
-						KvPairSources: kustypes.KvPairSources{
-							EnvSources: []string{"symlink"},
-						},
-					},
+					Name:       "envSecret",
+					EnvSources: []string{"symlink"},
 				},
 			},
 			expectVisited: []string{"otherdir/data.env"},
@@ -1050,12 +1010,8 @@ func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 			},
 			secretGenerator: []kustypes.SecretArgs{
 				{
-					GeneratorArgs: kustypes.GeneratorArgs{
-						Name: "envSecret",
-						KvPairSources: kustypes.KvPairSources{
-							EnvSources: []string{"symlink"},
-						},
-					},
+					Name:       "envSecret",
+					EnvSources: []string{"symlink"},
 				},
 			},
 			wantErr:       &fs.PathError{Op: "lstat", Path: "otherdir/data.env", Err: fmt.Errorf("")},
@@ -1070,12 +1026,8 @@ func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 			},
 			secretGenerator: []kustypes.SecretArgs{
 				{
-					GeneratorArgs: kustypes.GeneratorArgs{
-						Name: "envSecret",
-						KvPairSources: kustypes.KvPairSources{
-							EnvSources: []string{"../data.env"},
-						},
-					},
+					Name:       "envSecret",
+					EnvSources: []string{"../data.env"},
 				},
 			},
 			wantErr:       &fs.PathError{Op: "lstat", Path: "data.env", Err: fmt.Errorf("")},
@@ -1099,12 +1051,8 @@ func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 			},
 			secretGenerator: []kustypes.SecretArgs{
 				{
-					GeneratorArgs: kustypes.GeneratorArgs{
-						Name: "envSecret",
-						KvPairSources: kustypes.KvPairSources{
-							FileSources: []string{"file.txt"},
-						},
-					},
+					Name:        "envSecret",
+					FileSources: []string{"file.txt"},
 				},
 			},
 			expectVisited: []string{"subdir/patch.yaml", "subdir/file.txt"},
@@ -1672,10 +1620,8 @@ func TestDecryptor_recurseKustomizationFiles(t *testing.T) {
 					return
 				}
 				kus := kustypes.Kustomization{
-					TypeMeta: kustypes.TypeMeta{
-						APIVersion: kustypes.KustomizationVersion,
-						Kind:       kustypes.KustomizationKind,
-					},
+					APIVersion: kustypes.KustomizationVersion,
+					Kind:       kustypes.KustomizationKind,
 				}
 				for _, res := range n.resources {
 					res = strings.Replace(res, "<tmpdir>", tmpDir, 1)
@@ -1733,12 +1679,12 @@ func TestDecryptor_isSOPSEncryptedResource(t *testing.T) {
 	g := NewWithT(t)
 
 	resourceFactory := provider.NewDefaultDepProvider().GetResourceFactory()
-	encrypted, _ := resourceFactory.FromMap(map[string]interface{}{
+	encrypted, _ := resourceFactory.FromMap(map[string]any{
 		"sops": map[string]string{
 			"mac": "some mac value",
 		},
 	})
-	empty, _ := resourceFactory.FromMap(map[string]interface{}{})
+	empty, _ := resourceFactory.FromMap(map[string]any{})
 
 	g.Expect(isSOPSEncryptedResource(encrypted)).To(BeTrue())
 	g.Expect(isSOPSEncryptedResource(empty)).To(BeFalse())

@@ -78,10 +78,8 @@ stringData:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
@@ -112,10 +110,8 @@ stringData:
 
 	resultK := &kustomizev1.Kustomization{}
 	repo := &sourcev1.GitRepository{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       sourcev1.GitRepositoryKind,
-			APIVersion: sourcev1.GroupVersion.String(),
-		},
+		Kind:       sourcev1.GitRepositoryKind,
+		APIVersion: sourcev1.GroupVersion.String(),
 	}
 	g.Expect(k8sClient.Get(context.Background(), repositoryName, repo)).Should(Succeed())
 	repoURL := repo.Status.Artifact.URL

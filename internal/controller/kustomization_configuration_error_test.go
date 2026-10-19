@@ -82,10 +82,8 @@ data: {}
 			Namespace: id,
 		}
 		kustomization := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kustomizationKey.Name,
-				Namespace: kustomizationKey.Namespace,
-			},
+			Name:      kustomizationKey.Name,
+			Namespace: kustomizationKey.Namespace,
 			Spec: kustomizev1.KustomizationSpec{
 				TargetNamespace: id,
 				Interval:        metav1.Duration{Duration: 2 * time.Minute},
@@ -100,10 +98,8 @@ data: {}
 				HealthCheckExprs: []kustomize.CustomHealthCheck{{
 					APIVersion: "v1",
 					Kind:       "ConfigMap",
-					HealthCheckExpressions: kustomize.HealthCheckExpressions{
-						InProgress: "foo.",
-						Current:    "true",
-					},
+					InProgress: "foo.",
+					Current:    "true",
 				}},
 			},
 		}
@@ -134,10 +130,8 @@ data: {}
 			Namespace: id,
 		}
 		kustomization := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kustomizationKey.Name,
-				Namespace: kustomizationKey.Namespace,
-			},
+			Name:      kustomizationKey.Name,
+			Namespace: kustomizationKey.Namespace,
 			Spec: kustomizev1.KustomizationSpec{
 				TargetNamespace: id,
 				Interval:        metav1.Duration{Duration: 2 * time.Minute},
@@ -186,10 +180,8 @@ data: {}
 			Namespace: id,
 		}
 		kustomization := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kustomizationKey.Name,
-				Namespace: kustomizationKey.Namespace,
-			},
+			Name:      kustomizationKey.Name,
+			Namespace: kustomizationKey.Namespace,
 			Spec: kustomizev1.KustomizationSpec{
 				TargetNamespace: id,
 				Interval:        metav1.Duration{Duration: 2 * time.Minute},

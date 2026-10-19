@@ -104,10 +104,8 @@ data:
 		// This test verifies that multiple $patch: delete directives in a single patch work correctly
 		// Ref: https://github.com/fluxcd/kustomize-controller/issues/1306
 		kustomization := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kustomizationKey.Name,
-				Namespace: kustomizationKey.Namespace,
-			},
+			Name:      kustomizationKey.Name,
+			Namespace: kustomizationKey.Namespace,
 			Spec: kustomizev1.KustomizationSpec{
 				Interval: metav1.Duration{Duration: reconciliationInterval},
 				Path:     "./",
@@ -174,10 +172,8 @@ metadata:
 	t.Run("multiple patch delete in separate patches should work", func(t *testing.T) {
 		// This test verifies that separate patches (which was previously a workaround) still work correctly
 		kustomizationSeparate := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kustomizationKey.Name + "-separate",
-				Namespace: kustomizationKey.Namespace,
-			},
+			Name:      kustomizationKey.Name + "-separate",
+			Namespace: kustomizationKey.Namespace,
 			Spec: kustomizev1.KustomizationSpec{
 				Interval: metav1.Duration{Duration: reconciliationInterval},
 				Path:     "./",

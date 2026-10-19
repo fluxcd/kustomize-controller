@@ -65,7 +65,7 @@ $(SOPS): ## Download latest sops binary if none is found.
 
 # Run controller tests
 KUBEBUILDER_ASSETS?="$(shell $(ENVTEST) --arch=$(ENVTEST_ARCH) use -i $(ENVTEST_KUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR) -p path)"
-test: tidy generate fmt vet manifests api-docs download-crd-deps install-envtest $(SOPS)
+test: fix tidy generate fmt vet manifests api-docs download-crd-deps install-envtest $(SOPS)
 	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./... $(GO_TEST_ARGS) -v -coverprofile cover.out
 
 # Build manager binary
@@ -234,7 +234,7 @@ fuzz-smoketest: fuzz-build
 		bash -c "/runner.sh"
 
 # Run fuzz tests for the duration set in FUZZ_TIME.
-fuzz-native: 
+fuzz-native:
 	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) \
 	FUZZ_TIME=$(FUZZ_TIME) \
 		./tests/fuzz/native_go_run.sh

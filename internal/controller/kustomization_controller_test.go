@@ -41,7 +41,7 @@ func TestKustomizationReconciler_StagedApply(t *testing.T) {
 
 	namespaceName := "kust-" + randStringRunes(5)
 	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: namespaceName},
+		Name: namespaceName,
 	}
 	g.Expect(k8sClient.Create(ctx, namespace)).ToNot(HaveOccurred())
 	t.Cleanup(func() {
@@ -104,7 +104,7 @@ func TestKustomizationReconciler_deleteBeforeFinalizer(t *testing.T) {
 
 	namespaceName := "kust-" + randStringRunes(5)
 	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: namespaceName},
+		Name: namespaceName,
 	}
 	g.Expect(k8sClient.Create(ctx, namespace)).ToNot(HaveOccurred())
 	t.Cleanup(func() {
