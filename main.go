@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -148,25 +149,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	switch enabled, err := features.Enabled(auth.FeatureGateObjectLevelWorkloadIdentity); {
-	case err != nil:
+	objectLevelWorkloadIdentity, err := features.Enabled(auth.FeatureGateObjectLevelWorkloadIdentity)
+	if err != nil {
 		setupLog.Error(err, "unable to check feature gate "+auth.FeatureGateObjectLevelWorkloadIdentity)
 		os.Exit(1)
-	case enabled:
-		auth.EnableObjectLevelWorkloadIdentity()
 	}
 
-	// NOTE: defaultServiceAccount is used for regular impersonation, not workload identity lockdown
+	// NOTE: defaultServiceAccount is used for k8s auth lockdown, not workload identity lockdown
 
-	if defaultDecryptionServiceAccount != "" {
-		auth.SetDefaultDecryptionServiceAccount(defaultDecryptionServiceAccount)
-	}
-	if defaultKubeConfigServiceAccount != "" {
-		auth.SetDefaultKubeConfigServiceAccount(defaultKubeConfigServiceAccount)
-	}
-
-	if auth.InconsistentObjectLevelConfiguration() {
-		setupLog.Error(auth.ErrInconsistentObjectLevelConfiguration, "invalid configuration")
+	if !objectLevelWorkloadIdentity &&
+		(defaultDecryptionServiceAccount != "" || defaultKubeConfigServiceAccount != "") {
+		setupLog.Error(errors.New("cannot set default decryption or kubeconfig service accounts when the "+
+			auth.FeatureGateObjectLevelWorkloadIdentity+" feature gate is not enabled"), "invalid configuration")
 		os.Exit(1)
 	}
 
@@ -354,34 +348,37 @@ func main() {
 	}
 
 	if err = (&controller.KustomizationReconciler{
-		AdditiveCELDependencyCheck: additiveCELDependencyCheck,
-		AllowExternalArtifact:      allowExternalArtifact,
-		APIReader:                  mgr.GetAPIReader(),
-		ArtifactFetchRetries:       httpRetry,
-		Client:                     mgr.GetClient(),
-		ClusterReader:              clusterReader,
-		ConcurrentSSA:              concurrentSSA,
-		ControllerName:             controllerName,
-		DefaultServiceAccount:      defaultServiceAccount,
-		DependencyRequeueInterval:  requeueDependency,
-		DisableCommitStatusEvent:   disableCommitStatusEvent,
-		DirectSourceFetch:          directSourceFetch,
-		DisallowedFieldManagers:    disallowedFieldManagers,
-		EventRecorder:              eventRecorder,
-		FailFast:                   failFast,
-		GroupChangeLog:             groupChangeLog,
-		KubeConfigOpts:             kubeConfigOpts,
-		Mapper:                     restMapper,
-		Metrics:                    metricsH,
-		MigrateAPIVersion:          migrateAPIVersion,
-		NoCrossNamespaceRefs:       aclOptions.NoCrossNamespaceRefs,
-		NoRemoteBases:              noRemoteBases,
-		SOPSAgeSecret:              sopsAgeSecret,
-		SOPSVaultConfigMap:         sopsVaultConfigMap,
-		StatusManager:              fmt.Sprintf("gotk-%s", controllerName),
-		StrictSubstitutions:        strictSubstitutions,
-		TokenCache:                 tokenCache,
-		CustomStageKinds:           customStageKinds,
+		AdditiveCELDependencyCheck:      additiveCELDependencyCheck,
+		AllowExternalArtifact:           allowExternalArtifact,
+		APIReader:                       mgr.GetAPIReader(),
+		ArtifactFetchRetries:            httpRetry,
+		Client:                          mgr.GetClient(),
+		ClusterReader:                   clusterReader,
+		ConcurrentSSA:                   concurrentSSA,
+		ControllerName:                  controllerName,
+		DefaultServiceAccount:           defaultServiceAccount,
+		DefaultDecryptionServiceAccount: defaultDecryptionServiceAccount,
+		DefaultKubeConfigServiceAccount: defaultKubeConfigServiceAccount,
+		ObjectLevelWorkloadIdentity:     objectLevelWorkloadIdentity,
+		DependencyRequeueInterval:       requeueDependency,
+		DisableCommitStatusEvent:        disableCommitStatusEvent,
+		DirectSourceFetch:               directSourceFetch,
+		DisallowedFieldManagers:         disallowedFieldManagers,
+		EventRecorder:                   eventRecorder,
+		FailFast:                        failFast,
+		GroupChangeLog:                  groupChangeLog,
+		KubeConfigOpts:                  kubeConfigOpts,
+		Mapper:                          restMapper,
+		Metrics:                         metricsH,
+		MigrateAPIVersion:               migrateAPIVersion,
+		NoCrossNamespaceRefs:            aclOptions.NoCrossNamespaceRefs,
+		NoRemoteBases:                   noRemoteBases,
+		SOPSAgeSecret:                   sopsAgeSecret,
+		SOPSVaultConfigMap:              sopsVaultConfigMap,
+		StatusManager:                   fmt.Sprintf("gotk-%s", controllerName),
+		StrictSubstitutions:             strictSubstitutions,
+		TokenCache:                      tokenCache,
+		CustomStageKinds:                customStageKinds,
 	}).SetupWithManager(ctx, mgr, controller.KustomizationReconcilerOptions{
 		RateLimiter:                runtimeCtrl.GetRateLimiter(rateLimiterOptions),
 		WatchConfigs:               watchConfigs,

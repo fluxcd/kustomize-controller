@@ -23,13 +23,13 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/fluxcd/pkg/apis/kustomize"
 	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/auth"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
@@ -178,8 +178,8 @@ data: {}
 	t.Run("object level workload identity feature gate enabled", func(t *testing.T) {
 		g := NewWithT(t)
 
-		auth.EnableObjectLevelWorkloadIdentity()
-		t.Cleanup(auth.DisableObjectLevelWorkloadIdentity)
+		reconciler.ObjectLevelWorkloadIdentity = true
+		t.Cleanup(func() { reconciler.ObjectLevelWorkloadIdentity = false })
 
 		kustomizationKey := types.NamespacedName{
 			Name:      fmt.Sprintf("invalid-config-%s", randStringRunes(5)),
@@ -205,6 +205,15 @@ data: {}
 				},
 			},
 		}
+
+		sa := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: id,
+			},
+		}
+		g.Expect(k8sClient.Create(context.Background(), sa)).To(Succeed())
+		t.Cleanup(func() { _ = k8sClient.Delete(context.Background(), sa) })
 
 		err = k8sClient.Create(context.Background(), kustomization)
 		g.Expect(err).NotTo(HaveOccurred())

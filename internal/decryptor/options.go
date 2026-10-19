@@ -39,6 +39,15 @@ func WithTokenCache(tokenCache cache.TokenCache) Option {
 	}
 }
 
+// WithDefaultServiceAccount sets the default ServiceAccount name used
+// for decryption authentication when the Kustomization does not specify
+// one in .spec.decryption.serviceAccountName.
+func WithDefaultServiceAccount(name string) Option {
+	return func(o *Decryptor) {
+		o.defaultServiceAccount = name
+	}
+}
+
 // WithSOPSAgeSecret sets the SOPSAgeSecret for the Decryptor.
 func WithSOPSAgeSecret(name, namespace string) Option {
 	return func(o *Decryptor) {

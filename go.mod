@@ -21,15 +21,16 @@ require (
 	github.com/fluxcd/cli-utils v1.4.0
 	github.com/fluxcd/kustomize-controller/api v1.9.0
 	github.com/fluxcd/pkg/apis/acl v0.12.0
+	github.com/fluxcd/pkg/apis/crypto v0.4.1-0.20261020182949-c5194b17fdad
 	github.com/fluxcd/pkg/apis/event v0.32.0
 	github.com/fluxcd/pkg/apis/kustomize v1.23.0
-	github.com/fluxcd/pkg/apis/meta v1.35.0
-	github.com/fluxcd/pkg/auth v0.62.0
-	github.com/fluxcd/pkg/cache v0.17.0
-	github.com/fluxcd/pkg/http/fetch v0.28.0
+	github.com/fluxcd/pkg/apis/meta v1.36.1-0.20261020182949-c5194b17fdad
+	github.com/fluxcd/pkg/auth v0.63.1-0.20261020182949-c5194b17fdad
+	github.com/fluxcd/pkg/cache v0.17.1-0.20261020182949-c5194b17fdad
+	github.com/fluxcd/pkg/http/fetch v0.28.1-0.20261020182949-c5194b17fdad
 	github.com/fluxcd/pkg/kustomize v1.43.0
 	github.com/fluxcd/pkg/masktoken v0.10.0
-	github.com/fluxcd/pkg/runtime v0.119.0
+	github.com/fluxcd/pkg/runtime v0.120.1-0.20261020182949-c5194b17fdad
 	github.com/fluxcd/pkg/ssa v0.80.0
 	github.com/fluxcd/pkg/tar v1.3.0
 	github.com/fluxcd/pkg/testserver v0.15.0
@@ -219,7 +220,7 @@ require (
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/spiffe/go-spiffe/v2 v2.8.1 // indirect
+	github.com/spiffe/go-spiffe/v2 v2.9.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect

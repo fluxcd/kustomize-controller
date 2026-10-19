@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -34,13 +33,14 @@ import (
 
 	gcpkmsapi "cloud.google.com/go/kms/apiv1"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	securejoin "github.com/cyphar/filepath-securejoin"
+	cryptov1 "github.com/fluxcd/pkg/apis/crypto/v1"
 	"github.com/fluxcd/pkg/auth"
 	"github.com/fluxcd/pkg/auth/aws"
 	"github.com/fluxcd/pkg/auth/azure"
 	"github.com/fluxcd/pkg/auth/gcp"
-	"github.com/fluxcd/pkg/auth/generic"
 	"github.com/fluxcd/pkg/cache"
 	"github.com/getsops/sops/v3"
 	"github.com/getsops/sops/v3/aes"
@@ -50,7 +50,6 @@ import (
 	"github.com/getsops/sops/v3/config"
 	"github.com/getsops/sops/v3/keyservice"
 	"github.com/getsops/sops/v3/pgp"
-	vaultapi "github.com/hashicorp/vault/api"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	corev1 "k8s.io/api/core/v1"
@@ -142,6 +141,10 @@ type Decryptor struct {
 	checkSopsMac bool
 	// tokenCache is the cache for token credentials.
 	tokenCache *cache.TokenCache
+	// defaultServiceAccount is the default ServiceAccount name used
+	// for decryption authentication when the Kustomization does not
+	// specify one in .spec.decryption.serviceAccountName.
+	defaultServiceAccount string
 
 	// gnuPGHome is the absolute path of the GnuPG home directory used to
 	// decrypt PGP data. When empty, the systems' GnuPG keyring is used.
@@ -328,232 +331,190 @@ func (d *Decryptor) ImportKeys(ctx context.Context) error {
 }
 
 // SetAuthOptions sets the authentication options for secret-less authentication
-// with cloud providers.
-func (d *Decryptor) SetAuthOptions(ctx context.Context) {
-	if d.kustomization.Spec.Decryption == nil {
-		return
+// with cloud providers. It returns an error if the provider-agnostic decryption
+// spec is invalid. The service-provider-specific spec is built lazily, when the
+// corresponding KMS backend is used.
+func (d *Decryptor) SetAuthOptions(ctx context.Context) error {
+	if d.kustomization.Spec.Decryption == nil ||
+		d.kustomization.Spec.Decryption.Provider != DecryptionProviderSOPS {
+		return nil
 	}
 
-	switch d.kustomization.Spec.Decryption.Provider {
-	case DecryptionProviderSOPS:
-		opts := []auth.Option{
-			auth.WithClient(d.client),
+	// Resolve the decryption ServiceAccount, if any.
+	saName := d.kustomization.Spec.Decryption.ServiceAccountName
+	if saName == "" {
+		saName = d.defaultServiceAccount
+	}
+	var sa *corev1.ServiceAccount
+	if saName != "" {
+		sa = &corev1.ServiceAccount{}
+		saRef := types.NamespacedName{Namespace: d.kustomization.GetNamespace(), Name: saName}
+		if err := d.client.Get(ctx, saRef, sa); err != nil {
+			return fmt.Errorf("failed to get decryption service account '%s': %w", saRef, err)
 		}
+	}
 
-		saName := d.kustomization.Spec.Decryption.ServiceAccountName
-		if saName == "" {
-			saName = auth.GetDefaultDecryptionServiceAccount()
+	// Validate the base configuration (credential acquisition and transit
+	// engine). Service-provider-specific inputs are validated lazily by the KMS
+	// backends below, so errors only surface when the backend is used.
+	baseSpec, err := d.buildDecryptionSpec(sa, "")
+	if err != nil {
+		return fmt.Errorf("failed to build decryption spec: %w", err)
+	}
+	baseOpts := d.decryptionAuthOptions(sa, baseSpec)
+
+	if d.awsCredentialsProvider == nil {
+		d.awsCredentialsProvider = d.newAWSCredentialsProvider(ctx, sa, baseOpts)
+	}
+
+	if d.azureTokenCredential == nil {
+		d.azureTokenCredential = &lazyAzureTokenCredential{
+			d:        d,
+			ctx:      ctx,
+			sa:       sa,
+			baseOpts: baseOpts,
 		}
-		if saName != "" {
-			opts = append(opts, auth.WithServiceAccountName(saName))
-			opts = append(opts, auth.WithServiceAccountNamespace(d.kustomization.GetNamespace()))
+	}
+
+	if d.gcpTokenSource == nil {
+		d.gcpTokenSource = &lazyGCPTokenSource{
+			d:        d,
+			ctx:      ctx,
+			sa:       sa,
+			baseOpts: baseOpts,
 		}
+	}
 
-		involvedObject := cache.InvolvedObject{
-			Kind:      kustomizev1.KustomizationKind,
-			Name:      d.kustomization.GetName(),
-			Namespace: d.kustomization.GetNamespace(),
+	if d.vaultToken == "" {
+		d.vaultK8sAuth = d.newVaultK8sAuthFunc(baseSpec, baseOpts)
+	}
+	return nil
+}
+
+// buildDecryptionSpec builds the decryption specification from the
+// ServiceAccount annotations, if any, for the given service provider. An empty
+// provider builds only the provider-agnostic spec.
+func (d *Decryptor) buildDecryptionSpec(sa *corev1.ServiceAccount, provider string) (*cryptov1.Spec, error) {
+	buildOpts := []cryptov1.Option{}
+	if sa != nil {
+		buildOpts = append(buildOpts, cryptov1.WithAnnotations(sa.Annotations))
+	}
+	if provider != "" {
+		buildOpts = append(buildOpts, cryptov1.WithServiceProvider(provider))
+	}
+	if d.vaultConfigMap != nil {
+		buildOpts = append(buildOpts, cryptov1.WithSOPSVaultConfigMap())
+	}
+	return cryptov1.BuildSpec(buildOpts...)
+}
+
+// decryptionAuthOptions builds the base auth options for decryption.
+func (d *Decryptor) decryptionAuthOptions(sa *corev1.ServiceAccount, spec *cryptov1.Spec) []auth.Option {
+	opts := []auth.Option{
+		auth.WithClient(d.client),
+		auth.WithObject(kustomizev1.GroupVersion.Group, kustomizev1.KustomizationKind, d.kustomization),
+	}
+	if sa != nil {
+		opts = append(opts, auth.WithServiceAccountName(sa.Name))
+	}
+	if spec != nil {
+		opts = append(opts, auth.OptionsFromSpec(spec.Auth)...)
+	}
+	return opts
+}
+
+// newAWSCredentialsProvider returns a lazy factory for AWS credentials used for
+// decryption. The AWS service-provider spec is validated and the underlying
+// provider is created only when an AWS KMS key is processed.
+func (d *Decryptor) newAWSCredentialsProvider(ctx context.Context, sa *corev1.ServiceAccount,
+	baseOpts []auth.Option) func(region string) awssdk.CredentialsProvider {
+	return func(region string) awssdk.CredentialsProvider {
+		spec, err := d.buildDecryptionSpec(sa, cryptov1.ProviderAWS)
+		if err != nil {
+			return awssdk.CredentialsProviderFunc(func(context.Context) (awssdk.Credentials, error) {
+				return awssdk.Credentials{}, err
+			})
 		}
-
-		if d.awsCredentialsProvider == nil {
-			awsOpts := slices.Clone(opts)
-			if d.tokenCache != nil {
-				involvedObject.Operation = kustomizev1.MetricDecryptWithAWS
-				awsOpts = append(awsOpts, auth.WithCache(*d.tokenCache, involvedObject))
-			}
-			d.awsCredentialsProvider = func(region string) awssdk.CredentialsProvider {
-				awsOptsWithRegion := slices.Clone(awsOpts)
-				awsOptsWithRegion = append(awsOptsWithRegion, auth.WithSTSRegion(region))
-				return aws.NewCredentialsProvider(ctx, awsOptsWithRegion...)
-			}
+		opts := slices.Clone(baseOpts)
+		opts = append(opts, auth.OptionsFromSpec(spec.Auth)...)
+		opts = append(opts, auth.WithAWSRegion(region))
+		if d.tokenCache != nil {
+			opts = append(opts,
+				auth.WithCache(*d.tokenCache),
+				auth.WithCacheOperation(kustomizev1.MetricDecryptWithAWS))
 		}
-
-		if d.azureTokenCredential == nil {
-			azureOpts := slices.Clone(opts)
-			if d.tokenCache != nil {
-				involvedObject.Operation = kustomizev1.MetricDecryptWithAzure
-				azureOpts = append(azureOpts, auth.WithCache(*d.tokenCache, involvedObject))
-			}
-			d.azureTokenCredential = azure.NewTokenCredential(ctx, azureOpts...)
-		}
-
-		if d.gcpTokenSource == nil {
-			gcpOpts := slices.Clone(opts)
-			if d.tokenCache != nil {
-				involvedObject.Operation = kustomizev1.MetricDecryptWithGCP
-				gcpOpts = append(gcpOpts, auth.WithCache(*d.tokenCache, involvedObject))
-			}
-			d.gcpTokenSource = gcp.NewTokenSource(ctx, gcpOpts...)
-		}
-
-		// Configure OpenBao/Vault ServiceAccount-token auth. Unlike a
-		// static sops.vault-token (which takes precedence and is imported in
-		// ImportKeys), this exchanges a Kubernetes ServiceAccount token for a
-		// Vault token at the instance's configured login path (any JWT-backed
-		// auth method). It is enabled by the operator providing the
-		// address-to-login-path ConfigMap (which also acts as an allowlist of
-		// trusted Vault servers). The token is issued for the decryption
-		// ServiceAccount when set (object-level workload identity), otherwise
-		// for the controller's own ServiceAccount (controller-level workload
-		// identity), and the Vault role is derived from that token's identity
-		// as "{namespace}_{name}". The token can only be obtained when a request
-		// is handled, as the Vault address is only known from the SOPS metadata
-		// then (the address is also used as the token audience).
-		if d.vaultToken == "" && d.vaultK8sAuth == nil && d.vaultConfigMap != nil {
-			vaultOpts := slices.Clone(opts)
-			vaultInvolvedObject := involvedObject
-			vaultInvolvedObject.Operation = kustomizev1.MetricDecryptWithVault
-
-			var mu sync.Mutex
-			tokens := make(map[string]string)
-			var loginPaths map[string]string
-			d.vaultK8sAuth = func(ctx context.Context, vaultAddress string) (string, error) {
-				mu.Lock()
-				defer mu.Unlock()
-				if token, ok := tokens[vaultAddress]; ok {
-					return token, nil
-				}
-
-				// Resolve the login path for this address from the
-				// operator-managed ConfigMap, which acts as an allowlist of
-				// trusted Vault servers.
-				if loginPaths == nil {
-					var err error
-					loginPaths, err = d.loadVaultLoginPaths(ctx)
-					if err != nil {
-						return "", err
-					}
-				}
-				loginPath := loginPaths[vaultAddress]
-				if loginPath == "" {
-					return "", fmt.Errorf("no Vault login path configured for address '%s' in ConfigMap '%s'",
-						vaultAddress, d.vaultConfigMap)
-				}
-
-				// Issue a Kubernetes token (for the decryption ServiceAccount if
-				// set, otherwise the controller's own), audience-scoped to the
-				// Vault address.
-				tokenOpts := slices.Clone(vaultOpts)
-				tokenOpts = append(tokenOpts, auth.WithAudiences(vaultAddress))
-				if d.tokenCache != nil {
-					tokenOpts = append(tokenOpts, auth.WithCache(*d.tokenCache, vaultInvolvedObject))
-				}
-				accessToken, err := auth.GetAccessToken(ctx, generic.Provider{}, tokenOpts...)
-				if err != nil {
-					return "", fmt.Errorf("failed to issue Kubernetes token for Vault authentication: %w", err)
-				}
-				ksaToken, ok := accessToken.(*generic.Token)
-				if !ok {
-					return "", fmt.Errorf("unexpected token type %T for Vault authentication", accessToken)
-				}
-
-				// Derive the Vault role from the token's own identity, so it is
-				// correct for both object-level and controller-level workload
-				// identity.
-				ns, name, err := serviceAccountFromToken(ksaToken.Token)
-				if err != nil {
-					return "", fmt.Errorf("failed to derive Vault role for authentication: %w", err)
-				}
-				role := fmt.Sprintf("%s_%s", ns, name)
-
-				// Exchange the Kubernetes token for a Vault token.
-				token, err := vaultLogin(ctx, vaultAddress, loginPath, role, ksaToken.Token)
-				if err != nil {
-					return "", err
-				}
-				tokens[vaultAddress] = token
-				return token, nil
-			}
-		}
+		return aws.NewCredentialsProvider(ctx, opts...)
 	}
 }
 
-// serviceAccountFromToken extracts the ServiceAccount namespace and name from
-// the subject claim of a Kubernetes ServiceAccount token, which has the form
-// "system:serviceaccount:<namespace>:<name>".
-func serviceAccountFromToken(token string) (namespace, name string, err error) {
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return "", "", fmt.Errorf("not a JWT")
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return "", "", fmt.Errorf("failed to decode token payload: %w", err)
-	}
-	var claims struct {
-		Sub string `json:"sub"`
-	}
-	if err := json.Unmarshal(payload, &claims); err != nil {
-		return "", "", fmt.Errorf("failed to unmarshal token payload: %w", err)
-	}
-	const prefix = "system:serviceaccount:"
-	rest, ok := strings.CutPrefix(claims.Sub, prefix)
-	if !ok {
-		return "", "", fmt.Errorf("unexpected token subject '%s'", claims.Sub)
-	}
-	if ns, n, ok := strings.Cut(rest, ":"); ok && ns != "" && n != "" {
-		return ns, n, nil
-	}
-	return "", "", fmt.Errorf("unexpected token subject '%s'", claims.Sub)
+// lazyAzureTokenCredential defers validation of the Azure service provider
+// configuration and creation of the underlying credential until Azure Key
+// Vault is actually used.
+type lazyAzureTokenCredential struct {
+	d        *Decryptor
+	ctx      context.Context
+	sa       *corev1.ServiceAccount
+	baseOpts []auth.Option
+	once     sync.Once
+	cred     azcore.TokenCredential
+	err      error
 }
 
-// vaultConfigKey is the ConfigMap data key holding the Vault/OpenBao
-// configuration consumed by loadVaultLoginPaths.
-const vaultConfigKey = "config.yaml"
-
-// loadVaultLoginPaths reads the operator-managed ConfigMap and returns the
-// mapping from Vault/OpenBao address to login path. The mapping is parsed from
-// the 'config.yaml' entry, which has the form:
-//
-//	instances:
-//	  - address: https://vault.example.com:8200
-//	    loginPath: auth/kubernetes/login
-func (d *Decryptor) loadVaultLoginPaths(ctx context.Context) (map[string]string, error) {
-	var cm corev1.ConfigMap
-	if err := d.client.Get(ctx, *d.vaultConfigMap, &cm); err != nil {
-		return nil, fmt.Errorf("failed to get Vault ConfigMap '%s': %w", d.vaultConfigMap, err)
+func (c *lazyAzureTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	c.once.Do(func() {
+		spec, err := c.d.buildDecryptionSpec(c.sa, cryptov1.ProviderAzure)
+		if err != nil {
+			c.err = err
+			return
+		}
+		authOpts := slices.Clone(c.baseOpts)
+		authOpts = append(authOpts, auth.OptionsFromSpec(spec.Auth)...)
+		if c.d.tokenCache != nil {
+			authOpts = append(authOpts,
+				auth.WithCache(*c.d.tokenCache),
+				auth.WithCacheOperation(kustomizev1.MetricDecryptWithAzure))
+		}
+		c.cred = azure.NewTokenCredential(c.ctx, authOpts...)
+	})
+	if c.err != nil {
+		return azcore.AccessToken{}, c.err
 	}
-	data, ok := cm.Data[vaultConfigKey]
-	if !ok {
-		return nil, fmt.Errorf("Vault ConfigMap '%s' is missing the '%s' key",
-			d.vaultConfigMap, vaultConfigKey)
-	}
-	var config kustomizev1.VaultConfig
-	if err := yaml.Unmarshal([]byte(data), &config); err != nil {
-		return nil, fmt.Errorf("failed to parse '%s' in Vault ConfigMap '%s': %w",
-			vaultConfigKey, d.vaultConfigMap, err)
-	}
-	loginPaths := make(map[string]string, len(config.Instances))
-	for _, instance := range config.Instances {
-		loginPaths[instance.Address] = instance.LoginPath
-	}
-	return loginPaths, nil
+	return c.cred.GetToken(ctx, opts)
 }
 
-// vaultLogin authenticates with the OpenBao/Vault server at the given
-// address by writing the provided Kubernetes ServiceAccount token to loginPath
-// (e.g. "auth/kubernetes/login", optionally namespace-prefixed), logging in as
-// role, and returns the resulting Vault token. The login path is used verbatim,
-// so any JWT-backed auth method is supported. TLS and proxy settings are read
-// from the standard VAULT_* environment variables, with the address overridden
-// by vaultAddress.
-func vaultLogin(ctx context.Context, vaultAddress, loginPath, role, jwt string) (string, error) {
-	cfg := vaultapi.DefaultConfig()
-	cfg.Address = vaultAddress
-	client, err := vaultapi.NewClient(cfg)
-	if err != nil {
-		return "", fmt.Errorf("failed to create Vault client for '%s': %w", vaultAddress, err)
+// lazyGCPTokenSource defers validation of the GCP service provider
+// configuration and creation of the underlying token source until GCP KMS is
+// actually used.
+type lazyGCPTokenSource struct {
+	d        *Decryptor
+	ctx      context.Context
+	sa       *corev1.ServiceAccount
+	baseOpts []auth.Option
+	once     sync.Once
+	ts       oauth2.TokenSource
+	err      error
+}
+
+func (s *lazyGCPTokenSource) Token() (*oauth2.Token, error) {
+	s.once.Do(func() {
+		spec, err := s.d.buildDecryptionSpec(s.sa, cryptov1.ProviderGCP)
+		if err != nil {
+			s.err = err
+			return
+		}
+		authOpts := slices.Clone(s.baseOpts)
+		authOpts = append(authOpts, auth.OptionsFromSpec(spec.Auth)...)
+		if s.d.tokenCache != nil {
+			authOpts = append(authOpts,
+				auth.WithCache(*s.d.tokenCache),
+				auth.WithCacheOperation(kustomizev1.MetricDecryptWithGCP))
+		}
+		s.ts = gcp.NewTokenSource(s.ctx, authOpts...)
+	})
+	if s.err != nil {
+		return nil, s.err
 	}
-	secret, err := client.Logical().WriteWithContext(ctx, loginPath,
-		map[string]any{"role": role, "jwt": jwt})
-	if err != nil {
-		return "", fmt.Errorf("failed to authenticate with Vault '%s' at login path '%s' as role '%s': %w",
-			vaultAddress, loginPath, role, err)
-	}
-	if secret == nil || secret.Auth == nil || secret.Auth.ClientToken == "" {
-		return "", fmt.Errorf("Vault '%s' returned no token for login at '%s' as role '%s'", vaultAddress, loginPath, role)
-	}
-	return secret.Auth.ClientToken, nil
+	return s.ts.Token()
 }
 
 // SopsDecryptWithFormat attempts to load a SOPS encrypted file using the store
