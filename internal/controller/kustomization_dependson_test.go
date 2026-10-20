@@ -114,10 +114,8 @@ spec:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: time.Hour},
 			Path:     "./",
@@ -227,10 +225,8 @@ data:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: time.Hour},
 			Path:     "./",
@@ -263,12 +259,10 @@ data:
 
 		// Create a dependency Kustomization with matching annotations
 		dependency := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      depID,
-				Namespace: id,
-				Annotations: map[string]string{
-					"app/version": "v1.2.3",
-				},
+			Name:      depID,
+			Namespace: id,
+			Annotations: map[string]string{
+				"app/version": "v1.2.3",
 			},
 			Spec: kustomizev1.KustomizationSpec{
 				Suspend:  true, // Suspended dependency should work with readyExpr and AdditiveCELDependencyCheck disabled

@@ -52,17 +52,13 @@ func TestKustomizationReconciler_AppliesRoleAndRoleBinding(t *testing.T) {
 	// The SA can create Roles and RoleBindings, and has the permissions
 	// that the test Role will grant (configmaps get/list).
 	sa := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      id,
-			Namespace: id,
-		},
+		Name:      id,
+		Namespace: id,
 	}
 	g.Expect(k8sClient.Create(context.Background(), &sa)).To(Succeed())
 
 	cr := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: id,
-		},
+		Name: id,
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{"rbac.authorization.k8s.io"},
@@ -82,9 +78,7 @@ func TestKustomizationReconciler_AppliesRoleAndRoleBinding(t *testing.T) {
 	g.Expect(k8sClient.Create(context.Background(), &cr)).To(Succeed())
 
 	crb := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: id,
-		},
+		Name: id,
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
@@ -156,10 +150,8 @@ subjects:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",

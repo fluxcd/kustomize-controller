@@ -934,10 +934,8 @@ func secureLoadKustomizationFile(root, path string) (*kustypes.Kustomization, er
 	}
 
 	kus := kustypes.Kustomization{
-		TypeMeta: kustypes.TypeMeta{
-			APIVersion: kustypes.KustomizationVersion,
-			Kind:       kustypes.KustomizationKind,
-		},
+		APIVersion: kustypes.KustomizationVersion,
+		Kind:       kustypes.KustomizationKind,
 	}
 	if err := yaml.Unmarshal(data, &kus); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal kustomization file from '%s': %w", loadPath, err)
@@ -1135,15 +1133,15 @@ func safeDecrypt[T any](mac T, err error) (T, error) {
 	var buf strings.Builder
 
 	e := err.Error()
-	prefIdx := strings.Index(e, prefix)
-	suffIdx := strings.Index(e, suffix)
+	before, _, ok := strings.Cut(e, prefix)
+	found0 := strings.Contains(e, suffix)
 
 	var zero T
-	if prefIdx == -1 || suffIdx == -1 {
+	if !ok || !found0 {
 		return zero, err
 	}
 
-	buf.WriteString(e[:prefIdx])
+	buf.WriteString(before)
 	buf.WriteString(prefix)
 	buf.WriteString("<redacted>")
 	buf.WriteString(suffix)
