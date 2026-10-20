@@ -18,12 +18,14 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"os"
 	"time"
 
 	flag "github.com/spf13/pflag"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -52,6 +54,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/pprof"
 	"github.com/fluxcd/pkg/runtime/probes"
+	fluxspiffe "github.com/fluxcd/pkg/spiffe"
 	ssautils "github.com/fluxcd/pkg/ssa/utils"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 
@@ -107,6 +110,8 @@ func main() {
 		disallowedFieldManagers         []string
 		tokenCacheOptions               pkgcache.TokenFlags
 		customApplyStageKinds           string
+		authorizedArtifactServers       []string
+		authorizedEventServers          []string
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -126,6 +131,10 @@ func main() {
 	flag.StringArrayVar(&disallowedFieldManagers, "override-manager", []string{}, "Field manager disallowed to perform changes on managed resources.")
 	flag.StringVar(&customApplyStageKinds, "custom-apply-stage-kinds", "", "A comma-separated list of GroupKind (e.g., 'rbac.authorization.k8s.io/Role,some.group.io/SomeResource') "+
 		"resources to be applied in a custom stage during server-side apply running after CRDs and before all namespaced resources not in this list.")
+	flag.StringArrayVar(&authorizedArtifactServers, fluxspiffe.ControllerFlagAuthorizedArtifactServerSPIFFEID, nil,
+		"SPIFFE ID of an artifact server authorized to serve artifacts. Can be repeated.")
+	flag.StringArrayVar(&authorizedEventServers, fluxspiffe.ControllerFlagAuthorizedEventServerSPIFFEID, nil,
+		"SPIFFE ID of an event server authorized to receive events. Can be repeated.")
 
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)
@@ -246,7 +255,43 @@ func main() {
 
 	probes.SetupChecks(mgr, setupLog)
 
-	eventRecorder, err := events.NewRecorder(ctrl.Log, eventsAddr, controllerName, events.WithManager(mgr))
+	var artifactServerTLSConfig, eventTLSConfig *tls.Config
+	if len(authorizedArtifactServers) > 0 || len(authorizedEventServers) > 0 {
+		source, err := workloadapi.NewX509Source(ctx)
+		if err != nil {
+			setupLog.Error(err, "unable to create SPIFFE X.509 source")
+			os.Exit(1)
+		}
+		defer func() {
+			if err := source.Close(); err != nil {
+				setupLog.Error(err, "unable to close SPIFFE X.509 source")
+			}
+		}()
+
+		if len(authorizedArtifactServers) > 0 {
+			artifactServerTLSConfig, err = fluxspiffe.BuildTLSConfig(source, authorizedArtifactServers...)
+			if err != nil {
+				setupLog.Error(err, "unable to configure SPIFFE mTLS for the artifact fetcher")
+				os.Exit(1)
+			}
+			setupLog.Info("artifact fetcher will use inter-controller mTLS via SPIFFE", "spiffeIDs", authorizedArtifactServers)
+		}
+
+		if len(authorizedEventServers) > 0 {
+			eventTLSConfig, err = fluxspiffe.BuildTLSConfig(source, authorizedEventServers...)
+			if err != nil {
+				setupLog.Error(err, "unable to configure SPIFFE mTLS for the event server")
+				os.Exit(1)
+			}
+			setupLog.Info("event server will use inter-controller mTLS via SPIFFE", "spiffeIDs", authorizedEventServers)
+		}
+	}
+
+	eventRecorderOpts := []events.RecorderOption{events.WithManager(mgr)}
+	if eventTLSConfig != nil {
+		eventRecorderOpts = append(eventRecorderOpts, events.WithTLSConfig(eventTLSConfig))
+	}
+	eventRecorder, err := events.NewRecorder(ctrl.Log, eventsAddr, controllerName, eventRecorderOpts...)
 	if err != nil {
 		setupLog.Error(err, "unable to create event recorder")
 		os.Exit(1)
@@ -352,6 +397,7 @@ func main() {
 		AllowExternalArtifact:           allowExternalArtifact,
 		APIReader:                       mgr.GetAPIReader(),
 		ArtifactFetchRetries:            httpRetry,
+		ArtifactServerTLSConfig:         artifactServerTLSConfig,
 		Client:                          mgr.GetClient(),
 		ClusterReader:                   clusterReader,
 		ConcurrentSSA:                   concurrentSSA,

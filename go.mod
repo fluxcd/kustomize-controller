@@ -31,6 +31,7 @@ require (
 	github.com/fluxcd/pkg/kustomize v1.43.0
 	github.com/fluxcd/pkg/masktoken v0.10.0
 	github.com/fluxcd/pkg/runtime v0.120.1-0.20261020182949-c5194b17fdad
+	github.com/fluxcd/pkg/spiffe v0.0.0-20261020182949-c5194b17fdad
 	github.com/fluxcd/pkg/ssa v0.80.0
 	github.com/fluxcd/pkg/tar v1.3.0
 	github.com/fluxcd/pkg/testserver v0.15.0
@@ -43,6 +44,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/ory/dockertest/v3 v3.12.0
 	github.com/spf13/pflag v1.0.10
+	github.com/spiffe/go-spiffe/v2 v2.9.0
 	golang.org/x/net v0.61.0
 	golang.org/x/oauth2 v0.37.0
 	k8s.io/api v0.37.1
@@ -220,7 +222,6 @@ require (
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/spiffe/go-spiffe/v2 v2.9.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect

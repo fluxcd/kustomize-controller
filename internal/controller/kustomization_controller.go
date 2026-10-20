@@ -19,6 +19,7 @@ package controller
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"os"
@@ -116,6 +117,7 @@ type KustomizationReconciler struct {
 	// Retry and requeue options
 
 	ArtifactFetchRetries      int
+	ArtifactServerTLSConfig   *tls.Config
 	DependencyRequeueInterval time.Duration
 
 	// Feature gates
@@ -370,14 +372,18 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Download artifact and extract files to the tmp dir.
-	fetcher := fetch.New(
+	fetchOpts := []fetch.Option{
 		fetch.WithLogger(ctrl.LoggerFrom(ctx)),
 		fetch.WithRetries(r.ArtifactFetchRetries),
 		fetch.WithMaxDownloadSize(tar.UnlimitedUntarSize),
 		fetch.WithUntar(tar.WithMaxUntarSize(tar.UnlimitedUntarSize)),
 		fetch.WithHostnameOverwrite(sourceLocalhost),
-	)
-	if err = fetcher.Fetch(src.GetArtifact().URL, src.GetArtifact().Digest, tmpDir); err != nil {
+	}
+	if r.ArtifactServerTLSConfig != nil {
+		fetchOpts = append(fetchOpts, fetch.WithTLSConfig(r.ArtifactServerTLSConfig))
+	}
+	fetcher := fetch.New(fetchOpts...)
+	if err = fetcher.FetchWithContext(ctx, src.GetArtifact().URL, src.GetArtifact().Digest, tmpDir); err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", err)
 		return err
 	}
