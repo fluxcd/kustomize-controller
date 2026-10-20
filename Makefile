@@ -144,6 +144,11 @@ tidy:
 	cd api; rm -f go.sum; go mod tidy -compat=1.27
 	rm -f go.sum; go mod tidy -compat=1.27
 
+# Run go fix against code
+fix:
+	go fix ./...
+	cd api; go fix ./...
+
 # Run go fmt against code
 fmt:
 	go fmt ./...
