@@ -42,6 +42,7 @@ import (
 	"github.com/fluxcd/pkg/auth/azure"
 	"github.com/fluxcd/pkg/auth/gcp"
 	"github.com/fluxcd/pkg/cache"
+	fluxbroker "github.com/fluxcd/pkg/spiffe/broker"
 	"github.com/getsops/sops/v3"
 	"github.com/getsops/sops/v3/aes"
 	"github.com/getsops/sops/v3/age"
@@ -141,6 +142,8 @@ type Decryptor struct {
 	checkSopsMac bool
 	// tokenCache is the cache for token credentials.
 	tokenCache *cache.TokenCache
+	// spiffeBroker fetches JWT-SVIDs for the SPIFFE credential provider.
+	spiffeBroker fluxbroker.Interface
 	// defaultServiceAccount is the default ServiceAccount name used
 	// for decryption authentication when the Kustomization does not
 	// specify one in .spec.decryption.serviceAccountName.
@@ -419,6 +422,9 @@ func (d *Decryptor) decryptionAuthOptions(sa *corev1.ServiceAccount, spec *crypt
 	}
 	if spec != nil {
 		opts = append(opts, auth.OptionsFromSpec(spec.Auth)...)
+	}
+	if d.spiffeBroker != nil {
+		opts = append(opts, auth.WithSPIFFEBroker(d.spiffeBroker))
 	}
 	return opts
 }

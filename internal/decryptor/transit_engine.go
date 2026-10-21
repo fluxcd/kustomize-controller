@@ -147,7 +147,7 @@ func cacheVaultTokens(fetch func(ctx context.Context, vaultAddress string) (stri
 // decryption identity (object- or controller-level), audience-scoped to the
 // Vault address.
 func (d *Decryptor) issueVaultK8sToken(ctx context.Context, baseSpec *cryptov1.Spec,
-	baseOpts []auth.Option, vaultAddress string) (*generic.Token, error) {
+	baseOpts []auth.Option, vaultAddress string) (*auth.JWTCredential, error) {
 	var audiences []string
 	if baseSpec.Auth != nil && baseSpec.Auth.Credential != nil {
 		audiences = baseSpec.Auth.Credential.Audiences
@@ -162,15 +162,15 @@ func (d *Decryptor) issueVaultK8sToken(ctx context.Context, baseSpec *cryptov1.S
 			auth.WithCache(*d.tokenCache),
 			auth.WithCacheOperation(kustomizev1.MetricDecryptWithTransitEngine))
 	}
-	accessToken, err := auth.GetAccessToken(ctx, generic.Provider{}, tokenOpts...)
+	accessCredential, err := auth.NewAccessCredential(ctx, generic.Provider{}, tokenOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to issue Kubernetes token for Vault authentication: %w", err)
+		return nil, fmt.Errorf("failed to issue Kubernetes credential for Vault authentication: %w", err)
 	}
-	ksaToken, ok := accessToken.(*generic.Token)
+	ksaCredential, ok := accessCredential.(*auth.JWTCredential)
 	if !ok {
-		return nil, fmt.Errorf("unexpected token type %T for Vault authentication", accessToken)
+		return nil, fmt.Errorf("unexpected credential type %T for Vault authentication", accessCredential)
 	}
-	return ksaToken, nil
+	return ksaCredential, nil
 }
 
 // loadVaultLoginPaths reads the operator-managed ConfigMap and returns the

@@ -35,6 +35,8 @@
 | `--sops-age-secret`                    | string        | The name of a Kubernetes secret in the RUNTIME_NAMESPACE containing a SOPS age decryption key for fallback usage.                                                                                                                                   |
 | `--sops-vault-configmap`               | string        | The name of a Kubernetes ConfigMap in the RUNTIME_NAMESPACE containing an OpenBao/Vault configuration with instances and login paths for SOPS decryption.                                                                                           |
 | `--token-cache-max-size`               | int           | The maximum amount of entries in the LRU cache used for tokens. (default 100, enabled)                                                                                                                                                              |
+| `--spiffe-broker-endpoint`            | string        | The gRPC URL of the SPIFFE Broker endpoint.                                                                                                                                              |
+| `--spiffe-broker-id`                  | strings       | SPIFFE ID of the SPIFFE Broker endpoint. Can be repeated.                                                                                                                                |
 | `--token-cache-max-duration`           | duration      | The maximum duration for which a token would be considered unexpired. This is capped at 1h. (default 1h)                                                                                                                                            |
 | `--watch-all-namespaces`               | boolean       | Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace. (default true)                                                                                                                              |
 | `--watch-configs-label-selector`       | string        | Watch for ConfigMaps and Secrets with matching labels (default 'reconcile.fluxcd.io/watch=Enabled').                                                                                                                                                |
@@ -71,6 +73,21 @@ understands it as the trust domain of the controller's own X509-SVID.
 
 Invalid values cause kustomize-controller to fail at startup.
 
+### SPIFFE Broker API
+
+When `--spiffe-broker-endpoint` and at least one `--spiffe-broker-id` are set,
+kustomize-controller acquires an X.509-SVID from the SPIFFE Workload API and uses it to
+authenticate to the SPIFFE Broker API. The `SPIFFE_ENDPOINT_SOCKET` environment
+variable must point to the Workload API socket.
+
+The Broker is used to acquire JWT-SVIDs for object-level workload identity when
+a ServiceAccount sets `credential.auth.fluxcd.io/provider` to `spiffe`. The
+Broker endpoint is a TCP gRPC target, e.g.
+`dns:///spire-server.spire.svc.cluster.local:8443`.
+
+Each `--spiffe-broker-id` value is interpreted like the SPIFFE IDs used by the
+mTLS flags. Invalid values cause kustomize-controller to fail at startup.
+
 ### Feature Gates
 
 | Name                             | Default Value | Description                                                                                                                                                                                                                                                             |
@@ -86,5 +103,4 @@ Invalid values cause kustomize-controller to fail at startup.
 | `ExternalArtifact`               | `true`        | Enables support for the [ExternalArtifact](https://github.com/fluxcd/source-controller/blob/main/docs/spec/v1/externalartifacts.md) source type.                                                                                                                        |
 | `GroupChangeLog`                 | `false`       | Groups together kubernetes objects in log output. Reduces cardinality for Elasticsearch/Opensearch indexing                                                                                                                                                             |
 | `MigrateAPIVersion`              | `false`       | Migrates the API version referenced by the managed fields entries of in-cluster objects to the API version of the applied objects when they differ. Works around server-side apply dry-run failures like `field not declared in schema` after CRD upgrades.            |
-| `ObjectLevelWorkloadIdentity`    | `false`       | Enables the use of object-level workload identity for the controller.                                                                                                                                                                                                   |
 | `StrictPostBuildSubstitutions`   | `true`        | Controls whether the post-build substitutions should fail if a variable without a default value is declared in files but is missing from the input vars.                                                                                                                |

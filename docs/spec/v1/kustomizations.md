@@ -1128,6 +1128,11 @@ this feature, see the following docs:
 - [GKE](/flux/integrations/gcp/#for-google-kubernetes-engine)
 - [Generic](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#configuring-the-api-server)
 
+For a complete guide to the ServiceAccount annotations used for object-level
+workload identity, including the `spiffe` credential provider, see the
+[ServiceAccount annotations](/flux/integrations/serviceaccount-annotations)
+docs.
+
 Example for an EKS cluster:
 
 ```yaml
@@ -1182,8 +1187,7 @@ The `.spec.decryption` field has the following subfields:
   secret-less authentication with KMS services from cloud providers, and
   with OpenBao/Vault via the
   [Kubernetes auth method](#openbaovault-kubernetes-auth) (object-level workload
-  identity). This requires the `ObjectLevelWorkloadIdentity` feature gate to be
-  enabled. When unset, the controller falls back to its own ServiceAccount
+  identity). When unset, the controller falls back to its own ServiceAccount
   ([controller-level workload identity](#controller-global-decryption)).
 
 To make a Kustomization react immediately to changes in the referenced Secret
@@ -1191,6 +1195,11 @@ see [this](#reacting-immediately-to-configuration-dependencies) section.
 
 For a complete guide on how to set up authentication for KMS services from
 cloud providers, see the integration [docs](/flux/integrations/).
+
+For a complete guide to the ServiceAccount annotations used for object-level
+workload identity, including the `spiffe` credential provider, see the
+[ServiceAccount annotations](/flux/integrations/serviceaccount-annotations)
+docs.
 
 If a static credential for a given cloud provider is defined inside the secret
 referenced by `.secretRef`, that static credential takes priority over secret-less
@@ -1494,8 +1503,7 @@ of each encrypted data key as follows:
 
 - The Kubernetes ServiceAccount token is issued for
   [`.spec.decryption.serviceAccountName`](#decryption) when set (object-level
-  workload identity, which requires the `ObjectLevelWorkloadIdentity` feature
-  gate to be enabled), otherwise for the controller's own ServiceAccount
+  workload identity), otherwise for the controller's own ServiceAccount
   ([controller-level workload identity](#controller-global-decryption)).
 - The token audience is set to the Vault address.
 - The Vault role is derived from the ServiceAccount as `{namespace}_{name}`
@@ -1915,8 +1923,7 @@ that sets no [`.spec.decryption.serviceAccountName`](#decryption) authenticates
 to Vault as the controller's ServiceAccount (controller-level workload identity).
 
 Setting `.spec.decryption.serviceAccountName` makes the authentication
-object-level rather than global, and requires the `ObjectLevelWorkloadIdentity`
-feature gate to be enabled.
+object-level rather than global.
 
 See [OpenBao/Vault Kubernetes auth](#openbaovault-kubernetes-auth) for enabling
 the method (the `--sops-vault-configmap` flag and ConfigMap) and the Vault server
