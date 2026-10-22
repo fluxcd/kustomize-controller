@@ -402,7 +402,7 @@ func TestDecryptor_SetAuthOptions(t *testing.T) {
 			kustomization: &kustomizev1.Kustomization{},
 		}
 
-		d.SetAuthOptions(context.Background())
+		g.Expect(d.SetAuthOptions(context.Background())).To(Succeed())
 
 		g.Expect(d.awsCredentialsProvider).To(BeNil())
 		g.Expect(d.azureTokenCredential).To(BeNil())
@@ -420,7 +420,7 @@ func TestDecryptor_SetAuthOptions(t *testing.T) {
 			},
 		}
 
-		d.SetAuthOptions(context.Background())
+		g.Expect(d.SetAuthOptions(context.Background())).To(Succeed())
 
 		g.Expect(d.awsCredentialsProvider).To(BeNil())
 		g.Expect(d.azureTokenCredential).To(BeNil())
@@ -440,7 +440,7 @@ func TestDecryptor_SetAuthOptions(t *testing.T) {
 			},
 		}
 
-		d.SetAuthOptions(context.Background())
+		g.Expect(d.SetAuthOptions(context.Background())).To(Succeed())
 
 		g.Expect(d.awsCredentialsProvider).NotTo(BeNil())
 		g.Expect(d.azureTokenCredential).NotTo(BeNil())
@@ -460,7 +460,7 @@ func TestDecryptor_SetAuthOptions(t *testing.T) {
 			},
 		}
 
-		d.SetAuthOptions(context.Background())
+		g.Expect(d.SetAuthOptions(context.Background())).To(Succeed())
 
 		// Call awsCredentialsProvider multiple times with different regions.
 		// Before the fix, these would share the same underlying slice and
@@ -503,7 +503,7 @@ func TestDecryptor_SetAuthOptions(t *testing.T) {
 			tokenCache: tokenCache,
 		}
 
-		d.SetAuthOptions(context.Background())
+		g.Expect(d.SetAuthOptions(context.Background())).To(Succeed())
 
 		// All providers should be set.
 		g.Expect(d.awsCredentialsProvider).NotTo(BeNil())
@@ -529,7 +529,7 @@ func TestDecryptor_SetAuthOptions(t *testing.T) {
 			},
 		}
 
-		d.SetAuthOptions(context.Background())
+		g.Expect(d.SetAuthOptions(context.Background())).To(Succeed())
 
 		// Even with the same region, each call should create an independent provider.
 		// This tests that the slices.Clone is applied correctly.

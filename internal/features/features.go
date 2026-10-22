@@ -115,16 +115,19 @@ var features = map[string]bool{
 	// DisableCommitStatusEvent
 	// opt-in from v1.9.6
 	DisableCommitStatusEvent: false,
+	// ObjectLevelWorkloadIdentity
+	// opt-in from Flux v2.6.
+	auth.FeatureGateObjectLevelWorkloadIdentity: false,
 }
 
-func init() {
-	auth.SetFeatureGates(features)
+var retiredFeatures = map[string]string{
+	// TODO: retire ObjectLevelWorkloadIdentity in Flux 2.11.
 }
 
 // FeatureGates contains a list of all supported feature gates and
 // their default values.
-func FeatureGates() map[string]bool {
-	return features
+func FeatureGates() (map[string]bool, map[string]string) {
+	return features, retiredFeatures
 }
 
 // Enabled verifies whether the feature is enabled or not.

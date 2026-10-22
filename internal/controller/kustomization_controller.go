@@ -19,6 +19,7 @@ package controller
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"os"
@@ -103,29 +104,33 @@ type KustomizationReconciler struct {
 
 	// Multi-tenancy and security options
 
-	DefaultServiceAccount   string
-	DisallowedFieldManagers []string
-	NoCrossNamespaceRefs    bool
-	NoRemoteBases           bool
-	SOPSAgeSecret           string
-	SOPSVaultConfigMap      string
-	TokenCache              *cache.TokenCache
+	DefaultServiceAccount           string
+	DefaultDecryptionServiceAccount string
+	DefaultKubeConfigServiceAccount string
+	DisallowedFieldManagers         []string
+	NoCrossNamespaceRefs            bool
+	NoRemoteBases                   bool
+	SOPSAgeSecret                   string
+	SOPSVaultConfigMap              string
+	TokenCache                      *cache.TokenCache
 
 	// Retry and requeue options
 
 	ArtifactFetchRetries      int
+	ArtifactServerTLSConfig   *tls.Config
 	DependencyRequeueInterval time.Duration
 
 	// Feature gates
 
-	AdditiveCELDependencyCheck bool
-	AllowExternalArtifact      bool
-	DisableCommitStatusEvent   bool
-	DirectSourceFetch          bool
-	FailFast                   bool
-	GroupChangeLog             bool
-	MigrateAPIVersion          bool
-	StrictSubstitutions        bool
+	AdditiveCELDependencyCheck  bool
+	AllowExternalArtifact       bool
+	DisableCommitStatusEvent    bool
+	DirectSourceFetch           bool
+	FailFast                    bool
+	GroupChangeLog              bool
+	MigrateAPIVersion           bool
+	ObjectLevelWorkloadIdentity bool
+	StrictSubstitutions         bool
 }
 
 func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, retErr error) {
@@ -210,7 +215,7 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Check object-level workload identity feature gate and decryption with service account.
-	if d := obj.Spec.Decryption; d != nil && d.ServiceAccountName != "" && !auth.IsObjectLevelWorkloadIdentityEnabled() {
+	if d := obj.Spec.Decryption; d != nil && d.ServiceAccountName != "" && !r.ObjectLevelWorkloadIdentity {
 		const gate = auth.FeatureGateObjectLevelWorkloadIdentity
 		const msgFmt = "to use spec.decryption.serviceAccountName for decryption authentication please enable the %s feature gate in the controller"
 		msg := fmt.Sprintf(msgFmt, gate)
@@ -367,14 +372,18 @@ func (r *KustomizationReconciler) reconcile(
 	}
 
 	// Download artifact and extract files to the tmp dir.
-	fetcher := fetch.New(
+	fetchOpts := []fetch.Option{
 		fetch.WithLogger(ctrl.LoggerFrom(ctx)),
 		fetch.WithRetries(r.ArtifactFetchRetries),
 		fetch.WithMaxDownloadSize(tar.UnlimitedUntarSize),
 		fetch.WithUntar(tar.WithMaxUntarSize(tar.UnlimitedUntarSize)),
 		fetch.WithHostnameOverwrite(sourceLocalhost),
-	)
-	if err = fetcher.Fetch(src.GetArtifact().URL, src.GetArtifact().Digest, tmpDir); err != nil {
+	}
+	if r.ArtifactServerTLSConfig != nil {
+		fetchOpts = append(fetchOpts, fetch.WithTLSConfig(r.ArtifactServerTLSConfig))
+	}
+	fetcher := fetch.New(fetchOpts...)
+	if err = fetcher.FetchWithContext(ctx, src.GetArtifact().URL, src.GetArtifact().Digest, tmpDir); err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", err)
 		return err
 	}
@@ -809,6 +818,9 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 	if r.TokenCache != nil {
 		decryptorOpts = append(decryptorOpts, decryptor.WithTokenCache(*r.TokenCache))
 	}
+	if r.DefaultDecryptionServiceAccount != "" {
+		decryptorOpts = append(decryptorOpts, decryptor.WithDefaultServiceAccount(r.DefaultDecryptionServiceAccount))
+	}
 	if name, ns := r.SOPSAgeSecret, os.Getenv(runtimeCtrl.EnvRuntimeNamespace); name != "" && ns != "" {
 		decryptorOpts = append(decryptorOpts, decryptor.WithSOPSAgeSecret(name, ns))
 	}
@@ -827,7 +839,9 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 	}
 
 	// Set options for secret-less authentication with cloud providers for decryption.
-	dec.SetAuthOptions(ctx)
+	if err := dec.SetAuthOptions(ctx); err != nil {
+		return nil, err
+	}
 
 	// Decrypt Kustomize EnvSources files before build
 	if err = dec.DecryptSources(dirPath); err != nil {
@@ -1442,16 +1456,22 @@ func (r *KustomizationReconciler) getClientAndPoller(
 func (r *KustomizationReconciler) getProviderRESTConfigFetcher(obj *kustomizev1.Kustomization) runtimeClient.ProviderRESTConfigFetcher {
 	var provider runtimeClient.ProviderRESTConfigFetcher
 	if kc := obj.Spec.KubeConfig; kc != nil && kc.SecretRef == nil && kc.ConfigMapRef != nil {
-		var opts []auth.Option
-		if r.TokenCache != nil {
-			involvedObject := cache.InvolvedObject{
-				Kind:      kustomizev1.KustomizationKind,
-				Name:      obj.GetName(),
-				Namespace: obj.GetNamespace(),
-				Operation: kustomizev1.MetricFetchKubeConfig,
-			}
-			opts = append(opts, auth.WithCache(*r.TokenCache, involvedObject))
+		var opts []authutils.Option
+		if r.DefaultKubeConfigServiceAccount != "" {
+			opts = append(opts, authutils.WithDefaultServiceAccount(r.DefaultKubeConfigServiceAccount))
 		}
+		if r.ObjectLevelWorkloadIdentity {
+			opts = append(opts, authutils.WithObjectLevelWorkloadIdentity())
+		}
+		authOpts := []auth.Option{
+			auth.WithObject(kustomizev1.GroupVersion.Group, kustomizev1.KustomizationKind, obj),
+		}
+		if r.TokenCache != nil {
+			authOpts = append(authOpts,
+				auth.WithCache(*r.TokenCache),
+				auth.WithCacheOperation(kustomizev1.MetricFetchKubeConfig))
+		}
+		opts = append(opts, authutils.WithAuthOptions(authOpts...))
 		provider = runtimeClient.ProviderRESTConfigFetcher(authutils.GetRESTConfigFetcher(opts...))
 	}
 	return provider
