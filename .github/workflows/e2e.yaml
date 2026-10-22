@@ -150,3 +150,27 @@ jobs:
         run: hack/ci/sops-openbao-e2e.sh
         env:
           IMG: test/kustomize-controller:latest
+  kubeconfig-remote:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # for reading the repository code.
+    steps:
+      - name: Test suite setup
+        # The custom kind config sets the ServiceAccount issuer URL used by the
+        # remote cluster's OIDC authenticator.
+        uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.16.0
+        with:
+          go-version: 1.27.x
+          kind-config: hack/ci/kubeconfig-primary-kind.yaml
+      - name: Setup Flux CLI
+        uses: fluxcd/flux2/action@main
+      - name: Build container image
+        run: |
+          make docker-build IMG=test/kustomize-controller:latest \
+            BUILD_PLATFORMS=linux/amd64 \
+            BUILD_ARGS="--load"
+      - name: Run remote kubeconfig e2e
+        # Reuses the "kind" cluster the setup action created and adds a second one.
+        run: hack/ci/kubeconfig-e2e.sh
+        env:
+          IMG: test/kustomize-controller:latest

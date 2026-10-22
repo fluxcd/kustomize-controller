@@ -115,13 +115,11 @@ var features = map[string]bool{
 	// DisableCommitStatusEvent
 	// opt-in from v1.9.6
 	DisableCommitStatusEvent: false,
-	// ObjectLevelWorkloadIdentity
-	// opt-in from Flux v2.6.
-	auth.FeatureGateObjectLevelWorkloadIdentity: false,
 }
 
 var retiredFeatures = map[string]string{
-	// TODO: retire ObjectLevelWorkloadIdentity in Flux 2.11.
+	// Retired in Flux 2.10.
+	auth.FeatureGateObjectLevelWorkloadIdentity: auth.FeatureGateObjectLevelWorkloadIdentityRetirementReason,
 }
 
 // FeatureGates contains a list of all supported feature gates and

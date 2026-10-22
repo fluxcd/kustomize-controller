@@ -64,6 +64,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/jitter"
 	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/fluxcd/pkg/runtime/statusreaders"
+	fluxbroker "github.com/fluxcd/pkg/spiffe/broker"
 	"github.com/fluxcd/pkg/ssa"
 	"github.com/fluxcd/pkg/ssa/jsondiff"
 	"github.com/fluxcd/pkg/ssa/normalize"
@@ -113,6 +114,7 @@ type KustomizationReconciler struct {
 	SOPSAgeSecret                   string
 	SOPSVaultConfigMap              string
 	TokenCache                      *cache.TokenCache
+	SPIFFEBroker                    fluxbroker.Interface
 
 	// Retry and requeue options
 
@@ -122,15 +124,14 @@ type KustomizationReconciler struct {
 
 	// Feature gates
 
-	AdditiveCELDependencyCheck  bool
-	AllowExternalArtifact       bool
-	DisableCommitStatusEvent    bool
-	DirectSourceFetch           bool
-	FailFast                    bool
-	GroupChangeLog              bool
-	MigrateAPIVersion           bool
-	ObjectLevelWorkloadIdentity bool
-	StrictSubstitutions         bool
+	AdditiveCELDependencyCheck bool
+	AllowExternalArtifact      bool
+	DisableCommitStatusEvent   bool
+	DirectSourceFetch          bool
+	FailFast                   bool
+	GroupChangeLog             bool
+	MigrateAPIVersion          bool
+	StrictSubstitutions        bool
 }
 
 func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, retErr error) {
@@ -212,18 +213,6 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		obj.Status.ObservedGeneration = obj.Generation
 		r.event(obj, artifactSource, "", "", eventv1.EventSeverityError, kustomizev1.ActionHealthCheck, errMsg, nil)
 		return ctrl.Result{}, reconcile.TerminalError(err)
-	}
-
-	// Check object-level workload identity feature gate and decryption with service account.
-	if d := obj.Spec.Decryption; d != nil && d.ServiceAccountName != "" && !r.ObjectLevelWorkloadIdentity {
-		const gate = auth.FeatureGateObjectLevelWorkloadIdentity
-		const msgFmt = "to use spec.decryption.serviceAccountName for decryption authentication please enable the %s feature gate in the controller"
-		msg := fmt.Sprintf(msgFmt, gate)
-		conditions.MarkFalse(obj, meta.ReadyCondition, meta.FeatureGateDisabledReason, msgFmt, gate)
-		conditions.MarkStalled(obj, meta.FeatureGateDisabledReason, msgFmt, gate)
-		log.Error(auth.ErrObjectLevelWorkloadIdentityNotEnabled, msg)
-		r.event(obj, artifactSource, "", "", eventv1.EventSeverityError, kustomizev1.ActionDecrypt, msg, nil)
-		return ctrl.Result{}, nil
 	}
 
 	// Resolve the source reference and requeue the reconciliation if the source is not found.
@@ -817,6 +806,9 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 	}
 	if r.TokenCache != nil {
 		decryptorOpts = append(decryptorOpts, decryptor.WithTokenCache(*r.TokenCache))
+	}
+	if r.SPIFFEBroker != nil {
+		decryptorOpts = append(decryptorOpts, decryptor.WithSPIFFEBroker(r.SPIFFEBroker))
 	}
 	if r.DefaultDecryptionServiceAccount != "" {
 		decryptorOpts = append(decryptorOpts, decryptor.WithDefaultServiceAccount(r.DefaultDecryptionServiceAccount))
@@ -1460,11 +1452,9 @@ func (r *KustomizationReconciler) getProviderRESTConfigFetcher(obj *kustomizev1.
 		if r.DefaultKubeConfigServiceAccount != "" {
 			opts = append(opts, authutils.WithDefaultServiceAccount(r.DefaultKubeConfigServiceAccount))
 		}
-		if r.ObjectLevelWorkloadIdentity {
-			opts = append(opts, authutils.WithObjectLevelWorkloadIdentity())
-		}
 		authOpts := []auth.Option{
 			auth.WithObject(kustomizev1.GroupVersion.Group, kustomizev1.KustomizationKind, obj),
+			auth.WithSPIFFEBroker(r.SPIFFEBroker),
 		}
 		if r.TokenCache != nil {
 			authOpts = append(authOpts,

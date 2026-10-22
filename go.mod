@@ -21,17 +21,17 @@ require (
 	github.com/fluxcd/cli-utils v1.4.0
 	github.com/fluxcd/kustomize-controller/api v1.9.0
 	github.com/fluxcd/pkg/apis/acl v0.12.0
-	github.com/fluxcd/pkg/apis/crypto v0.4.1-0.20261020182949-c5194b17fdad
+	github.com/fluxcd/pkg/apis/crypto v0.5.0
 	github.com/fluxcd/pkg/apis/event v0.32.0
 	github.com/fluxcd/pkg/apis/kustomize v1.23.0
-	github.com/fluxcd/pkg/apis/meta v1.36.1-0.20261020182949-c5194b17fdad
-	github.com/fluxcd/pkg/auth v0.63.1-0.20261020182949-c5194b17fdad
-	github.com/fluxcd/pkg/cache v0.17.1-0.20261020182949-c5194b17fdad
-	github.com/fluxcd/pkg/http/fetch v0.28.1-0.20261020182949-c5194b17fdad
+	github.com/fluxcd/pkg/apis/meta v1.37.0
+	github.com/fluxcd/pkg/auth v0.65.0
+	github.com/fluxcd/pkg/cache v0.18.0
+	github.com/fluxcd/pkg/http/fetch v0.29.0
 	github.com/fluxcd/pkg/kustomize v1.43.0
 	github.com/fluxcd/pkg/masktoken v0.10.0
-	github.com/fluxcd/pkg/runtime v0.120.1-0.20261020182949-c5194b17fdad
-	github.com/fluxcd/pkg/spiffe v0.0.0-20261020182949-c5194b17fdad
+	github.com/fluxcd/pkg/runtime v0.121.0
+	github.com/fluxcd/pkg/spiffe v0.1.0
 	github.com/fluxcd/pkg/ssa v0.80.0
 	github.com/fluxcd/pkg/tar v1.3.0
 	github.com/fluxcd/pkg/testserver v0.15.0
@@ -164,6 +164,7 @@ require (
 	github.com/go-openapi/swag/typeutils v0.29.1 // indirect
 	github.com/go-openapi/swag/yamlutils v0.29.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
+	github.com/gobuffalo/flect v1.0.3 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/btree v1.1.3 // indirect

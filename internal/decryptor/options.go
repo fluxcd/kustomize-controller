@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/fluxcd/pkg/cache"
+	fluxbroker "github.com/fluxcd/pkg/spiffe/broker"
 )
 
 // Option is a functional option for configuring the Decryptor.
@@ -36,6 +37,14 @@ func WithRoot(root string) Option {
 func WithTokenCache(tokenCache cache.TokenCache) Option {
 	return func(o *Decryptor) {
 		o.tokenCache = &tokenCache
+	}
+}
+
+// WithSPIFFEBroker sets the client used to fetch JWT-SVIDs for the `spiffe`
+// credential provider.
+func WithSPIFFEBroker(client fluxbroker.Interface) Option {
+	return func(o *Decryptor) {
+		o.spiffeBroker = client
 	}
 }
 
