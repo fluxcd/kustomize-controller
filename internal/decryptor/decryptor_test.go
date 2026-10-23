@@ -1196,6 +1196,74 @@ spec:
 		})
 	})
 
+	t.Run("SOPS-encrypted resource with tampered data type", func(t *testing.T) {
+		plainData := []byte(`apiVersion: v1
+kind: Secret
+metadata:
+  name: secret
+  namespace: default
+stringData:
+  # sops-encrypt
+  password: s3cr3t
+`)
+
+		tests := []struct {
+			name     string
+			metadata sops.Metadata
+		}{
+			{
+				name:     "encrypted_regex",
+				metadata: sops.Metadata{EncryptedRegex: "^(data|stringData)$"},
+			},
+			{
+				name:     "encrypted_comment_regex",
+				metadata: sops.Metadata{EncryptedCommentRegex: "sops-encrypt"},
+			},
+		}
+
+		for _, tt := range tests {
+			for _, dataType := range []string{"int", "float", "bool", "time"} {
+				t.Run(tt.name+"/"+dataType, func(t *testing.T) {
+					g := NewWithT(t)
+
+					kus := kustomization.DeepCopy()
+					kus.Spec.Decryption = &kustomizev1.Decryption{
+						Provider: DecryptionProviderSOPS,
+					}
+
+					d, cleanup, err := New(fake.NewClientBuilder().Build(), kus)
+					g.Expect(err).ToNot(HaveOccurred())
+					t.Cleanup(cleanup)
+
+					ageID, err := extage.GenerateX25519Identity()
+					g.Expect(err).ToNot(HaveOccurred())
+					d.ageIdentities = append(d.ageIdentities, ageID)
+
+					metadata := tt.metadata
+					metadata.KeyGroups = []sops.KeyGroup{
+						{&age.MasterKey{Recipient: ageID.Recipient().String()}},
+					}
+					encData, err := d.sopsEncryptWithFormat(metadata, plainData, formats.Yaml, formats.Yaml)
+					g.Expect(err).ToNot(HaveOccurred())
+
+					// The data type is not authenticated, so it can be changed
+					// without the key. The decrypted value must not leak in the
+					// conversion error.
+					g.Expect(bytes.Count(encData, []byte(",type:str]"))).To(Equal(2))
+					encData = bytes.Replace(encData, []byte(",type:str]"), []byte(",type:"+dataType+"]"), 1)
+
+					res, err := resourceFactory.FromBytes(encData)
+					g.Expect(err).ToNot(HaveOccurred())
+
+					_, err = d.DecryptResource(res)
+					g.Expect(err).To(HaveOccurred())
+					g.Expect(err.Error()).To(ContainSubstring("<redacted>"))
+					g.Expect(err.Error()).ToNot(ContainSubstring("s3cr3t"))
+				})
+			}
+		}
+	})
+
 	t.Run("nil resource", func(t *testing.T) {
 		g := NewWithT(t)
 
@@ -2148,6 +2216,26 @@ func TestSafeDecrypt(t *testing.T) {
 			name:        "redacted value",
 			err:         "Input string 1234567897 does not match sops' data format",
 			expectedErr: "Input string <redacted> does not match sops' data format",
+		},
+		{
+			name:        "redacted int conversion",
+			err:         `Error walking tree: Could not decrypt value: strconv.Atoi: parsing "s3cr3t": invalid syntax`,
+			expectedErr: "Error walking tree: Could not decrypt value: failed to convert the decrypted value to its data type: <redacted>",
+		},
+		{
+			name:        "redacted float conversion",
+			err:         `strconv.ParseFloat: parsing "s3cr3t": invalid syntax`,
+			expectedErr: "failed to convert the decrypted value to its data type: <redacted>",
+		},
+		{
+			name:        "redacted bool conversion",
+			err:         `strconv.ParseBool: parsing "s3cr3t": invalid syntax`,
+			expectedErr: "failed to convert the decrypted value to its data type: <redacted>",
+		},
+		{
+			name:        "redacted time conversion",
+			err:         `Could not decrypt value: parsing time "s3cr3t" as "2006-01-02T15:04:05Z07:00": cannot parse "s3cr3t" as "2006"`,
+			expectedErr: "Could not decrypt value: failed to convert the decrypted value to its data type: <redacted>",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

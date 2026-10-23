@@ -1173,13 +1173,22 @@ func safeDecrypt[T any](mac T, err error) (T, error) {
 		return mac, nil
 	}
 
-	var buf strings.Builder
-
+	var zero T
 	e := err.Error()
+
+	// SOPS converts the decrypted value to the data type found in the
+	// encrypted value, which is not authenticated. The conversion errors
+	// of strconv and time contain the decrypted value.
+	for _, marker := range []string{"strconv.", "parsing time "} {
+		if i := strings.Index(e, marker); i != -1 {
+			return zero, errors.New(e[:i] + "failed to convert the decrypted value to its data type: <redacted>")
+		}
+	}
+
+	var buf strings.Builder
 	prefIdx := strings.Index(e, prefix)
 	suffIdx := strings.Index(e, suffix)
 
-	var zero T
 	if prefIdx == -1 || suffIdx == -1 {
 		return zero, err
 	}
