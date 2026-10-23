@@ -133,7 +133,7 @@ func main() {
 	flag.StringVar(&sopsVaultConfigMap, "sops-vault-configmap", "", "The name of a ConfigMap in the RUNTIME_NAMESPACE configuring the OpenBao/Vault instances (address and login path) trusted for SOPS decryption. It acts as an allowlist of trusted Vault servers. When empty, SOPS decryption via Vault ServiceAccount-token authentication is disabled.")
 	flag.StringArrayVar(&disallowedFieldManagers, "override-manager", []string{}, "Field manager disallowed to perform changes on managed resources.")
 	flag.StringArrayVar(&overrideManagersBeforeDryRun, "override-manager-before-dry-run", []string{},
-		"Field manager whose ownership is taken over before the server-side apply dry-run, to recover objects wedged at dry-run validation by a stale co-owner of a required field. Unlike --override-manager, this mutates managedFields before validation, so scope it narrowly.")
+		"Field manager taken over before the server-side apply dry-run. Use only to recover objects that fail the dry-run due to stale managers.")
 	flag.StringVar(&customApplyStageKinds, "custom-apply-stage-kinds", "", "A comma-separated list of GroupKind (e.g., 'rbac.authorization.k8s.io/Role,some.group.io/SomeResource') "+
 		"resources to be applied in a custom stage during server-side apply running after CRDs and before all namespaced resources not in this list.")
 	flag.StringArrayVar(&authorizedArtifactServers, fluxspiffe.ControllerFlagAuthorizedArtifactServerSPIFFEID, nil,

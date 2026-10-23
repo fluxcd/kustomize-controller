@@ -109,9 +109,7 @@ type KustomizationReconciler struct {
 	DefaultDecryptionServiceAccount string
 	DefaultKubeConfigServiceAccount string
 	DisallowedFieldManagers         []string
-	// OverrideManagersBeforeDryRun lists field managers whose ownership is taken
-	// over before the server-side apply dry-run, to recover objects wedged at
-	// dry-run validation by a stale/foreign manager co-owning a required field.
+	// OverrideManagersBeforeDryRun lists field managers taken over before the dry-run.
 	OverrideManagersBeforeDryRun []string
 	NoCrossNamespaceRefs         bool
 	NoRemoteBases                bool
@@ -985,15 +983,8 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		})
 	}
 
-	// fieldManagersBeforeDryRun is a deliberately narrow list, scoped only to the
-	// managers named by --override-manager-before-dry-run. Taking over ownership
-	// before the dry-run mutates managedFields even if the apply later fails, so
-	// the always-on default managers (kubectl, before-first-apply, the
-	// controller) are intentionally NOT included here and stay on the
-	// post-dry-run cleanup path. ExactMatch is set (unlike DisallowedFieldManagers
-	// above) because this path mutates ownership before any validation runs, so a
-	// prefix match unintentionally sweeps up an unrelated manager (e.g.
-	// "resource-controller" matching "resource-controller-2")
+	// Taken over before the dry-run, so the default managers are not included.
+	// Exact match because a wrong match changes ownership before validation.
 	var fieldManagersBeforeDryRun []ssa.FieldManager
 	for _, fieldManager := range r.OverrideManagersBeforeDryRun {
 		fieldManagersBeforeDryRun = append(fieldManagersBeforeDryRun, ssa.FieldManager{
@@ -1020,11 +1011,7 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 			// remove deprecated fluxcd.io labels
 			"fluxcd.io/sync-gc-mark",
 		},
-		FieldManagers: fieldManagers,
-		// Managers taken over before the dry-run to recover objects wedged at
-		// dry-run validation by a stale/foreign manager that co-owns a required
-		// field (e.g. break-glass client-side PUTs), which the post-dry-run
-		// cleanup alone cannot fix because it never runs on a failed dry-run.
+		FieldManagers:             fieldManagers,
 		FieldManagersBeforeDryRun: fieldManagersBeforeDryRun,
 		Exclusions: map[string]string{
 			fmt.Sprintf("%s/ssa", kustomizev1.GroupVersion.Group): kustomizev1.MergeValue,
