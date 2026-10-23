@@ -44,10 +44,12 @@ import (
 	"sigs.k8s.io/kustomize/api/provider"
 	"sigs.k8s.io/kustomize/api/resource"
 	kustypes "sigs.k8s.io/kustomize/api/types"
+	kyaml "sigs.k8s.io/kustomize/kyaml/yaml"
 	"sigs.k8s.io/yaml"
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/cache"
+	generator "github.com/fluxcd/pkg/kustomize"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 )
@@ -918,6 +920,280 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g.Expect(got).ToNot(BeNil())
 		plainDataWithTrailingNewline := append(plainData, '\n') // https://github.com/getsops/sops/issues/1825
 		g.Expect(got.GetDataMap()).To(HaveKeyWithValue(corev1.DockerConfigJsonKey, base64.StdEncoding.EncodeToString(plainDataWithTrailingNewline)))
+	})
+
+	t.Run("SOPS-encrypted resource with comment regexes", func(t *testing.T) {
+		plainData := []byte(`apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: app
+  namespace: default
+spec:
+  interval: 5m
+  values:
+    rootUser: admin
+    # sops-encrypt
+    rootPassword: secret
+    replicas: 2
+    users:
+      - name: user1
+        # sops-encrypt
+        password: pass1
+      - name: user2
+        # sops-encrypt
+        enabled: true
+`)
+
+		tests := []struct {
+			name     string
+			metadata sops.Metadata
+		}{
+			{
+				name:     "encrypted_comment_regex",
+				metadata: sops.Metadata{EncryptedCommentRegex: "sops-encrypt"},
+			},
+			{
+				name:     "unencrypted_comment_regex",
+				metadata: sops.Metadata{UnencryptedCommentRegex: "sops-encrypt"},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				g := NewWithT(t)
+
+				kus := kustomization.DeepCopy()
+				kus.Spec.Decryption = &kustomizev1.Decryption{
+					Provider: DecryptionProviderSOPS,
+				}
+
+				d, cleanup, err := New(fake.NewClientBuilder().Build(), kus)
+				g.Expect(err).ToNot(HaveOccurred())
+				t.Cleanup(cleanup)
+
+				ageID, err := extage.GenerateX25519Identity()
+				g.Expect(err).ToNot(HaveOccurred())
+				d.ageIdentities = append(d.ageIdentities, ageID)
+
+				metadata := tt.metadata
+				metadata.KeyGroups = []sops.KeyGroup{
+					{&age.MasterKey{Recipient: ageID.Recipient().String()}},
+				}
+				encData, err := d.sopsEncryptWithFormat(metadata, plainData, formats.Yaml, formats.Yaml)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(string(encData)).To(ContainSubstring(sopsEnvelopePrefix))
+
+				// Loading the resource drops the comments, like the kustomize build does.
+				res, err := resourceFactory.FromBytes(encData)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(isSOPSEncryptedResource(res)).To(BeTrue())
+
+				got, err := d.DecryptResource(res)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(got).ToNot(BeNil())
+
+				want, err := resourceFactory.FromBytes(plainData)
+				g.Expect(err).ToNot(HaveOccurred())
+				wantJSON, err := want.MarshalJSON()
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(got.MarshalJSON()).To(MatchJSON(wantJSON))
+			})
+		}
+
+		t.Run("tampered value", func(t *testing.T) {
+			g := NewWithT(t)
+
+			kus := kustomization.DeepCopy()
+			kus.Spec.Decryption = &kustomizev1.Decryption{
+				Provider: DecryptionProviderSOPS,
+			}
+
+			d, cleanup, err := New(fake.NewClientBuilder().Build(), kus)
+			g.Expect(err).ToNot(HaveOccurred())
+			t.Cleanup(cleanup)
+
+			ageID, err := extage.GenerateX25519Identity()
+			g.Expect(err).ToNot(HaveOccurred())
+			d.ageIdentities = append(d.ageIdentities, ageID)
+
+			encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+				EncryptedCommentRegex: "sops-encrypt",
+				KeyGroups: []sops.KeyGroup{
+					{&age.MasterKey{Recipient: ageID.Recipient().String()}},
+				},
+			}, plainData, formats.Yaml, formats.Yaml)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			res, err := resourceFactory.FromBytes(encData)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// Moving an encrypted value to another key must fail the
+			// authentication, as the key path is used as additional data.
+			values := res.Field("spec").Value.Field("values").Value
+			password, err := values.GetString("rootPassword")
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(values.PipeE(kyaml.SetField("rootUser", kyaml.NewStringRNode(password)))).To(Succeed())
+
+			_, err = d.DecryptResource(res)
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(ContainSubstring("spec.values.rootUser"))
+			g.Expect(err.Error()).ToNot(ContainSubstring(password))
+		})
+
+		t.Run("multi-document file with inline comment after kustomize build", func(t *testing.T) {
+			g := NewWithT(t)
+
+			kus := kustomization.DeepCopy()
+			kus.Spec.Decryption = &kustomizev1.Decryption{
+				Provider: DecryptionProviderSOPS,
+			}
+
+			d, cleanup, err := New(fake.NewClientBuilder().Build(), kus)
+			g.Expect(err).ToNot(HaveOccurred())
+			t.Cleanup(cleanup)
+
+			ageID, err := extage.GenerateX25519Identity()
+			g.Expect(err).ToNot(HaveOccurred())
+			d.ageIdentities = append(d.ageIdentities, ageID)
+
+			plainMultiDoc := []byte(`apiVersion: v1
+kind: Secret
+metadata:
+  name: git-auth
+  namespace: flux-system
+type: Opaque
+stringData:
+  username: git
+  password: glpat-123 #SOPS-encrypt
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: app
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  ref:
+    branch: main
+  secretRef:
+    name: git-auth
+  url: https://git.example.com/app.git
+`)
+			encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+				EncryptedCommentRegex: "SOPS-encrypt",
+				KeyGroups: []sops.KeyGroup{
+					{&age.MasterKey{Recipient: ageID.Recipient().String()}},
+				},
+			}, plainMultiDoc, formats.Yaml, formats.Yaml)
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(string(encData)).ToNot(ContainSubstring("glpat-123"))
+
+			dir := t.TempDir()
+			g.Expect(os.WriteFile(filepath.Join(dir, "app.yaml"), encData, 0o600)).To(Succeed())
+			g.Expect(os.WriteFile(filepath.Join(dir, konfig.DefaultKustomizationFileName()),
+				[]byte("resources:\n- app.yaml\n"), 0o600)).To(Succeed())
+
+			m, err := generator.SecureBuild(dir, dir, false)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			resources := m.Resources()
+			g.Expect(resources).To(HaveLen(2))
+			for _, res := range resources {
+				// SOPS adds the metadata to every document in the file.
+				g.Expect(isSOPSEncryptedResource(res)).To(BeTrue())
+
+				got, err := d.DecryptResource(res)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(got).ToNot(BeNil())
+				g.Expect(got.Field("sops")).To(BeNil())
+
+				switch got.GetKind() {
+				case "Secret":
+					stringData := got.Field("stringData").Value
+					g.Expect(stringData.GetString("username")).To(Equal("git"))
+					g.Expect(stringData.GetString("password")).To(Equal("glpat-123"))
+				case "GitRepository":
+					spec := got.Field("spec").Value
+					g.Expect(spec.GetString("url")).To(Equal("https://git.example.com/app.git"))
+					g.Expect(spec.GetString("secretRef.name")).To(Equal("git-auth"))
+				default:
+					t.Fatalf("unexpected kind %s", got.GetKind())
+				}
+			}
+		})
+
+		t.Run("damaged encrypted value", func(t *testing.T) {
+			g := NewWithT(t)
+
+			kus := kustomization.DeepCopy()
+			kus.Spec.Decryption = &kustomizev1.Decryption{
+				Provider: DecryptionProviderSOPS,
+			}
+
+			d, cleanup, err := New(fake.NewClientBuilder().Build(), kus)
+			g.Expect(err).ToNot(HaveOccurred())
+			t.Cleanup(cleanup)
+
+			ageID, err := extage.GenerateX25519Identity()
+			g.Expect(err).ToNot(HaveOccurred())
+			d.ageIdentities = append(d.ageIdentities, ageID)
+
+			encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+				EncryptedCommentRegex: "sops-encrypt",
+				KeyGroups: []sops.KeyGroup{
+					{&age.MasterKey{Recipient: ageID.Recipient().String()}},
+				},
+			}, plainData, formats.Yaml, formats.Yaml)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			res, err := resourceFactory.FromBytes(encData)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// A value missing the closing bracket must fail the decryption
+			// instead of being applied as is.
+			values := res.Field("spec").Value.Field("values").Value
+			password, err := values.GetString("rootPassword")
+			g.Expect(err).ToNot(HaveOccurred())
+			damaged := strings.TrimSuffix(password, "]")
+			g.Expect(values.PipeE(kyaml.SetField("rootPassword", kyaml.NewStringRNode(damaged)))).To(Succeed())
+
+			_, err = d.DecryptResource(res)
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(ContainSubstring("spec.values.rootPassword"))
+		})
+
+		t.Run("MAC check not supported", func(t *testing.T) {
+			g := NewWithT(t)
+
+			kus := kustomization.DeepCopy()
+			kus.Spec.Decryption = &kustomizev1.Decryption{
+				Provider: DecryptionProviderSOPS,
+			}
+
+			d, cleanup, err := New(fake.NewClientBuilder().Build(), kus)
+			g.Expect(err).ToNot(HaveOccurred())
+			t.Cleanup(cleanup)
+			d.checkSopsMac = true
+
+			ageID, err := extage.GenerateX25519Identity()
+			g.Expect(err).ToNot(HaveOccurred())
+			d.ageIdentities = append(d.ageIdentities, ageID)
+
+			encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+				EncryptedCommentRegex: "sops-encrypt",
+				KeyGroups: []sops.KeyGroup{
+					{&age.MasterKey{Recipient: ageID.Recipient().String()}},
+				},
+			}, plainData, formats.Yaml, formats.Yaml)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			res, err := resourceFactory.FromBytes(encData)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			_, err = d.DecryptResource(res)
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(ContainSubstring("comment regexes"))
+		})
 	})
 
 	t.Run("nil resource", func(t *testing.T) {
