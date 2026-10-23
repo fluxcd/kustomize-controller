@@ -32,7 +32,7 @@ require (
 	github.com/fluxcd/pkg/masktoken v0.10.0
 	github.com/fluxcd/pkg/runtime v0.121.0
 	github.com/fluxcd/pkg/spiffe v0.1.0
-	github.com/fluxcd/pkg/ssa v0.80.0
+	github.com/fluxcd/pkg/ssa v0.82.0
 	github.com/fluxcd/pkg/tar v1.3.0
 	github.com/fluxcd/pkg/testserver v0.15.0
 	github.com/fluxcd/source-controller/api v1.9.5

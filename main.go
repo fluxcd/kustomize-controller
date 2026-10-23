@@ -108,6 +108,7 @@ func main() {
 		sopsVaultConfigMap              string
 		featureGates                    feathelper.FeatureGates
 		disallowedFieldManagers         []string
+		overrideManagersBeforeDryRun    []string
 		tokenCacheOptions               pkgcache.TokenFlags
 		customApplyStageKinds           string
 		authorizedArtifactServers       []string
@@ -131,6 +132,8 @@ func main() {
 	flag.StringVar(&sopsAgeSecret, "sops-age-secret", "", "The name of a Kubernetes secret in the RUNTIME_NAMESPACE containing a SOPS age decryption key for fallback usage.")
 	flag.StringVar(&sopsVaultConfigMap, "sops-vault-configmap", "", "The name of a ConfigMap in the RUNTIME_NAMESPACE configuring the OpenBao/Vault instances (address and login path) trusted for SOPS decryption. It acts as an allowlist of trusted Vault servers. When empty, SOPS decryption via Vault ServiceAccount-token authentication is disabled.")
 	flag.StringArrayVar(&disallowedFieldManagers, "override-manager", []string{}, "Field manager disallowed to perform changes on managed resources.")
+	flag.StringArrayVar(&overrideManagersBeforeDryRun, "override-manager-before-dry-run", []string{},
+		"Field manager taken over before the server-side apply dry-run. Use only to recover objects that fail the dry-run due to stale managers.")
 	flag.StringVar(&customApplyStageKinds, "custom-apply-stage-kinds", "", "A comma-separated list of GroupKind (e.g., 'rbac.authorization.k8s.io/Role,some.group.io/SomeResource') "+
 		"resources to be applied in a custom stage during server-side apply running after CRDs and before all namespaced resources not in this list.")
 	flag.StringArrayVar(&authorizedArtifactServers, fluxspiffe.ControllerFlagAuthorizedArtifactServerSPIFFEID, nil,
@@ -420,6 +423,7 @@ func main() {
 		DisableCommitStatusEvent:        disableCommitStatusEvent,
 		DirectSourceFetch:               directSourceFetch,
 		DisallowedFieldManagers:         disallowedFieldManagers,
+		OverrideManagersBeforeDryRun:    overrideManagersBeforeDryRun,
 		EventRecorder:                   eventRecorder,
 		FailFast:                        failFast,
 		GroupChangeLog:                  groupChangeLog,

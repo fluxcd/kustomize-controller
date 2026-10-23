@@ -54,12 +54,13 @@ import (
 )
 
 const (
-	timeout                = time.Second * 30
-	interval               = time.Second * 1
-	reconciliationInterval = time.Second * 5
-	openbaoVersion         = "2.5.4"
-	overrideManagerName    = "node-fetch"
-	sopsAgeSecret          = "sops-age-secret"
+	timeout                         = time.Second * 30
+	interval                        = time.Second * 1
+	reconciliationInterval          = time.Second * 5
+	openbaoVersion                  = "2.5.4"
+	overrideManagerName             = "node-fetch"
+	overrideManagerBeforeDryRunName = "legacy-controller"
+	sopsAgeSecret                   = "sops-age-secret"
 )
 
 var (
@@ -175,17 +176,18 @@ func TestMain(m *testing.M) {
 		kstatusInProgressCheck = kcheck.NewInProgressChecker(testEnv.Client)
 		kstatusInProgressCheck.DisableFetch = true
 		reconciler = &KustomizationReconciler{
-			ControllerName:            controllerName,
-			StatusManager:             fmt.Sprintf("gotk-%s", controllerName),
-			Client:                    testEnv,
-			Mapper:                    testEnv.GetRESTMapper(),
-			APIReader:                 testEnv,
-			EventRecorder:             createMockEventRecorder(testEnv, controllerName),
-			Metrics:                   testMetricsH,
-			DependencyRequeueInterval: 2 * time.Second,
-			ConcurrentSSA:             4,
-			DisallowedFieldManagers:   []string{overrideManagerName},
-			SOPSAgeSecret:             sopsAgeSecret,
+			ControllerName:               controllerName,
+			StatusManager:                fmt.Sprintf("gotk-%s", controllerName),
+			Client:                       testEnv,
+			Mapper:                       testEnv.GetRESTMapper(),
+			APIReader:                    testEnv,
+			EventRecorder:                createMockEventRecorder(testEnv, controllerName),
+			Metrics:                      testMetricsH,
+			DependencyRequeueInterval:    2 * time.Second,
+			ConcurrentSSA:                4,
+			DisallowedFieldManagers:      []string{overrideManagerName},
+			OverrideManagersBeforeDryRun: []string{overrideManagerBeforeDryRunName},
+			SOPSAgeSecret:                sopsAgeSecret,
 		}
 		if err := (reconciler).SetupWithManager(ctx, testEnv, KustomizationReconcilerOptions{
 			WatchConfigsPredicate:      predicate.Not(predicate.Funcs{}),

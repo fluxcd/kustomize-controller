@@ -109,12 +109,14 @@ type KustomizationReconciler struct {
 	DefaultDecryptionServiceAccount string
 	DefaultKubeConfigServiceAccount string
 	DisallowedFieldManagers         []string
-	NoCrossNamespaceRefs            bool
-	NoRemoteBases                   bool
-	SOPSAgeSecret                   string
-	SOPSVaultConfigMap              string
-	TokenCache                      *cache.TokenCache
-	SPIFFEBroker                    fluxbroker.Interface
+	// OverrideManagersBeforeDryRun lists field managers taken over before the dry-run.
+	OverrideManagersBeforeDryRun []string
+	NoCrossNamespaceRefs         bool
+	NoRemoteBases                bool
+	SOPSAgeSecret                string
+	SOPSVaultConfigMap           string
+	TokenCache                   *cache.TokenCache
+	SPIFFEBroker                 fluxbroker.Interface
 
 	// Retry and requeue options
 
@@ -981,6 +983,22 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 		})
 	}
 
+	// Taken over before the dry-run, so the default managers are not included.
+	// Exact match because a wrong match changes ownership before validation.
+	var fieldManagersBeforeDryRun []ssa.FieldManager
+	for _, fieldManager := range r.OverrideManagersBeforeDryRun {
+		fieldManagersBeforeDryRun = append(fieldManagersBeforeDryRun, ssa.FieldManager{
+			Name:          fieldManager,
+			OperationType: metav1.ManagedFieldsOperationApply,
+			ExactMatch:    true,
+		})
+		fieldManagersBeforeDryRun = append(fieldManagersBeforeDryRun, ssa.FieldManager{
+			Name:          fieldManager,
+			OperationType: metav1.ManagedFieldsOperationUpdate,
+			ExactMatch:    true,
+		})
+	}
+
 	applyOpts.Cleanup = ssa.ApplyCleanupOptions{
 		Annotations: []string{
 			// remove the kubectl annotation
@@ -993,7 +1011,8 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 			// remove deprecated fluxcd.io labels
 			"fluxcd.io/sync-gc-mark",
 		},
-		FieldManagers: fieldManagers,
+		FieldManagers:             fieldManagers,
+		FieldManagersBeforeDryRun: fieldManagersBeforeDryRun,
 		Exclusions: map[string]string{
 			fmt.Sprintf("%s/ssa", kustomizev1.GroupVersion.Group): kustomizev1.MergeValue,
 		},

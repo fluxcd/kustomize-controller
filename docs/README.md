@@ -31,6 +31,7 @@
 | `--no-cross-namespace-refs`            | boolean       | When set to true, references between custom resources are allowed only if the reference and the referee are in the same namespace.                                                                                                                  |
 | `--no-remote-bases`                    | boolean       | Disallow remote bases usage in Kustomize overlays. When this flag is enabled, all resources must refer to local files included in the source artifact.                                                                                              |
 | `--override-manager`                   | stringArray   | Field manager disallowed to perform changes on managed resources.                                                                                                                                                                                   |
+| `--override-manager-before-dry-run`    | stringArray   | Field manager taken over before the server-side apply dry-run. Use only to recover objects that fail the dry-run due to stale managers, see [below](#override-managers-before-dry-run). |
 | `--requeue-dependency`                 | duration      | The interval at which failing dependencies are reevaluated. (default 30s)                                                                                                                                                                           |
 | `--sops-age-secret`                    | string        | The name of a Kubernetes secret in the RUNTIME_NAMESPACE containing a SOPS age decryption key for fallback usage.                                                                                                                                   |
 | `--sops-vault-configmap`               | string        | The name of a Kubernetes ConfigMap in the RUNTIME_NAMESPACE containing an OpenBao/Vault configuration with instances and login paths for SOPS decryption.                                                                                           |
@@ -87,6 +88,23 @@ Broker endpoint is a TCP gRPC target, e.g.
 
 Each `--spiffe-broker-id` value is interpreted like the SPIFFE IDs used by the
 mTLS flags. Invalid values cause kustomize-controller to fail at startup.
+
+### Override managers before dry-run
+
+`--override-manager` takes over the named field managers only after a
+successful server-side apply dry-run. If a stale manager co-owns a field in a
+way that makes the merged object invalid (e.g. `containers[1].image: Required
+value`), the dry-run fails on every reconcile and the takeover never runs.
+
+`--override-manager-before-dry-run` takes over the named managers before the
+dry-run. Use it only to recover stuck objects and remove it once they have
+reconciled, because:
+
+- All fields owned by the listed managers are transferred to
+  kustomize-controller, and fields missing from the source are pruned.
+- The managedFields change is not reverted if the apply fails.
+
+Manager names are matched exactly, not by prefix.
 
 ### Feature Gates
 
