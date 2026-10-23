@@ -1177,6 +1177,11 @@ or [OpenPGP](https://www.openpgp.org) keys, or with keys from Key Management Ser
 An easy way to do this is limiting the encrypted keys with the flag
 `--encrypted-regex '^(data|stringData)$'` in your `sops encrypt` command.
 
+Resources encrypted with `--encrypted-comment-regex` or `--unencrypted-comment-regex`
+are supported. Since comments are dropped by the Kustomize build, the controller
+decrypts the values that are in the SOPS encrypted format (`ENC[AES256_GCM,...]`)
+and leaves the other values as is.
+
 The `.spec.decryption` field has the following subfields:
 
 - `.provider`: The secrets decryption provider to be used. This field is required and

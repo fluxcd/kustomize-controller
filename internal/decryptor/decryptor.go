@@ -550,6 +550,23 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 	}
 
 	cipher := aes.NewCipher()
+
+	// Comments are lost when the data is JSON (e.g. a resource after the
+	// kustomize build), so SOPS can't tell which values were encrypted based
+	// on the comment regexes. Decrypt the values that carry the SOPS envelope.
+	if inputFormat == formats.Json &&
+		(tree.Metadata.EncryptedCommentRegex != "" || tree.Metadata.UnencryptedCommentRegex != "") {
+		if d.checkSopsMac {
+			return nil, fmt.Errorf("failed to verify sops data integrity: not supported for data encrypted with comment regexes")
+		}
+		for _, branch := range tree.Branches {
+			if err := decryptEnvelopedValues(branch, nil, metadataKey, cipher); err != nil {
+				return nil, sopsUserErr("error decrypting sops tree", err)
+			}
+		}
+		return emitPlainFile(tree.Branches, inputFormat, outputFormat)
+	}
+
 	mac, err := safeDecrypt(tree.Decrypt(metadataKey, cipher))
 	if err != nil {
 		return nil, sopsUserErr("error decrypting sops tree", err)
@@ -577,13 +594,68 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 		}
 	}
 
+	return emitPlainFile(tree.Branches, inputFormat, outputFormat)
+}
+
+// emitPlainFile emits the decrypted tree branches in the output format.
+func emitPlainFile(branches sops.TreeBranches, inputFormat, outputFormat formats.Format) ([]byte, error) {
 	outputStore := common.StoreForFormat(outputFormat, config.NewStoresConfig())
-	out, err := outputStore.EmitPlainFile(tree.Branches)
+	out, err := outputStore.EmitPlainFile(branches)
 	if err != nil {
 		return nil, sopsUserErr(fmt.Sprintf("failed to emit encrypted %s file as decrypted %s",
 			sopsFormatToString[inputFormat], sopsFormatToString[outputFormat]), err)
 	}
-	return out, err
+	return out, nil
+}
+
+// sopsEnvelopePrefix is the prefix of values encrypted by SOPS.
+const sopsEnvelopePrefix = "ENC[AES256_GCM,"
+
+// decryptEnvelopedValues walks the tree branch and decrypts in place the
+// string values in the SOPS envelope format, leaving the other values as is.
+// The key path is used as additional data, mirroring sops.Tree.Decrypt.
+func decryptEnvelopedValues(branch sops.TreeBranch, path []string, key []byte, cipher sops.Cipher) error {
+	for i, item := range branch {
+		k, ok := item.Key.(string)
+		if !ok {
+			continue
+		}
+		v, err := decryptEnvelopedValue(item.Value, append(slices.Clone(path), k), key, cipher)
+		if err != nil {
+			return err
+		}
+		branch[i].Value = v
+	}
+	return nil
+}
+
+// decryptEnvelopedValue decrypts the value if it is in the SOPS envelope
+// format, or walks it if it is a branch or a slice.
+func decryptEnvelopedValue(in any, path []string, key []byte, cipher sops.Cipher) (any, error) {
+	switch v := in.(type) {
+	case string:
+		if !strings.HasPrefix(v, sopsEnvelopePrefix) {
+			return v, nil
+		}
+		out, err := safeDecrypt(cipher.Decrypt(v, key, strings.Join(path, ":")+":"))
+		if err != nil {
+			return nil, fmt.Errorf("could not decrypt value at '%s': %w", strings.Join(path, "."), err)
+		}
+		return out, nil
+	case sops.TreeBranch:
+		return v, decryptEnvelopedValues(v, path, key, cipher)
+	case []any:
+		for i := range v {
+			out, err := decryptEnvelopedValue(v[i], path, key, cipher)
+			if err != nil {
+				return nil, err
+			}
+			v[i] = out
+		}
+		return v, nil
+	default:
+		return v, nil
+	}
 }
 
 // DecryptResource attempts to decrypt the provided resource with the
@@ -607,7 +679,9 @@ func (d *Decryptor) DecryptResource(res *resource.Resource) (*resource.Resource,
 			// As we are expecting to decrypt right before applying, we do not
 			// care about keeping any other data (e.g. comments) around.
 			// We can therefore simply work with JSON, which saves us from e.g.
-			// JSON -> YAML -> JSON transformations.
+			// JSON -> YAML -> JSON transformations. Comments are dropped by
+			// the kustomize build anyway, values encrypted with comment
+			// regexes are handled by SopsDecryptWithFormat.
 			out, err := res.MarshalJSON()
 			if err != nil {
 				return nil, err
@@ -1099,13 +1173,22 @@ func safeDecrypt[T any](mac T, err error) (T, error) {
 		return mac, nil
 	}
 
-	var buf strings.Builder
-
+	var zero T
 	e := err.Error()
+
+	// SOPS converts the decrypted value to the data type found in the
+	// encrypted value, which is not authenticated. The conversion errors
+	// of strconv and time contain the decrypted value.
+	for _, marker := range []string{"strconv.", "parsing time "} {
+		if i := strings.Index(e, marker); i != -1 {
+			return zero, errors.New(e[:i] + "failed to convert the decrypted value to its data type: <redacted>")
+		}
+	}
+
+	var buf strings.Builder
 	prefIdx := strings.Index(e, prefix)
 	suffIdx := strings.Index(e, suffix)
 
-	var zero T
 	if prefIdx == -1 || suffIdx == -1 {
 		return zero, err
 	}
