@@ -42,7 +42,7 @@ jobs:
       contents: read # for reading the repository code.
     steps:
       - name: Test suite setup
-        uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.16.0
+        uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.17.0
         with:
           go-version: 1.27.x
       - name: Build container image
@@ -133,7 +133,7 @@ jobs:
       contents: read # for reading the repository code.
     steps:
       - name: Test suite setup
-        uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.16.0
+        uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.17.0
         with:
           go-version: 1.27.x
       - name: Setup SOPS
@@ -158,7 +158,7 @@ jobs:
       - name: Test suite setup
         # The custom kind config sets the ServiceAccount issuer URL used by the
         # remote cluster's OIDC authenticator.
-        uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.16.0
+        uses: fluxcd/gha-workflows/.github/actions/setup-kubernetes@v0.17.0
         with:
           go-version: 1.27.x
           kind-config: hack/ci/kubeconfig-primary-kind.yaml
