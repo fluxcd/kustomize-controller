@@ -2,6 +2,93 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.10.0
+
+**Release date:** 2026-10-24
+
+This minor release graduates object-level workload identity, now renamed to
+object identity, introduces SPIFFE mTLS between the controllers, and adds SOPS
+decryption support for files encrypted with comment regexes.
+
+### Object Identity
+
+Object-level workload identity is now generally available and renamed to object
+identity. Workload identity refers exclusively to identities assigned to Flux
+controllers, while object identity refers to identities assigned to Flux
+objects. The `ObjectLevelWorkloadIdentity` feature gate is retired and the
+feature is always enabled.
+
+Two credential providers can now supply the credential: `kubernetes`, which
+uses the Kubernetes TokenRequest API and was already available, and `spiffe`,
+which fetches a JWT-SVID from the SPIFFE Broker API. The provider is configured
+on the ServiceAccount with `credential.auth.fluxcd.io/provider`, independently
+of the service provider in `.spec.provider`.
+
+See the [object identity documentation](https://fluxcd.io/flux/integrations/object-identity/)
+for the annotation reference.
+
+### Inter-Controller mTLS
+
+This release introduces SPIFFE mTLS for inter-controller communication. Flux
+controllers authenticate each other with X.509-SVIDs, and each traffic type is
+enabled independently by configuring the SPIFFE Workload API socket and the
+SPIFFE IDs that the controller authorizes. See the
+[inter-controller mTLS documentation](https://fluxcd.io/flux/installation/configuration/intercontroller-mtls/)
+for the controller flags and an example configuration.
+
+### Kustomization
+
+A new `--override-manager-before-dry-run` flag reclaims field ownership from
+the named managers before the server-side apply dry-run, so an object wedged
+by a stale or foreign manager that co-owns a required field can be reconciled
+without manually editing its `managedFields`.
+
+Remote cluster authentication with `.spec.kubeConfig.configMapRef` is now part
+of object identity: the ServiceAccount named in the referenced ConfigMap can use
+the `kubernetes` or `spiffe` credential provider through its annotations. The
+legacy `audiences` key must be replaced with `credential.auth.fluxcd.io/audiences`
+when using the annotations.
+
+#### SOPS
+
+Resources encrypted with SOPS `encrypted_comment_regex` or
+`unencrypted_comment_regex` are now decrypted correctly, even though the
+kustomize build drops the YAML comments that SOPS relies on.
+
+OpenBao/Vault authentication can be configured with the
+`transit-engine.auth.fluxcd.io/login-path` and
+`transit-engine.auth.fluxcd.io/role` annotations, replacing the
+`--sops-vault-configmap` flag, and can use either the `kubernetes` or `spiffe`
+credential provider.
+
+### General updates
+
+The controller is built with Kubernetes 1.37 and Go 1.27.
+
+Fixes:
+- Reject incomplete Azure Key Vault authentication configuration
+  [#1670](https://github.com/fluxcd/kustomize-controller/pull/1670)
+- Redact decrypted values from type conversion errors
+  [#1782](https://github.com/fluxcd/kustomize-controller/pull/1782)
+
+Improvements:
+- Add the `--override-manager-before-dry-run` flag
+  [#1747](https://github.com/fluxcd/kustomize-controller/pull/1747)
+- Decrypt resources encrypted with SOPS comment regexes
+  [#1782](https://github.com/fluxcd/kustomize-controller/pull/1782)
+- Add SPIFFE mTLS for the artifact fetcher and event recorder
+  [#1779](https://github.com/fluxcd/kustomize-controller/pull/1779)
+- Add the `spiffe` credential provider and SPIFFE Broker API
+  [#1781](https://github.com/fluxcd/kustomize-controller/pull/1781)
+- Retire the `ObjectLevelWorkloadIdentity` feature gate
+  [#1781](https://github.com/fluxcd/kustomize-controller/pull/1781)
+- Update to Kubernetes 1.37 and Go 1.27
+  [#1749](https://github.com/fluxcd/kustomize-controller/pull/1749)
+  [#1771](https://github.com/fluxcd/kustomize-controller/pull/1771)
+- Various dependency updates
+  [#1765](https://github.com/fluxcd/kustomize-controller/pull/1765)
+  [#1783](https://github.com/fluxcd/kustomize-controller/pull/1783)
+
 ## 1.9.6
 
 **Release date:** 2026-10-01
