@@ -35,7 +35,7 @@ require (
 	github.com/fluxcd/pkg/ssa v0.83.0
 	github.com/fluxcd/pkg/tar v1.4.0
 	github.com/fluxcd/pkg/testserver v0.15.0
-	github.com/fluxcd/source-controller/api v1.9.5
+	github.com/fluxcd/source-controller/api v1.10.0
 	github.com/getsops/sops/v3 v3.13.3
 	github.com/go-logr/logr v1.4.4
 	github.com/google/cel-go v0.31.0

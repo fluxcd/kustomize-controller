@@ -196,7 +196,7 @@ func TestKustomizationReconciler_DirectSourceFetch_OCIRepository(t *testing.T) {
 			},
 			Spec: sourcev1.OCIRepositorySpec{
 				URL:      "oci://ghcr.io/test/repo",
-				Interval: metav1.Duration{Duration: time.Minute},
+				Interval: &metav1.Duration{Duration: time.Minute},
 			},
 		}
 		g.Expect(k8sClient.Create(context.Background(), ociRepo)).To(Succeed())
