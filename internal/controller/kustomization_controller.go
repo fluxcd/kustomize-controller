@@ -275,9 +275,14 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Reconcile the latest revision.
 	reconcileErr := r.reconcile(ctx, obj, artifactSource, patcher, statusReader)
 
-	// Requeue at the specified retry interval if the artifact tarball is not found.
-	if errors.Is(reconcileErr, fetch.ErrFileNotFound) {
-		msg := fmt.Sprintf("Source is not ready, artifact not found, retrying in %s", r.DependencyRequeueInterval.String())
+	// Requeue at the dependency interval if the artifact tarball is not found or
+	// its digest doesn't match, as the source status may not be updated yet.
+	if errors.Is(reconcileErr, fetch.ErrFileNotFound) || errors.Is(reconcileErr, fetch.ErrDigestMismatch) {
+		cause := "artifact not found"
+		if errors.Is(reconcileErr, fetch.ErrDigestMismatch) {
+			cause = "artifact digest changed"
+		}
+		msg := fmt.Sprintf("Source is not ready, %s, retrying in %s", cause, r.DependencyRequeueInterval.String())
 		conditions.MarkFalse(obj, meta.ReadyCondition, meta.ArtifactFailedReason, "%s", msg)
 		log.Info(msg)
 		return ctrl.Result{RequeueAfter: r.DependencyRequeueInterval}, nil
