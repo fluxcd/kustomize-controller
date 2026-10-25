@@ -19,6 +19,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +29,7 @@ import (
 	"github.com/fluxcd/pkg/testserver"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	. "github.com/onsi/gomega"
+	"github.com/opencontainers/go-digest"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -119,6 +122,7 @@ stringData:
 	}
 	g.Expect(k8sClient.Get(context.Background(), repositoryName, repo)).Should(Succeed())
 	repoURL := repo.Status.Artifact.URL
+	repoDigest := repo.Status.Artifact.Digest
 
 	t.Run("downloads artifact", func(t *testing.T) {
 		g.Eventually(func() bool {
@@ -145,6 +149,42 @@ stringData:
 		repo.Status.Artifact.URL = repoURL
 		repo.ManagedFields = nil
 		g.Expect(k8sClient.Status().Update(context.Background(), repo)).To(Succeed())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			return apimeta.IsStatusConditionTrue(resultK.Status.Conditions, meta.ReadyCondition)
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
+	// Advertise the digest of a rebuilt artifact while the old one is still served.
+	rebuilt, err := testServer.ArtifactFromFiles(manifests(id, randStringRunes(5)))
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create artifact from files")
+	rebuiltData, err := os.ReadFile(filepath.Join(testServer.Root(), rebuilt))
+	g.Expect(err).NotTo(HaveOccurred())
+	rebuiltDigest := digest.SHA256.FromBytes(rebuiltData).String()
+	g.Expect(rebuiltDigest).NotTo(Equal(repoDigest))
+
+	t.Run("retries on digest mismatch errors", func(t *testing.T) {
+		g.Expect(k8sClient.Get(context.Background(), repositoryName, repo)).Should(Succeed())
+		repo.Status.Artifact.Digest = rebuiltDigest
+		repo.ManagedFields = nil
+		g.Expect(k8sClient.Status().Update(context.Background(), repo)).To(Succeed())
+
+		g.Eventually(func() bool {
+			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
+			ready := apimeta.FindStatusCondition(resultK.Status.Conditions, meta.ReadyCondition)
+			return ready != nil &&
+				ready.Status == metav1.ConditionFalse &&
+				ready.Reason == meta.ArtifactFailedReason &&
+				strings.Contains(ready.Message, "artifact digest changed, retrying in")
+		}, timeout, time.Second).Should(BeTrue())
+	})
+
+	t.Run("recovers after digest mismatch errors", func(t *testing.T) {
+		// Serve the rebuilt artifact at the old URL without changing the source,
+		// the Kustomization must recover on requeue.
+		artifactName := strings.TrimPrefix(repoURL, testServer.URL()+"/")
+		g.Expect(os.WriteFile(filepath.Join(testServer.Root(), artifactName), rebuiltData, 0o644)).To(Succeed())
 
 		g.Eventually(func() bool {
 			_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kustomization), resultK)
