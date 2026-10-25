@@ -219,8 +219,8 @@ github.com/fluxcd/pkg/cache v0.19.0 h1:gcpASwfXLkaHTq8dv9AkXD+IvD54IfskRwGv3SDwC
 github.com/fluxcd/pkg/cache v0.19.0/go.mod h1:HYfYegfUsGBIttmTDZDFa0xmbeba4wPyND1YKitXm0w=
 github.com/fluxcd/pkg/envsubst v1.9.0 h1:QTagwV4WLmqF+JsD1rGkcKFmmj4HV64BnqNM1T311kc=
 github.com/fluxcd/pkg/envsubst v1.9.0/go.mod h1:9VgSWepmQj/H3icObqh65DNodrUz8P88QnM3EaSE5mA=
-github.com/fluxcd/pkg/http/fetch v0.30.0 h1:U7MtGmQ2HPXgM3fK5ZIoSPyV31LnuW95fo7m9OnkoNM=
-github.com/fluxcd/pkg/http/fetch v0.30.0/go.mod h1:lLSi5hGRK5cUBGKwG3novWYOZKen2NrvgPhYcOTIjAk=
+github.com/fluxcd/pkg/http/fetch v0.31.0 h1:mMwRxL2BKVMTkrzI6DarP65ghg3zWarAoeUMOwQ+Hzw=
+github.com/fluxcd/pkg/http/fetch v0.31.0/go.mod h1:lLSi5hGRK5cUBGKwG3novWYOZKen2NrvgPhYcOTIjAk=
 github.com/fluxcd/pkg/kustomize v1.44.0 h1:S9ExtSX/wuuqQpvpzuRewM+PTeBVD6IHymnVQE1vFhg=
 github.com/fluxcd/pkg/kustomize v1.44.0/go.mod h1:aCvOkEPXgo/35EmlBf3XiA4KPLQAbgNZ/xH22+B5Ols=
 github.com/fluxcd/pkg/masktoken v0.10.0 h1:jY9tuBIS1T7z9F8nJc9ozT0QrI391Se9vMu0eMd/wvE=
