@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.10.1
+
+**Release date:** 2026-10-25
+
+This patch release changes how the controller reacts when a downloaded artifact
+does not match the digest advertised in the source status. Instead of leaving
+the Kustomization failed until the next retry interval, the controller now marks
+it as not ready with `ArtifactFailed` and requeues after `--requeue-dependency`
+(default 30s), matching the behavior it already had for a missing artifact.
+
+Fixes:
+- Requeue on artifact digest mismatch
+  [#1793](https://github.com/fluxcd/kustomize-controller/pull/1793)
+- Update fluxcd/pkg dependencies
+  [#1790](https://github.com/fluxcd/kustomize-controller/pull/1790)
+
 ## 1.10.0
 
 **Release date:** 2026-10-24
