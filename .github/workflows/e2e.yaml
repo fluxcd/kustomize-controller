@@ -140,6 +140,10 @@ jobs:
         uses: fluxcd/pkg/actions/sops@main
       - name: Setup Flux CLI
         uses: fluxcd/flux2/action@main
+      - name: Setup Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
       - name: Build container image
         run: |
           make docker-build IMG=test/kustomize-controller:latest \
@@ -164,6 +168,10 @@ jobs:
           kind-config: hack/ci/kubeconfig-primary-kind.yaml
       - name: Setup Flux CLI
         uses: fluxcd/flux2/action@main
+      - name: Setup Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
       - name: Build container image
         run: |
           make docker-build IMG=test/kustomize-controller:latest \
