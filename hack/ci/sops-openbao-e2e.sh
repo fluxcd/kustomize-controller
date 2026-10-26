@@ -95,7 +95,7 @@ cleanup() {
 trap cleanup EXIT
 
 require() { command -v "$1" >/dev/null 2>&1 || fail "required tool '$1' not found in PATH"; }
-for bin in docker kind kubectl kustomize sops flux; do require "$bin"; done
+for bin in docker kind kubectl kustomize sops flux helm; do require "$bin"; done
 
 ##############################################################################
 log "Ensuring kind clusters exist"
@@ -462,8 +462,9 @@ spec:
               readOnly: true
       volumes:
         - name: spiffe-workload-api
-          hostPath:
-            path: /run/spire/agent-sockets
+          csi:
+            driver: csi.spiffe.io
+            readOnly: true
 EOF
 )" >/dev/null
   kubectl --context "${ctx}" -n "${NS}" rollout status deploy/kustomize-controller --timeout=2m
