@@ -89,8 +89,8 @@ overridden if its key matches a common one.</p>
 <td>
 <code>dependsOn</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1.DependencyReference">
-[]DependencyReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#DependencyReference">
+[]github.com/fluxcd/pkg/apis/meta.DependencyReference
 </a>
 </em>
 </td>
@@ -668,13 +668,6 @@ field.</p>
 </table>
 </div>
 </div>
-<h3 id="kustomize.toolkit.fluxcd.io/v1.DependencyReference">DependencyReference
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kustomize.toolkit.fluxcd.io/v1.KustomizationSpec">KustomizationSpec</a>)
-</p>
-<p>DependencyReference defines a Kustomization dependency on another Kustomization resource.</p>
 <h3 id="kustomize.toolkit.fluxcd.io/v1.IgnoreRule">IgnoreRule
 </h3>
 <p>
@@ -764,8 +757,8 @@ overridden if its key matches a common one.</p>
 <td>
 <code>dependsOn</code><br>
 <em>
-<a href="#kustomize.toolkit.fluxcd.io/v1.DependencyReference">
-[]DependencyReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#DependencyReference">
+[]github.com/fluxcd/pkg/apis/meta.DependencyReference
 </a>
 </em>
 </td>

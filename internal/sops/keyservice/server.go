@@ -17,6 +17,7 @@ limitations under the License.
 package keyservice
 
 import (
+	context0 "context"
 	"fmt"
 
 	"github.com/getsops/sops/v3/age"
@@ -27,7 +28,6 @@ import (
 	awskms "github.com/getsops/sops/v3/kms"
 	"github.com/getsops/sops/v3/logging"
 	"github.com/getsops/sops/v3/pgp"
-	"golang.org/x/net/context"
 )
 
 // Server is a key service server that uses SOPS MasterKeys to fulfill
@@ -61,7 +61,7 @@ type Server struct {
 	// decrypted (similar to how the AWS region is derived from the KMS ARN).
 	// When nil, and vaultToken is also empty, the request is handled by
 	// defaultServer.
-	vaultK8sAuth func(ctx context.Context, vaultAddress string) (string, error)
+	vaultK8sAuth func(ctx context0.Context, vaultAddress string) (string, error)
 
 	// azureTokenCredential is the credential token used for Encrypt and Decrypt
 	// operations of Azure Key Vault requests.
@@ -107,7 +107,7 @@ func NewServer(options ...ServerOption) keyservice.KeyServiceServer {
 
 // Encrypt takes an encrypt request and encrypts the provided plaintext with
 // the provided key, returning the encrypted result.
-func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*keyservice.EncryptResponse, error) {
+func (ks Server) Encrypt(ctx context0.Context, req *keyservice.EncryptRequest) (*keyservice.EncryptResponse, error) {
 	key := req.Key
 	switch k := key.KeyType.(type) {
 	case *keyservice.Key_PgpKey:
@@ -169,7 +169,7 @@ func (ks Server) Encrypt(ctx context.Context, req *keyservice.EncryptRequest) (*
 
 // Decrypt takes a decrypt request and decrypts the provided ciphertext with
 // the provided key, returning the decrypted result.
-func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*keyservice.DecryptResponse, error) {
+func (ks Server) Decrypt(ctx context0.Context, req *keyservice.DecryptRequest) (*keyservice.DecryptResponse, error) {
 	key := req.Key
 	switch k := key.KeyType.(type) {
 	case *keyservice.Key_PgpKey:
@@ -277,7 +277,7 @@ func (ks *Server) decryptWithAge(key *keyservice.AgeKey, ciphertext []byte) ([]b
 	return plaintext, err
 }
 
-func (ks *Server) encryptWithHCVault(ctx context.Context, key *keyservice.VaultKey, plaintext []byte) ([]byte, error) {
+func (ks *Server) encryptWithHCVault(ctx context0.Context, key *keyservice.VaultKey, plaintext []byte) ([]byte, error) {
 	vaultKey := hcvault.MasterKey{
 		VaultAddress: key.VaultAddress,
 		EnginePath:   key.EnginePath,
@@ -294,13 +294,13 @@ func (ks *Server) encryptWithHCVault(ctx context.Context, key *keyservice.VaultK
 	return []byte(vaultKey.EncryptedKey), nil
 }
 
-func (ks *Server) decryptWithHCVault(ctx context.Context, key *keyservice.VaultKey, ciphertext []byte) ([]byte, error) {
+func (ks *Server) decryptWithHCVault(ctx context0.Context, key *keyservice.VaultKey, ciphertext []byte) ([]byte, error) {
 	vaultKey := hcvault.MasterKey{
 		VaultAddress: key.VaultAddress,
 		EnginePath:   key.EnginePath,
 		KeyName:      key.KeyName,
-	}
-	vaultKey.EncryptedKey = string(ciphertext)
+
+		EncryptedKey: string(ciphertext)}
 	token, err := ks.resolveVaultToken(ctx, key.VaultAddress)
 	if err != nil {
 		return nil, err
@@ -313,7 +313,7 @@ func (ks *Server) decryptWithHCVault(ctx context.Context, key *keyservice.VaultK
 // resolveVaultToken returns the OpenBao/Vault token to use for the
 // Vault server at the given address. A statically configured token takes
 // precedence; otherwise the token is obtained via the Kubernetes auth method.
-func (ks *Server) resolveVaultToken(ctx context.Context, vaultAddress string) (hcvault.Token, error) {
+func (ks *Server) resolveVaultToken(ctx context0.Context, vaultAddress string) (hcvault.Token, error) {
 	if ks.vaultToken != "" {
 		return ks.vaultToken, nil
 	}

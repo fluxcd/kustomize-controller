@@ -78,10 +78,8 @@ data:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
@@ -127,10 +125,8 @@ data:
 		// Modify the ignored field out-of-band.
 		patch := client.RawPatch(types.MergePatchType, []byte(`{"data":{"ignored-key":"modified-externally"}}`))
 		configMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      id,
-				Namespace: id,
-			},
+			Name:      id,
+			Namespace: id,
 		}
 		err = k8sClient.Patch(context.Background(), configMap, patch)
 		g.Expect(err).NotTo(HaveOccurred())
@@ -165,10 +161,8 @@ data:
 		// Modify the managed field out-of-band.
 		patch := client.RawPatch(types.MergePatchType, []byte(`{"data":{"managed-key":"tampered"}}`))
 		configMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      id,
-				Namespace: id,
-			},
+			Name:      id,
+			Namespace: id,
 		}
 		err = k8sClient.Patch(context.Background(), configMap, patch)
 		g.Expect(err).NotTo(HaveOccurred())

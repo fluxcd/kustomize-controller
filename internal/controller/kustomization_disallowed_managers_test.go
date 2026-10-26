@@ -78,10 +78,8 @@ data:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
@@ -129,10 +127,8 @@ data:
 
 	t.Run("update configmap with new data", func(t *testing.T) {
 		configMap := corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      id,
-				Namespace: id,
-			},
+			Name:      id,
+			Namespace: id,
 		}
 		err = k8sClient.Patch(context.Background(), &configMap, client.RawPatch(types.MergePatchType, []byte(`{"data":{"bad-key":"overridden field manager"}}`)), &client.PatchOptions{FieldManager: overrideManagerName})
 		g.Expect(err).NotTo(HaveOccurred())
