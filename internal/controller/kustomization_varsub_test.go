@@ -92,11 +92,9 @@ stringData:
 		Namespace: id,
 	}
 	config := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      configName.Name,
-			Namespace: configName.Namespace,
-		},
-		Data: map[string]string{"zone": "\naz-1a\n"},
+		Name:      configName.Name,
+		Namespace: configName.Namespace,
+		Data:      map[string]string{"zone": "\naz-1a\n"},
 	}
 	g.Expect(k8sClient.Create(context.Background(), config)).Should(Succeed())
 
@@ -105,19 +103,15 @@ stringData:
 		Namespace: id,
 	}
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName.Name,
-			Namespace: secretName.Namespace,
-		},
+		Name:       secretName.Name,
+		Namespace:  secretName.Namespace,
 		StringData: map[string]string{"zone": "\naz-1b\n"},
 	}
 	g.Expect(k8sClient.Create(context.Background(), secret)).Should(Succeed())
 
 	inputK := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      id,
-			Namespace: id,
-		},
+		Name:      id,
+		Namespace: id,
 		Spec: kustomizev1.KustomizationSpec{
 			KubeConfig: &meta.KubeConfigReference{
 				SecretRef: &meta.SecretKeyReference{
@@ -241,11 +235,9 @@ metadata:
 		Namespace: id,
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      configName.Name,
-			Namespace: configName.Namespace,
-		},
-		Data: map[string]string{"color": "\nred\n"},
+		Name:      configName.Name,
+		Namespace: configName.Namespace,
+		Data:      map[string]string{"color": "\nred\n"},
 	}
 	g.Expect(k8sClient.Create(ctx, configMap)).Should(Succeed())
 
@@ -254,19 +246,15 @@ metadata:
 		Namespace: id,
 	}
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName.Name,
-			Namespace: secretName.Namespace,
-		},
+		Name:       secretName.Name,
+		Namespace:  secretName.Namespace,
 		StringData: map[string]string{"shape": "\ntriangle\n"},
 	}
 	g.Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 
 	inputK := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      id,
-			Namespace: id,
-		},
+		Name:      id,
+		Namespace: id,
 		Spec: kustomizev1.KustomizationSpec{
 			KubeConfig: &meta.KubeConfigReference{
 				SecretRef: &meta.SecretKeyReference{
@@ -401,10 +389,8 @@ metadata:
 
 		name := id + "-with-variables"
 		inputK := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: id,
-			},
+			Name:      name,
+			Namespace: id,
 			Spec: kustomizev1.KustomizationSpec{
 				KubeConfig: &meta.KubeConfigReference{
 					SecretRef: &meta.SecretKeyReference{
@@ -446,10 +432,8 @@ metadata:
 
 		name := id + "-always"
 		inputK := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: id,
-			},
+			Name:      name,
+			Namespace: id,
 			Spec: kustomizev1.KustomizationSpec{
 				KubeConfig: &meta.KubeConfigReference{
 					SecretRef: &meta.SecretKeyReference{
@@ -567,10 +551,8 @@ data:
 	g.Expect(err).NotTo(HaveOccurred())
 
 	inputK := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      id,
-			Namespace: id,
-		},
+		Name:      id,
+		Namespace: id,
 		Spec: kustomizev1.KustomizationSpec{
 			KubeConfig: &meta.KubeConfigReference{
 				SecretRef: &meta.SecretKeyReference{
@@ -673,10 +655,8 @@ metadata:
 	g.Expect(err).NotTo(HaveOccurred())
 
 	inputK := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      id,
-			Namespace: id,
-		},
+		Name:      id,
+		Namespace: id,
 		Spec: kustomizev1.KustomizationSpec{
 			KubeConfig: &meta.KubeConfigReference{
 				SecretRef: &meta.SecretKeyReference{
