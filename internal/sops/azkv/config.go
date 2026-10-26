@@ -83,9 +83,7 @@ func TokenCredentialFromAADConfig(c AADConfig) (token azcore.TokenCredential, er
 	if c.TenantID != "" && c.ClientID != "" {
 		if c.ClientSecret != "" {
 			return azidentity.NewClientSecretCredential(c.TenantID, c.ClientID, c.ClientSecret, &azidentity.ClientSecretCredentialOptions{
-				ClientOptions: azcore.ClientOptions{
-					Cloud: c.GetCloudConfig(),
-				},
+				Cloud: c.GetCloudConfig(),
 			})
 		}
 		if c.ClientCertificate != "" {
@@ -95,9 +93,7 @@ func TokenCredentialFromAADConfig(c AADConfig) (token azcore.TokenCredential, er
 			}
 			return azidentity.NewClientCertificateCredential(c.TenantID, c.ClientID, certs, pk, &azidentity.ClientCertificateCredentialOptions{
 				SendCertificateChain: c.ClientCertificateSendChain,
-				ClientOptions: azcore.ClientOptions{
-					Cloud: c.GetCloudConfig(),
-				},
+				Cloud:                c.GetCloudConfig(),
 			})
 		}
 		return nil, fmt.Errorf("invalid data: requires 'clientSecret' or 'clientCertificate' when both 'tenantId' and 'clientId' are set")
@@ -106,9 +102,7 @@ func TokenCredentialFromAADConfig(c AADConfig) (token azcore.TokenCredential, er
 	switch {
 	case c.Tenant != "" && c.AppID != "" && c.Password != "":
 		return azidentity.NewClientSecretCredential(c.Tenant, c.AppID, c.Password, &azidentity.ClientSecretCredentialOptions{
-			ClientOptions: azcore.ClientOptions{
-				Cloud: c.GetCloudConfig(),
-			},
+			Cloud: c.GetCloudConfig(),
 		})
 	case c.ClientID != "":
 		return azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
