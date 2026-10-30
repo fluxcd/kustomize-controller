@@ -311,7 +311,7 @@ spec:
 ```
 
 It is recommended to generate the `kustomization.yaml` on your own and store it in Git, this way you can
-validate your manifests in CI (example script [here](https://github.com/fluxcd/flux2-multi-tenancy/blob/main/scripts/validate.sh)).
+validate your manifests in CI (example script [here](https://github.com/fluxcd/flux2-kustomize-helm-example/blob/main/scripts/validate.sh)).
 Assuming your manifests are inside `./clusters/my-cluster`, you can generate a `kustomization.yaml` with:
 
 ```sh
@@ -609,7 +609,7 @@ offering support for the following Kustomize directives:
 
 - [namespace](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/namespace/)
 - [patches](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patches/)
-- [patchesStrategicMerge](https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/)
+- [patchesStrategicMerge](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/)
 - [patchesJson6902](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/)
 - [images](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/images/)
 
@@ -924,7 +924,7 @@ kubectl create secret generic prod-kubeconfig \
 In order to store secrets safely in a public or private Git repository,
 you can use [Mozilla SOPS](https://github.com/mozilla/sops)
 and encrypt your Kubernetes Secrets data with [OpenPGP](https://www.openpgp.org)
-and [age](https://age-encryption.org/v1/) keys.
+and [age](https://age-encryption.org/v1) keys.
 
 ### OpenPGP
 
