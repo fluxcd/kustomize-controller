@@ -210,7 +210,7 @@ spec:
 ```
 
 It is recommended to generate the `kustomization.yaml` on your own and store it in Git, this way you can
-validate your manifests in CI (example script [here](https://github.com/fluxcd/flux2-multi-tenancy/blob/main/scripts/validate.sh)).
+validate your manifests in CI (example script [here](https://github.com/fluxcd/flux2-kustomize-helm-example/blob/main/scripts/validate.sh)).
 Assuming your manifests are inside `apps/my-app`, you can generate a `kustomization.yaml` with:
 
 ```sh
@@ -944,7 +944,7 @@ the controller will impersonate the service account on the target cluster.
 
 In order to store secrets safely in a public or private Git repository,
 you can use [Mozilla SOPS](https://github.com/mozilla/sops)
-and encrypt your Kubernetes Secrets data with [age](https://age-encryption.org/v1/)
+and encrypt your Kubernetes Secrets data with [age](https://age-encryption.org/v1)
 and [OpenPGP](https://www.openpgp.org) keys, or using provider
 implementations like Azure Key Vault, GCP KMS or Hashicorp Vault.
 
