@@ -314,6 +314,15 @@ type PostBuild struct {
 	// happen.
 	// +optional
 	SubstituteFrom []SubstituteReference `json:"substituteFrom,omitempty"`
+
+	// Patches is a list of strategic merge and JSON patches, defined as inline
+	// YAML objects, capable of targeting objects based on kind, label and
+	// annotation selectors. The patches are applied to the YAML manifests
+	// after the kustomize build and after the variable substitution, which
+	// makes them take precedence over the transformations declared in the
+	// kustomization.yaml files found in the source, such as replacements.
+	// +optional
+	Patches []kustomize.Patch `json:"patches,omitempty"`
 }
 
 // SubstituteReference contains a reference to a resource containing
