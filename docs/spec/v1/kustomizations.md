@@ -178,8 +178,8 @@ is to mirror the configuration of [`.spec.prune`](#prune).
 
 Valid values:
 
-- `MirrorPrune` (default) - The managed resources will be deleted if `prune` is
-  `true` and orphaned if `false`.
+- `MirrorPrune` (default) - Mirrors [`.spec.prune`](#prune): delete the managed
+  resources when `prune` is `true`; leave them in place when `prune` is `false`.
 - `Delete` - Ensure the managed resources are deleted before the Kustomization
    is deleted.
 - `WaitForTermination` - Ensure the managed resources are deleted and wait for
