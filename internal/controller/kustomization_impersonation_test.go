@@ -85,10 +85,8 @@ data:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: time.Minute},
 			Path:     "./",
@@ -139,22 +137,16 @@ data:
 
 	t.Run("reconciles impersonating service account", func(t *testing.T) {
 		sa := corev1.ServiceAccount{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ServiceAccount",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: id,
-			},
+			Kind:       "ServiceAccount",
+			APIVersion: "v1",
+			Name:       "test",
+			Namespace:  id,
 		}
 		g.Expect(k8sClient.Create(context.Background(), &sa)).To(Succeed())
 
 		crb := rbacv1.ClusterRoleBinding{
 			TypeMeta: metav1.TypeMeta{},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: id,
-			},
+			Name:     id,
 			Subjects: []rbacv1.Subject{
 				{
 					Kind:      "ServiceAccount",
@@ -253,10 +245,8 @@ data:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: time.Minute},
 			Path:     "./",
@@ -293,10 +283,8 @@ data:
 	})
 
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: id,
-		},
+		Name:      secretName,
+		Namespace: id,
 		Data: map[string][]byte{
 			secretKey: kubeConfig,
 		},

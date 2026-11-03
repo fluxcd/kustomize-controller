@@ -17,6 +17,7 @@ limitations under the License.
 package keyservice
 
 import (
+	context0 "context"
 	"fmt"
 	"os"
 	"testing"
@@ -33,7 +34,6 @@ import (
 	awskms "github.com/getsops/sops/v3/kms"
 	"github.com/getsops/sops/v3/pgp"
 	. "github.com/onsi/gomega"
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 )
 
@@ -56,7 +56,7 @@ func TestServer_EncryptDecrypt_PGP(t *testing.T) {
 	s := NewServer(WithGnuPGHome(gnuPGHome))
 	key := KeyFromMasterKey(pgp.NewMasterKeyFromFingerprint(mockFingerprint))
 	dataKey := []byte("some data key")
-	encResp, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
+	encResp, err := s.Encrypt(context0.TODO(), &keyservice.EncryptRequest{
 		Key:       &key,
 		Plaintext: dataKey,
 	})
@@ -65,7 +65,7 @@ func TestServer_EncryptDecrypt_PGP(t *testing.T) {
 	g.Expect(encResp.Ciphertext).ToNot(Equal(dataKey))
 
 	g.Expect(gnuPGHome.ImportFile(mockPrivateKey)).To(Succeed())
-	decResp, err := s.Decrypt(context.TODO(), &keyservice.DecryptRequest{
+	decResp, err := s.Decrypt(context0.TODO(), &keyservice.DecryptRequest{
 		Key:        &key,
 		Ciphertext: encResp.Ciphertext,
 	})
@@ -84,7 +84,7 @@ func TestServer_EncryptDecrypt_age(t *testing.T) {
 	s := NewServer()
 	key := KeyFromMasterKey(&age.MasterKey{Recipient: mockRecipient})
 	dataKey := []byte("some data key")
-	encResp, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
+	encResp, err := s.Encrypt(context0.TODO(), &keyservice.EncryptRequest{
 		Key:       &key,
 		Plaintext: dataKey,
 	})
@@ -96,7 +96,7 @@ func TestServer_EncryptDecrypt_age(t *testing.T) {
 	g.Expect(i.Import(mockIdentity)).To(Succeed())
 
 	s = NewServer(WithAgeIdentities(i))
-	decResp, err := s.Decrypt(context.TODO(), &keyservice.DecryptRequest{
+	decResp, err := s.Decrypt(context0.TODO(), &keyservice.DecryptRequest{
 		Key:        &key,
 		Ciphertext: encResp.Ciphertext,
 	})
@@ -109,13 +109,13 @@ func TestServer_EncryptDecrypt_HCVault(t *testing.T) {
 
 	s := NewServer(WithVaultToken("token"))
 	key := KeyFromMasterKey(hcvault.NewMasterKey("https://example.com", "engine-path", "key-name"))
-	_, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
+	_, err := s.Encrypt(context0.TODO(), &keyservice.EncryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("failed to encrypt sops data key to Vault transit backend"))
 
-	_, err = s.Decrypt(context.TODO(), &keyservice.DecryptRequest{
+	_, err = s.Decrypt(context0.TODO(), &keyservice.DecryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
@@ -133,7 +133,7 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 		Key:       &key,
 		Plaintext: []byte("some data key"),
 	}
-	_, err := s.Encrypt(context.TODO(), encReq)
+	_, err := s.Encrypt(context0.TODO(), encReq)
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(fallback.encryptReqs).To(HaveLen(1))
 	g.Expect(fallback.encryptReqs).To(ContainElement(encReq))
@@ -145,7 +145,7 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 		Key:        &key,
 		Ciphertext: []byte("some ciphertext"),
 	}
-	_, err = s.Decrypt(context.TODO(), decReq)
+	_, err = s.Decrypt(context0.TODO(), decReq)
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(fallback.decryptReqs).To(HaveLen(1))
 	g.Expect(fallback.decryptReqs).To(ContainElement(decReq))
@@ -159,13 +159,13 @@ func TestServer_EncryptDecrypt_awskms(t *testing.T) {
 	})
 
 	key := KeyFromMasterKey(awskms.NewMasterKeyFromArn("arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48", nil, ""))
-	_, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
+	_, err := s.Encrypt(context0.TODO(), &keyservice.EncryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("failed to encrypt sops data key with AWS KMS"))
 
-	_, err = s.Decrypt(context.TODO(), &keyservice.DecryptRequest{
+	_, err = s.Decrypt(context0.TODO(), &keyservice.DecryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
@@ -180,13 +180,13 @@ func TestServer_EncryptDecrypt_azkv(t *testing.T) {
 	s := NewServer(WithAzureTokenCredential{TokenCredential: identity})
 
 	key := KeyFromMasterKey(azkv.NewMasterKey("", "", ""))
-	_, err = s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
+	_, err = s.Encrypt(context0.TODO(), &keyservice.EncryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("failed to encrypt sops data key with Azure Key Vault"))
 
-	_, err = s.Decrypt(context.TODO(), &keyservice.DecryptRequest{
+	_, err = s.Decrypt(context0.TODO(), &keyservice.DecryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
@@ -197,20 +197,20 @@ func TestServer_EncryptDecrypt_azkv(t *testing.T) {
 func TestServer_EncryptDecrypt_gcpkms(t *testing.T) {
 	g := NewWithT(t)
 
-	creds, err := google.CredentialsFromJSON(context.Background(),
+	creds, err := google.CredentialsFromJSON(context0.Background(),
 		[]byte(`{"type":"service_account"}`), gcpkmsapi.DefaultAuthScopes()...)
 	g.Expect(err).ToNot(HaveOccurred())
 	s := NewServer(WithGCPTokenSource{TokenSource: creds.TokenSource})
 
 	resourceID := "projects/test-flux/locations/global/keyRings/test-flux/cryptoKeys/sops"
 	key := KeyFromMasterKey(gcpkms.NewMasterKeyFromResourceID(resourceID))
-	_, err = s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
+	_, err = s.Encrypt(context0.TODO(), &keyservice.EncryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("failed to encrypt sops data key with GCP KMS key"))
 
-	_, err = s.Decrypt(context.TODO(), &keyservice.DecryptRequest{
+	_, err = s.Decrypt(context0.TODO(), &keyservice.DecryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
@@ -225,9 +225,9 @@ func TestServer_EncryptDecrypt_Nil_KeyType(t *testing.T) {
 
 	expectErr := fmt.Errorf("must provide a key")
 
-	_, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{Key: &keyservice.Key{KeyType: nil}})
+	_, err := s.Encrypt(context0.TODO(), &keyservice.EncryptRequest{Key: &keyservice.Key{KeyType: nil}})
 	g.Expect(err).To(Equal(expectErr))
 
-	_, err = s.Decrypt(context.TODO(), &keyservice.DecryptRequest{Key: &keyservice.Key{KeyType: nil}})
+	_, err = s.Decrypt(context0.TODO(), &keyservice.DecryptRequest{Key: &keyservice.Key{KeyType: nil}})
 	g.Expect(err).To(Equal(expectErr))
 }

@@ -71,10 +71,8 @@ func TestKustomizationReconciler_SubstituteFromRedactedOnValidationError(t *test
 		Namespace: id,
 	}
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName.Name,
-			Namespace: secretName.Namespace,
-		},
+		Name:       secretName.Name,
+		Namespace:  secretName.Namespace,
 		StringData: map[string]string{secretKey: syntheticSecretValue},
 	}
 	g.Expect(k8sClient.Create(ctx, secret)).To(Succeed())
@@ -108,10 +106,8 @@ data:
 	g.Expect(applyGitRepository(repositoryName, artifact, revision)).To(Succeed())
 
 	inputK := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      id,
-			Namespace: id,
-		},
+		Name:      id,
+		Namespace: id,
 		Spec: kustomizev1.KustomizationSpec{
 			KubeConfig: &meta.KubeConfigReference{
 				SecretRef: &meta.SecretKeyReference{
