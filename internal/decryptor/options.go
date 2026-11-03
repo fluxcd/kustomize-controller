@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/fluxcd/pkg/cache"
-	fluxbroker "github.com/fluxcd/pkg/spiffe/broker"
+	fluxbroker "github.com/fluxcd/pkg/spiffe/brokerapi"
 )
 
 // Option is a functional option for configuring the Decryptor.

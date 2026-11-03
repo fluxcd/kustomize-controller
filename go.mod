@@ -21,17 +21,17 @@ require (
 	github.com/fluxcd/cli-utils v1.4.0
 	github.com/fluxcd/kustomize-controller/api v1.10.0
 	github.com/fluxcd/pkg/apis/acl v0.12.0
-	github.com/fluxcd/pkg/apis/crypto v0.5.0
+	github.com/fluxcd/pkg/apis/crypto v0.7.0
 	github.com/fluxcd/pkg/apis/event v0.32.0
 	github.com/fluxcd/pkg/apis/kustomize v1.23.0
 	github.com/fluxcd/pkg/apis/meta v1.38.0
-	github.com/fluxcd/pkg/auth v0.66.0
+	github.com/fluxcd/pkg/auth v0.69.0
 	github.com/fluxcd/pkg/cache v0.19.0
 	github.com/fluxcd/pkg/http/fetch v0.31.0
 	github.com/fluxcd/pkg/kustomize v1.44.0
 	github.com/fluxcd/pkg/masktoken v0.10.0
 	github.com/fluxcd/pkg/runtime v0.122.0
-	github.com/fluxcd/pkg/spiffe v0.2.0
+	github.com/fluxcd/pkg/spiffe v0.4.0
 	github.com/fluxcd/pkg/ssa v0.83.0
 	github.com/fluxcd/pkg/tar v1.4.0
 	github.com/fluxcd/pkg/testserver v0.15.0

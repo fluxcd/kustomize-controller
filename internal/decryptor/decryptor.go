@@ -42,7 +42,7 @@ import (
 	"github.com/fluxcd/pkg/auth/azure"
 	"github.com/fluxcd/pkg/auth/gcp"
 	"github.com/fluxcd/pkg/cache"
-	fluxbroker "github.com/fluxcd/pkg/spiffe/broker"
+	fluxbroker "github.com/fluxcd/pkg/spiffe/brokerapi"
 	"github.com/getsops/sops/v3"
 	"github.com/getsops/sops/v3/aes"
 	"github.com/getsops/sops/v3/age"
@@ -424,7 +424,7 @@ func (d *Decryptor) decryptionAuthOptions(sa *corev1.ServiceAccount, spec *crypt
 		opts = append(opts, auth.OptionsFromSpec(spec.Auth)...)
 	}
 	if d.spiffeBroker != nil {
-		opts = append(opts, auth.WithSPIFFEBroker(d.spiffeBroker))
+		opts = append(opts, auth.WithSPIFFEBrokerAPI(d.spiffeBroker))
 	}
 	return opts
 }

@@ -64,7 +64,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/jitter"
 	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/fluxcd/pkg/runtime/statusreaders"
-	fluxbroker "github.com/fluxcd/pkg/spiffe/broker"
+	fluxbroker "github.com/fluxcd/pkg/spiffe/brokerapi"
 	"github.com/fluxcd/pkg/ssa"
 	"github.com/fluxcd/pkg/ssa/jsondiff"
 	"github.com/fluxcd/pkg/ssa/normalize"
@@ -1478,7 +1478,7 @@ func (r *KustomizationReconciler) getProviderRESTConfigFetcher(obj *kustomizev1.
 		}
 		authOpts := []auth.Option{
 			auth.WithObject(kustomizev1.GroupVersion.Group, kustomizev1.KustomizationKind, obj),
-			auth.WithSPIFFEBroker(r.SPIFFEBroker),
+			auth.WithSPIFFEBrokerAPI(r.SPIFFEBroker),
 		}
 		if r.TokenCache != nil {
 			authOpts = append(authOpts,
