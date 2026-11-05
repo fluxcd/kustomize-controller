@@ -5,6 +5,10 @@ validating and applying Kustomize overlays or plain Kubernetes manifests.
 The `Kustomization` Custom Resource Definition is the
 counterpart of Kustomize' `kustomization.yaml` config file.
 
+**Note:** Do not confuse Kustomization with `apiVersion: source.toolkit.fluxcd.io/v1` (defined by Flux) from the
+one with `apiVersion: kustomize.config.k8s.io/v1beta1` (defined by Kustomize).
+See the related [faq entry](https://fluxcd.io/flux/faq/#are-there-two-kustomization-types).
+
 ## Example
 
 The following is an example of a Flux Kustomization that reconciles on the
