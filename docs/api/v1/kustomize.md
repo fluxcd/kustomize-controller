@@ -1342,6 +1342,25 @@ must match the vars declared in the manifests for the substitution to
 happen.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>patches</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/kustomize#Patch">
+[]github.com/fluxcd/pkg/apis/kustomize.Patch
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Patches is a list of strategic merge and JSON patches, defined as inline
+YAML objects, capable of targeting objects based on kind, label and
+annotation selectors. The patches are applied to the YAML manifests
+after the kustomize build and after the variable substitution, which
+makes them take precedence over the transformations declared in the
+kustomization.yaml files found in the source, such as replacements.</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>

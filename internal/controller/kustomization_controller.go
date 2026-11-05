@@ -42,12 +42,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/kustomize/api/builtins"
+	"sigs.k8s.io/kustomize/api/provider"
+	"sigs.k8s.io/kustomize/api/resmap"
+	kustypes "sigs.k8s.io/kustomize/api/types"
+	"sigs.k8s.io/yaml"
 
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling"
 	"github.com/fluxcd/cli-utils/pkg/kstatus/polling/engine"
 	"github.com/fluxcd/cli-utils/pkg/object"
 	apiacl "github.com/fluxcd/pkg/apis/acl"
 	eventv1 "github.com/fluxcd/pkg/apis/event/v1"
+	"github.com/fluxcd/pkg/apis/kustomize"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/auth"
 	authutils "github.com/fluxcd/pkg/auth/utils"
@@ -892,12 +898,79 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 		}
 	}
 
+	// apply post-build patches after substitutions
+	if obj.Spec.PostBuild != nil {
+		if err := applyPostBuildPatches(m, obj.Spec.PostBuild.Patches); err != nil {
+			return nil, fmt.Errorf("post build patches failed: %w", err)
+		}
+	}
+
 	resources, err := m.AsYaml()
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
 
 	return resources, nil
+}
+
+// patchTransformerConfig mirrors the config schema of the builtin Kustomize
+// patch transformer.
+type patchTransformerConfig struct {
+	Patch  string             `json:"patch,omitempty"`
+	Target *kustypes.Selector `json:"target,omitempty"`
+}
+
+// applyPostBuildPatches patches the resources in the given resource map with the given
+// Kustomize patches, in the order they are declared. Strategic merge and
+// JSON6902 patches behave as they do during a Kustomize build.
+func applyPostBuildPatches(m resmap.ResMap, patches []kustomize.Patch) error {
+	if len(patches) == 0 {
+		return nil
+	}
+
+	depProvider := provider.NewDefaultDepProvider()
+	helpers := resmap.NewPluginHelpers(
+		nil, // no loader: patches referencing files are not supported
+		depProvider.GetFieldValidator(),
+		resmap.NewFactory(depProvider.GetResourceFactory()),
+		kustypes.DisabledPluginConfig(),
+	)
+
+	for i, p := range patches {
+		config, err := yaml.Marshal(patchTransformerConfig{
+			Patch:  p.Patch,
+			Target: adaptSelector(p.Target),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to marshal patch %d: %w", i, err)
+		}
+
+		transformer := builtins.NewPatchTransformerPlugin()
+		if err := transformer.Config(helpers, config); err != nil {
+			return fmt.Errorf("failed to configure patch %d: %w", i, err)
+		}
+		if err := transformer.Transform(m); err != nil {
+			return fmt.Errorf("failed to apply patch %d: %w", i, err)
+		}
+	}
+
+	m.RemoveBuildAnnotations()
+
+	return nil
+}
+
+func adaptSelector(selector *kustomize.Selector) (output *kustypes.Selector) {
+	if selector != nil {
+		output = &kustypes.Selector{}
+		output.Gvk.Group = selector.Group
+		output.Gvk.Kind = selector.Kind
+		output.Gvk.Version = selector.Version
+		output.Name = selector.Name
+		output.Namespace = selector.Namespace
+		output.LabelSelector = selector.LabelSelector
+		output.AnnotationSelector = selector.AnnotationSelector
+	}
+	return
 }
 
 func (r *KustomizationReconciler) apply(ctx context.Context,
