@@ -39,6 +39,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/kustomize/api/konfig"
 	"sigs.k8s.io/kustomize/api/provider"
@@ -447,6 +448,33 @@ func TestDecryptor_SetAuthOptions(t *testing.T) {
 		g.Expect(d.awsCredentialsProvider).NotTo(BeNil())
 		g.Expect(d.azureTokenCredential).NotTo(BeNil())
 		g.Expect(d.gcpTokenSource).NotTo(BeNil())
+	})
+
+	t.Run("does not resolve the service account eagerly", func(t *testing.T) {
+		g := NewWithT(t)
+
+		scheme := runtime.NewScheme()
+		g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+
+		d := &Decryptor{
+			client:                fake.NewClientBuilder().WithScheme(scheme).Build(),
+			defaultServiceAccount: "missing",
+			kustomization: &kustomizev1.Kustomization{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+				Spec: kustomizev1.KustomizationSpec{
+					Decryption: &kustomizev1.Decryption{
+						Provider: DecryptionProviderSOPS,
+					},
+				},
+			},
+		}
+
+		// SetAuthOptions must not fail even though the default decryption
+		// ServiceAccount does not exist, as it must only be resolved when a
+		// cloud KMS or Vault backend is actually used.
+		g.Expect(d.SetAuthOptions(context.Background())).To(Succeed())
+		g.Expect(d.serviceAccount).To(BeNil())
+		g.Expect(d.serviceAccountErr).To(BeNil())
 	})
 
 	t.Run("awsCredentialsProvider returns independent providers for different regions", func(t *testing.T) {

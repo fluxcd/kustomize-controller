@@ -69,6 +69,40 @@ func (d *Decryptor) newVaultK8sAuthFunc(baseSpec *cryptov1.Spec,
 	return nil
 }
 
+// newLazyVaultK8sAuthFunc returns a Vault auth function that resolves the
+// decryption ServiceAccount and the provider-agnostic spec on first use. It
+// avoids resolving the ServiceAccount when SOPS does not decrypt any Vault
+// encrypted value.
+func (d *Decryptor) newLazyVaultK8sAuthFunc() func(ctx context.Context, vaultAddress string) (string, error) {
+	var once sync.Once
+	var authFunc func(ctx context.Context, vaultAddress string) (string, error)
+	var err error
+
+	return func(ctx context.Context, vaultAddress string) (string, error) {
+		once.Do(func() {
+			sa, saErr := d.getServiceAccount(ctx)
+			if saErr != nil {
+				err = saErr
+				return
+			}
+			baseSpec, specErr := d.buildDecryptionSpec(sa, "")
+			if specErr != nil {
+				err = fmt.Errorf("failed to build decryption spec: %w", specErr)
+				return
+			}
+			baseOpts := d.decryptionAuthOptions(sa, baseSpec)
+			authFunc = d.newVaultK8sAuthFunc(baseSpec, baseOpts)
+			if authFunc == nil {
+				err = fmt.Errorf("no Vault authentication method is configured")
+			}
+		})
+		if err != nil {
+			return "", err
+		}
+		return authFunc(ctx, vaultAddress)
+	}
+}
+
 // newTransitEngineVaultAuthFunc returns a Vault auth function that uses the
 // transit-engine.auth.fluxcd.io annotations for the login path and role.
 func (d *Decryptor) newTransitEngineVaultAuthFunc(transitEngine *cryptov1.TransitEngineSpec,
