@@ -148,6 +148,11 @@ type Decryptor struct {
 	// for decryption authentication when the Kustomization does not
 	// specify one in .spec.decryption.serviceAccountName.
 	defaultServiceAccount string
+	// serviceAccountOnce guards the lazy resolution of the decryption
+	// ServiceAccount.
+	serviceAccountOnce sync.Once
+	serviceAccount     *corev1.ServiceAccount
+	serviceAccountErr  error
 
 	// gnuPGHome is the absolute path of the GnuPG home directory used to
 	// decrypt PGP data. When empty, the systems' GnuPG keyring is used.
@@ -333,65 +338,62 @@ func (d *Decryptor) ImportKeys(ctx context.Context) error {
 	return nil
 }
 
-// SetAuthOptions sets the authentication options for secret-less authentication
-// with cloud providers. It returns an error if the provider-agnostic decryption
-// spec is invalid. The service-provider-specific spec is built lazily, when the
-// corresponding KMS backend is used.
+// SetAuthOptions configures secret-less authentication for SOPS decryption.
+// The decryption ServiceAccount and the authentication specs are resolved
+// lazily, only when a cloud KMS or Vault backend is actually used.
 func (d *Decryptor) SetAuthOptions(ctx context.Context) error {
 	if d.kustomization.Spec.Decryption == nil ||
 		d.kustomization.Spec.Decryption.Provider != DecryptionProviderSOPS {
 		return nil
 	}
 
-	// Resolve the decryption ServiceAccount, if any.
-	saName := d.kustomization.Spec.Decryption.ServiceAccountName
-	if saName == "" {
-		saName = d.defaultServiceAccount
-	}
-	var sa *corev1.ServiceAccount
-	if saName != "" {
-		sa = &corev1.ServiceAccount{}
-		saRef := types.NamespacedName{Namespace: d.kustomization.GetNamespace(), Name: saName}
-		if err := d.client.Get(ctx, saRef, sa); err != nil {
-			return fmt.Errorf("failed to get decryption service account '%s': %w", saRef, err)
-		}
-	}
-
-	// Validate the base configuration (credential acquisition and transit
-	// engine). Service-provider-specific inputs are validated lazily by the KMS
-	// backends below, so errors only surface when the backend is used.
-	baseSpec, err := d.buildDecryptionSpec(sa, "")
-	if err != nil {
-		return fmt.Errorf("failed to build decryption spec: %w", err)
-	}
-	baseOpts := d.decryptionAuthOptions(sa, baseSpec)
-
 	if d.awsCredentialsProvider == nil {
-		d.awsCredentialsProvider = d.newAWSCredentialsProvider(ctx, sa, baseOpts)
+		d.awsCredentialsProvider = d.newAWSCredentialsProvider(ctx)
 	}
 
 	if d.azureTokenCredential == nil {
-		d.azureTokenCredential = &lazyAzureTokenCredential{
-			d:        d,
-			ctx:      ctx,
-			sa:       sa,
-			baseOpts: baseOpts,
-		}
+		d.azureTokenCredential = &lazyAzureTokenCredential{d: d, ctx: ctx}
 	}
 
 	if d.gcpTokenSource == nil {
-		d.gcpTokenSource = &lazyGCPTokenSource{
-			d:        d,
-			ctx:      ctx,
-			sa:       sa,
-			baseOpts: baseOpts,
-		}
+		d.gcpTokenSource = &lazyGCPTokenSource{d: d, ctx: ctx}
 	}
 
-	if d.vaultToken == "" {
-		d.vaultK8sAuth = d.newVaultK8sAuthFunc(baseSpec, baseOpts)
+	if d.vaultToken == "" && (d.vaultConfigMap != nil || d.decryptionServiceAccountName() != "") {
+		d.vaultK8sAuth = d.newLazyVaultK8sAuthFunc()
 	}
 	return nil
+}
+
+// decryptionServiceAccountName returns the configured decryption ServiceAccount
+// name, falling back to the controller default.
+func (d *Decryptor) decryptionServiceAccountName() string {
+	if d.kustomization.Spec.Decryption == nil {
+		return ""
+	}
+	if name := d.kustomization.Spec.Decryption.ServiceAccountName; name != "" {
+		return name
+	}
+	return d.defaultServiceAccount
+}
+
+// getServiceAccount resolves the decryption ServiceAccount lazily. It returns
+// nil when neither the Kustomization nor the controller configures one.
+func (d *Decryptor) getServiceAccount(ctx context.Context) (*corev1.ServiceAccount, error) {
+	d.serviceAccountOnce.Do(func() {
+		saName := d.decryptionServiceAccountName()
+		if saName == "" {
+			return
+		}
+		sa := &corev1.ServiceAccount{}
+		saRef := types.NamespacedName{Namespace: d.kustomization.GetNamespace(), Name: saName}
+		if err := d.client.Get(ctx, saRef, sa); err != nil {
+			d.serviceAccountErr = fmt.Errorf("failed to get decryption service account '%s': %w", saRef, err)
+			return
+		}
+		d.serviceAccount = sa
+	})
+	return d.serviceAccount, d.serviceAccountErr
 }
 
 // buildDecryptionSpec builds the decryption specification from the
@@ -432,17 +434,21 @@ func (d *Decryptor) decryptionAuthOptions(sa *corev1.ServiceAccount, spec *crypt
 // newAWSCredentialsProvider returns a lazy factory for AWS credentials used for
 // decryption. The AWS service-provider spec is validated and the underlying
 // provider is created only when an AWS KMS key is processed.
-func (d *Decryptor) newAWSCredentialsProvider(ctx context.Context, sa *corev1.ServiceAccount,
-	baseOpts []auth.Option) func(region string) awssdk.CredentialsProvider {
+func (d *Decryptor) newAWSCredentialsProvider(ctx context.Context) func(region string) awssdk.CredentialsProvider {
 	return func(region string) awssdk.CredentialsProvider {
+		sa, err := d.getServiceAccount(ctx)
+		if err != nil {
+			return awssdk.CredentialsProviderFunc(func(context.Context) (awssdk.Credentials, error) {
+				return awssdk.Credentials{}, err
+			})
+		}
 		spec, err := d.buildDecryptionSpec(sa, cryptov1.ProviderAWS)
 		if err != nil {
 			return awssdk.CredentialsProviderFunc(func(context.Context) (awssdk.Credentials, error) {
 				return awssdk.Credentials{}, err
 			})
 		}
-		opts := slices.Clone(baseOpts)
-		opts = append(opts, auth.OptionsFromSpec(spec.Auth)...)
+		opts := d.decryptionAuthOptions(sa, spec)
 		opts = append(opts, auth.WithAWSRegion(region))
 		if d.tokenCache != nil {
 			opts = append(opts,
@@ -457,24 +463,26 @@ func (d *Decryptor) newAWSCredentialsProvider(ctx context.Context, sa *corev1.Se
 // configuration and creation of the underlying credential until Azure Key
 // Vault is actually used.
 type lazyAzureTokenCredential struct {
-	d        *Decryptor
-	ctx      context.Context
-	sa       *corev1.ServiceAccount
-	baseOpts []auth.Option
-	once     sync.Once
-	cred     azcore.TokenCredential
-	err      error
+	d    *Decryptor
+	ctx  context.Context
+	once sync.Once
+	cred azcore.TokenCredential
+	err  error
 }
 
 func (c *lazyAzureTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
 	c.once.Do(func() {
-		spec, err := c.d.buildDecryptionSpec(c.sa, cryptov1.ProviderAzure)
+		sa, err := c.d.getServiceAccount(c.ctx)
 		if err != nil {
 			c.err = err
 			return
 		}
-		authOpts := slices.Clone(c.baseOpts)
-		authOpts = append(authOpts, auth.OptionsFromSpec(spec.Auth)...)
+		spec, err := c.d.buildDecryptionSpec(sa, cryptov1.ProviderAzure)
+		if err != nil {
+			c.err = err
+			return
+		}
+		authOpts := c.d.decryptionAuthOptions(sa, spec)
 		if c.d.tokenCache != nil {
 			authOpts = append(authOpts,
 				auth.WithCache(*c.d.tokenCache),
@@ -492,24 +500,26 @@ func (c *lazyAzureTokenCredential) GetToken(ctx context.Context, opts policy.Tok
 // configuration and creation of the underlying token source until GCP KMS is
 // actually used.
 type lazyGCPTokenSource struct {
-	d        *Decryptor
-	ctx      context.Context
-	sa       *corev1.ServiceAccount
-	baseOpts []auth.Option
-	once     sync.Once
-	ts       oauth2.TokenSource
-	err      error
+	d    *Decryptor
+	ctx  context.Context
+	once sync.Once
+	ts   oauth2.TokenSource
+	err  error
 }
 
 func (s *lazyGCPTokenSource) Token() (*oauth2.Token, error) {
 	s.once.Do(func() {
-		spec, err := s.d.buildDecryptionSpec(s.sa, cryptov1.ProviderGCP)
+		sa, err := s.d.getServiceAccount(s.ctx)
 		if err != nil {
 			s.err = err
 			return
 		}
-		authOpts := slices.Clone(s.baseOpts)
-		authOpts = append(authOpts, auth.OptionsFromSpec(spec.Auth)...)
+		spec, err := s.d.buildDecryptionSpec(sa, cryptov1.ProviderGCP)
+		if err != nil {
+			s.err = err
+			return
+		}
+		authOpts := s.d.decryptionAuthOptions(sa, spec)
 		if s.d.tokenCache != nil {
 			authOpts = append(authOpts,
 				auth.WithCache(*s.d.tokenCache),
