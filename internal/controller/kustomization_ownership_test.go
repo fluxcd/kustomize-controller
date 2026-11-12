@@ -104,10 +104,11 @@ func TestKustomizationReconciler_OwnershipWarning(t *testing.T) {
 			recorder := events.NewFakeRecorder(32, true)
 			r := &KustomizationReconciler{ControllerName: "kustomize-controller", EventRecorder: recorder}
 			poller := polling.NewStatusPoller(k8sClient, k8sClient.RESTMapper(), polling.Options{})
-			var lookupAttempted, applyAttempted, warningBeforeApply atomic.Bool
+			var lookupCount atomic.Int32
+			var applyAttempted, warningBeforeApply atomic.Bool
 			scopedClient := interceptor.NewClient(targetClient, interceptor.Funcs{
 				Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-					if !lookupAttempted.Swap(true) && tt.lookupError != nil {
+					if lookupCount.Add(1) == 1 && tt.lookupError != nil {
 						return tt.lookupError
 					}
 					return c.Get(ctx, key, obj, opts...)
@@ -151,6 +152,7 @@ func TestKustomizationReconciler_OwnershipWarning(t *testing.T) {
 
 			_, changes, err := r.apply(ctx, manager, obj, &sourcev1.GitRepository{}, "main/test", "", []*unstructured.Unstructured{desired})
 			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(lookupCount.Load()).To(Equal(int32(1)), "ownership checks must reuse the SSA lookup")
 			g.Expect(changes.Entries).To(HaveLen(1))
 			g.Expect(obj.Status.Conditions).To(Equal(beforeConditions))
 
@@ -188,7 +190,7 @@ func TestKustomizationReconciler_OwnershipWarning(t *testing.T) {
 	}
 }
 
-func TestKustomizationReconciler_OwnershipCheckConcurrency(t *testing.T) {
+func TestKustomizationReconciler_OwnershipReadConcurrency(t *testing.T) {
 	g := NewWithT(t)
 	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ownership-" + randStringRunes(5)}}
 	g.Expect(k8sClient.Create(ctx, ns)).To(Succeed())

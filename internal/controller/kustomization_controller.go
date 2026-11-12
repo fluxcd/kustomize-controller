@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -1037,37 +1036,10 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	var changeSetLog strings.Builder
 
 	if len(objects) > 0 {
-		workqueue.ParallelizeUntil(ctx, max(1, r.ConcurrentSSA), len(objects), func(i int) {
-			desired := objects[i]
-			if ssautil.AnyInMetadata(desired, applyOpts.ExclusionSelector) ||
-				ssautil.AnyInMetadata(desired, applyOpts.IfNotPresentSelector) {
-				return
-			}
-
-			existing := &unstructured.Unstructured{}
-			existing.SetGroupVersionKind(desired.GroupVersionKind())
-			if err := manager.Client().Get(ctx, client.ObjectKeyFromObject(desired), existing); err != nil {
-				if !apierrors.IsNotFound(err) && !apimeta.IsNoMatchError(err) {
-					log.Error(err, "failed to check resource ownership", "resource", ssautil.FmtUnstructured(desired))
-				}
-				return
-			}
-			if ssautil.AnyInMetadata(existing, applyOpts.ExclusionSelector) {
-				return
-			}
-
-			labels := existing.GetLabels()
-			ownerName := labels[kustomizev1.GroupVersion.Group+"/name"]
-			ownerNamespace := labels[kustomizev1.GroupVersion.Group+"/namespace"]
-			if ownerName == "" || ownerNamespace == "" ||
-				(ownerName == obj.Name && ownerNamespace == obj.Namespace) {
-				return
-			}
-
+		applyOpts.OnOwnershipConflict = func(subject string, previousOwner types.NamespacedName) {
 			r.EventRecorder.Eventf(obj, src, corev1.EventTypeWarning, "OwnershipConflict", kustomizev1.ActionApply.String(),
-				"%s is also managed by Kustomization %s/%s, fields will be overwritten",
-				ssautil.FmtUnstructured(desired), ownerNamespace, ownerName)
-		})
+				"%s is also managed by Kustomization %s, fields will be overwritten", subject, previousOwner.String())
+		}
 
 		changeSet, err := manager.ApplyAllStaged(ctx, objects, applyOpts)
 
