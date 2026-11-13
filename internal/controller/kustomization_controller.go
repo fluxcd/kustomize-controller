@@ -931,6 +931,10 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	}
 	applyOpts.CustomStageKinds = r.CustomStageKinds
 	applyOpts.MigrateAPIVersion = r.MigrateAPIVersion
+	applyOpts.OnOwnershipConflict = func(subject string, previousOwner types.NamespacedName) {
+		r.EventRecorder.Eventf(obj, src, corev1.EventTypeWarning, "OwnershipConflict", kustomizev1.ActionApply.String(),
+			"%s is also managed by Kustomization %s, fields will be overwritten", subject, previousOwner.String())
+	}
 
 	if len(obj.Spec.Ignore) > 0 {
 		ignoreRules := make([]jsondiff.IgnoreRule, len(obj.Spec.Ignore))

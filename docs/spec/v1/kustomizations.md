@@ -1631,6 +1631,14 @@ kustomize create --autodetect --recursive
 
 ### Controlling the apply behavior of resources
 
+When a resource carries ownership labels naming another Kustomization, the
+controller emits an `OwnershipConflict` Warning event on the reconciling
+Kustomization before applying it. The event identifies the resource and its
+previous owner. This warning does not prevent applying or pruning resources and
+does not change the Kustomization's readiness. Resources skipped by the
+`Ignore`, `IfNotPresent`, or `reconcile: disabled` policies do not produce this
+warning.
+
 To change the apply behaviour for specific Kubernetes resources, you can annotate them with:
 
 | Annotation                          | Default    | Values                                                         | Role            |
