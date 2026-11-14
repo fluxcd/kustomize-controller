@@ -49,6 +49,7 @@ SOURCE_CRD_VER=$(BUILD_DIR)/.src-crd-$(SOURCE_VER)
 # API (doc) generation utilities
 CONTROLLER_GEN_VERSION ?= v0.21.0
 GEN_API_REF_DOCS_VERSION ?= e327d0730470cbd61b06300f81c5fcf91c23c113
+GOPLS_VERSION ?= v0.24.0
 
 all: manager
 
@@ -65,7 +66,7 @@ $(SOPS): ## Download latest sops binary if none is found.
 
 # Run controller tests
 KUBEBUILDER_ASSETS?="$(shell $(ENVTEST) --arch=$(ENVTEST_ARCH) use -i $(ENVTEST_KUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR) -p path)"
-test: fix tidy generate fmt vet manifests api-docs download-crd-deps install-envtest $(SOPS)
+test: fix tidy generate fmt vet unused manifests api-docs download-crd-deps install-envtest $(SOPS)
 	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./... $(GO_TEST_ARGS) -v -coverprofile cover.out
 
 # Build manager binary
@@ -144,10 +145,15 @@ tidy:
 	cd api; rm -f go.sum; go mod tidy -compat=1.27
 	rm -f go.sum; go mod tidy -compat=1.27
 
-# Run go fix against code
+# Run go fix against code until it makes no changes
 fix:
-	go fix ./...
-	cd api; go fix ./...
+	@set -e; while :; do \
+		before=$$(git diff --no-ext-diff --no-color HEAD -- '*.go' | cksum); \
+		go fix ./...; \
+		( cd api && go fix ./... ); \
+		after=$$(git diff --no-ext-diff --no-color HEAD -- '*.go' | cksum); \
+		if [ "$$before" = "$$after" ]; then break; fi; \
+	done
 
 # Run go fmt against code
 fmt:
@@ -158,6 +164,14 @@ fmt:
 vet:
 	go vet ./...
 	cd api; go vet ./...
+
+# Check for unused code and parameters
+unused: gopls
+	@out=$$($(GOPLS) check -severity=info $$(git ls-files '*.go') | grep -E 'unused parameter:| is unused$$' || true); \
+	if [ -n "$$out" ]; then \
+		printf '%s\n' "$$out"; \
+		exit 1; \
+	fi
 
 # Generate code
 generate: controller-gen
@@ -185,6 +199,12 @@ docker-push:
 # Set the docker image in-cluster
 docker-deploy:
 	kubectl -n flux-system set image deployment/kustomize-controller manager=${IMG}
+
+# Find or download gopls
+GOPLS = $(GOBIN)/gopls
+.PHONY: gopls
+gopls: ## Download gopls locally if necessary.
+	$(call go-install-tool,$(GOPLS),golang.org/x/tools/gopls@$(GOPLS_VERSION))
 
 # Find or download controller-gen
 CONTROLLER_GEN = $(GOBIN)/controller-gen
