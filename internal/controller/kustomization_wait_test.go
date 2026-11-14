@@ -100,10 +100,8 @@ parameters:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
@@ -383,10 +381,8 @@ spec:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
@@ -478,10 +474,8 @@ data: {}
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
@@ -502,10 +496,8 @@ data: {}
 			HealthCheckExprs: []kustomize.CustomHealthCheck{{
 				APIVersion: "v1",
 				Kind:       "ConfigMap",
-				HealthCheckExpressions: kustomize.HealthCheckExpressions{
-					InProgress: "has(data.foo.bar)",
-					Current:    "true",
-				},
+				InProgress: "has(data.foo.bar)",
+				Current:    "true",
 			}},
 		},
 	}
@@ -884,10 +876,8 @@ spec:
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("grp-%s", randStringRunes(5)),
-			Namespace: id,
-		},
+		Name:      fmt.Sprintf("grp-%s", randStringRunes(5)),
+		Namespace: id,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
@@ -907,9 +897,7 @@ spec:
 			// to both Foo and Bar custom resources.
 			HealthCheckExprs: []kustomize.CustomHealthCheck{{
 				APIVersion: group + "/v1",
-				HealthCheckExpressions: kustomize.HealthCheckExpressions{
-					Current: "has(spec.ready) && spec.ready == true",
-				},
+				Current:    "has(spec.ready) && spec.ready == true",
 			}},
 		},
 	}

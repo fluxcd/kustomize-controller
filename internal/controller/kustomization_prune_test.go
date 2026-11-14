@@ -93,10 +93,8 @@ data:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
@@ -201,10 +199,8 @@ data:
 	g.Expect(applyGitRepository(repositoryName, artifact, revision)).To(Succeed())
 
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
-			Namespace: id,
-		},
+		Name:      fmt.Sprintf("gc-%s", randStringRunes(5)),
+		Namespace: id,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
@@ -380,10 +376,8 @@ data:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
@@ -538,10 +532,8 @@ data:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
@@ -679,10 +671,8 @@ stringData:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
@@ -842,10 +832,8 @@ stringData:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Path:     "./",
