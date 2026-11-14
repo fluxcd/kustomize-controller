@@ -72,10 +72,8 @@ data:
 	// newKustomization creates a Kustomization referencing the test artifact.
 	newKustomization := func() *kustomizev1.Kustomization {
 		return &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "commit-status-" + randStringRunes(5),
-				Namespace: id,
-			},
+			Name:      "commit-status-" + randStringRunes(5),
+			Namespace: id,
 			Spec: kustomizev1.KustomizationSpec{
 				Interval: metav1.Duration{Duration: time.Hour},
 				Path:     "./",

@@ -292,11 +292,3 @@ type KustomizationList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Kustomization `json:"items"`
 }
-
-func trimString(str string, limit int) string {
-	if len(str) <= limit {
-		return str
-	}
-
-	return str[0:limit] + "..."
-}

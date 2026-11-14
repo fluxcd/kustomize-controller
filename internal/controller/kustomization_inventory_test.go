@@ -89,10 +89,8 @@ stringData:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
@@ -127,10 +125,8 @@ stringData:
 	configMapName := types.NamespacedName{Name: id, Namespace: id}
 
 	secret := &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
+		Kind:       "Secret",
+		APIVersion: "v1",
 	}
 	secretName := types.NamespacedName{Name: id, Namespace: id}
 

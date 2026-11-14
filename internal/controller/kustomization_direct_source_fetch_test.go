@@ -85,10 +85,8 @@ data:
 		defer func() { reconciler.DirectSourceFetch = false }() // Reset after test
 
 		kustomization := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kustomizationKey.Name + "-direct",
-				Namespace: kustomizationKey.Namespace,
-			},
+			Name:      kustomizationKey.Name + "-direct",
+			Namespace: kustomizationKey.Namespace,
 			Spec: kustomizev1.KustomizationSpec{
 				Interval: metav1.Duration{Duration: reconciliationInterval},
 				Path:     "./",
@@ -127,10 +125,8 @@ data:
 		defer func() { reconciler.DirectSourceFetch = false }() // Reset after test
 
 		kustomization := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kustomizationKey.Name + "-notfound",
-				Namespace: kustomizationKey.Namespace,
-			},
+			Name:      kustomizationKey.Name + "-notfound",
+			Namespace: kustomizationKey.Namespace,
 			Spec: kustomizev1.KustomizationSpec{
 				Interval: metav1.Duration{Duration: reconciliationInterval},
 				Path:     "./",
@@ -190,10 +186,8 @@ func TestKustomizationReconciler_DirectSourceFetch_OCIRepository(t *testing.T) {
 		}
 
 		ociRepo := &sourcev1.OCIRepository{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      ociRepoName.Name,
-				Namespace: ociRepoName.Namespace,
-			},
+			Name:      ociRepoName.Name,
+			Namespace: ociRepoName.Namespace,
 			Spec: sourcev1.OCIRepositorySpec{
 				URL:      "oci://ghcr.io/test/repo",
 				Interval: &metav1.Duration{Duration: time.Minute},
@@ -205,10 +199,8 @@ func TestKustomizationReconciler_DirectSourceFetch_OCIRepository(t *testing.T) {
 		})
 
 		kustomization := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("kust-oci-%s", randStringRunes(5)),
-				Namespace: id,
-			},
+			Name:      fmt.Sprintf("kust-oci-%s", randStringRunes(5)),
+			Namespace: id,
 			Spec: kustomizev1.KustomizationSpec{
 				Interval: metav1.Duration{Duration: reconciliationInterval},
 				Path:     "./",
@@ -266,10 +258,8 @@ func TestKustomizationReconciler_DirectSourceFetch_Bucket(t *testing.T) {
 		}
 
 		bucket := &sourcev1.Bucket{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      bucketName.Name,
-				Namespace: bucketName.Namespace,
-			},
+			Name:      bucketName.Name,
+			Namespace: bucketName.Namespace,
 			Spec: sourcev1.BucketSpec{
 				BucketName: "test-bucket",
 				Endpoint:   "s3.amazonaws.com",
@@ -282,10 +272,8 @@ func TestKustomizationReconciler_DirectSourceFetch_Bucket(t *testing.T) {
 		})
 
 		kustomization := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("kust-bucket-%s", randStringRunes(5)),
-				Namespace: id,
-			},
+			Name:      fmt.Sprintf("kust-bucket-%s", randStringRunes(5)),
+			Namespace: id,
 			Spec: kustomizev1.KustomizationSpec{
 				Interval: metav1.Duration{Duration: reconciliationInterval},
 				Path:     "./",

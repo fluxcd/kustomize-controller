@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 	"time"
@@ -455,9 +456,7 @@ func (r *KustomizationReconciler) reconcile(
 	// be redacted from any apply error surfaced below.
 	substituteVars := make(map[string]string)
 	buildCtx := generator.ContextWithSecretVarsCollector(ctx, func(vars map[string]string) {
-		for k, v := range vars {
-			substituteVars[k] = v
-		}
+		maps.Copy(substituteVars, vars)
 	})
 
 	// Build the Kustomize overlay and decrypt secrets if needed.

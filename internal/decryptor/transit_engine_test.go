@@ -28,7 +28,6 @@ import (
 
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -45,25 +44,21 @@ func TestDecryptor_SetAuthOptionsTransitEngine(t *testing.T) {
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
 
 	sa := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "sops-identity",
-			Namespace: "default",
-			Annotations: map[string]string{
-				cryptov1.AnnotationCredentialProvider:     cryptov1.CredentialProviderKubernetes,
-				cryptov1.AnnotationCredentialType:         cryptov1.CredentialTypeJWT,
-				cryptov1.AnnotationTransitEngineLoginPath: "auth/jwt/login",
-				cryptov1.AnnotationTransitEngineRole:      "my-role",
-			},
+		Name:      "sops-identity",
+		Namespace: "default",
+		Annotations: map[string]string{
+			cryptov1.AnnotationCredentialProvider:     cryptov1.CredentialProviderKubernetes,
+			cryptov1.AnnotationCredentialType:         cryptov1.CredentialTypeJWT,
+			cryptov1.AnnotationTransitEngineLoginPath: "auth/jwt/login",
+			cryptov1.AnnotationTransitEngineRole:      "my-role",
 		},
 	}
 
 	d := &Decryptor{
 		client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(sa).Build(),
 		kustomization: &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: sa.Namespace,
-			},
+			Name:      "test",
+			Namespace: sa.Namespace,
 			Spec: kustomizev1.KustomizationSpec{
 				Decryption: &kustomizev1.Decryption{
 					Provider:           DecryptionProviderSOPS,
@@ -175,11 +170,9 @@ func TestDecryptorLoadVaultLoginPaths(t *testing.T) {
 	key := types.NamespacedName{Namespace: "flux-system", Name: "sops-vault-config"}
 	configMap := func(data map[string]string) *corev1.ConfigMap {
 		return &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      key.Name,
-				Namespace: key.Namespace,
-			},
-			Data: data,
+			Name:      key.Name,
+			Namespace: key.Namespace,
+			Data:      data,
 		}
 	}
 	newDecryptor := func(objects ...*corev1.ConfigMap) *Decryptor {
@@ -382,7 +375,7 @@ func TestConfigMapVaultAuthFunc(t *testing.T) {
 
 	key := types.NamespacedName{Namespace: "flux-system", Name: "sops-vault-config"}
 	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace},
+		Name: key.Name, Namespace: key.Namespace,
 		Data: map[string]string{
 			"config.yaml": `instances:
   - address: https://vault.example.com:8200

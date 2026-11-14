@@ -45,7 +45,7 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create vault client")
 
 	// create a master key on the vault transit engine
-	path, data := "sops/keys/vault", map[string]interface{}{"type": "rsa-4096"}
+	path, data := "sops/keys/vault", map[string]any{"type": "rsa-4096"}
 	_, err = cli.Logical().Write(path, data)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to write key")
 
@@ -92,10 +92,8 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		Namespace: id,
 	}
 	sopsSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sopsSecretKey.Name,
-			Namespace: sopsSecretKey.Namespace,
-		},
+		Name:      sopsSecretKey.Name,
+		Namespace: sopsSecretKey.Namespace,
 		StringData: map[string]string{
 			"pgp.asc":          string(pgpKey),
 			"age.agekey":       string(ageKey),
@@ -111,10 +109,8 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
@@ -216,10 +212,8 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		g.Expect(err).NotTo(HaveOccurred())
 
 		globalSOPSSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      sopsAgeSecret,
-				Namespace: namespace,
-			},
+			Name:      sopsAgeSecret,
+			Namespace: namespace,
 			StringData: map[string]string{
 				"identity.agekey": string(ageKey),
 			},
@@ -244,10 +238,8 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 			Namespace: namespace,
 		}
 		kustomization := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kustomizationKey.Name,
-				Namespace: kustomizationKey.Namespace,
-			},
+			Name:      kustomizationKey.Name,
+			Namespace: kustomizationKey.Namespace,
 			Spec: kustomizev1.KustomizationSpec{
 				Interval: metav1.Duration{Duration: 2 * time.Minute},
 				Path:     "./",
@@ -290,10 +282,8 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 		g.Expect(err).NotTo(HaveOccurred())
 
 		globalSOPSSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      sopsAgeSecret,
-				Namespace: namespace,
-			},
+			Name:      sopsAgeSecret,
+			Namespace: namespace,
 			StringData: map[string]string{
 				"identity.agekey": string(ageGlobalKey),
 			},
@@ -305,10 +295,8 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 			Namespace: namespace,
 		}
 		localSOPSSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      localSOPSSecretKey.Name,
-				Namespace: localSOPSSecretKey.Namespace,
-			},
+			Name:      localSOPSSecretKey.Name,
+			Namespace: localSOPSSecretKey.Namespace,
 			StringData: map[string]string{
 				"pgp.asc":          string(pgpKey),
 				"age.agekey":       string(ageKey),
@@ -336,10 +324,8 @@ func TestKustomizationReconciler_Decryptor(t *testing.T) {
 			Namespace: namespace,
 		}
 		kustomization := &kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kustomizationKey.Name,
-				Namespace: kustomizationKey.Namespace,
-			},
+			Name:      kustomizationKey.Name,
+			Namespace: kustomizationKey.Namespace,
 			Spec: kustomizev1.KustomizationSpec{
 				Interval: metav1.Duration{Duration: 2 * time.Minute},
 				Path:     "./",

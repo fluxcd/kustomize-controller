@@ -84,10 +84,8 @@ stringData:
 		Namespace: id,
 	}
 	kustomization := &kustomizev1.Kustomization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kustomizationKey.Name,
-			Namespace: kustomizationKey.Namespace,
-		},
+		Name:      kustomizationKey.Name,
+		Namespace: kustomizationKey.Namespace,
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: time.Hour},
 			Path:     "./",
@@ -174,14 +172,10 @@ stringData:
 
 func applyExternalArtifact(objKey client.ObjectKey, artifactName string, revision string) error {
 	ea := &sourcev1.ExternalArtifact{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       sourcev1.ExternalArtifactKind,
-			APIVersion: sourcev1.GroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      objKey.Name,
-			Namespace: objKey.Namespace,
-		},
+		Kind:       sourcev1.ExternalArtifactKind,
+		APIVersion: sourcev1.GroupVersion.String(),
+		Name:       objKey.Name,
+		Namespace:  objKey.Namespace,
 	}
 
 	b, _ := os.ReadFile(filepath.Join(testServer.Root(), artifactName))
@@ -220,9 +214,7 @@ func applyExternalArtifact(objKey client.ObjectKey, artifactName string, revisio
 	ea.Status = status
 
 	statusOpts := &client.SubResourcePatchOptions{
-		PatchOptions: client.PatchOptions{
-			FieldManager: "source-controller",
-		},
+		FieldManager: "source-controller",
 	}
 
 	if err := k8sClient.Status().Patch(context.Background(), ea, client.Apply, statusOpts); err != nil {

@@ -975,10 +975,8 @@ func secureLoadKustomizationFile(root, path string) (*kustypes.Kustomization, er
 	}
 
 	kus := kustypes.Kustomization{
-		TypeMeta: kustypes.TypeMeta{
-			APIVersion: kustypes.KustomizationVersion,
-			Kind:       kustypes.KustomizationKind,
-		},
+		APIVersion: kustypes.KustomizationVersion,
+		Kind:       kustypes.KustomizationKind,
 	}
 	if err := yaml.Unmarshal(data, &kus); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal kustomization file from '%s': %w", loadPath, err)
@@ -1180,20 +1178,20 @@ func safeDecrypt[T any](mac T, err error) (T, error) {
 	// encrypted value, which is not authenticated. The conversion errors
 	// of strconv and time contain the decrypted value.
 	for _, marker := range []string{"strconv.", "parsing time "} {
-		if i := strings.Index(e, marker); i != -1 {
-			return zero, errors.New(e[:i] + "failed to convert the decrypted value to its data type: <redacted>")
+		if before, _, ok := strings.Cut(e, marker); ok {
+			return zero, errors.New(before + "failed to convert the decrypted value to its data type: <redacted>")
 		}
 	}
 
 	var buf strings.Builder
-	prefIdx := strings.Index(e, prefix)
-	suffIdx := strings.Index(e, suffix)
+	before, _, ok := strings.Cut(e, prefix)
+	found0 := strings.Contains(e, suffix)
 
-	if prefIdx == -1 || suffIdx == -1 {
+	if !ok || !found0 {
 		return zero, err
 	}
 
-	buf.WriteString(e[:prefIdx])
+	buf.WriteString(before)
 	buf.WriteString(prefix)
 	buf.WriteString("<redacted>")
 	buf.WriteString(suffix)
