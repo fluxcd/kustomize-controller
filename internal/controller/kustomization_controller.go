@@ -851,7 +851,7 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 	}
 
 	// Decrypt Kustomize EnvSources files before build
-	if err = dec.DecryptSources(dirPath); err != nil {
+	if err = dec.DecryptSources(ctx, dirPath); err != nil {
 		return nil, fmt.Errorf("error decrypting sources: %w", err)
 	}
 
@@ -868,7 +868,7 @@ func (r *KustomizationReconciler) build(ctx context.Context,
 
 		// check if resources are encrypted and decrypt them before generating the final YAML
 		if obj.Spec.Decryption != nil {
-			outRes, err := dec.DecryptResource(res)
+			outRes, err := dec.DecryptResource(ctx, res)
 			if err != nil {
 				return nil, fmt.Errorf("decryption failed for '%s/%s': %w", res.GetGvk(), res.GetName(), err)
 			}
