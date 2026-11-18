@@ -1977,7 +1977,7 @@ in case both the controller flag and the Kustomization field are set.
 ### Kustomize secretGenerator
 
 SOPS encrypted data can be stored as a base64 encoded Secret, which enables the
-use of [Kustomize `secretGenerator`](https://github.com/kubernetes-sigs/kustomize/tree/main/examples/secretGeneratorPlugin.md)
+use of [Kustomize `secretGenerator`](https://github.com/kubernetes-sigs/kustomize/blob/master/examples/secretGeneratorPlugin.md)
 as follows:
 
 ```console
