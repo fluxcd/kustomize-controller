@@ -1341,7 +1341,7 @@ func (r *KustomizationReconciler) finalize(ctx context.Context,
 		} else {
 			// when the account to impersonate is gone, log the stale objects and continue with the finalization
 			msg := fmt.Sprintf("unable to prune objects: \n%s", ssautil.FmtUnstructuredList(objects))
-			log.Error(fmt.Errorf("skiping pruning, failed to find account to impersonate"), msg)
+			log.Error(fmt.Errorf("skipping pruning, failed to find account to impersonate"), msg)
 			r.event(obj, src, obj.Status.LastAppliedRevision, obj.Status.LastAppliedOriginRevision,
 				eventv1.EventSeverityError, kustomizev1.ActionFinalize, msg, nil)
 		}
