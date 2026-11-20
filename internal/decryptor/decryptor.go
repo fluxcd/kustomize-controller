@@ -537,7 +537,7 @@ func (s *lazyGCPTokenSource) Token() (*oauth2.Token, error) {
 // for the input format, gathers the data key for it from the key service,
 // and then decrypts the file data with the retrieved data key.
 // It returns the decrypted bytes in the provided output format, or an error.
-func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat formats.Format) (_ []byte, err error) {
+func (d *Decryptor) SopsDecryptWithFormat(ctx context.Context, data []byte, inputFormat, outputFormat formats.Format) (_ []byte, err error) {
 	defer func() {
 		// It was discovered that malicious input and/or output instructions can
 		// make SOPS panic. Recover from this panic and return as an error.
@@ -554,7 +554,7 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 		return nil, sopsUserErr(fmt.Sprintf("failed to load encrypted %s data", sopsFormatToString[inputFormat]), err)
 	}
 
-	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(d.keyServiceServer(), sops.DefaultDecryptionOrder)
+	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServicesContext(ctx, d.keyServiceServer(), sops.DefaultDecryptionOrder)
 	if err != nil {
 		return nil, sopsUserErr("cannot get sops data key", err)
 	}
@@ -674,7 +674,7 @@ func decryptEnvelopedValue(in any, path []string, key []byte, cipher sops.Cipher
 // It has special support for Kubernetes Secrets with encrypted data entries
 // while decrypting with DecryptionProviderSOPS, to allow individual data entries
 // injected by e.g. a Kustomize secret generator to be decrypted
-func (d *Decryptor) DecryptResource(res *resource.Resource) (*resource.Resource, error) {
+func (d *Decryptor) DecryptResource(ctx context.Context, res *resource.Resource) (*resource.Resource, error) {
 	if res == nil ||
 		d.kustomization.Spec.Decryption == nil ||
 		d.kustomization.Spec.Decryption.Provider == "" ||
@@ -697,7 +697,7 @@ func (d *Decryptor) DecryptResource(res *resource.Resource) (*resource.Resource,
 				return nil, err
 			}
 
-			data, err := d.SopsDecryptWithFormat(out, formats.Json, formats.Json)
+			data, err := d.SopsDecryptWithFormat(ctx, out, formats.Json, formats.Json)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decrypt and format '%s/%s' %s data: %w",
 					res.GetNamespace(), res.GetName(), res.GetKind(), err)
@@ -722,7 +722,7 @@ func (d *Decryptor) DecryptResource(res *resource.Resource) (*resource.Resource,
 
 				if inF := detectFormatFromMarkerBytes(data); inF != unsupportedFormat {
 					outF := formatForPath(key)
-					out, err := d.SopsDecryptWithFormat(data, inF, outF)
+					out, err := d.SopsDecryptWithFormat(ctx, data, inF, outF)
 					if err != nil {
 						return nil, fmt.Errorf("failed to decrypt and format '%s/%s' Secret field '%s': %w",
 							res.GetNamespace(), res.GetName(), key, err)
@@ -743,13 +743,13 @@ func (d *Decryptor) DecryptResource(res *resource.Resource) (*resource.Resource,
 // It ignores resource references which refer to absolute or relative paths
 // outside the working directory of the decryptor, but returns any decryption
 // error.
-func (d *Decryptor) DecryptSources(path string) error {
+func (d *Decryptor) DecryptSources(ctx context.Context, path string) error {
 	if d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.Provider != DecryptionProviderSOPS {
 		return nil
 	}
 
 	decrypted, visited := make(map[string]struct{}, 0), make(map[string]struct{}, 0)
-	visit := d.decryptKustomizationSources(decrypted)
+	visit := d.decryptKustomizationSources(ctx, decrypted)
 	return recurseKustomizationFiles(d.root, path, visit, visited)
 }
 
@@ -758,7 +758,7 @@ func (d *Decryptor) DecryptSources(path string) error {
 // file with which it is called.
 // After decrypting successfully, it adds the absolute path of the file to the
 // given map.
-func (d *Decryptor) decryptKustomizationSources(visited map[string]struct{}) visitKustomization {
+func (d *Decryptor) decryptKustomizationSources(ctx context.Context, visited map[string]struct{}) visitKustomization {
 	return func(root, path string, kus *kustypes.Kustomization) error {
 		visitRef := func(sourcePath string, format formats.Format) error {
 			if !filepath.IsAbs(sourcePath) {
@@ -771,7 +771,7 @@ func (d *Decryptor) decryptKustomizationSources(visited map[string]struct{}) vis
 			if _, ok := visited[absRef]; ok {
 				return nil
 			}
-			if err := d.sopsDecryptFile(absRef, format, format); err != nil {
+			if err := d.sopsDecryptFile(ctx, absRef, format, format); err != nil {
 				return securePathErr(root, err)
 			}
 			// Explicitly set _after_ the decryption operation, this makes
@@ -840,7 +840,7 @@ func (d *Decryptor) decryptKustomizationSources(visited map[string]struct{}) vis
 // NB: The method only does the simple checks described above and does not
 // verify whether the path provided is inside the working directory. Boundary
 // enforcement is expected to have been done by the caller.
-func (d *Decryptor) sopsDecryptFile(path string, inputFormat, outputFormat formats.Format) error {
+func (d *Decryptor) sopsDecryptFile(ctx context.Context, path string, inputFormat, outputFormat formats.Format) error {
 	fi, err := os.Lstat(path)
 	if err != nil {
 		return err
@@ -862,7 +862,7 @@ func (d *Decryptor) sopsDecryptFile(path string, inputFormat, outputFormat forma
 		return nil
 	}
 
-	out, err := d.SopsDecryptWithFormat(data, inputFormat, outputFormat)
+	out, err := d.SopsDecryptWithFormat(ctx, data, inputFormat, outputFormat)
 	if err != nil {
 		return err
 	}
@@ -878,7 +878,7 @@ func (d *Decryptor) sopsDecryptFile(path string, inputFormat, outputFormat forma
 // for the input format, gathers the data key for it from the key service,
 // and then encrypt the file data with the retrieved data key.
 // It returns the encrypted bytes in the provided output format, or an error.
-func (d *Decryptor) sopsEncryptWithFormat(metadata sops.Metadata, data []byte, inputFormat, outputFormat formats.Format) ([]byte, error) {
+func (d *Decryptor) sopsEncryptWithFormat(ctx context.Context, metadata sops.Metadata, data []byte, inputFormat, outputFormat formats.Format) ([]byte, error) {
 	store := common.StoreForFormat(inputFormat, config.NewStoresConfig())
 
 	branches, err := store.LoadPlainFile(data)
@@ -890,7 +890,7 @@ func (d *Decryptor) sopsEncryptWithFormat(metadata sops.Metadata, data []byte, i
 		Branches: branches,
 		Metadata: metadata,
 	}
-	dataKey, errs := tree.GenerateDataKeyWithKeyServices(d.keyServiceServer())
+	dataKey, errs := tree.GenerateDataKeyWithKeyServicesContext(ctx, d.keyServiceServer())
 	if len(errs) > 0 {
 		return nil, sopsUserErr("could not generate data key", fmt.Errorf("%s", errs))
 	}

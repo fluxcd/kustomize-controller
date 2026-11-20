@@ -34,6 +34,7 @@ import (
 	"github.com/getsops/sops/v3"
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/cmd/sops/formats"
+	"github.com/getsops/sops/v3/hcvault"
 	. "github.com/onsi/gomega"
 	gt "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
@@ -548,6 +549,27 @@ func TestDecryptor_SetAuthOptions(t *testing.T) {
 	})
 }
 
+func TestDecryptor_SopsEncryptWithFormat_ContextCancellation(t *testing.T) {
+	g := NewWithT(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// A Vault key is used because the provider honors the context without
+	// requiring network access once the context is cancelled.
+	d := &Decryptor{
+		vaultToken: "token",
+	}
+	_, err := d.sopsEncryptWithFormat(ctx, sops.Metadata{
+		KeyGroups: []sops.KeyGroup{
+			{hcvault.NewMasterKey("https://example.com", "engine-path", "key-name")},
+		},
+	}, []byte("[config]\nkey = value\n"), formats.Ini, formats.Ini)
+
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("context canceled"))
+}
+
 func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 	t.Run("decrypt INI to INI", func(t *testing.T) {
 		g := NewWithT(t)
@@ -562,7 +584,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 
 		format := formats.Ini
 		data := []byte("[config]\nkey = value\n")
-		encData, err := kd.sopsEncryptWithFormat(sops.Metadata{
+		encData, err := kd.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
@@ -571,7 +593,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		g.Expect(bytes.Contains(encData, sopsFormatToMarkerBytes[format])).To(BeTrue())
 		g.Expect(encData).ToNot(Equal(data))
 
-		out, err := kd.SopsDecryptWithFormat(encData, format, format)
+		out, err := kd.SopsDecryptWithFormat(context.Background(), encData, format, format)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(out).To(Equal(data))
 	})
@@ -589,7 +611,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 
 		inputFormat, outputFormat := formats.Json, formats.Yaml
 		data := []byte("{\"key\": \"value\"}\n")
-		encData, err := kd.sopsEncryptWithFormat(sops.Metadata{
+		encData, err := kd.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
@@ -597,7 +619,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(bytes.Contains(encData, sopsFormatToMarkerBytes[inputFormat])).To(BeTrue())
 
-		out, err := kd.SopsDecryptWithFormat(encData, inputFormat, outputFormat)
+		out, err := kd.SopsDecryptWithFormat(context.Background(), encData, inputFormat, outputFormat)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(out).To(Equal([]byte("key: value\n")))
 	})
@@ -606,7 +628,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		g := NewWithT(t)
 
 		format := formats.Json
-		data, err := (&Decryptor{}).SopsDecryptWithFormat([]byte("invalid json"), format, format)
+		data, err := (&Decryptor{}).SopsDecryptWithFormat(context.Background(), []byte("invalid json"), format, format)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("failed to load encrypted JSON data"))
 		g.Expect(data).To(BeNil())
@@ -621,7 +643,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		kd := &Decryptor{}
 
 		format := formats.Binary
-		encData, err := kd.sopsEncryptWithFormat(sops.Metadata{
+		encData, err := kd.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
@@ -629,7 +651,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(bytes.Contains(encData, sopsFormatToMarkerBytes[format])).To(BeTrue())
 
-		data, err := kd.SopsDecryptWithFormat(encData, format, format)
+		data, err := kd.SopsDecryptWithFormat(context.Background(), encData, format, format)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("cannot get sops data key"))
 		g.Expect(data).To(BeNil())
@@ -648,7 +670,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 
 		format := formats.Dotenv
 		data := []byte("key=value\n")
-		encData, err := kd.sopsEncryptWithFormat(sops.Metadata{
+		encData, err := kd.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
@@ -656,13 +678,13 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(bytes.Contains(encData, sopsFormatToMarkerBytes[format])).To(BeTrue())
 
-		out, err := kd.SopsDecryptWithFormat(encData, format, format)
+		out, err := kd.SopsDecryptWithFormat(context.Background(), encData, format, format)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(out).To(Equal(data))
 
 		badMAC := regexp.MustCompile("(?m)[\r\n]+^.*sops_mac=.*$")
 		badMACData := badMAC.ReplaceAll(encData, []byte("\nsops_mac=\n"))
-		out, err = kd.SopsDecryptWithFormat(badMACData, format, format)
+		out, err = kd.SopsDecryptWithFormat(context.Background(), badMACData, format, format)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("failed to verify sops data integrity: expected mac 'no MAC'"))
 		g.Expect(out).To(BeNil())
@@ -720,7 +742,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		secretData, err := secret.MarshalJSON()
 		g.Expect(err).ToNot(HaveOccurred())
 
-		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+		encData, err := d.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 			EncryptedRegex: "^(data|stringData)$",
 			KeyGroups: []sops.KeyGroup{
 				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
@@ -735,13 +757,13 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 			"kustomize.toolkit.fluxcd.io/decrypt": "disabled",
 		})
 
-		got, err := d.DecryptResource(secret)
+		got, err := d.DecryptResource(context.Background(), secret)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).To(BeNil())
 
 		secret.SetAnnotations(map[string]string{})
 
-		got, err = d.DecryptResource(secret)
+		got, err = d.DecryptResource(context.Background(), secret)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).ToNot(BeNil())
 		g.Expect(got.MarshalJSON()).To(Equal(secretData))
@@ -771,7 +793,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		secretData, err := secret.MarshalJSON()
 		g.Expect(err).ToNot(HaveOccurred())
 
-		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+		encData, err := d.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 			EncryptedRegex: "^(data|stringData)$",
 			KeyGroups: []sops.KeyGroup{
 				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
@@ -786,13 +808,13 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 			"kustomize.toolkit.fluxcd.io/decrypt": "disabled",
 		})
 
-		got, err := d.DecryptResource(secret)
+		got, err := d.DecryptResource(context.Background(), secret)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).To(BeNil())
 
 		secret.SetAnnotations(map[string]string{})
 
-		got, err = d.DecryptResource(secret)
+		got, err = d.DecryptResource(context.Background(), secret)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).ToNot(BeNil())
 		g.Expect(got.MarshalJSON()).To(Equal(secretData))
@@ -815,7 +837,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		d.ageIdentities = append(d.ageIdentities, ageID)
 
 		plainData := []byte("[config]\napp = secret\n")
-		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+		encData, err := d.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
@@ -827,7 +849,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		})
 		g.Expect(isSOPSEncryptedResource(secret)).To(BeFalse())
 
-		got, err := d.DecryptResource(secret)
+		got, err := d.DecryptResource(context.Background(), secret)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).ToNot(BeNil())
 		g.Expect(got.GetDataMap()).To(HaveKeyWithValue("file.ini", base64.StdEncoding.EncodeToString(plainData)))
@@ -850,7 +872,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		d.ageIdentities = append(d.ageIdentities, ageID)
 
 		plainData := []byte("structured:\n    data:\n        key: value\n")
-		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+		encData, err := d.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
@@ -862,7 +884,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		})
 		g.Expect(isSOPSEncryptedResource(secret)).To(BeFalse())
 
-		got, err := d.DecryptResource(secret)
+		got, err := d.DecryptResource(context.Background(), secret)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).ToNot(BeNil())
 		g.Expect(got.GetDataMap()).To(HaveKeyWithValue("key.yaml", base64.StdEncoding.EncodeToString(plainData)))
@@ -894,7 +916,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		}
 	}
 }`)
-		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+		encData, err := d.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 			},
@@ -915,7 +937,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		})
 		g.Expect(isSOPSEncryptedResource(secret)).To(BeFalse())
 
-		got, err := d.DecryptResource(secret)
+		got, err := d.DecryptResource(context.Background(), secret)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).ToNot(BeNil())
 		plainDataWithTrailingNewline := append(plainData, '\n') // https://github.com/getsops/sops/issues/1825
@@ -979,7 +1001,7 @@ spec:
 				metadata.KeyGroups = []sops.KeyGroup{
 					{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 				}
-				encData, err := d.sopsEncryptWithFormat(metadata, plainData, formats.Yaml, formats.Yaml)
+				encData, err := d.sopsEncryptWithFormat(context.Background(), metadata, plainData, formats.Yaml, formats.Yaml)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(string(encData)).To(ContainSubstring(sopsEnvelopePrefix))
 
@@ -988,7 +1010,7 @@ spec:
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(isSOPSEncryptedResource(res)).To(BeTrue())
 
-				got, err := d.DecryptResource(res)
+				got, err := d.DecryptResource(context.Background(), res)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(got).ToNot(BeNil())
 
@@ -1016,7 +1038,7 @@ spec:
 			g.Expect(err).ToNot(HaveOccurred())
 			d.ageIdentities = append(d.ageIdentities, ageID)
 
-			encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+			encData, err := d.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 				EncryptedCommentRegex: "sops-encrypt",
 				KeyGroups: []sops.KeyGroup{
 					{&age.MasterKey{Recipient: ageID.Recipient().String()}},
@@ -1034,7 +1056,7 @@ spec:
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(values.PipeE(kyaml.SetField("rootUser", kyaml.NewStringRNode(password)))).To(Succeed())
 
-			_, err = d.DecryptResource(res)
+			_, err = d.DecryptResource(context.Background(), res)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("spec.values.rootUser"))
 			g.Expect(err.Error()).ToNot(ContainSubstring(password))
@@ -1079,7 +1101,7 @@ spec:
     name: git-auth
   url: https://git.example.com/app.git
 `)
-			encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+			encData, err := d.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 				EncryptedCommentRegex: "SOPS-encrypt",
 				KeyGroups: []sops.KeyGroup{
 					{&age.MasterKey{Recipient: ageID.Recipient().String()}},
@@ -1102,7 +1124,7 @@ spec:
 				// SOPS adds the metadata to every document in the file.
 				g.Expect(isSOPSEncryptedResource(res)).To(BeTrue())
 
-				got, err := d.DecryptResource(res)
+				got, err := d.DecryptResource(context.Background(), res)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(got).ToNot(BeNil())
 				g.Expect(got.Field("sops")).To(BeNil())
@@ -1138,7 +1160,7 @@ spec:
 			g.Expect(err).ToNot(HaveOccurred())
 			d.ageIdentities = append(d.ageIdentities, ageID)
 
-			encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+			encData, err := d.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 				EncryptedCommentRegex: "sops-encrypt",
 				KeyGroups: []sops.KeyGroup{
 					{&age.MasterKey{Recipient: ageID.Recipient().String()}},
@@ -1157,7 +1179,7 @@ spec:
 			damaged := strings.TrimSuffix(password, "]")
 			g.Expect(values.PipeE(kyaml.SetField("rootPassword", kyaml.NewStringRNode(damaged)))).To(Succeed())
 
-			_, err = d.DecryptResource(res)
+			_, err = d.DecryptResource(context.Background(), res)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("spec.values.rootPassword"))
 		})
@@ -1179,7 +1201,7 @@ spec:
 			g.Expect(err).ToNot(HaveOccurred())
 			d.ageIdentities = append(d.ageIdentities, ageID)
 
-			encData, err := d.sopsEncryptWithFormat(sops.Metadata{
+			encData, err := d.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 				EncryptedCommentRegex: "sops-encrypt",
 				KeyGroups: []sops.KeyGroup{
 					{&age.MasterKey{Recipient: ageID.Recipient().String()}},
@@ -1190,7 +1212,7 @@ spec:
 			res, err := resourceFactory.FromBytes(encData)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			_, err = d.DecryptResource(res)
+			_, err = d.DecryptResource(context.Background(), res)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err.Error()).To(ContainSubstring("comment regexes"))
 		})
@@ -1243,7 +1265,7 @@ stringData:
 					metadata.KeyGroups = []sops.KeyGroup{
 						{&age.MasterKey{Recipient: ageID.Recipient().String()}},
 					}
-					encData, err := d.sopsEncryptWithFormat(metadata, plainData, formats.Yaml, formats.Yaml)
+					encData, err := d.sopsEncryptWithFormat(context.Background(), metadata, plainData, formats.Yaml, formats.Yaml)
 					g.Expect(err).ToNot(HaveOccurred())
 
 					// The data type is not authenticated, so it can be changed
@@ -1255,7 +1277,7 @@ stringData:
 					res, err := resourceFactory.FromBytes(encData)
 					g.Expect(err).ToNot(HaveOccurred())
 
-					_, err = d.DecryptResource(res)
+					_, err = d.DecryptResource(context.Background(), res)
 					g.Expect(err).To(HaveOccurred())
 					g.Expect(err.Error()).To(ContainSubstring("<redacted>"))
 					g.Expect(err.Error()).ToNot(ContainSubstring("s3cr3t"))
@@ -1271,7 +1293,7 @@ stringData:
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
-		got, err := d.DecryptResource(nil)
+		got, err := d.DecryptResource(context.Background(), nil)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).To(BeNil())
 	})
@@ -1283,7 +1305,7 @@ stringData:
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
-		got, err := d.DecryptResource(emptyResource.DeepCopy())
+		got, err := d.DecryptResource(context.Background(), emptyResource.DeepCopy())
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).To(BeNil())
 	})
@@ -1299,7 +1321,7 @@ stringData:
 		g.Expect(err).ToNot(HaveOccurred())
 		t.Cleanup(cleanup)
 
-		got, err := d.DecryptResource(emptyResource.DeepCopy())
+		got, err := d.DecryptResource(context.Background(), emptyResource.DeepCopy())
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(got).To(BeNil())
 	})
@@ -1461,7 +1483,7 @@ func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 					} else {
 						format = formats.FormatForPath(f.name)
 					}
-					data, err = d.sopsEncryptWithFormat(sops.Metadata{
+					data, err = d.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 						KeyGroups: []sops.KeyGroup{
 							{&age.MasterKey{Recipient: id.Recipient().String()}},
 						},
@@ -1473,7 +1495,7 @@ func TestDecryptor_decryptKustomizationSources(t *testing.T) {
 			}
 
 			visited := make(map[string]struct{}, 0)
-			visit := d.decryptKustomizationSources(visited)
+			visit := d.decryptKustomizationSources(context.Background(), visited)
 			kus := &kustypes.Kustomization{
 				Patches:         tt.patch,
 				SecretGenerator: tt.secretGenerator,
@@ -1606,7 +1628,7 @@ func TestDecryptor_decryptSopsFile(t *testing.T) {
 				}
 				data := f.data
 				if f.encrypt {
-					b, err := d.sopsEncryptWithFormat(sops.Metadata{
+					b, err := d.sopsEncryptWithFormat(context.Background(), sops.Metadata{
 						KeyGroups: []sops.KeyGroup{
 							{&age.MasterKey{Recipient: id.Recipient().String()}},
 						},
@@ -1620,7 +1642,7 @@ func TestDecryptor_decryptSopsFile(t *testing.T) {
 			}
 
 			path := filepath.Join(tmpDir, tt.path)
-			err := d.sopsDecryptFile(path, tt.format, tt.format)
+			err := d.sopsDecryptFile(context.Background(), path, tt.format, tt.format)
 			if tt.wantErr != nil {
 				g.Expect(err).To(HaveOccurred())
 				g.Expect(err).To(BeAssignableToTypeOf(tt.wantErr))

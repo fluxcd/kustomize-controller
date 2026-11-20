@@ -137,7 +137,7 @@ func (ks Server) Encrypt(ctx context0.Context, req *keyservice.EncryptRequest) (
 			}, nil
 		}
 	case *keyservice.Key_KmsKey:
-		cipherText, err := ks.encryptWithAWSKMS(k.KmsKey, req.Plaintext)
+		cipherText, err := ks.encryptWithAWSKMS(ctx, k.KmsKey, req.Plaintext)
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +145,7 @@ func (ks Server) Encrypt(ctx context0.Context, req *keyservice.EncryptRequest) (
 			Ciphertext: cipherText,
 		}, nil
 	case *keyservice.Key_AzureKeyvaultKey:
-		ciphertext, err := ks.encryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Plaintext)
+		ciphertext, err := ks.encryptWithAzureKeyVault(ctx, k.AzureKeyvaultKey, req.Plaintext)
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +153,7 @@ func (ks Server) Encrypt(ctx context0.Context, req *keyservice.EncryptRequest) (
 			Ciphertext: ciphertext,
 		}, nil
 	case *keyservice.Key_GcpKmsKey:
-		ciphertext, err := ks.encryptWithGCPKMS(k.GcpKmsKey, req.Plaintext)
+		ciphertext, err := ks.encryptWithGCPKMS(ctx, k.GcpKmsKey, req.Plaintext)
 		if err != nil {
 			return nil, err
 		}
@@ -199,7 +199,7 @@ func (ks Server) Decrypt(ctx context0.Context, req *keyservice.DecryptRequest) (
 			}, nil
 		}
 	case *keyservice.Key_KmsKey:
-		plaintext, err := ks.decryptWithAWSKMS(k.KmsKey, req.Ciphertext)
+		plaintext, err := ks.decryptWithAWSKMS(ctx, k.KmsKey, req.Ciphertext)
 		if err != nil {
 			return nil, err
 		}
@@ -207,7 +207,7 @@ func (ks Server) Decrypt(ctx context0.Context, req *keyservice.DecryptRequest) (
 			Plaintext: plaintext,
 		}, nil
 	case *keyservice.Key_AzureKeyvaultKey:
-		plaintext, err := ks.decryptWithAzureKeyVault(k.AzureKeyvaultKey, req.Ciphertext)
+		plaintext, err := ks.decryptWithAzureKeyVault(ctx, k.AzureKeyvaultKey, req.Ciphertext)
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +215,7 @@ func (ks Server) Decrypt(ctx context0.Context, req *keyservice.DecryptRequest) (
 			Plaintext: plaintext,
 		}, nil
 	case *keyservice.Key_GcpKmsKey:
-		plaintext, err := ks.decryptWithGCPKMS(k.GcpKmsKey, req.Ciphertext)
+		plaintext, err := ks.decryptWithGCPKMS(ctx, k.GcpKmsKey, req.Ciphertext)
 		if err != nil {
 			return nil, err
 		}
@@ -288,7 +288,7 @@ func (ks *Server) encryptWithHCVault(ctx context0.Context, key *keyservice.Vault
 		return nil, err
 	}
 	token.ApplyToMasterKey(&vaultKey)
-	if err := vaultKey.Encrypt(plaintext); err != nil {
+	if err := vaultKey.EncryptContext(ctx, plaintext); err != nil {
 		return nil, err
 	}
 	return []byte(vaultKey.EncryptedKey), nil
@@ -306,7 +306,7 @@ func (ks *Server) decryptWithHCVault(ctx context0.Context, key *keyservice.Vault
 		return nil, err
 	}
 	token.ApplyToMasterKey(&vaultKey)
-	plaintext, err := vaultKey.Decrypt()
+	plaintext, err := vaultKey.DecryptContext(ctx)
 	return plaintext, err
 }
 
@@ -324,36 +324,36 @@ func (ks *Server) resolveVaultToken(ctx context0.Context, vaultAddress string) (
 	return hcvault.Token(token), nil
 }
 
-func (ks *Server) encryptWithAWSKMS(key *keyservice.KmsKey, plaintext []byte) ([]byte, error) {
+func (ks *Server) encryptWithAWSKMS(ctx context0.Context, key *keyservice.KmsKey, plaintext []byte) ([]byte, error) {
 	awsKey := kmsKeyToMasterKey(key)
 	ks.awsCredentialsProvider(key.Arn).ApplyToMasterKey(&awsKey)
-	if err := awsKey.Encrypt(plaintext); err != nil {
+	if err := awsKey.EncryptContext(ctx, plaintext); err != nil {
 		return nil, err
 	}
 	return []byte(awsKey.EncryptedKey), nil
 }
 
-func (ks *Server) decryptWithAWSKMS(key *keyservice.KmsKey, cipherText []byte) ([]byte, error) {
+func (ks *Server) decryptWithAWSKMS(ctx context0.Context, key *keyservice.KmsKey, cipherText []byte) ([]byte, error) {
 	awsKey := kmsKeyToMasterKey(key)
 	awsKey.EncryptedKey = string(cipherText)
 	ks.awsCredentialsProvider(key.Arn).ApplyToMasterKey(&awsKey)
-	return awsKey.Decrypt()
+	return awsKey.DecryptContext(ctx)
 }
 
-func (ks *Server) encryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
+func (ks *Server) encryptWithAzureKeyVault(ctx context0.Context, key *keyservice.AzureKeyVaultKey, plaintext []byte) ([]byte, error) {
 	azureKey := azkv.MasterKey{
 		VaultURL: key.VaultUrl,
 		Name:     key.Name,
 		Version:  key.Version,
 	}
 	ks.azureTokenCredential.ApplyToMasterKey(&azureKey)
-	if err := azureKey.Encrypt(plaintext); err != nil {
+	if err := azureKey.EncryptContext(ctx, plaintext); err != nil {
 		return nil, err
 	}
 	return []byte(azureKey.EncryptedKey), nil
 }
 
-func (ks *Server) decryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
+func (ks *Server) decryptWithAzureKeyVault(ctx context0.Context, key *keyservice.AzureKeyVaultKey, ciphertext []byte) ([]byte, error) {
 	azureKey := azkv.MasterKey{
 		VaultURL: key.VaultUrl,
 		Name:     key.Name,
@@ -361,28 +361,28 @@ func (ks *Server) decryptWithAzureKeyVault(key *keyservice.AzureKeyVaultKey, cip
 	}
 	ks.azureTokenCredential.ApplyToMasterKey(&azureKey)
 	azureKey.EncryptedKey = string(ciphertext)
-	plaintext, err := azureKey.Decrypt()
+	plaintext, err := azureKey.DecryptContext(ctx)
 	return plaintext, err
 }
 
-func (ks *Server) encryptWithGCPKMS(key *keyservice.GcpKmsKey, plaintext []byte) ([]byte, error) {
+func (ks *Server) encryptWithGCPKMS(ctx context0.Context, key *keyservice.GcpKmsKey, plaintext []byte) ([]byte, error) {
 	gcpKey := gcpkms.MasterKey{
 		ResourceID: key.ResourceId,
 	}
 	ks.gcpTokenSource.ApplyToMasterKey(&gcpKey)
-	if err := gcpKey.Encrypt(plaintext); err != nil {
+	if err := gcpKey.EncryptContext(ctx, plaintext); err != nil {
 		return nil, err
 	}
 	return gcpKey.EncryptedDataKey(), nil
 }
 
-func (ks *Server) decryptWithGCPKMS(key *keyservice.GcpKmsKey, ciphertext []byte) ([]byte, error) {
+func (ks *Server) decryptWithGCPKMS(ctx context0.Context, key *keyservice.GcpKmsKey, ciphertext []byte) ([]byte, error) {
 	gcpKey := gcpkms.MasterKey{
 		ResourceID: key.ResourceId,
 	}
 	ks.gcpTokenSource.ApplyToMasterKey(&gcpKey)
 	gcpKey.EncryptedKey = string(ciphertext)
-	plaintext, err := gcpKey.Decrypt()
+	plaintext, err := gcpKey.DecryptContext(ctx)
 	return plaintext, err
 }
 
