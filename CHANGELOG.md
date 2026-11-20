@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.10.2
+
+**Release date:** 2026-11-20
+
+This patch release fixes the decryption ServiceAccount being resolved eagerly for
+every SOPS-encrypted Kustomization, even when only Age or PGP keys are used. The
+default `--default-decryption-service-account` is now resolved lazily, only when
+a cloud KMS or Vault backend is actually used, so a missing default ServiceAccount
+no longer fails those Kustomizations. It also deletes the
+`gotk_reconcile_duration_seconds` series of objects that no longer exist instead
+of leaking them until the controller restarts, and fixes the credentials cache
+key to include the credential username and the GCP workload identity provider so
+changes to them take effect on the next reconcile.
+
+Fixes:
+- Delete duration metric when object is gone
+  [#1812](https://github.com/fluxcd/kustomize-controller/pull/1812)
+- Fix resolving the default ServiceAccount for providers that don't use it
+  [#1811](https://github.com/fluxcd/kustomize-controller/pull/1811)
+- Update fluxcd/pkg dependencies
+  [#1802](https://github.com/fluxcd/kustomize-controller/pull/1802)
+
+Improvements:
+- Remove leftover object-level workload identity log message
+  [#1810](https://github.com/fluxcd/kustomize-controller/pull/1810)
+- Update fluxcd/pkg dependencies
+  [#1805](https://github.com/fluxcd/kustomize-controller/pull/1805)
+
 ## 1.10.1
 
 **Release date:** 2026-10-25
