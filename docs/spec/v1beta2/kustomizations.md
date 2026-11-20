@@ -993,7 +993,7 @@ metadata:
 data:
   # Exemplary age private key 
   identity.agekey: <BASE64>
-  # Examplary Hashicorp Vault token
+  # Exemplary Hashicorp Vault token
   sops.vault-token: <BASE64>
 ```
 
