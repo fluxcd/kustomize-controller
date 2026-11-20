@@ -25,6 +25,7 @@ import (
 	"maps"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
@@ -939,6 +940,18 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 	}
 	applyOpts.CustomStageKinds = r.CustomStageKinds
 	applyOpts.MigrateAPIVersion = r.MigrateAPIVersion
+	var ownershipWarning sync.Once
+	var ownershipConflictsMu sync.Mutex
+	ownershipConflicts := make(map[string]string)
+	applyOpts.OnOwnershipConflict = func(subject string, previousOwner types.NamespacedName) {
+		ownershipConflictsMu.Lock()
+		ownershipConflicts[subject] = previousOwner.String()
+		ownershipConflictsMu.Unlock()
+		ownershipWarning.Do(func() {
+			r.EventRecorder.Eventf(obj, src, corev1.EventTypeWarning, "OwnershipConflict", kustomizev1.ActionApply.String(),
+				"Resources are also managed by other Kustomizations, fields may be overwritten. See controller logs for details.")
+		})
+	}
 
 	if len(obj.Spec.Ignore) > 0 {
 		ignoreRules := make([]jsondiff.IgnoreRule, len(obj.Spec.Ignore))
@@ -1045,6 +1058,10 @@ func (r *KustomizationReconciler) apply(ctx context.Context,
 
 	if len(objects) > 0 {
 		changeSet, err := manager.ApplyAllStaged(ctx, objects, applyOpts)
+
+		if len(ownershipConflicts) > 0 {
+			log.Info("Resources are also managed by other Kustomizations", "conflicts", ownershipConflicts)
+		}
 
 		if changeSet != nil && len(changeSet.Entries) > 0 {
 			resultSet.Append(changeSet.Entries)

@@ -231,8 +231,8 @@ github.com/fluxcd/pkg/sourceignore v0.22.0 h1:GFvVgEA8HW4mZL26NFxhry3ZzCA8nR12MQ
 github.com/fluxcd/pkg/sourceignore v0.22.0/go.mod h1:rEEyPqhc5u1t0fDkonqzGTKVuGOvp3v33boxg0Uw5VA=
 github.com/fluxcd/pkg/spiffe v0.4.0 h1:OqYdMkgQ07bDMuzsslghZsWEHDuw2ob/OkhDETE1pyY=
 github.com/fluxcd/pkg/spiffe v0.4.0/go.mod h1:FPfK66livdwZL3JFF+GnRfohvUHQZxnkFnaPdIprdj8=
-github.com/fluxcd/pkg/ssa v0.83.0 h1:uFKrK255D8wdZxI6k6CznDmVgcah2y+0B+DYYpq/kZs=
-github.com/fluxcd/pkg/ssa v0.83.0/go.mod h1:J91YwWDZDDwNUIKWPbTk771JT0CzoWwJL5og9muo1jw=
+github.com/fluxcd/pkg/ssa v0.84.0 h1:DmnjoT04JK9RKoefJNEyMkNKapD0m5WsyDJl8kRZess=
+github.com/fluxcd/pkg/ssa v0.84.0/go.mod h1:J91YwWDZDDwNUIKWPbTk771JT0CzoWwJL5og9muo1jw=
 github.com/fluxcd/pkg/tar v1.4.0 h1:E6LKORT7ZBd/1ekX4N/gS9LeKfyLui1lBgne8e5PC8I=
 github.com/fluxcd/pkg/tar v1.4.0/go.mod h1:20lDnHLNj/mgTUA494YWkxldX8zyyFexSKpuipX+6Tk=
 github.com/fluxcd/pkg/testserver v0.15.0 h1:6Pao9oK1Cu5ssh9c7QoDnnyfPUtxHbw7gJ+5tSOmkWc=
