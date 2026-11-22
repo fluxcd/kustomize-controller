@@ -29,6 +29,13 @@ spec:
             spec:
               description: TestSpec defines the desired state of a test run
               properties:
+                name:
+                  description: name specifies the subject name of schema. If not configured,
+                    the Schema CR name is used as the subject name.
+                  maxLength: 255
+                  minLength: 1
+                  pattern: ^[^\\]*$
+                  type: string
                 type:
                   description: Type of test
                   type: string
