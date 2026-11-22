@@ -627,6 +627,12 @@ spec:
         namespace: apps
 ```
 
+These patches are merged into the `kustomization.yaml` found in the source, so
+they are subject to the Kustomize ordering rules: they are applied before the
+`replacements` declared in the source. To patch the build output instead, and
+take precedence over those transformations, use
+[`.spec.postBuild.patches`](#post-build-patches).
+
 ### Images
 
 `.spec.images` is an optional list used to specify
@@ -719,6 +725,73 @@ if any of the specified paths are missing from the source.
 **Warning:** Components are an alpha feature in Kustomize and are therefore
 considered experimental in Flux. No guarantees are provided as the feature may
 be modified in backwards incompatible ways or removed without warning.
+
+### Post build patches
+
+`.spec.postBuild.patches` is an optional list of
+[Kustomize `patches`](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patches/)
+that are applied to the final YAML manifest, after kustomize build and after
+the [post build variable substitution](#post-build-variable-substitution). It
+has the same structure as [`.spec.patches`](#patches). Each item holds an
+inline `patch` and an optional `target`.
+
+Unlike `.spec.patches`, which is merged into the `kustomization.yaml` found in
+the source and therefore takes part in the same build, post build patches are
+applied to the build output. Kustomize always runs the patches of a build
+before its `replacements`, and the transformations of
+[Components](#components) run earlier still, so a `.spec.patches` entry that
+targets a field also set by a `replacements` entry in the source is
+overwritten. Post build patches run last and take precedence, which is
+equivalent to patching the package from a wrapper Kustomization.
+
+```yaml
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps
+  namespace: flux-system
+spec:
+  # ...omitted for brevity
+  path: ./apps/my-app
+  postBuild:
+    patches:
+      - patch: |
+          - op: replace
+            path: /spec/targetNamespace
+            value: production
+        target:
+          kind: HelmRelease
+          name: my-app
+      - patch: |-
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: not-used
+          spec:
+            template:
+              spec:
+                priorityClassName: system-cluster-critical
+        target:
+          kind: Deployment
+          labelSelector: "app.kubernetes.io/part-of=my-app"
+```
+
+The patches are applied in the order they are declared, so a later patch
+overrides an earlier one that targets the same field. A patch that cannot be
+applied, e.g. a strategic merge patch that matches no object in the build
+output, fails the reconciliation with the `BuildFailed` reason.
+
+Because the patches are applied to the build output, they target the resources
+in their final form. In particular
+[`.spec.targetNamespace`](#target-namespace), `.spec.namePrefix` and
+`.spec.nameSuffix` have already been applied, so a `target` selector, or the
+`metadata` of a strategic merge patch without a target, must match the
+resulting namespace and name.
+
+**Note:** Only inline patches are supported. Unlike a `kustomization.yaml`
+`patches` entry, a post build patch cannot reference a file with `path`,
+because the patches are applied after the source artifact has been built.
 
 ### Post build variable substitution
 
