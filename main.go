@@ -369,6 +369,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	apiServerWarningEvents, err := features.Enabled(features.APIServerWarningEvents)
+	if err != nil {
+		setupLog.Error(err, "unable to check feature gate "+features.APIServerWarningEvents)
+		os.Exit(1)
+	}
+
 	var tokenCache *pkgcache.TokenCache
 	if tokenCacheOptions.MaxSize > 0 {
 		var err error
@@ -408,6 +414,7 @@ func main() {
 		AdditiveCELDependencyCheck:      additiveCELDependencyCheck,
 		AllowExternalArtifact:           allowExternalArtifact,
 		APIReader:                       mgr.GetAPIReader(),
+		APIServerWarningEvents:          apiServerWarningEvents,
 		ArtifactFetchRetries:            httpRetry,
 		ArtifactServerTLSConfig:         artifactServerTLSConfig,
 		SPIFFEBroker:                    spiffeBroker,

@@ -76,6 +76,16 @@ const (
 	// as the event is emitted on every successful reconciliation and could
 	// flood the notification system.
 	DisableCommitStatusEvent = "DisableCommitStatusEvent"
+
+	// APIServerWarningEvents controls whether the controller enables reporting
+	// API server warnings as Kubernetes Warning Events on the Kustomization
+	// being reconciled.
+	//
+	// This is especially useful in multi-tenant clusters where tenants do not
+	// have access to controller logs. With this feature enabled, users can
+	// observe warnings received by the controller from the API server when
+	// reconciling tenant resources.
+	APIServerWarningEvents = "APIServerWarningEvents"
 )
 
 var features = map[string]bool{
@@ -115,6 +125,9 @@ var features = map[string]bool{
 	// DisableCommitStatusEvent
 	// opt-in from v1.9.6
 	DisableCommitStatusEvent: false,
+	// APIServerWarningEvents
+	// opt-in from v1.11
+	APIServerWarningEvents: false,
 }
 
 var retiredFeatures = map[string]string{

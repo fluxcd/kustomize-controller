@@ -130,6 +130,7 @@ type KustomizationReconciler struct {
 
 	AdditiveCELDependencyCheck bool
 	AllowExternalArtifact      bool
+	APIServerWarningEvents     bool
 	DisableCommitStatusEvent   bool
 	DirectSourceFetch          bool
 	FailFast                   bool
@@ -433,6 +434,11 @@ func (r *KustomizationReconciler) reconcile(
 	if r.ClusterReader != nil || len(obj.Spec.HealthCheckExprs) > 0 {
 		impersonatorOpts = append(impersonatorOpts,
 			runtimeClient.WithPolling(r.ClusterReader, statusReader))
+	}
+	if r.APIServerWarningEvents {
+		impersonatorOpts = append(impersonatorOpts,
+			runtimeClient.WithWarningHandler(newWarningHandler(r.EventRecorder)))
+		ctx = contextWithKustomization(ctx, obj)
 	}
 	impersonation := runtimeClient.NewImpersonator(r.Client, impersonatorOpts...)
 
